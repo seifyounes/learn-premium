@@ -166,16 +166,25 @@ A Course supplies a value for each of these slots. The roles never move; only th
 - **Pad Printing** (`print`): everything the pad was printed with. Title-block rules, field labels, printed buttons, group headings, the contents margin line, focus rings, text selection, the Next button fill, form accent colour. In ML a deep forest green; in circuits a deep engineering blue.
 - **Faded Annotation** (`muted`): secondary prose (module summaries, group notes, not-yet-current steps, legends).
 - **Sheet Shadow Tint** (sidecar, an RGB triplet): the hue of the shadow the sheet casts on the desk, matched to the pad.
-- **Red Pen** (`red-pen`): the accent role. Its semantics are fixed (see The Red Pen Rule); its value is a slot, defaulting to the reference red in both shipped palettes.
 
 ### Fixed inks (not themeable)
 
 - **Graphite** (`graphite`): primary text, headings, the student's firm writing, done ticks, the current-step fill, figure points and centroids.
 - **Pencil** (`pencil`): filled values in the table, table rules, ruled boxes, axes and ticks. Lighter than graphite: pencil is the working, graphite the committed.
+- **Red Pen** (`red-pen`, #C0341D): the accent role, the same red on every Course (ticket #20). Pads are chosen to suit the red, never the other way round.
+
+### How a Course gets its pad (ticket #20)
+
+- **Catalogue first.** A catalogue of about six cool-hued pads, each checked against the requirements below and mapped to a default discipline, approved once by the Owner. No red, orange or brown pads: they fight the red pen.
+- **Confirmed at intake.** The agent suggests the discipline's pad; the Owner confirms or swaps it.
+- **Off-catalogue on request.** The Owner may name any other colour; the agent builds a pad from it. A good one joins the catalogue only with the Owner's approval.
+- **One config value.** The pad is a single setting in the Course config; changing it rebuilds the whole site.
+- **Tools and media.** Simulators, 3D viewers and plots take the pad's frame (sheet, grid, print, graphite) but keep colours that carry meaning (e.g. CircuitJS voltage colours). NotebookLM's Custom style is given the Course pad.
+- **No colour-blind simulation gate.** Red marks always carry a shape (ring, double frame, stroke), so no meaning depends on colour alone; the ML green pad stays even though red and green print converge under deuteranopia (1.7:1 by lightness only).
 
 ### Contrast requirements for any Course palette
 
-How a Course's palette is chosen and gated is OPEN (follow-up ticket). Whatever the process, a palette ships only if it meets these, measured WCAG 2.x:
+The build checks every pad, catalogue or custom, against these, measured WCAG 2.x. A failing pair does not block the build: the build adjusts the pad colour in that pair (never the red pen, graphite or pencil) until it passes, and the build report lists every value it changed.
 
 - `graphite`, `pencil`, `print`, `muted` and `red-pen` each at least 4.5:1 on `sheet` (reference: red-pen is the tightest, 4.73:1 ML, 4.56:1 circuits).
 - Those same text roles at least 3:1 on `grid-major`, the worst pixel a glyph can sit on.
@@ -323,7 +332,7 @@ Plotted on the sheet's own grid with the same `grid-fine` / `grid-major` lines; 
 ### Do:
 
 - **Do** treat every Study site as the same pad; change only the Course palette slot values.
-- **Do** gate every Course palette against the contrast requirements in Colors before it ships.
+- **Do** check every Course palette against the contrast requirements in Colors on every build, auto-fixing the pad (never the red) and reporting each change.
 - **Do** set every quantity in Atkinson Hyperlegible Mono with tabular numerals, and every printed label in condensed Archivo inside its own ruled cell.
 - **Do** keep the solving artefact on screen while stepping, with Prev / Next buttons, arrow keys and a step counter.
 - **Do** mark state with a drawn mark (tick, ring, arrow, frame), not only a colour change.
