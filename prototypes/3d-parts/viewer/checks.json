@@ -1,0 +1,613 @@
+{
+ "tee": {
+  "title": "Tee fitting (exam sheet, question 4.1)",
+  "build_s": 2.9,
+  "glb_bytes": 122468,
+  "triangles": 3040,
+  "valid": true,
+  "rows": [
+   {
+    "name": "Overall length X",
+    "source": "front section",
+    "tag": "stated",
+    "expected": 50,
+    "measured": 50,
+    "tol": 0.000001,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Overall depth Y",
+    "source": "plan",
+    "tag": "stated",
+    "expected": 35,
+    "measured": 35,
+    "tol": 0.000001,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Overall height Z",
+    "source": "side",
+    "tag": "stated",
+    "expected": 50,
+    "measured": 50,
+    "tol": 0.000001,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "GLB length X (mesh, metres to mm)",
+    "source": "tessellated",
+    "tag": "stated",
+    "expected": 50,
+    "measured": 50,
+    "tol": 0.01,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "GLB height Z (mesh)",
+    "source": "tessellated",
+    "tag": "stated",
+    "expected": 50,
+    "measured": 50,
+    "tol": 0.01,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Volume: B-rep vs independent grid integral (mm³)",
+    "source": "recompute",
+    "tag": "derived",
+    "expected": 47870.6875,
+    "measured": 47902.7242,
+    "tol": 478.706875,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Drill-point tip on bore axis (z)",
+    "source": "front section",
+    "tag": "scaled",
+    "expected": 17.5,
+    "measured": 17.5,
+    "tol": 0.000001,
+    "ok": true,
+    "status": "PASS"
+   }
+  ],
+  "notes": [
+   "Stated on the sheet: 50, 35, 35, 50, 30, Ø24, Ø16.",
+   "Derived: counterbore depth 10 = (50 − 30) / 2; boss height 15 = 50 − 35.",
+   "Scaled off the drawing (11.94 px/mm): bore axis 17.3 → 17.5 (mid-height); drill point drawn at ~90°, not the 118° drafting standard; a 118° point would change the volume by +25.7 mm³ — the kind of reading a Professor must confirm.",
+   "The sheet is an exam that asks students to add dimensions, so it is under-dimensioned on purpose — the realistic case for lecture figures."
+  ]
+ },
+ "gears": {
+  "title": "Spur gear pair (NASA TM-2010-216251, Table 1, design 1)",
+  "build_s": 24.9,
+  "glb_bytes": 594644,
+  "triangles": 19208,
+  "valid": true,
+  "rows": [
+   {
+    "name": "Outside diameter",
+    "source": "Table 1",
+    "tag": "stated",
+    "expected": 95.25,
+    "measured": 95.25,
+    "tol": 0.01,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Outside diameter, GLB mesh",
+    "source": "tessellated",
+    "tag": "stated",
+    "expected": 95.25,
+    "measured": 95.2472,
+    "tol": 0.02,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Face width",
+    "source": "Table 1",
+    "tag": "stated",
+    "expected": 6.35,
+    "measured": 6.35,
+    "tol": 0.000001,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Chordal tooth thickness (boolean-measured)",
+    "source": "Table 1",
+    "tag": "stated",
+    "expected": 4.85,
+    "measured": 4.8499,
+    "tol": 0.01,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Contact ratio (recomputed)",
+    "source": "Table 1",
+    "tag": "stated",
+    "expected": 1.64,
+    "measured": 1.638,
+    "tol": 0.01,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Max tooth overlap over 8 angles (mm³)",
+    "source": "meshing",
+    "tag": "derived",
+    "expected": 0,
+    "measured": 0,
+    "tol": 0.000001,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Normal backlash (2 × min solid gap)",
+    "source": "Table 1",
+    "tag": "stated",
+    "expected": 0.15,
+    "measured": 0.2535,
+    "tol": 0.02,
+    "ok": false,
+    "status": "CONFLICT"
+   },
+   {
+    "name": "Wrong phase is caught: overlap (mm³) > 0",
+    "source": "control",
+    "tag": "derived",
+    "expected": 1,
+    "measured": 1,
+    "tol": 0,
+    "ok": true,
+    "status": "PASS"
+   }
+  ],
+  "notes": [
+   "Stated: 28 teeth, module 3.18 (8 DP), 20°, OD 95.25, face 6.35, centre distance 88.9, chordal thickness 4.85, backlash 0.15, contact ratio 1.64.",
+   "Assumed: Ø20 bore (the table gives none).",
+   "The source is a table, not a drawing. Thinning teeth to the stated 4.85 chordal thickness gives 0.253 mm normal backlash, not the stated 0.15; a 0.15 backlash would need a chordal thickness of 4.905. The table's own numbers do not reconcile under standard formulas, so the check reports a CONFLICT rather than hiding it.",
+   "bd_warehouse 0.3.0 (PyPI) fails on build123d 0.13 (\"Edges are disconnected\"); the involute is written from first principles in cad/involute.py."
+  ],
+  "overlaps": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "wrong_phase_overlap": 161.9
+ },
+ "fourbar": {
+  "title": "Four-bar crank-rocker (Wikimedia Commons, MichaelFrey)",
+  "glb_bytes": 250864,
+  "lengths": {
+   "a": 10,
+   "b": 50,
+   "c": 30,
+   "d": 40,
+   "e": 20
+  },
+  "grashof": {
+   "s_plus_l": 60,
+   "p_plus_q": 70,
+   "crank_rocker": true
+  },
+  "freudenstein": [
+   [
+    0,
+    5.111814220265284,
+    -5.111814220265284
+   ],
+   [
+    5,
+    5.080263865203586,
+    -5.138277809656939
+   ],
+   [
+    10,
+    5.0442063090419325,
+    -5.1592613788942
+   ],
+   [
+    15,
+    5.004374109327037,
+    -5.1745703314286695
+   ],
+   [
+    20,
+    4.96160351854031,
+    -5.184199943680611
+   ],
+   [
+    25,
+    4.91677758048495,
+    -5.188309723804407
+   ],
+   [
+    30,
+    4.870770791480452,
+    -5.187187758511117
+   ],
+   [
+    35,
+    4.824402771198619,
+    -5.181212140778125
+   ],
+   [
+    40,
+    4.778405201217672,
+    -5.1708150663592845
+   ],
+   [
+    45,
+    4.7334029643738855,
+    -5.156452944420755
+   ],
+   [
+    50,
+    4.689907903477232,
+    -5.138583765880574
+   ],
+   [
+    55,
+    4.648322259640231,
+    -5.117651474459015
+   ],
+   [
+    60,
+    4.608948517656603,
+    -5.094076265847574
+   ],
+   [
+    65,
+    4.572002728651842,
+    -5.068249457094102
+   ],
+   [
+    70,
+    4.537629040189093,
+    -5.040531618176652
+   ],
+   [
+    75,
+    4.505913878995375,
+    -5.01125286730132
+   ],
+   [
+    80,
+    4.476898854433653,
+    -4.980714485547645
+   ],
+   [
+    85,
+    4.4505919252355435,
+    -4.949191243077786
+   ],
+   [
+    90,
+    4.4269766966483886,
+    -4.916934022902117
+   ],
+   [
+    95,
+    4.4060199150533235,
+    -4.8841724747817015
+   ],
+   [
+    100,
+    4.387677334689438,
+    -4.851117536687104
+   ],
+   [
+    105,
+    4.371898176388685,
+    -4.81796373301097
+   ],
+   [
+    110,
+    4.358628405008553,
+    -4.784891206096389
+   ],
+   [
+    115,
+    4.3478130376723145,
+    -4.752067467871996
+   ],
+   [
+    120,
+    4.339397670385191,
+    -4.719648877078124
+   ],
+   [
+    125,
+    4.333329383132085,
+    -4.6877818587902205
+   ],
+   [
+    130,
+    4.329557157168559,
+    -4.656603889514782
+   ],
+   [
+    135,
+    4.3280319148662425,
+    -4.626244274921196
+   ],
+   [
+    140,
+    4.328706272880942,
+    -4.596824749457785
+   ],
+   [
+    145,
+    4.3315340835447165,
+    -4.56845992836385
+   ],
+   [
+    150,
+    4.336469826801067,
+    -4.541257643265084
+   ],
+   [
+    155,
+    4.343467905068401,
+    -4.515319192725788
+   ],
+   [
+    160,
+    4.3524818854331695,
+    -4.49073953877747
+   ],
+   [
+    165,
+    4.363463726868966,
+    -4.467607479422046
+   ],
+   [
+    170,
+    4.376363024163918,
+    -4.446005825272966
+   ],
+   [
+    175,
+    4.3911262944520475,
+    -4.426011605733493
+   ],
+   [
+    180,
+    4.407696326369292,
+    -4.407696326369292
+   ],
+   [
+    185,
+    4.426011605733493,
+    -4.3911262944520475
+   ],
+   [
+    190,
+    4.446005825272966,
+    -4.376363024163918
+   ],
+   [
+    195,
+    4.467607479422046,
+    -4.363463726868966
+   ],
+   [
+    200,
+    4.49073953877747,
+    -4.3524818854331695
+   ],
+   [
+    205,
+    4.515319192725788,
+    -4.343467905068401
+   ],
+   [
+    210,
+    4.541257643265084,
+    -4.336469826801067
+   ],
+   [
+    215,
+    4.56845992836385,
+    -4.3315340835447165
+   ],
+   [
+    220,
+    4.596824749457785,
+    -4.328706272880942
+   ],
+   [
+    225,
+    4.626244274921196,
+    -4.3280319148662425
+   ],
+   [
+    230,
+    4.656603889514783,
+    -4.329557157168559
+   ],
+   [
+    235,
+    4.68778185879022,
+    -4.333329383132085
+   ],
+   [
+    240,
+    4.719648877078123,
+    -4.33939767038519
+   ],
+   [
+    245,
+    4.752067467871995,
+    -4.3478130376723145
+   ],
+   [
+    250,
+    4.784891206096389,
+    -4.358628405008553
+   ],
+   [
+    255,
+    4.81796373301097,
+    -4.371898176388685
+   ],
+   [
+    260,
+    4.851117536687104,
+    -4.387677334689438
+   ],
+   [
+    265,
+    4.8841724747817015,
+    -4.4060199150533235
+   ],
+   [
+    270,
+    4.916934022902117,
+    -4.4269766966483886
+   ],
+   [
+    275,
+    4.949191243077786,
+    -4.4505919252355435
+   ],
+   [
+    280,
+    4.980714485547645,
+    -4.476898854433653
+   ],
+   [
+    285,
+    5.011252867301321,
+    -4.505913878995375
+   ],
+   [
+    290,
+    5.040531618176652,
+    -4.537629040189092
+   ],
+   [
+    295,
+    5.068249457094102,
+    -4.572002728651842
+   ],
+   [
+    300,
+    5.094076265847574,
+    -4.608948517656603
+   ],
+   [
+    305,
+    5.117651474459015,
+    -4.648322259640231
+   ],
+   [
+    310,
+    5.138583765880574,
+    -4.689907903477232
+   ],
+   [
+    315,
+    5.156452944420755,
+    -4.7334029643738855
+   ],
+   [
+    320,
+    5.1708150663592845,
+    -4.778405201217672
+   ],
+   [
+    325,
+    5.181212140778125,
+    -4.824402771198619
+   ],
+   [
+    330,
+    5.187187758511117,
+    -4.870770791480451
+   ],
+   [
+    335,
+    5.188309723804408,
+    -4.916777580484949
+   ],
+   [
+    340,
+    5.184199943680611,
+    -4.96160351854031
+   ],
+   [
+    345,
+    5.1745703314286695,
+    -5.004374109327037
+   ],
+   [
+    350,
+    5.1592613788942,
+    -5.044206309041932
+   ],
+   [
+    355,
+    5.138277809656939,
+    -5.080263865203586
+   ]
+  ],
+  "rows": [
+   {
+    "name": "Grashof s + l ≤ p + q (crank turns fully)",
+    "source": "lengths",
+    "tag": "derived",
+    "expected": 1,
+    "measured": 1,
+    "tol": 0,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Rocker angle: viewer vs Freudenstein, max error (deg)",
+    "source": "recompute",
+    "tag": "derived",
+    "expected": 0,
+    "measured": 0,
+    "tol": 0.000001,
+    "ok": true,
+    "status": "PASS"
+   },
+   {
+    "name": "Loop closure: link-length drift, max (mm)",
+    "source": "recompute",
+    "tag": "derived",
+    "expected": 0,
+    "measured": 0,
+    "tol": 1e-9,
+    "ok": true,
+    "status": "PASS"
+   }
+  ],
+  "notes": [
+   "Stated: a = 10, b = 50, c = 30, d = 40, e = 20 (rocker extension past its pivot).",
+   "Assumed: units (mm), link width 5, thickness 2, pin Ø1.6 — none are in the figure.",
+   "Motion is not baked: the page solves the linkage every frame from the crank angle."
+  ],
+  "rocker_swing_deg": [
+   247.98,
+   297.28
+  ],
+  "branch": "+sqrt"
+ }
+}
