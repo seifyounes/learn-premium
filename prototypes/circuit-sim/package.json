@@ -1,0 +1,17 @@
+{
+  "name": "circuit-sim-prototype",
+  "version": "1.0.0",
+  "description": "PROTOTYPE for wayfinder #18: figure to live circuit simulation. Throwaway.",
+  "scripts": {
+    "start": "python -m http.server 8718",
+    "gates": "node run-spice.mjs authored/buck/circuit.cir results/buck-spice.json && node check-buck.mjs results/buck-spice.json results/buck-spice-check.json && node run-spice.mjs authored/scr/circuit.cir results/scr-spice.json && node check-scr.mjs results/scr-spice.json results/scr-spice-check.json && node run-spice.mjs authored/ce-amp/circuit.cir results/ce-amp-spice.json && node check-ce.mjs results/ce-amp-spice.json results/ce-amp-spice-check.json && node check-logic.mjs authored/logic/digitaljs.json results/logic-digitaljs.json && node build-summary.mjs"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "digitaljs": "^0.14.2",
+    "eecircuit-engine": "^1.8.0"
+  },
+  "private": true
+}

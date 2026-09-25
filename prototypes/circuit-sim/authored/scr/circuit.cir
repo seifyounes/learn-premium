@@ -1,0 +1,70 @@
+* Single-phase half-wave controlled rectifier, R load (lecture Example 5)
+* 120 V rms / 60 Hz source, R = 10 ohm, firing angle alpha = 60 deg.
+*
+* Nodes
+*   vs  - source + terminal = thyristor anode
+*   vo  - thyristor cathode = top of R (output voltage vo)
+*   0   - source - terminal = bottom of R
+*   gp  - gate pulse train (control signal only)
+*   a1, a2 - internal nodes of the thyristor model
+*   cr, ctl - latch logic (raw and filtered switch control)
+*
+* Thyristor model (no XSPICE, no built-in SCR): a hysteretic voltage-controlled
+* switch S1 in series with a near-ideal diode D1 and a 0 V ammeter VIT.
+*   - Turn-on : the gate pulse (v(gp) > 2.5 V) closes S1; D1 only lets current
+*               flow if the device is forward biased (v_T > 0).
+*   - Latch   : while the anode current i(VIT) exceeds the holding current
+*               (10 mA) the control stays high, so S1 stays closed after the
+*               short gate pulse ends.
+*   - Turn-off: when i_T falls below the holding current (i_T -> 0 at wt = pi
+*               for an R load) the control drops and S1 opens; D1 blocks any
+*               reverse current in the meantime.
+*   The 1 us RC (RCT/CCT) between the behavioural source and the switch breaks
+*   the algebraic loop i(VIT) -> control -> S1 -> i(VIT), and the switch
+*   hysteresis (VT +/- VH) keeps the latch state unambiguous.
+
+.param alpha_deg = 60
+.param fsrc = 60
+.param tper = {1/fsrc}
+.param tdel = {alpha_deg/360/fsrc}
+
+* AC source: vs = Vm sin(wt), Vm = 120*sqrt(2) = 169.7056 V
+VS vs 0 SIN(0 169.7056274847714 60 0 0 0)
+
+* Thyristor T1: anode vs, cathode vo
+S1 vs a1 ctl 0 SWSCR
+D1 a1 a2 DSCR
+VIT a2 vo DC 0
+
+* Load
+R1 vo 0 10
+
+* Gate pulse train: rises at alpha (2.7778 ms) in every cycle, 0.5 ms wide (~10.8 deg)
+VG gp 0 PULSE(0 5 {tdel} 1u 1u 0.5m {tper})
+
+* Latch logic: on if gated OR carrying more than the holding current
+BCT cr 0 V = u(v(gp) - 2.5) + u(i(VIT) - 0.01)
+RCT cr ctl 1k
+CCT ctl 0 1n
+
+* Output power probe (instantaneous p = vo * io)
+BPO pout 0 V = v(vo) * i(VIT)
+
+* Near-ideal switch and diode (forward drop ~0.06 V at 15 A)
+.model SWSCR SW(VT=0.5 VH=0.1 RON=1m ROFF=1G)
+.model DSCR D(IS=1n N=0.1 RS=1m)
+* For a realistic ~1 V thyristor drop, swap in instead:
+* .model DSCR D(IS=1e-12 N=1.5 RS=5m)
+
+.tran 10u 100m 0 10u
+
+* Steady-state measurements over exactly 3 cycles (50 ms .. 100 ms)
+.meas tran vo_avg AVG v(vo) from=50m to=100m
+.meas tran vo_rms RMS v(vo) from=50m to=100m
+.meas tran io_avg AVG i(VIT) from=50m to=100m
+.meas tran io_rms RMS i(VIT) from=50m to=100m
+.meas tran vs_rms RMS v(vs) from=50m to=100m
+.meas tran p_out AVG v(pout) from=50m to=100m
+.meas tran pf param='p_out/(vs_rms*io_rms)'
+
+.end

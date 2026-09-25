@@ -1,0 +1,7 @@
+{
+  "_source": "Answer keys from v1 source-of-truth docs (Power electronics docs/final §4.4, docs/midterm §7 Ex 5; electronics website docs Sheet 5 Q1(i)). Values only; no professor material.",
+  "buck": { "Vo_avg": 20, "IL_avg": 1.0, "dIL": 1.5, "IL_max": 1.75, "IL_min": 0.25, "dVo_pct": 0.47 },
+  "scr": { "Vo_av": 40.5, "Io_av": 4.05, "Vo_rms": 76.1, "Io_rms": 7.61, "Po": 579.1, "pf": 0.634 },
+  "ce-amp": { "IBQ_uA": 40.12, "ICQ_mA": 2.006, "IEQ_mA": 2.04, "VCEQ": 13.95, "VCEQ_sheet": 17.95, "re_ohm": 12.25, "Av": -163.26, "Zi_ohm": 611.87, "Zo_ohm": 2000 },
+  "logic": { "S": "A xor B xor Cin", "Cout": "A·B + Cin·(A xor B)" }
+}

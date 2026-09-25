@@ -1,0 +1,27 @@
+* Buck converter - lecture Example 2
+* Vs = 50 V, D = 0.4, L = 400 uH, C = 100 uF, f = 20 kHz, R = 20 ohm
+* Nodes: vs (source +), sw (switch/diode/inductor junction), vo (output), gate (switch drive), 0 (return rail)
+
+* DC source Vs: + at vs, - at the bottom rail
+VS vs 0 DC 50
+
+* Switch S between vs and sw, driven by a 0/5 V gate at f = 20 kHz, D = 0.4
+* T = 50 us, on-time D*T = 20 us (PW 19.99 us + 10 ns edges); the switch starts ON at t = 0
+VG gate 0 PULSE(0 5 0 10n 10n 19.99u 50u)
+S1 vs sw gate 0 SWMOD
+.model SWMOD SW(Ron=1m Roff=100Meg Vt=2.5 Vh=0)
+
+* Freewheeling diode D: anode on the bottom rail, cathode at sw
+D1 0 sw DMOD
+* Same junction as CircuitJS's built-in "default" diode (about 0.8 V at 1 A)
+.model DMOD D(Is=1.7143528e-7 N=2)
+
+* Output filter and load
+L1 sw vo 400u
+C1 vo 0 100u
+R1 vo 0 20
+
+* Steady state: filter decay time 2RC = 4 ms, so 40 ms is about 10 time constants.
+* Max step 0.2 us = 250 points per 50 us period.
+.tran 0.2u 40m 0 0.2u
+.end

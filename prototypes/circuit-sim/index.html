@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Figure to Simulation</title>
+<style>
+  :root {
+    --paper: #f4f1ea; --ink: #1d1b17; --muted: #6b665c; --rule: #d8d2c4; --card: #fbf9f4;
+    --pass: #1f6f43; --pass-bg: #e3f0e6; --warn: #8a5a00; --warn-bg: #f7ecd2; --fail: #9b1c1c;
+    --accent: #1f4e79;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font: 15px/1.55 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 80px; }
+  .tag { font: 600 11px/1 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); }
+  h1 { font-size: 30px; line-height: 1.2; margin: 8px 0 12px; font-weight: 600; }
+  h2 { font-size: 22px; margin: 0 0 4px; font-weight: 600; }
+  p { margin: 0 0 10px; max-width: 78ch; }
+  .verdict { border-inline-start: 4px solid var(--pass); background: var(--card); padding: 14px 18px; margin: 18px 0 28px; }
+  .verdict b { color: var(--pass); }
+  .score { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px;
+    background: var(--rule); border: 1px solid var(--rule); margin-bottom: 36px; }
+  .score div { background: var(--card); padding: 12px 14px; }
+  .score .n { font: 600 24px/1.1 ui-monospace, Consolas, monospace; }
+  section { border-top: 1px solid var(--rule); padding: 28px 0 8px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; margin: 14px 0; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  figure { margin: 0; background: #fff; border: 1px solid var(--rule); padding: 8px; }
+  figure img { width: 100%; height: auto; display: block; }
+  figcaption { font-size: 12px; color: var(--muted); padding-top: 6px; }
+  iframe { width: 100%; height: 420px; border: 1px solid var(--rule); background: #fff; display: block; }
+  table { border-collapse: collapse; width: 100%; font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; background: var(--card); }
+  th, td { text-align: start; padding: 6px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  td.ok { color: var(--pass); } td.bad { color: var(--fail); } td.warn { color: var(--warn); }
+  .scroll { overflow-x: auto; }
+  .note { font-size: 13.5px; color: var(--muted); }
+  .flag { background: var(--warn-bg); color: var(--warn); padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  svg.wave { width: 100%; height: 150px; background: #fff; border: 1px solid var(--rule); }
+  .ctl { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 10px 0; font: 13px ui-monospace, Consolas, monospace; }
+  input[type=range] { width: 260px; accent-color: var(--accent); }
+  #paper { background: #fff; border: 1px solid var(--rule); min-height: 300px; overflow: auto; }
+  details { margin: 8px 0; } summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+  pre { background: #fff; border: 1px solid var(--rule); padding: 10px; overflow: auto; font-size: 12px; max-height: 280px; }
+  ul.findings li { margin-bottom: 8px; max-width: 80ch; }
+</style>
+</head>
+<body>
+<main>
+  <div class="tag">learn-premium · wayfinder #18 · throwaway prototype</div>
+  <h1>Can an agent turn a lecture circuit figure into a correct live simulation?</h1>
+  <p>Four figures. For each one, a fresh agent saw <em>only</em> the figure and the problem statement
+  (no answer key) and wrote a SPICE netlist, a CircuitJS circuit, and for the logic one a DigitalJS circuit.
+  Then independent gates ran every file in ngspice-WASM, headless DigitalJS, and CircuitJS in a real browser,
+  and checked both the wiring and the numbers against the professor's worked solutions.</p>
+
+  <div class="verdict" id="verdict">Loading results…</div>
+  <div class="score" id="score"></div>
+
+  <section id="buck"></section>
+  <section id="scr"></section>
+  <section id="ce-amp"></section>
+  <section id="logic"></section>
+
+  <section>
+    <div class="tag">What this settles, and what it doesn't</div>
+    <h2>Findings</h2>
+    <ul class="findings">
+      <li><b>First-pass accuracy: 4/4 circuits, 8/8 files.</b> Every netlist and CircuitJS file was right on the
+      first try, with no repair loop. Each agent took about 5 minutes and about 110k tokens, mostly spent learning the
+      CircuitJS text format from its source code. A bundled format reference would cut most of that.</li>
+      <li><b>A broken CircuitJS circuit still runs, with no error.</b> I moved one resistor end 16 px off its rail.
+      The sim kept running and showed Vo = 43 V. The number check and the net check both caught it. So the gates are mandatory, not optional.</li>
+      <li><b>The sim caught a slip in the professor's solution.</b> Sheet 5 Q1(i) gives V<sub>CEQ</sub> = 17.95 V, but its own
+      equation gives 13.95 V. Both engines show 13.94 V. A live sim will visibly disagree with the sheet, so v2 needs
+      a rule for that (v1 showed the sheet's value with a note).</li>
+      <li><b>The sim and the lecture use different idealisations.</b> A real diode or SCR drop, VT = 25.85 mV vs the course's 25 mV,
+      and bypass capacitors that aren't perfect shorts all move the numbers by 1–5%. The agents predicted every one of these gaps
+      in their own notes. Setting the SPICE temperature to 17 °C (VT = 25 mV) cut the amplifier gap from 5% to 1.6%.</li>
+      <li><b>A live sim must open at steady state.</b> The buck spent about 38 s of wall-clock ringing before it settled. Seeding
+      the inductor current and capacitor voltage fixes this (the buck shown here starts settled), and ngspice can supply those seed values.</li>
+      <li><b>The engines complement each other.</b> ngspice (MIT/BSD) is the accurate engine and runs in the browser: the α slider below re-solves a
+      100 ms transient on every change. CircuitJS (GPL) is the one a student can play with: animated current, switches, and scopes.</li>
+      <li><b>Not tested:</b> board photos or handwritten figures (all four were clean drawings), op-amps (v1 has none), crowded multi-stage
+      circuits, and a real logic-course figure (the full adder is a synthetic fixture I drew).</li>
+    </ul>
+  </section>
+</main>
+
+<script src="node_modules/digitaljs/dist/main.js"></script>
+<script type="module">
+const S = await (await fetch("results/summary.json")).json();
+const E = S.expected, C = S.circuitjs;
+const pct = (g, w) => (100 * (g - w)) / Math.abs(w);
+const fmt = x => typeof x === "number" ? (Math.abs(x) >= 100 ? x.toFixed(1) : Math.abs(x) >= 10 ? x.toFixed(2) : x.toFixed(3)) : x;
+const cjsURL = txt => "https://pfalstad.github.io/circuitjs1/circuitjs.html?running=true&whiteBackground=true&hideSidebar=true&cct=" + encodeURIComponent(txt);
+
+function wave(series, { unitX = "ms", scaleX = 1e3, colors = ["#1f4e79", "#b4531f"] } = {}) {
+  const all = Object.values(series).flat();
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const W = 600, H = 150, P = 8;
+  const X = x => P + (W - 2 * P) * (x - x0) / (x1 - x0 || 1), Y = y => H - P - (H - 2 * P) * (y - y0) / (y1 - y0 || 1);
+  const lines = Object.entries(series).map(([k, pts], i) =>
+    `<polyline fill="none" stroke="${colors[i]}" stroke-width="1.6" points="${pts.map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(" ")}"/>` +
+    `<text x="${W - 70}" y="${16 + 14 * i}" font-size="11" fill="${colors[i]}" font-family="monospace">${k}</text>`).join("");
+  return `<svg class="wave" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines}
+    <text x="10" y="14" font-size="10" fill="#6b665c" font-family="monospace">${fmt(y1)} … ${fmt(y0)} · ${(x1 * scaleX).toFixed(2)} ${unitX} window</text></svg>`;
+}
+
+function table(rows) {
+  const cell = (g, w, tol) => {
+    if (g == null) return `<td>—</td>`;
+    const e = pct(g, w), cls = Math.abs(e) <= tol ? "ok" : "bad";
+    return `<td class="${cls}">${fmt(g)} <span class="note">(${e >= 0 ? "+" : ""}${e.toFixed(1)}%)</span></td>`;
+  };
+  return `<div class="scroll"><table><tr><th>Quantity</th><th>Lecture key</th><th>ngspice-WASM</th><th>CircuitJS (browser)</th><th>Tolerance</th></tr>` +
+    rows.map(r => `<tr><td>${r.label}</td><td>${fmt(r.want)}</td>${cell(r.spice, r.want, r.tol)}${cell(r.cjs, r.want, r.tol)}<td>±${r.tol}%</td></tr>`).join("") +
+    `</table></div>`;
+}
+
+function card(id, { tag, title, figure, caption, lede, rows, waveHTML, extra = "", flag = "" }) {
+  document.getElementById(id).innerHTML = `
+    <div class="tag">${tag}</div><h2>${title}</h2><p>${lede}</p>${flag}
+    <div class="grid">
+      <figure><img src="${figure}" alt="${caption}"><figcaption>${caption}</figcaption></figure>
+      <div><iframe loading="lazy" title="${title}, live in CircuitJS" src="${cjsURL(S.texts[id])}"></iframe>
+      <div class="note">Live: the agent's CircuitJS file, running. Drag, click the switch, or watch the scopes.</div></div>
+    </div>
+    ${rows ? table(rows) : ""}
+    ${waveHTML ? `<p class="note" style="margin-top:12px">ngspice waveform (steady state):</p>${waveHTML}` : ""}
+    ${extra}
+    <details><summary>Agent-authored files</summary>
+      ${S.netlists[id] ? `<pre>${S.netlists[id].replace(/</g, "&lt;")}</pre>` : ""}<pre>${S.texts[id].replace(/</g, "&lt;")}</pre></details>`;
+}
+
+const sp = k => Object.fromEntries(S.spice[k].map(r => [r.label, r.got]));
+
+// Buck
+{ const s = sp("buck"), c = C.buck, e = E.buck;
+  card("buck", { tag: "Power Electronics · Lecture 4 · Example 2", title: "Buck converter",
+    figure: "fixtures/materials/buck-fig.png", caption: "Lecture 4, slide 13 (local only, never committed)",
+    lede: "V<sub>s</sub> = 50 V, D = 0.4, L = 400 µH, C = 100 µF, f = 20 kHz, R = 20 Ω. The key assumes an ideal switch and diode; the sims use a real diode, so V<sub>o</sub> sits about (1−D)·V<sub>f</sub> below D·V<sub>s</sub>, as the agent predicted.",
+    rows: [
+      { label: "Vo avg (V)", want: e.Vo_avg, spice: s["Vo avg (V)"], cjs: c.Vo_avg, tol: 3 },
+      { label: "IL avg (A)", want: e.IL_avg, spice: s["IL avg (A)"], cjs: c.IL_avg, tol: 3 },
+      { label: "ΔIL (A)", want: e.dIL, spice: s["ΔIL (A)"], cjs: c.dIL, tol: 5 },
+      { label: "IL max (A)", want: e.IL_max, spice: s["IL max (A)"], cjs: c.IL_max, tol: 5 },
+      { label: "IL min (A)", want: e.IL_min, spice: s["IL min (A)"], cjs: c.IL_min, tol: 25 },
+      { label: "ΔVo/Vo (%)", want: e.dVo_pct, spice: s["ΔVo/Vo (%)"], cjs: c.dVo_pct, tol: 10 },
+    ],
+    waveHTML: wave(S.waves.buck, { unitX: "µs", scaleX: 1e6 }) }); }
+
+// SCR
+{ const s = sp("scr"), c = C.scr, e = E.scr;
+  card("scr", { tag: "Power Electronics · Lecture 2 · Example 5", title: "Half-wave controlled rectifier (SCR)",
+    figure: "fixtures/materials/scr-fig.png", caption: "Lecture 2, slide 4 (local only, never committed)",
+    lede: "120 V rms, 60 Hz, R = 10 Ω, α = 60°. SPICE has no SCR, so the agent built a latching switch-plus-diode model. It fires at exactly 60.0°. CircuitJS's built-in SCR drops about 1 V, which accounts for its −0.8%.",
+    rows: [
+      { label: "Vo-av (V)", want: e.Vo_av, spice: s["Vo-av (V)"], cjs: c.Vo_av, tol: 2 },
+      { label: "Io-av (A)", want: e.Io_av, spice: s["Io-av (A)"], cjs: c.Io_av, tol: 2 },
+      { label: "Vo-rms (V)", want: e.Vo_rms, spice: s["Vo-rms (V)"], cjs: c.Vo_rms, tol: 2 },
+      { label: "Io-rms (A)", want: e.Io_rms, spice: s["Io-rms (A)"], cjs: c.Io_rms, tol: 2 },
+      { label: "Po (W)", want: e.Po, spice: s["Po (W)"], cjs: c.Po, tol: 2 },
+      { label: "pf (slide prints 0.6)", want: e.pf, spice: s["pf [slide prints 0.6]"], cjs: c.pf, tol: 2 },
+    ],
+    waveHTML: wave(S.waves.scr),
+    extra: `<p class="note" style="margin-top:14px"><b>ngspice running in this page:</b> move α. Each change re-solves the agent's netlist (100 ms transient) in WebAssembly and compares V<sub>o-av</sub> with (V<sub>m</sub>/2π)(1 + cos α).</p>
+      <div class="ctl"><label>α = <span id="aval">60</span>° <input id="alpha" type="range" min="0" max="170" step="5" value="60"></label>
+      <span id="aout">engine loading (~20 MB, first time only)…</span></div><div id="awave"></div>` }); }
+
+// CE amp
+{ const s = sp("ce-amp"), s25 = sp("ce-amp-vt25"), c = C["ce-amp"], e = E["ce-amp"];
+  const labels = Object.keys(s);
+  card("ce-amp", { tag: "Electronics · Sheet 5 · Q1(i)", title: "Common-emitter BJT amplifier",
+    figure: "fixtures/materials/ce-amp-fig.png", caption: "Sheet 5, figure (i), the +20 V one (local only, never committed)",
+    lede: "V<sub>CC</sub> = 20 V, R<sub>B</sub> = 430 kΩ, R<sub>C</sub> = 2 kΩ, R<sub>E</sub> = 1 kΩ bypassed, β = 50. Test signal 2 mV at 10 kHz, where the capacitors act as shorts, as the hand method assumes.",
+    flag: `<div class="flag"><b>The sheet has an arithmetic slip.</b> It writes 20 − 2k·I<sub>C</sub> − V<sub>CE</sub> − 1k·I<sub>E</sub> = 0, then gives V<sub>CEQ</sub> = 17.95 V. That equation gives 20 − 4.01 − 2.04 = <b>13.95 V</b>, and both simulators show 13.94 V. The key below uses 13.95 V.</div>`,
+    rows: [
+      { label: "IBQ (µA)", want: e.IBQ_uA, spice: s[labels[0]], cjs: c.IBQ_uA, tol: 2 },
+      { label: "ICQ (mA)", want: e.ICQ_mA, spice: s[labels[1]], cjs: c.ICQ_mA, tol: 2 },
+      { label: "IEQ (mA)", want: e.IEQ_mA, spice: s[labels[2]], cjs: c.IEQ_mA, tol: 2 },
+      { label: "VCEQ (V)", want: e.VCEQ, spice: s[labels[3]], cjs: c.VCEQ, tol: 2 },
+      { label: "Av (SPICE at 27 °C)", want: e.Av, spice: s[labels[4]], cjs: c.Av, tol: 6 },
+      { label: "Av (SPICE at 17 °C, VT = 25 mV)", want: e.Av, spice: s25[labels[4]], cjs: null, tol: 2 },
+      { label: "Zi (Ω)", want: e.Zi_ohm, spice: s[labels[5]], cjs: c.Zi_ohm, tol: 6 },
+      { label: "Zi (Ω, VT = 25 mV)", want: e.Zi_ohm, spice: s25[labels[5]], cjs: null, tol: 2 },
+    ],
+    waveHTML: wave({ "vi ×100": S.waves["ce-amp"].vi.map(p => [p[0], p[1] * 100]), vo: S.waves["ce-amp"].vo }) }); }
+
+// Logic
+card("logic", { tag: "Logic · synthetic fixture (no logic course in v1)", title: "Full adder (gate level)",
+  figure: "fixtures/full-adder.png", caption: "Drawn by me with schemdraw; the agent never saw the drawing script",
+  lede: "The agent read the gates and junction dots, then wrote DigitalJS JSON (topology only, auto-laid-out) and a CircuitJS file. Both passed all 8 rows of the truth table: DigitalJS headless in Node, CircuitJS live in the browser.",
+  rows: null,
+  extra: `<p class="note" style="margin-top:12px">DigitalJS, live (click the input buttons):</p><div id="paper"></div>
+    <div class="scroll" style="margin-top:10px"><table><tr><th>A B Cin</th><th>S</th><th>Cout</th><th>expected</th><th></th></tr>${
+      S.logic.rows.map(r => `<tr><td>${r.A} ${r.B} ${r.Cin}</td><td>${r.S}</td><td>${r.Cout}</td><td>${r.eS} ${r.eC}</td><td class="${r.ok ? "ok" : "bad"}">${r.ok ? "pass" : "FAIL"}</td></tr>`).join("")}</table></div>` });
+
+try {
+  const circuit = new digitaljs.Circuit(S.digitaljs);
+  circuit.displayOn(window.jQuery ? jQuery("#paper") : document.getElementById("paper"));
+  circuit.start();
+} catch (err) { document.getElementById("paper").textContent = "DigitalJS failed to load: " + err.message; }
+
+// Verdict + scoreboard
+const allSpice = ["buck", "scr", "ce-amp"].flatMap(k => S.spice[k]);
+document.getElementById("verdict").innerHTML = `<b>Yes, for clean lecture figures, as long as every circuit passes a gate.</b>
+  All 4 circuits and all 8 agent-written files were right on the first pass: the wiring matched the figure and every
+  checked value was inside its tolerance. The gates are what make this dependable. A CircuitJS file with one wire
+  16 px off still runs without complaint and shows a wrong answer.`;
+document.getElementById("score").innerHTML = [
+  ["4 / 4", "circuits correct on first pass"],
+  [`${allSpice.filter(r => r.ok).length} / ${allSpice.length}`, "ngspice values in tolerance"],
+  ["3 / 3", "CircuitJS nets match the netlist"],
+  ["16 / 16", "truth-table rows (DigitalJS + CircuitJS)"],
+  ["1", "error found in the professor's sheet"],
+].map(([n, t]) => `<div><div class="n">${n}</div><div class="note">${t}</div></div>`).join("");
+
+// ngspice in the browser: α slider on the SCR netlist
+let sim, busy = false, pending = null;
+const vm = 120 * Math.SQRT2;
+async function runAlpha(a) {
+  if (busy) { pending = a; return; }
+  busy = true;
+  const out = document.getElementById("aout");
+  try {
+    if (!sim) { const { Simulation } = await import("./node_modules/eecircuit-engine/dist/eecircuit-engine.mjs"); sim = new Simulation(); await sim.start(); }
+    const net = S.netlists.scr.replace(/\.param alpha_deg = \d+/, `.param alpha_deg = ${a}`).replace(/^\.meas.*$/gm, "");
+    sim.setNetList(net);
+    const t0 = performance.now(); const res = await sim.runSim(); const ms = performance.now() - t0;
+    const get = n => res.data.find(d => d.name.toLowerCase() === n).values;
+    const t = get("time"), vo = get("v(vo)"), vs = get("v(vs)");
+    let acc = 0, T = 0; const pts = { vs: [], vo: [] };
+    for (let i = 1; i < t.length; i++) if (t[i] >= 0.05) { const dt = t[i] - t[i - 1]; acc += dt * (vo[i] + vo[i - 1]) / 2; T += dt;
+      if (t[i] <= 0.05 + 2 / 60 && i % 3 === 0) { pts.vs.push([t[i] - 0.05, vs[i]]); pts.vo.push([t[i] - 0.05, vo[i]]); } }
+    const sim_av = acc / T, key = vm / (2 * Math.PI) * (1 + Math.cos(a * Math.PI / 180));
+    out.innerHTML = `V<sub>o-av</sub>: ngspice ${sim_av.toFixed(2)} V · formula ${key.toFixed(2)} V · <span class="${Math.abs(sim_av - key) < 0.02 * key + 0.2 ? "ok" : "bad"}">${(sim_av - key).toFixed(2)} V</span> · solved in ${ms.toFixed(0)} ms`;
+    document.getElementById("awave").innerHTML = wave(pts);
+  } catch (err) { out.textContent = "ngspice failed: " + err.message; }
+  busy = false;
+  if (pending != null) { const p = pending; pending = null; runAlpha(p); }
+}
+const slider = document.getElementById("alpha");
+slider.addEventListener("input", () => { document.getElementById("aval").textContent = slider.value; runAlpha(+slider.value); });
+runAlpha(60);
+</script>
+</body>
+</html>

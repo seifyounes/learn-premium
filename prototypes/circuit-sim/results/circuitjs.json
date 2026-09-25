@@ -1,0 +1,8 @@
+{
+  "_how": "Measured in a real browser (pfalstad.github.io/circuitjs1, TS build) via window.CircuitJS1: importCircuit, ontimestep sampling, per-post voltages. Nets inferred by grouping posts with identical voltage traces.",
+  "buck": { "nets": 5, "netsMatchSpice": true, "Vo_avg": 19.517, "IL_avg": 0.9759, "IL_max": 1.7366, "IL_min": 0.2157, "dIL": 1.5209, "dVo_pct": 0.493, "wallMsFor30msSim": 37789 },
+  "scr": { "nets": 4, "netsMatchSpice": true, "Vo_av": 40.175, "Io_av": 4.0175, "Vo_rms": 75.538, "Io_rms": 7.5538, "Po": 570.6, "pf": 0.6294 },
+  "ce-amp": { "nets": 7, "netsMatchSpice": true, "IBQ_uA": 40.126, "ICQ_mA": 2.0024, "IEQ_mA": 2.0458, "VCEQ": 13.949, "Av": -157.4, "Zi_ohm": 634.3 },
+  "logic": { "truthTable": "8/8 pass" },
+  "mutation": { "change": "buck load resistor top moved 16 px off the output rail", "silentRun": true, "Vo_avg": 43.11, "caughtByValueGate": true, "caughtByNetGate": true }
+}

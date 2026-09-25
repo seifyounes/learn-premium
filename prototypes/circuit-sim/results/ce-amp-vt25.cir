@@ -1,0 +1,38 @@
+* CE amplifier, fixed bias, bypassed emitter -- lecture figure (i): +20 V, beta = 50
+* Nodes: vcc (supply), vi (source), b (base), c (collector), e (emitter), vo (output)
+*
+* Model: BF = 50 (figure). IS = 3.5e-15 chosen so VBE = Vt*ln(IC/IS) = 0.700 V at
+* IC ~ 2.0 mA (27 C, Vt = 25.865 mV). Early effect off (VAF not set = infinite), BR = 1,
+* no junction capacitances.
+*
+* Source: 2 mV peak, 10 kHz (mid-band: at 1 kHz the 40 uF bypass is only ~3x above its
+* ~320 Hz pole and |Av| drops to ~147). No UIC: the .tran starts from the DC operating
+* point, so every coupling/bypass capacitor is already charged -- no settling time needed.
+
+VCC    vcc 0   DC 20
+VI     vi  0   DC 0 AC 1 SIN(0 2m 10k)
+
+C1     vi  b   10u
+RB     vcc b   430k
+RC     vcc c   2k
+Q1     c   b   e   QNPN
+RE     e   0   1k
+CE     e   0   40u
+C2     c   vo  10u
+* vo is an open terminal in the figure; 10 Meg gives the node a DC path (negligible load)
+RPROBE vo  0   10Meg
+
+.model QNPN NPN(IS=3.5e-15 BF=50)
+
+.options temp=17.0 tnom=17.0
+.op
+.tran 0.2u 1m 0 0.2u
+.ac dec 20 10 1Meg
+
+.meas tran vipp PP v(vi) from=0.5m to=1m
+.meas tran vopp PP v(vo) from=0.5m to=1m
+.meas tran av_tran param='vopp/vipp'
+.meas ac av_mid FIND vm(vo) AT=10k
+.meas ac av_1k FIND vm(vo) AT=1k
+
+.end
