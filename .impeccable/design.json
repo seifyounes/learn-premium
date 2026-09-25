@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-25T18:30:00Z",
+  "title": "Design System: learn-premium Study site",
+  "extensions": {
+    "colorMeta": {
+      "desk": { "role": "neutral", "displayName": "Desk", "slot": "course-palette", "canonical": "oklch(87.8% 0.038 128.9)", "tonalRamp": ["oklch(15% 0.038 128.9)", "oklch(25% 0.038 128.9)", "oklch(35% 0.038 128.9)", "oklch(48% 0.038 128.9)", "oklch(60% 0.038 128.9)", "oklch(72% 0.038 128.9)", "oklch(84% 0.038 128.9)", "oklch(95% 0.038 128.9)"] },
+      "sheet": { "role": "neutral", "displayName": "Computation Paper", "slot": "course-palette", "canonical": "oklch(94.0% 0.027 127.7)", "tonalRamp": ["oklch(15% 0.027 127.7)", "oklch(25% 0.027 127.7)", "oklch(35% 0.027 127.7)", "oklch(48% 0.027 127.7)", "oklch(60% 0.027 127.7)", "oklch(72% 0.027 127.7)", "oklch(84% 0.027 127.7)", "oklch(95% 0.027 127.7)"] },
+      "grid-fine": { "role": "neutral", "displayName": "Faint Grid", "slot": "course-palette", "canonical": "oklch(87.0% 0.047 130.3)", "tonalRamp": ["oklch(15% 0.047 130.3)", "oklch(25% 0.047 130.3)", "oklch(35% 0.047 130.3)", "oklch(48% 0.047 130.3)", "oklch(60% 0.047 130.3)", "oklch(72% 0.047 130.3)", "oklch(84% 0.047 130.3)", "oklch(95% 0.047 130.3)"] },
+      "grid-major": { "role": "neutral", "displayName": "Major Grid", "slot": "course-palette", "canonical": "oklch(82.5% 0.058 130.7)", "tonalRamp": ["oklch(15% 0.058 130.7)", "oklch(25% 0.058 130.7)", "oklch(35% 0.058 130.7)", "oklch(48% 0.058 130.7)", "oklch(60% 0.058 130.7)", "oklch(72% 0.058 130.7)", "oklch(84% 0.058 130.7)", "oklch(95% 0.058 130.7)"] },
+      "print": { "role": "primary", "displayName": "Pad Printing", "slot": "course-palette", "canonical": "oklch(42.6% 0.075 149.7)", "tonalRamp": ["oklch(15% 0.075 149.7)", "oklch(25% 0.075 149.7)", "oklch(35% 0.075 149.7)", "oklch(48% 0.075 149.7)", "oklch(60% 0.075 149.7)", "oklch(72% 0.075 149.7)", "oklch(84% 0.075 149.7)", "oklch(95% 0.075 149.7)"] },
+      "muted": { "role": "neutral", "displayName": "Faded Annotation", "slot": "course-palette", "canonical": "oklch(45.6% 0.030 137.9)", "tonalRamp": ["oklch(15% 0.030 137.9)", "oklch(25% 0.030 137.9)", "oklch(35% 0.030 137.9)", "oklch(48% 0.030 137.9)", "oklch(60% 0.030 137.9)", "oklch(72% 0.030 137.9)", "oklch(84% 0.030 137.9)", "oklch(95% 0.030 137.9)"] },
+      "graphite": { "role": "neutral", "displayName": "Graphite", "slot": "fixed", "canonical": "oklch(28.2% 0.013 140.5)", "tonalRamp": ["oklch(15% 0.013 140.5)", "oklch(25% 0.013 140.5)", "oklch(35% 0.013 140.5)", "oklch(48% 0.013 140.5)", "oklch(60% 0.013 140.5)", "oklch(72% 0.013 140.5)", "oklch(84% 0.013 140.5)", "oklch(95% 0.013 140.5)"] },
+      "pencil": { "role": "neutral", "displayName": "Pencil", "slot": "fixed", "canonical": "oklch(37.5% 0.014 141.2)", "tonalRamp": ["oklch(15% 0.014 141.2)", "oklch(25% 0.014 141.2)", "oklch(35% 0.014 141.2)", "oklch(48% 0.014 141.2)", "oklch(60% 0.014 141.2)", "oklch(72% 0.014 141.2)", "oklch(84% 0.014 141.2)", "oklch(95% 0.014 141.2)"] },
+      "red-pen": { "role": "secondary", "displayName": "Red Pen", "slot": "course-palette (accent role; semantics fixed)", "canonical": "oklch(53.7% 0.180 32.0)", "tonalRamp": ["oklch(15% 0.150 32.0)", "oklch(25% 0.150 32.0)", "oklch(35% 0.150 32.0)", "oklch(48% 0.150 32.0)", "oklch(60% 0.150 32.0)", "oklch(72% 0.150 32.0)", "oklch(84% 0.150 32.0)", "oklch(95% 0.150 32.0)"] }
+    },
+    "coursePalettes": {
+      "note": "Themeable per Course: desk, sheet, grid-fine, grid-major, print, muted, shadowTint, red-pen. Fixed: graphite, pencil. Selection and gating process is OPEN (follow-up ticket); every palette must pass the contrast requirements.",
+      "contrastRequirements": [
+        "graphite, pencil, print, muted, red-pen: >= 4.5:1 on sheet",
+        "the same text roles: >= 3:1 on grid-major",
+        "sheet on print: >= 4.5:1",
+        "grid-fine and grid-major: <= ~1.5:1 on sheet",
+        "sheet lighter than desk (~1.2:1)",
+        "red-pen distinct from print by hue"
+      ],
+      "ml": { "label": "Machine Learning, green pad (reference)", "desk": "#CFDCC2", "sheet": "#E6EFDC", "grid-fine": "#CADBBB", "grid-major": "#B9CEA7", "print": "#2E5A38", "muted": "#4F5B4B", "red-pen": "#C0341D", "shadowTint": "30 45 28", "measured": { "red-pen/sheet": 4.73, "muted/sheet": 6.06, "print/sheet": 6.73, "red-pen/grid-major": 3.32 } },
+      "circuits": { "label": "Circuits, blue-grey engineering pad (synthetic sample)", "desk": "#C8D5DE", "sheet": "#E1E9EF", "grid-fine": "#C9D6E0", "grid-major": "#B3C4D1", "print": "#1F4B73", "muted": "#4A5763", "red-pen": "#C0341D", "shadowTint": "26 40 55", "measured": { "red-pen/sheet": 4.56, "muted/sheet": 6.03, "print/sheet": 7.40, "red-pen/grid-major": 3.13 } }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The Course name in the home title block only." },
+      "headline": { "displayName": "Headline", "purpose": "Contents group headings, in print colour." },
+      "title": { "displayName": "Title", "purpose": "Step note heading and table caption." },
+      "sheet-title": { "displayName": "Sheet title", "purpose": "Worked example title inside its title block." },
+      "body": { "displayName": "Body", "purpose": "Step notes, method notes, captions; max 68ch." },
+      "body-small": { "displayName": "Body small", "purpose": "Module summaries, legends, warnings; max 70ch." },
+      "label": { "displayName": "Field label", "purpose": "Printed field name inside its own ruled cell. Never a kicker." },
+      "label-action": { "displayName": "Action label", "purpose": "Printed buttons, back cell, phone tabs, Given toggle." },
+      "quantity": { "displayName": "Quantity", "purpose": "Every number: table values (>=14px), counts, step numbers, tick labels." },
+      "quantity-large": { "displayName": "Quantity large", "purpose": "Counts in the title block." }
+    },
+    "shadows": [
+      { "name": "sheet-on-desk", "value": "0 1px 1px rgb(var(--shadow) / 0.10), 0 5px 12px -3px rgb(var(--shadow) / 0.18), 0 26px 46px -22px rgb(var(--shadow) / 0.45)", "purpose": "The sheet on the desk, only where the desk is visible. --shadow is the Course's shadowTint triplet. Nothing inside the sheet casts a shadow." }
+    ],
+    "motion": [
+      { "name": "rule-draw", "value": "scaleX 0 to 1, 460ms, outExpo, stagger 30ms, from inline start", "purpose": "Home: ruled contents lines draw along the writing direction on load." },
+      { "name": "table-rule-draw", "value": "stroke draw, 380ms rows then 320ms columns, outQuad, stagger 40ms", "purpose": "Worked: the table rules itself." },
+      { "name": "value-land", "value": "opacity 0 to 1, translateY -2px to 0, 260ms, outQuad, stagger 24-34ms in hand order", "purpose": "New table values land column by column, top to bottom." },
+      { "name": "red-pen-draw", "value": "stroke draw, 420-520ms, inOutSine", "purpose": "Rings, arrows, table marks and corrections, drawn after the values they judge." },
+      { "name": "tick-draw", "value": "stroke draw, 300ms, outQuad", "purpose": "Done ticks on step boxes when advancing." },
+      { "name": "figure-move", "value": "950ms, inOutCubic", "purpose": "Centroids travel on the plot between steps." },
+      { "name": "state-transition", "value": "150ms ease-out", "purpose": "Hover tints and button colour changes." },
+      { "name": "reduced", "value": "0ms", "purpose": "prefers-reduced-motion collapses every animation to instant; going back always renders instantly; interrupted motion completes, never freezes." }
+    ],
+    "breakpoints": [
+      { "name": "tiny", "value": "359px", "purpose": "Back label becomes visually hidden; tighter title-block cells." },
+      { "name": "phone-home", "value": "760px", "purpose": "Home sheet full-bleed; margin column collapses; counts wrap under titles." },
+      { "name": "phone-worked", "value": "899px", "purpose": "Worked sheet full-bleed; step strip; Given collapses; Table | Plot tabs." },
+      { "name": "narrow-contents", "value": "1000px", "purpose": "Margin column 184px, count columns 60px." },
+      { "name": "mid", "value": "900px-1100px", "purpose": "Worked columns 150px | 1fr | 320px." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Printed Button",
+      "kind": "button",
+      "refersTo": "button-print",
+      "description": "Default step control, printed onto the pad.",
+      "html": "<button class=\"ds-pbtn\"><svg width=\"24\" height=\"18\" viewBox=\"0 0 24 18\" aria-hidden=\"true\"><path d=\"M22 9H3M9 3L3 9l6 6\"/></svg>Prev</button>",
+      "css": ".ds-pbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 16px; border: 1.5px solid #2E5A38; border-radius: 0; background: #E6EFDC; color: #2E5A38; font: 700 15px/1 Archivo, 'Arial Narrow', sans-serif; font-stretch: 80%; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: background-color 0.15s ease-out, color 0.15s ease-out; } .ds-pbtn path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; } .ds-pbtn:hover { background: color-mix(in srgb, #2E5A38 10%, #E6EFDC); } .ds-pbtn:focus-visible { outline: 2px solid #2E5A38; outline-offset: 2px; } .ds-pbtn:disabled { opacity: 0.4; cursor: default; }"
+    },
+    {
+      "name": "Printed Button, Next",
+      "kind": "button",
+      "refersTo": "button-print-next",
+      "description": "The one filled control on the sheet: advance a step.",
+      "html": "<button class=\"ds-pbtn-next\">Next<svg width=\"24\" height=\"18\" viewBox=\"0 0 24 18\" aria-hidden=\"true\"><path d=\"M2 9h19M15 3l6 6-6 6\"/></svg></button>",
+      "css": ".ds-pbtn-next { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 16px; border: 1.5px solid #2E5A38; border-radius: 0; background: #2E5A38; color: #E6EFDC; font: 700 15px/1 Archivo, 'Arial Narrow', sans-serif; font-stretch: 80%; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: background-color 0.15s ease-out; } .ds-pbtn-next path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; } .ds-pbtn-next:hover { background: color-mix(in srgb, #2E5A38 82%, black); } .ds-pbtn-next:focus-visible { outline: 2px solid #2E5A38; outline-offset: 2px; }"
+    },
+    {
+      "name": "Title Block",
+      "kind": "nav",
+      "refersTo": "title-block-cell",
+      "description": "Ruled cells opening every page; field label top, value bottom.",
+      "html": "<div class=\"ds-tb\"><div class=\"ds-cell\"><span class=\"ds-lbl\">Course</span><span class=\"ds-h1\">Machine Learning</span></div><div class=\"ds-cell\"><span class=\"ds-lbl\">Sheets</span><span class=\"ds-num\">11</span></div><div class=\"ds-cell\"><span class=\"ds-lbl\">Worked</span><span class=\"ds-num\">30</span></div></div>",
+      "css": ".ds-tb { display: grid; grid-template-columns: 2.6fr 1fr 1fr; gap: 1px; background: #2E5A38; border: 2px solid #2E5A38; } .ds-cell { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 7px 12px 9px; background: #E6EFDC; } .ds-lbl { font: 600 12px/1 Archivo, 'Arial Narrow', sans-serif; font-stretch: 80%; letter-spacing: 0.08em; text-transform: uppercase; color: #2E5A38; } .ds-h1 { font: 700 42px/0.95 Archivo, 'Arial Narrow', sans-serif; font-stretch: 75%; color: #262B25; } .ds-num { font: 500 26px/1 'Atkinson Hyperlegible Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #3D433C; }"
+    },
+    {
+      "name": "Contents Line",
+      "kind": "custom",
+      "refersTo": "contents-line",
+      "description": "A module as a ruled line: sheet-number box, title and summary, mono counts; red ring = high yield.",
+      "html": "<a class=\"ds-mrow\" href=\"#\"><span class=\"ds-mnum\">10<svg class=\"ds-ring\" viewBox=\"0 0 68 68\" aria-hidden=\"true\"><path d=\"M34 5C52 4 64 18 63 35 62 52 49 63 33 63 16 62 5 50 5 34 5 18 18 7 38 6\"/></svg></span><span class=\"ds-mtext\"><span class=\"ds-mtitle\">Clustering: K-means</span><span class=\"ds-msub\">Assign, update, repeat until the centroids stop moving.</span></span><span class=\"ds-mc\">3</span></a>",
+      "css": ".ds-mrow { display: grid; grid-template-columns: 60px 1fr 72px; align-items: start; padding: 13px 0 14px; border-bottom: 1px solid rgb(61 67 60 / 0.5); color: #262B25; text-decoration: none; background: #E6EFDC; transition: background-color 0.15s ease-out; } .ds-mrow:hover { background: color-mix(in srgb, #2E5A38 8%, #E6EFDC); } .ds-mrow:hover .ds-mtitle { text-decoration: underline; text-underline-offset: 3px; } .ds-mrow:focus-visible { outline: 2px solid #2E5A38; outline-offset: -2px; } .ds-mnum { position: relative; width: 44px; height: 44px; display: grid; place-items: center; box-sizing: border-box; border: 1.5px solid #2E5A38; background: #E6EFDC; font: 700 22px/1 Archivo, sans-serif; font-stretch: 75%; } .ds-ring { position: absolute; inset: -12px; width: 68px; height: 68px; overflow: visible; } .ds-ring path { fill: none; stroke: #C0341D; stroke-width: 2.2; stroke-linecap: round; } .ds-mtext { display: flex; flex-direction: column; padding-inline-end: 20px; } .ds-mtitle { font: 600 18px/1.3 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-msub { margin-top: 3px; font: 400 15px/1.45 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: #4F5B4B; } .ds-mc { text-align: center; font: 500 17px/44px 'Atkinson Hyperlegible Mono', monospace; color: #3D433C; }"
+    },
+    {
+      "name": "Step Box",
+      "kind": "chip",
+      "refersTo": "step-box",
+      "description": "Numbered square for a step: pencil default, graphite fill when current, drawn tick when done.",
+      "html": "<span class=\"ds-sb\">3<svg class=\"ds-tick\" viewBox=\"0 0 20 18\" aria-hidden=\"true\"><path d=\"M2 10l5 5L18 2\"/></svg></span><span class=\"ds-sb ds-sb-cur\">4</span><span class=\"ds-sb\">5</span>",
+      "css": ".ds-sb { position: relative; display: inline-grid; place-items: center; box-sizing: border-box; width: 24px; height: 24px; margin-inline-end: 12px; border: 1.2px solid #3D433C; background: #E6EFDC; font: 500 13px/1 'Atkinson Hyperlegible Mono', monospace; color: #3D433C; } .ds-sb-cur { background: #262B25; border-color: #262B25; color: #E6EFDC; font-weight: 700; } .ds-tick { position: absolute; top: -7px; right: -11px; width: 20px; height: 18px; overflow: visible; } .ds-tick path { fill: none; stroke: #262B25; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }"
+    },
+    {
+      "name": "Solving Table",
+      "kind": "card",
+      "refersTo": "solving-table",
+      "description": "The Professor's artefact: mono tabular values in pencil-ruled cells, printed headers.",
+      "html": "<table class=\"ds-stable\"><thead><tr><th>Point<span>(x, y)</span></th><th>d to C1</th><th>d to C2</th></tr></thead><tbody><tr><th>A</th><td>1.41</td><td class=\"ds-mk\">4.24</td></tr><tr><th>B</th><td>2.00</td><td>3.61</td></tr></tbody></table>",
+      "css": ".ds-stable { border-collapse: collapse; font-family: 'Atkinson Hyperlegible Mono', monospace; font-variant-numeric: tabular-nums; background: #E6EFDC; } .ds-stable th, .ds-stable td { height: 29px; padding: 0 10px; text-align: center; border: 1px solid #3D433C; } .ds-stable thead th { padding: 5px 10px 6px; vertical-align: bottom; font: 600 13px/1.25 Archivo, sans-serif; font-stretch: 85%; color: #2E5A38; } .ds-stable thead span { display: block; font: 500 13px/1.3 'Atkinson Hyperlegible Mono', monospace; color: #3D433C; } .ds-stable tbody th { font: 600 15px/1 'Atkinson Hyperlegible Mono', monospace; color: #262B25; } .ds-stable td { font: 400 16px/1 'Atkinson Hyperlegible Mono', monospace; color: #3D433C; } .ds-mk { outline: 1.8px solid #C0341D; outline-offset: -5px; }"
+    },
+    {
+      "name": "Answer Box",
+      "kind": "card",
+      "refersTo": "answer-box",
+      "description": "The result, boxed twice in red pen.",
+      "html": "<div class=\"ds-answer\"><span class=\"ds-lbl\">Answer</span><p>C1 = (1.5, 2), C2 = (6, 5.5). Converged after 2 iterations.</p></div>",
+      "css": ".ds-answer { display: inline-block; margin: 8px; padding: 7px 14px 9px; border: 1.5px solid #C0341D; outline: 1.5px solid #C0341D; outline-offset: 3px; background: #E6EFDC; } .ds-answer .ds-lbl { font: 600 12px/1 Archivo, sans-serif; font-stretch: 80%; letter-spacing: 0.08em; text-transform: uppercase; color: #2E5A38; } .ds-answer p { margin: 5px 0 0; font: 600 17px/1.4 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: #262B25; }"
+    },
+    {
+      "name": "Red-Pen Margin Note",
+      "kind": "custom",
+      "refersTo": "resume-note",
+      "description": "Where the student stopped, written in the margin with a drawn arrow.",
+      "html": "<a class=\"ds-resume\" href=\"#\"><span class=\"ds-rs\"><span>You stopped here:</span><span class=\"ds-rs2\">W10.1, step 4 of 8</span></span><svg width=\"46\" height=\"34\" viewBox=\"0 0 46 34\" aria-hidden=\"true\"><path d=\"M2 5 C14 -1 30 5 42 24\"/><path d=\"M35 21l7 3 0-7\"/></svg></a>",
+      "css": ".ds-resume { display: inline-flex; align-items: flex-start; gap: 2px; color: #C0341D; text-decoration: none; font: 600 15px/1.35 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-rs { display: flex; flex-direction: column; text-align: end; } .ds-rs2 { font: 600 14px/1.5 'Atkinson Hyperlegible Mono', monospace; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; } .ds-resume:hover .ds-rs2 { text-decoration-thickness: 2.5px; } .ds-resume:focus-visible { outline: 2px solid #2E5A38; outline-offset: 2px; } .ds-resume svg { margin-top: 8px; overflow: visible; } .ds-resume path { fill: none; stroke: #C0341D; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Computation Pad",
+    "overview": "Every Study site, for every Course and every discipline, is one engineering computation pad: pale paper with a 5 mm grid printed faintly through it, a ruled title block in the pad's printing colour, and the Professor's solving artefact ruled in pencil and filled in the order the Professor writes it. The Course home is the pad's contents sheet; a worked example is one solved sheet. What is on screen is what the student will write in the exam, so the interface is paper fidelity, not a dashboard.\n\nThe system is one house identity. A Course changes only its palette (the colour of the pad); layout grammar, typefaces, components, red-pen marking, motion and the worked-example invariants are fixed. Light only: the student has real paper beside the laptop under a desk lamp, and there is no dark mode. Density is that of a filled engineering sheet: tight printed cells, quantities in tabular mono, prose kept off the dense grid and held to 68–78ch.\n\nConfirmed rejections: the dark SaaS course dashboard of cards, progress rings and indigo; and its predictable opposite, the cream-paper editorial serif notebook. The generic default Claude look is out by standing constraint.\n\nMotion is the pen on the sheet: ruled lines draw along the writing direction, values land in hand order (column by column, top to bottom), and red-pen marks draw after the values they judge. It is transform, opacity and stroke-drawing only, and collapses to instant under reduced motion.",
+    "keyCharacteristics": [
+      "One identity for every Study site; only the palette is themeable per Course.",
+      "Paper with a two-weight printed grid (fine every 20px, major every 100px).",
+      "Three hands of type: printed condensed labels, hyperlegible prose, mono quantities.",
+      "Red pen is a meaning, not a colour: it marks, it never fills.",
+      "Square, ruled forms; the only shadow is the sheet lying on the desk.",
+      "Light only."
+    ],
+    "rules": [
+      { "name": "The Red Pen Rule", "body": "Red is the pen of whoever marks the sheet: circled results and the answer box, corrections and warnings, the high-yield ring on a contents line, the \"you stopped here\" margin note and its arrow, and marks drawn onto the table. It is always a stroke or text, never a fill, a button, a tint or a background.", "section": "colors" },
+      { "name": "The Printed Ink Rule", "body": "`print` is what came printed on the pad; graphite and pencil are what the student wrote. Content (values, answers, prose) is never set in `print`, and chrome (field labels, title-block rules, printed buttons) is never set in graphite.", "section": "colors" },
+      { "name": "The Palette Slot Rule", "body": "A Course changes slot values, never roles, never the count of colours. No Course adds a second accent, a gradient, or a dark variant.", "section": "colors" },
+      { "name": "The Three Hands Rule", "body": "Printed form in condensed Archivo, prose in Atkinson Next, every quantity in Atkinson Mono with tabular numerals. A number in prose type, or a sentence in mono, is a bug.", "section": "typography" },
+      { "name": "The Field Label Rule", "body": "An uppercase tracked label only names a field, and it sits inside the ruled cell or box whose content it names. It is never a free-floating kicker above a heading.", "section": "typography" },
+      { "name": "The Paper Math Rule", "body": "Math renders as paper math (KaTeX-class): stacked fractions with a long bar, never raw `_` or `^`. Inline math sits at about 1.08em of the body size in graphite.", "section": "typography" },
+      { "name": "The 12px Floor Rule", "body": "Nothing renders under 12px on a phone; table values stay at 14px or above.", "section": "typography" },
+      { "name": "The Artefact Stays Rule", "body": "While stepping, the solving artefact never scrolls away. At 1280×800 the table, figure, step text and Next are all visible with no scroll; at 390×844 the table (or plot), step text and Next are visible.", "section": "layout" },
+      { "name": "The Nothing Covers the Figure Rule", "body": "Labels, chips and notes sit beside or below a figure, never on it. A too-wide table scrolls inside its own box; the page never scrolls sideways at 320px.", "section": "layout" },
+      { "name": "The Logical Direction Rule", "body": "All spacing, borders and positions use logical properties (inline/block start/end); direction-bearing drawings (arrows, back chevrons) mirror in RTL, rules draw from the inline start, and arrow keys follow the document direction.", "section": "layout" },
+      { "name": "The One Sheet Rule", "body": "Only the sheet casts a shadow. Nothing inside the sheet lifts, floats or glows; a box is drawn with a rule, not raised with a shadow.", "section": "elevation" },
+      { "name": "The Ruled Corner Rule", "body": "No rounded corners, pills or chips anywhere on the sheet.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do treat every Study site as the same pad; change only the Course palette slot values.",
+      "Do gate every Course palette against the contrast requirements in Colors before it ships.",
+      "Do set every quantity in Atkinson Hyperlegible Mono with tabular numerals, and every printed label in condensed Archivo inside its own ruled cell.",
+      "Do keep the solving artefact on screen while stepping, with Prev / Next buttons, arrow keys and a step counter.",
+      "Do mark state with a drawn mark (tick, ring, arrow, frame), not only a colour change.",
+      "Do draw motion as the pen would: rules along the writing direction, values in hand order, red marks last; transform, opacity and stroke-drawing only; instant under reduced motion.",
+      "Do use logical properties everywhere and mirror direction-bearing drawings in RTL."
+    ],
+    "donts": [
+      "Don't ship a dark mode or a dark palette; the pad is light only.",
+      "Don't use red as a fill, a button, a background tint or decoration; red is the pen.",
+      "Don't build the dark SaaS dashboard of cards, progress rings and indigo, or the cream-paper editorial serif notebook.",
+      "Don't round corners, add pills or chips, or lift anything inside the sheet with a shadow.",
+      "Don't put uppercase tracked labels above headings as kickers; a label names the field it sits in.",
+      "Don't cover a figure with labels, chips or notes, or shrink a wide figure below legibility; scroll it inside its box.",
+      "Don't render any text under 12px on a phone, or table values under 14px.",
+      "Don't render math as raw `_` / `^` markup."
+    ]
+  }
+}
