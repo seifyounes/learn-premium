@@ -18,6 +18,20 @@ _Avoid_: sources (ok informally), files, content
 The website learn-premium produces for one Course.
 _Avoid_: crash course site, website (alone), app
 
+**Owner**:
+The student who runs learn-premium for their own Course and studies from the Study site first.
+_Avoid_: user (ambiguous with site visitors)
+
+**Classmates**:
+Other students of the same Course whom the Owner sends the Study site link. They get no
+accounts and no per-person features.
+_Avoid_: users, audience
+
+**Professor**:
+The person who teaches the Course. They wrote most of the Materials, the Study site reproduces
+their method and notation, and they review the finished site as the Owner's bonus project.
+_Avoid_: doctor, dr (informal in Materials), instructor
+
 **Pilot course**:
 The Course whose v1 build is rebuilt first in v2 to prove the new pipeline end to end.
 Currently Machine Learning.
