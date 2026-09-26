@@ -18,6 +18,16 @@ _Avoid_: sources (ok informally), files, content
 The website learn-premium produces for one Course.
 _Avoid_: crash course site, website (alone), app
 
+**Site template**:
+The versioned site code learn-premium carries and copies into every Course project. It is the
+same for every Course.
+_Avoid_: theme, boilerplate, starter
+
+**Course project**:
+The repo for one Course's Study site: a copy of the Site template, plus that Course's content
+and course config. One per Course, deployed on its own.
+_Avoid_: site repo, Course folder (when you mean the Materials folder)
+
 **Owner**:
 The student who runs learn-premium for their own Course and studies from the Study site first.
 _Avoid_: user (ambiguous with site visitors)
@@ -31,6 +41,23 @@ _Avoid_: users, audience
 The person who teaches the Course. They wrote most of the Materials, the Study site reproduces
 their method and notation, and they review the finished site as the Owner's bonus project.
 _Avoid_: doctor, dr (informal in Materials), instructor
+
+**Discipline**:
+An engineering field a Course's topics belong to (e.g. heat transfer, logic circuits, machinery).
+A Course has one or more, suggested by the agent and confirmed by the Owner at intake; each
+topic draws on one of them. A Discipline selects the Course's pad and its Toolkit.
+_Avoid_: subject type (v1's four generic kinds), subject, field
+
+**Toolkit**:
+The interactive tools a Discipline uses by default for its Worked examples and Lab: one named
+tool per kind of interaction, falling back to an Agent-built sim where no tool fits.
+_Avoid_: tool stack, widgets
+
+**Agent-built sim**:
+An interactive the agent writes itself for a topic no ready-made tool fits. It ships only if its
+model can be recomputed independently at build; otherwise the figure gets a step-through
+animation instead.
+_Avoid_: custom widget, demo, generated sim
 
 **Pilot course**:
 The Course whose v1 build is rebuilt first in v2 to prove the new pipeline end to end.
