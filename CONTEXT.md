@@ -74,3 +74,106 @@ _Avoid_: test course, demo
 The `/crash-course` skill as it stood on 2026-09-25 (vanilla-JS single-file engines). Reference
 only; learn-premium replaces it.
 _Avoid_: old skill, legacy (alone)
+
+### The Study site
+
+**Module**:
+One teaching unit of a Course (usually one lecture or topic block), with its own page: Watch,
+Summary, Worked examples, Practice. The unit the build works in.
+_Avoid_: chapter, lesson, lecture (when you mean the page)
+
+**Exam sitting**:
+One exam the Course is assessed in (e.g. midterm, final), covering a set of Modules.
+_Avoid_: exam (alone), test, paper
+
+**Sitting complete**:
+The Owner's word that every Module an Exam sitting covers is in. Only the Owner says it; until
+then that sitting's Exam room and Revision don't exist.
+_Avoid_: exam ready, closed
+
+**Exam room**:
+The hub for one Exam sitting: past-paper vault, mocks and question bank, timed. Built only
+from the sitting's past papers, so a sitting without them has no Exam room.
+_Avoid_: exam suite, finals page
+
+**Revision**:
+The hub for one Exam sitting that assembles its Modules' summaries and key rules in exam-weight
+order. Never written separately.
+_Avoid_: cheat sheet, review
+
+**Master Rules**:
+The Course's reference list of the main rules its problems actually use, in solving order.
+_Avoid_: formula sheet, rules bank
+
+**Lab**:
+The Course hub that collects every interactive tool for free play.
+_Avoid_: playground, sandbox
+
+**Mastery**:
+A Module's progress measure, from practice done and worked examples gone through; a sitting's
+readiness is its Modules' average Mastery plus the best mock score.
+_Avoid_: XP, score, streak
+
+**Course notebook**:
+The one NotebookLM notebook per Course that holds its Materials and grows as Modules arrive.
+_Avoid_: notebook (alone)
+
+**Module media**:
+The NotebookLM outputs a Module gets: Explainer video, Deep Dive audio, infographic. Never
+blocks the Module going live.
+_Avoid_: videos, assets
+
+**Notebook recipe**:
+The step-by-step instructions the skill prints for the Owner to make Module media by hand when
+driving NotebookLM fails.
+_Avoid_: manual mode
+
+### The build
+
+**Build ledger**:
+The record of one Course's build state, kept in its Course project: intake answers, Materials
+inventory, Module map, the state of every Module, sitting, job and media item, and the Owner's
+checkpoint answers. What a broken session resumes from.
+_Avoid_: MEMORY.md (v1's ledger), status file, progress log
+
+**Module map**:
+The Owner-confirmed list of a Course's Modules and which Materials feed each one.
+_Avoid_: outline, syllabus
+
+**Module wave**:
+The run that takes one Module from its Materials to live: reading, writing, sims, recompute,
+gates, checkpoint, merge. Many Module waves run at once in one session.
+_Avoid_: phase (v1's P-steps), batch
+
+**Sitting wave**:
+The run, started only by Sitting complete, that builds one Exam sitting's Exam room and Revision.
+_Avoid_: exam phase
+
+**Course style sheet**:
+The Professor's notation, symbols, units, table forms and voice for one Course, written from
+Module 1 before any other Module is written. Every writer follows it.
+_Avoid_: style guide (alone), conventions
+
+**Blind reader**:
+One of two agents that transcribe the same Materials independently, never seeing each other's
+output, so their numbers can be compared.
+_Avoid_: extractor, OCR agent
+
+**Checkpoint**:
+The Owner's batched confirmation of one Module's open items (sheet-vs-recompute conflicts,
+scaled dimensions, new Disciplines) before it merges.
+_Avoid_: review, approval gate
+
+**Build evidence**:
+The transcriptions, recompute logs and gate reports behind a Course's content, kept with the
+Course project and never published.
+_Avoid_: scratch, artefacts
+
+**Media pass**:
+The separate, resumable run that makes Module media and sitting audio, spanning days on quota.
+_Avoid_: media phase
+
+**Media queue**:
+The one queue of pending Module media shared by all the Owner's Courses, drained nearest Exam
+sitting first within the plan's daily quota.
+_Avoid_: backlog
