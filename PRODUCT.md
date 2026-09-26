@@ -39,7 +39,7 @@ Accuracy is gated (every table recomputed, figures checked against the source).
 ## Operating Context
 
 Late-night, time-pressured revision. The student has paper beside them and copies the method.
-Disciplines vary: math, logic circuits, electric circuits, heat transfer, machinery, ML. Heavy
+Disciplines vary: math, logic circuits, electric circuits, heat transfer, machinery, engineering chemistry, ML. Heavy
 tools (circuit simulators, 3D parts, plots) load on demand inside a light shell.
 
 ## Capabilities and Constraints

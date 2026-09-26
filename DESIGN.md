@@ -154,7 +154,7 @@ Motion is the pen on the sheet: ruled lines draw along the writing direction, va
 
 ## Colors
 
-A low-chroma pad of one hue family (paper, desk, grid, printing), fixed graphite and pencil inks for the student's hand, and one red pen. The frontmatter values are the reference palette (ML, green pad); a second palette (circuits, blue-grey pad) is recorded in the sidecar.
+A low-chroma pad of one hue family (paper, desk, grid, printing), fixed graphite and pencil inks for the student's hand, and one red pen. The frontmatter values are the reference palette (ML, green pad); the full starting catalogue of seven pads is below and in the sidecar (`coursePalettes.catalogue`).
 
 ### The Course palette slot (themeable)
 
@@ -175,12 +175,30 @@ A Course supplies a value for each of these slots. The roles never move; only th
 
 ### How a Course gets its pad (ticket #20)
 
-- **Catalogue first.** A catalogue of about six cool-hued pads, each checked against the requirements below and mapped to a default discipline, approved once by the Owner. No red, orange or brown pads: they fight the red pen.
-- **Confirmed at intake.** The agent suggests the discipline's pad; the Owner confirms or swaps it.
+- **Catalogue first.** A catalogue of cool-hued pads (the starting seven are below), each checked against the requirements below and mapped to a default discipline, approved once by the Owner. No red, orange or brown pads: they fight the red pen.
+- **Confirmed at intake.** The agent suggests the discipline's pad; the Owner confirms or swaps it. A discipline with no mapped pad gets the pad of the nearest listed discipline (control → Blue-grey, fluids and thermodynamics → Teal, statics and strength of materials → Steel), and Graphite-grey when nothing is close.
 - **Off-catalogue on request.** The Owner may name any other colour; the agent builds a pad from it. A good one joins the catalogue only with the Owner's approval.
 - **One config value.** The pad is a single setting in the Course config; changing it rebuilds the whole site.
 - **Tools and media.** Simulators, 3D viewers and plots take the pad's frame (sheet, grid, print, graphite) but keep colours that carry meaning (e.g. CircuitJS voltage colours). NotebookLM's Custom style is given the Course pad.
 - **No colour-blind simulation gate.** Red marks always carry a shape (ring, double frame, stroke), so no meaning depends on colour alone; the ML green pad stays even though red and green print converge under deuteranopia (1.7:1 by lightness only).
+
+### The starting pad catalogue (ticket #21)
+
+Approved by the Owner on 2026-09-26. Every pad passes every requirement below; the tightest pair on each is the red pen on the sheet (last column). The pads share one geometry in OKLCH (sheet L ≈ 93.6, desk ≈ 86.8, fine grid ≈ 86.9, major grid ≈ 81.4, print ≈ 36–42), so only hue and chroma differ.
+
+| Pad | Default discipline | desk | sheet | grid-fine | grid-major | print | muted | shadow tint | red on sheet |
+|---|---|---|---|---|---|---|---|---|---|
+| Green (`green`) | Machine learning | `#CFDCC2` | `#E6EFDC` | `#CADBBB` | `#B9CEA7` | `#2E5A38` | `#4F5B4B` | `30 45 28` | 4.73 |
+| Blue-grey (`bluegrey`) | Electric circuits | `#C8D5DE` | `#E1E9EF` | `#C9D6E0` | `#B3C4D1` | `#1F4B73` | `#4A5763` | `26 40 55` | 4.56 |
+| Teal (`teal`) | Heat transfer | `#BDDBD8` | `#DAEFED` | `#BBDCD9` | `#A2CCC8` | `#035455` | `#455A5A` | `22 52 50` | 4.68 |
+| Slate-violet (`violet`) | Mathematics | `#D3D1E2` | `#EAE8F4` | `#D4D1E4` | `#C2BFD6` | `#493F6F` | `#555364` | `46 44 58` | 4.63 |
+| Steel (`steel`) | Machinery | `#C8D6DA` | `#E2ECEE` | `#C8D7DB` | `#B3C6CB` | `#32484F` | `#4C575C` | `34 49 52` | 4.66 |
+| Graphite-grey (`graphite`) | Logic circuits | `#D2D3D6` | `#E9EAEC` | `#D3D4D7` | `#C1C2C6` | `#3A3B43` | `#54555A` | `43 45 56` | 4.65 |
+| Indigo ink (`indigo`) | Engineering chemistry | `#CCD3E5` | `#E5EAF6` | `#CCD4E8` | `#B8C2DA` | `#2D3E7E` | `#4E5566` | `40 45 61` | 4.65 |
+
+- **Steel** is the least distinct pad: its paper sits close to Blue-grey and Graphite-grey, and it is told apart mainly by its darker grey-blue print.
+- **Graphite-grey** has an almost grey print (OKLCH chroma 0.014), so it meets the red-pen hue rule by being achromatic: red is the only colour on that pad.
+- **Indigo ink** was chosen over Aubergine (too near the red, 70° away) and Malachite (too near Teal) for Engineering chemistry.
 
 ### Contrast requirements for any Course palette
 
@@ -191,7 +209,7 @@ The build checks every pad, catalogue or custom, against these, measured WCAG 2.
 - `sheet` on `print` at least 4.5:1 (the Next button and selection).
 - `grid-fine` and `grid-major` no more than about 1.5:1 on `sheet`.
 - `sheet` lighter than `desk`.
-- `red-pen` distinguishable from `print` by hue, not only lightness: red must still read as the correcting pen on that pad.
+- `red-pen` distinguishable from `print` by hue, not only lightness: red must still read as the correcting pen on that pad. Measured as an OKLCH hue gap of at least 60° from the red (hue 32°), or a near-grey print (chroma under 0.035).
 
 ### Named Rules
 
