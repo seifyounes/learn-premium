@@ -50,13 +50,16 @@ _Avoid_: subject type (v1's four generic kinds), subject, field
 
 **Toolkit**:
 The interactive tools a Discipline uses by default for its Worked examples and Lab: one named
-tool per kind of interaction, falling back to an Agent-built sim where no tool fits.
+tool per kind of interaction. Circuit and automation Disciplines use Agent-built sims throughout;
+elsewhere a ready-made tool is named where one fits, with an Agent-built sim as the fallback.
 _Avoid_: tool stack, widgets
 
 **Agent-built sim**:
-An interactive the agent writes itself for a topic no ready-made tool fits. It ships only if its
-model can be recomputed independently at build; otherwise the figure gets a step-through
-animation instead.
+An interactive the agent writes itself, drawn in the pad's inks, instead of embedding someone
+else's tool: the default for circuit and automation Disciplines (preferred on feel over the
+ready-made simulators) and the fallback wherever no tool fits. It shows the Professor's figure
+only; students tune it but never rewire it. It ships only if its model can be recomputed
+independently at build; otherwise the figure gets a step-through animation instead.
 _Avoid_: custom widget, demo, generated sim
 
 **Pilot course**:
