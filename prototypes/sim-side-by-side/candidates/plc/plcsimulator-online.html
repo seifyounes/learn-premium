@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" data-pad="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PLCSimulator.online</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="embed.css">
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">PLCSimulator.online</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Two-conveyor start (student builds it)</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+
+  <div class="stage">
+    <figure class="box-print frame-box" style="margin:0">
+      <div class="head"><span class="label">Live site, embedded as it is</span>
+        <a href="https://app.plcsimulator.online/" target="_blank" rel="noopener">Open full screen</a></div>
+      <iframe class="tall" src="https://app.plcsimulator.online/" title="PLCSimulator.online ladder editor and simulator" loading="eager"></iframe>
+    </figure>
+
+    <div class="prog">
+      <div>
+        <span class="label">Program to enter (its instruction set)</span>
+        <pre>Rung 1  ─┤START├─┬─┤STOP├──( M1 )
+         ─┤M1├────┘
+Rung 2  ─┤M1├──[TON T1  PT 5000]──( M2 )</pre>
+      </div>
+      <div>
+        <span class="label">What a student has to do</span>
+        <ol>
+          <li>Empty the diagram (blank-page icon), then drag three rungs from the toolbox.</li>
+          <li>Drag in contacts, coils and a TON; add a branch under START for the seal-in.</li>
+          <li>Create bool tags START, STOP, M1, M2 and a timer T1 (preset 5000) in the tag table; assign them.</li>
+          <li>Press the green run button, set STOP to 1 (the NC button at rest), then toggle START on and off in the tag table.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <section class="honesty">
+    <h2>For the Owner</h2>
+    <ul>
+      <li><b>Real vs faked:</b> nothing is faked; this is the public app (app.plcsimulator.online) in an iframe (no X-Frame-Options or CSP, checked with curl). The program is <b>not loaded</b>: the site only opens diagrams from its own cloud share links (sign-in required to create one) and has no file import, so it opens on its own sample or your last diagram.</li>
+      <li><b>First load:</b> <span class="qty">about 1.39 MB</span> over 56 requests at desktop size (1.27 MB on a phone), about a third of it AdSense and Google Tag Manager running inside the frame, plus a 60 KB handwriting font for its hints.</li>
+      <li><b>Touch:</b> the site has a phone layout, but rungs are built by HTML5 drag and drop, which mobile browsers mostly ignore; toggling tag values and simulating work by tap.</li>
+      <li><b>Maintenance:</b> the app now shows a banner from its author: he no longer develops it and points students to studio.rungs.dev (closed).</li>
+      <li><b>Accuracy:</b> not checked here (program not loaded). Research: Rockwell-style TON/TOF/TONR/CTU/CTD with a fixed 66 ms scan; no TP; its TOF counts ET down, which is not IEC.</li>
+      <li><b>To ship:</b> fork it (GPL-3.0), strip Firebase, ads and analytics, and add a load-from-JSON route so each lecture's program opens ready to run.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

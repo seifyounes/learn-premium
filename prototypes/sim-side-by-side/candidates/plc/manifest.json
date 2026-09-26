@@ -1,0 +1,52 @@
+{
+  "area": "plc",
+  "title": "PLC & ladder logic",
+  "pad": "steel",
+  "circuit": "Two-conveyor start: START (NO) / STOP (NC) seal-in for M1, TON 5 s starts M2, STOP drops both (program.md)",
+  "candidates": [
+    {
+      "id": "pad-native-ladder",
+      "name": "Pad-native ladder",
+      "file": "pad-native-ladder.html",
+      "kind": "Agent-built",
+      "oneLine": "Own scan engine; SVG rungs with live power trace, TON gauge, moving conveyors, timing chart.",
+      "loadKB": 192,
+      "touch": "works",
+      "accuracy": "check-pad-native-ladder.mjs replays program.json's answer key through the engine in Node: 46/46 PASS (10 ms scan, IEC TON)",
+      "caveats": "Layout engine handles series, one-level branches, contacts, coils and TON only; plant is visual only; tested in emulated touch, not on a device."
+    },
+    {
+      "id": "plcsimulator-online",
+      "name": "PLCSimulator.online",
+      "file": "plcsimulator-online.html",
+      "kind": "Ready-made",
+      "oneLine": "The live app (app.plcsimulator.online) in an iframe; student builds the rungs.",
+      "loadKB": 1388,
+      "touch": "partial",
+      "accuracy": "not checked: the program cannot be loaded (cloud share links need sign-in, no file import)",
+      "caveats": "Author banner says it is no longer developed (points to closed rungs.dev); AdSense and Google Tag Manager run inside the frame; drag-and-drop rung building."
+    },
+    {
+      "id": "cdilga-lle",
+      "name": "Ladder Logic Editor (cdilga)",
+      "file": "cdilga-lle.html",
+      "kind": "Ready-made",
+      "oneLine": "Structured Text editor that generates the ladder; self-hosted build, program preloaded.",
+      "loadKB": 1407,
+      "touch": "works",
+      "accuracy": "App's own interpreter and store replayed in Node (checks/cdilga-lle.result.txt): 10/14 PASS; M2 switches on 1 scan late and off 2 scans late (100 ms scan)",
+      "caveats": "Dark IDE look, rungs do not light up (power flow not wired); program loads via same-origin localStorage, so the live demo can't be preloaded."
+    },
+    {
+      "id": "circuitjs-relay",
+      "name": "CircuitJS relay ladder",
+      "file": "circuitjs-relay.html",
+      "kind": "Ready-made",
+      "oneLine": "Same logic as a hardwired relay circuit: K1 seal-in, 5 s on-delay relay, lamps.",
+      "loadKB": 1297,
+      "touch": "partial",
+      "accuracy": "check-circuitjs-relay.mjs presses the switches in headless Chrome, logs every time step: 5/5 PASS (M2 5.010 s after M1, STOP drops all within 20 ms)",
+      "caveats": "Electrical sim, not a PLC: no scan, no ET readout; circuit shrinks to tiny on a phone; lamps stand in for motors."
+    }
+  ]
+}

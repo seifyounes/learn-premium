@@ -1,0 +1,29 @@
+{
+  "devices": {
+    "A": { "type": "Button", "label": "A", "net": "A", "bits": 1 },
+    "B": { "type": "Button", "label": "B", "net": "B", "bits": 1 },
+    "Cin": { "type": "Button", "label": "Cin", "net": "Cin", "bits": 1 },
+    "G1": { "type": "Xor", "label": "G1", "bits": 1 },
+    "G2": { "type": "And", "label": "G2", "bits": 1 },
+    "G3": { "type": "Xor", "label": "G3", "bits": 1 },
+    "G4": { "type": "And", "label": "G4", "bits": 1 },
+    "G5": { "type": "Or", "label": "G5", "bits": 1 },
+    "S": { "type": "Lamp", "label": "S", "net": "S", "bits": 1 },
+    "Cout": { "type": "Lamp", "label": "Cout", "net": "Cout", "bits": 1 }
+  },
+  "connectors": [
+    { "from": { "id": "A", "port": "out" }, "to": { "id": "G1", "port": "in1" } },
+    { "from": { "id": "B", "port": "out" }, "to": { "id": "G1", "port": "in2" } },
+    { "from": { "id": "A", "port": "out" }, "to": { "id": "G2", "port": "in1" } },
+    { "from": { "id": "B", "port": "out" }, "to": { "id": "G2", "port": "in2" } },
+    { "from": { "id": "G1", "port": "out" }, "to": { "id": "G3", "port": "in1" } },
+    { "from": { "id": "Cin", "port": "out" }, "to": { "id": "G3", "port": "in2" } },
+    { "from": { "id": "G1", "port": "out" }, "to": { "id": "G4", "port": "in1" } },
+    { "from": { "id": "Cin", "port": "out" }, "to": { "id": "G4", "port": "in2" } },
+    { "from": { "id": "G4", "port": "out" }, "to": { "id": "G5", "port": "in1" } },
+    { "from": { "id": "G2", "port": "out" }, "to": { "id": "G5", "port": "in2" } },
+    { "from": { "id": "G3", "port": "out" }, "to": { "id": "S", "port": "in" } },
+    { "from": { "id": "G5", "port": "out" }, "to": { "id": "Cout", "port": "in" } }
+  ],
+  "subcircuits": {}
+}

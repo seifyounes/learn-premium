@@ -1,0 +1,159 @@
+/* PROTOTYPE (throwaway): pad-native pneumatic simulator view. Steel pad. */
+
+:root {
+  /* Meaning colours inside the simulator (calm, far from the red pen's hue). */
+  --air: #1C66C0;          /* pressurised line: 4.4:1 on the steel sheet */
+  --air-tint: rgb(28 102 192 / .16);
+  --vent: #5E7F99;         /* exhausting line (dashed, moving toward the exhaust) */
+  --lfs: 17px;             /* SVG label size in viewBox units, grown on phones */
+  --pfs: 13px;
+}
+@media (max-width: 640px) { :root { --lfs: 27.5px; } }
+
+.sim {
+  display: grid; grid-template-columns: minmax(0, 1fr) 316px; gap: 20px;
+  align-items: start;
+}
+@media (max-width: 980px) { .sim { grid-template-columns: minmax(0, 1fr); } }
+
+.stage { display: grid; gap: 12px; min-width: 0; }
+figure { margin: 0; }
+
+/* ---------- circuit ---------- */
+.circuit-box { padding: 6px; background: transparent; }
+#circuit { display: block; width: 100%; height: auto; max-height: calc(100vh - 334px); min-height: 240px; touch-action: manipulation; }
+@media (max-width: 980px) { #circuit { max-height: none; } }
+
+#circuit .lbl {
+  font: 700 var(--lfs) / 1 var(--f-print); font-variation-settings: "wdth" 80; fill: var(--graphite);
+  paint-order: stroke; stroke: var(--sheet); stroke-width: 5px; stroke-linejoin: round;
+}
+#circuit .lbl.sub { font-weight: 600; fill: var(--muted); }
+#circuit .pnum {
+  font: 500 var(--pfs) / 1 var(--f-qty); fill: var(--muted);
+  paint-order: stroke; stroke: var(--sheet); stroke-width: 4px;
+}
+@media (max-width: 640px) { #circuit .pnum { display: none; } }
+
+/* ISO symbols: graphite drawing ink */
+#circuit .sym { fill: none; stroke: var(--graphite); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+#circuit .sym-fill { fill: var(--sheet); stroke: var(--graphite); stroke-width: 1.8; }
+#circuit .arrowhead { fill: var(--graphite); stroke: none; }
+#circuit .thin { stroke-width: 1.3; }
+
+/* Lines (nets): idle pencil, live air, exhausting dashed vent */
+#circuit .net .base { fill: none; stroke: var(--pencil); stroke-width: 1.4; stroke-linejoin: round; opacity: .75; }
+#circuit .net .air {
+  fill: none; stroke: var(--air); stroke-width: 3.4; stroke-linejoin: round; stroke-linecap: square;
+  stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0;
+  transition: stroke-dashoffset 110ms linear, opacity 0s;
+}
+#circuit .net.sig .air { stroke-width: 2.8; }
+#circuit .net.on .air { stroke-dashoffset: 0; opacity: 1; transition-delay: calc(var(--lv, 0) * 90ms); }
+#circuit .net:not(.on) .air { transition: opacity 180ms var(--ease-out), stroke-dashoffset 0s 180ms; }
+#circuit .net .vent { fill: none; stroke: var(--vent); stroke-width: 2.4; stroke-dasharray: 5 6; opacity: 0; }
+#circuit .net.vent .vent { opacity: 1; animation: vent-flow 520ms linear infinite; }
+#circuit.paused .net.vent .vent { animation-play-state: paused; }
+@keyframes vent-flow { to { stroke-dashoffset: -11; } }
+#circuit .dot { fill: var(--pencil); }
+#circuit .net.on .dot { fill: var(--air); }
+
+/* Valve internal flow: the supply path in the box that is in line with the ports turns blue */
+#circuit .flow { stroke: var(--graphite); }
+#circuit .valve.live .box-live .flow.feed { stroke: var(--air); stroke-width: 2.4; }
+#circuit .valve.live .box-live .flow.feed + .arrowhead,
+#circuit .valve.live .box-live .ah-feed { fill: var(--air); }
+#circuit .spool { transition: transform 110ms var(--ease-out); }
+#circuit .valve52 .spool { transition: none; } /* driven frame by frame from the engine */
+#circuit .stub { stroke: var(--pencil); stroke-width: 1.4; opacity: .75; }
+#circuit .pilot-on .stub { stroke: var(--air); stroke-width: 2.8; opacity: 1; }
+
+/* Cylinders */
+#circuit .chamber { fill: var(--air-tint); opacity: 0; transition: opacity 160ms var(--ease-out); }
+#circuit .chamber.on { opacity: 1; }
+#circuit .mark line { stroke: var(--pencil); stroke-width: 1.4; }
+#circuit .mark .lbl { font-weight: 600; fill: var(--muted); }
+#circuit .mark.made line { stroke: var(--graphite); stroke-width: 3; }
+#circuit .mark.made .lbl { fill: var(--graphite); font-weight: 800; }
+
+#circuit .hit { fill: transparent; cursor: pointer; }
+#circuit .hit:focus-visible { outline: none; }
+#circuit .start-sym.pressed .sym { stroke-width: 2.6; }
+
+/* ---------- displacement-step diagram ---------- */
+.dsd-box { padding: 8px 10px 6px; background: transparent; }
+.dsd-head { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; justify-content: space-between; margin-bottom: 2px; }
+.dsd-key { font: 400 13px/1.2 var(--f-body); color: var(--muted); display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.dsd-key i { display: inline-block; width: 18px; height: 0; border-top: 2.4px solid var(--graphite); margin-inline-start: 6px; }
+.dsd-key i.k-key { border-top: 2px dotted var(--pencil); }
+.dsd-key i.k-air { border-top-color: var(--air); border-top-width: 3px; }
+#dsd { display: block; width: 100%; height: 170px; overflow: visible; }
+#dsd .rule { stroke: var(--pencil); stroke-width: 1; opacity: .55; }
+#dsd .rule.lvl { opacity: .35; stroke-dasharray: 2 4; }
+#dsd .t-lbl { font: 700 15px/1 var(--f-print); font-variation-settings: "wdth" 80; fill: var(--graphite); }
+#dsd .t-lvl { font: 400 13px/1 var(--f-qty); fill: var(--muted); }
+#dsd .t-sig { font: 600 13px/1 var(--f-print); font-variation-settings: "wdth" 80; fill: var(--muted); letter-spacing: .02em; paint-order: stroke; stroke: var(--sheet); stroke-width: 4px; }
+#dsd .sbox rect { fill: var(--sheet); stroke: var(--pencil); stroke-width: 1.2; }
+#dsd .sbox text { font: 500 13px/1 var(--f-qty); fill: var(--pencil); }
+#dsd .sbox.cur rect { fill: var(--graphite); stroke: var(--graphite); }
+#dsd .sbox.cur text { fill: var(--sheet); font-weight: 600; }
+#dsd .sbox .tick { fill: none; stroke: var(--graphite); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+#dsd .sbox.done .tick { stroke-dashoffset: 0; transition: stroke-dashoffset 300ms var(--ease-out); }
+#dsd .key { fill: none; stroke: var(--pencil); stroke-width: 1.6; stroke-dasharray: 1.5 4; stroke-linecap: round; opacity: .8; }
+#dsd .ghost { fill: none; stroke: var(--pencil); stroke-width: 1.6; opacity: .35; }
+#dsd .live { fill: none; stroke: var(--graphite); stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
+#dsd .live.air { stroke: var(--air); stroke-width: 3.2; }
+#dsd .tip { fill: var(--graphite); }
+
+/* ---------- panel ---------- */
+.panel { display: grid; gap: 12px; min-width: 0; }
+@media (max-width: 980px) { .panel { grid-template-columns: 1fr; } }
+
+.start {
+  min-height: 64px; width: 100%; display: flex; flex-direction: column; justify-content: center; gap: 5px;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.start .start-word { font: 800 24px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .14em; }
+.start .start-hint { font: 500 13px/1 var(--f-body); letter-spacing: 0; text-transform: none; opacity: .85; }
+.start[aria-pressed="true"] { background: var(--graphite); border-color: var(--graphite); }
+
+.transport { display: grid; grid-template-columns: 1fr 1.4fr 48px; gap: 8px; }
+.transport .btn { min-height: 46px; padding: 0 10px; }
+.btn.icon { display: grid; place-items: center; padding: 0; }
+.btn.icon svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.speed-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.speed-row .seg button { min-height: 44px; min-width: 56px; font-family: var(--f-qty); letter-spacing: 0; text-transform: none; font-size: 15px; font-weight: 500; }
+
+.now { padding: 10px 12px 12px; display: grid; gap: 8px; }
+.now-top { display: flex; align-items: center; gap: 10px; }
+.steps { display: inline-flex; gap: 4px; }
+.steps b {
+  width: 24px; height: 24px; display: grid; place-items: center; border: 1.2px solid var(--pencil);
+  font: 500 13px/1 var(--f-qty); color: var(--pencil); background: var(--sheet);
+}
+.steps b.cur { background: var(--graphite); border-color: var(--graphite); color: var(--sheet); font-weight: 600; }
+.steps b.done { color: var(--graphite); border-color: var(--graphite); }
+.move { margin-inline-start: auto; font-size: 26px; font-weight: 500; color: var(--graphite); min-width: 2.4ch; text-align: end; }
+.caption { margin: 0; font-size: 15px; line-height: 1.45; min-height: 4.35em; color: var(--graphite); }
+.caption .land { display: inline; animation: land 260ms var(--ease-out) both; }
+@keyframes land { from { opacity: 0; transform: translateY(-2px); } }
+
+.readout { width: 100%; }
+.readout th { width: 42%; }
+.readout td { color: var(--graphite); }
+
+.log { list-style: none; margin: 0; padding: 0; font-size: 13px; line-height: 1.35; color: var(--muted); max-height: 168px; overflow: auto; border-top: 1px solid var(--pencil); }
+.log li { display: grid; grid-template-columns: 5.2ch 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid color-mix(in srgb, var(--pencil) 30%, transparent); }
+.log li:first-child { color: var(--graphite); }
+.log .qty { font-size: 13px; }
+
+.honesty ul { margin: 6px 0 0; padding-inline-start: 18px; }
+.honesty li { margin: 4px 0; max-width: 95ch; }
+.honesty code { font: 400 13.5px/1 var(--f-qty); }
+.honesty .label { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  #circuit .net.on .air { transition: none; }
+  #circuit .net.vent .vent { animation: none; }
+}

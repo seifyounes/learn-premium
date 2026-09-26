@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en" data-pad="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DigitalJS FSM</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="fsm-common.css">
+<style>
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px 24px; align-items: start; }
+  .stage > * { min-width: 0; }
+  .span { grid-column: 1 / -1; }
+  #paper { min-height: 260px; }
+  #fsm-graph { min-height: 300px; }
+  #fsm-graph .joint-paper { margin: 0 auto; }
+  #monitor { min-height: 150px; padding: 8px; }
+  .tool-frame { max-width: 100%; }
+  .legend { font: 400 15px/1.45 var(--f-body); color: var(--muted); margin: 8px 0 0; max-width: 70ch; }
+  .legend .qty { color: var(--graphite); }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+</style>
+<script src="../../node_modules/digitaljs/dist/main.js"></script>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">DigitalJS 0.14 (FSM cell)</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Moore 101 detector</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+
+  <div class="body-pad">
+    <div class="ctrl-row" style="margin-bottom:16px">
+      <button type="button" class="btn primary" id="run" aria-pressed="true">Pause clock</button>
+      <button type="button" class="btn" id="graph">Show state graph</button>
+    </div>
+    <div class="stage">
+      <div>
+        <div class="tool-frame"><span class="label">Circuit (tap X and RESET)</span><div id="paper"></div></div>
+        <p class="legend">DigitalJS numbers the states: <span class="qty">0 1 2 3</span> are S0 S1 S2 S3. Its FSM cell is Mealy (output on each arrow), so each arrow out of a state carries that state's Z: arrows read <span class="qty">input/output</span>, and only the two arrows leaving state <span class="qty">3</span> say <span class="qty">/1</span>.</p>
+      </div>
+      <div>
+        <div class="tool-frame"><span class="label">FSM cell's own state graph</span><div id="fsm-graph"></div></div>
+      </div>
+      <div class="span">
+        <div class="tool-frame"><span class="label">Waveform monitor (X, CLK, Z)</span><div id="monitor"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap-honesty">
+    <section class="honesty" aria-label="For the Owner">
+      <h2>For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> DigitalJS 0.14.2 as shipped (its own look, dagre graph, monitor), loading an agent-written circuit (<code>digitaljs-fsm.json</code>). The page adds only the Pause / Show graph buttons and places DigitalJS's graph popup inline instead of in a jQuery dialog.</li>
+        <li><b>Accuracy:</b> <code>check-digitaljs-fsm.mjs</code> runs this FSM cell headless in Node (Clock swapped for a Button so the check can clock it): the test sequence and all 8 state-table entries, <b>20 of 20 PASS</b>. So the FSM cell does run in <code>HeadlessCircuit</code>.</li>
+        <li><b>Moore, bent to fit:</b> the cell is Mealy only, with numbered states and no state names or state outputs; Z is written on every arrow leaving a state. There is no state output wire, so the monitor cannot show the state.</li>
+        <li><b>First load:</b> <span class="qty">2,490 KB</span> cold from the local server (uncompressed; gzip would shrink it, not measured), 2,333 KB of it the DigitalJS bundle.</li>
+        <li><b>Touch:</b> partial. A CDP touch tap on the X button toggles it, but the button face is 18 px; the circuit does not fit a 390 px phone (it scrolls inside its frame) and the monitor's own controls are small.</li>
+        <li><b>To ship:</b> a re-skin (fonts, colours, arrows), a manual clock, state names, and a way to keep the graph from re-laying out differently per machine.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+<script>
+(async function () {
+  const json = await (await fetch("digitaljs-fsm.json")).json();
+  const graphHost = document.getElementById("fsm-graph");
+  const circuit = new digitaljs.Circuit(json, {
+    // DigitalJS opens the FSM graph in a jQuery UI dialog; put it inline on the page instead.
+    windowCallback(type, div, closingCallback) { graphHost.innerHTML = ""; graphHost.appendChild(div.get ? div.get(0) : div); }
+  });
+  const monitor = new digitaljs.Monitor(circuit);
+  const monitorView = new digitaljs.MonitorView({ model: monitor, el: document.getElementById("monitor") });
+  const paper = circuit.displayOn(window.jQuery ? jQuery("#paper") : document.getElementById("paper"));
+  monitor.loadWiresDesc([{ name: "X", path: [], bits: 1 }, { name: "CLK", path: [], bits: 1 }, { name: "Z", path: [], bits: 1 }]);
+  circuit.start();
+
+  const openGraph = () => {
+    const cell = circuit._graph.getCell("fsm");
+    const view = paper.findViewByModel(cell);
+    if (view && view._displayEditor) view._displayEditor({ stopPropagation() {} });
+  };
+  setTimeout(openGraph, 300);
+  document.getElementById("graph").addEventListener("click", openGraph);
+  const run = document.getElementById("run");
+  run.addEventListener("click", () => {
+    if (circuit.running) { circuit.stop(); run.textContent = "Run clock"; run.setAttribute("aria-pressed", "false"); }
+    else { circuit.start(); run.textContent = "Pause clock"; run.setAttribute("aria-pressed", "true"); }
+  });
+  window.__djs = { circuit, monitor, monitorView, paper };
+})().catch((e) => { document.getElementById("paper").textContent = "DigitalJS failed to load: " + e.message; console.error(e); });
+</script>
+</body>
+</html>

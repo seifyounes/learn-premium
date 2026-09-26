@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" data-pad="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logic (jppellet) · Logic circuits</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="logic.css">
+<script src="../../vendor/logic-jppellet/bundle.js"></script>
+<style>
+  #frame { height: 460px; overflow: hidden; }
+  #frame logic-editor { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <div class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Logic (jppellet), web component</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">1-bit full adder</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </div>
+
+  <div class="body-pad">
+    <div class="tool-note">
+      <p class="muted prose">Tap an input (A, B, Cin) to flip it between 0 and 1; outputs S and Cout follow. The round-arrow button in the tool's corner is its own reset. The embed runs in the tool's <i>tryout</i> mode, the one meant for students (no editing).</p>
+    </div>
+
+    <div class="tool-frame" id="frame">
+      <logic-editor id="ed" mode="tryout">
+        <script type="application/json5">
+          { // JSON5, authored for this prototype from circuits/logic/notes.md (G1..G5, nets P G T)
+            v: 8,
+            components: [
+              {type: 'in',  id: 2, pos: [60, 50],  name: 'Cin'},
+              {type: 'in',  id: 0, pos: [60, 150], name: 'A'},
+              {type: 'in',  id: 1, pos: [60, 210], name: 'B'},
+              {type: 'xor', pos: [220, 180], in: [3, 4],   out: 5},   // G1: P = A xor B
+              {type: 'and', pos: [220, 330], in: [6, 7],   out: 8},   // G2: G = A and B
+              {type: 'xor', pos: [420, 200], in: [9, 10],  out: 11},  // G3: S = P xor Cin
+              {type: 'and', pos: [420, 290], in: [12, 13], out: 14},  // G4: T = P and Cin
+              {type: 'or',  pos: [580, 310], in: [15, 16], out: 17},  // G5: Cout = T or G
+              {type: 'out', id: 18, pos: [700, 200], name: 'S'},
+              {type: 'out', id: 19, pos: [700, 310], name: 'Cout'},
+            ],
+            wires: [[0, 3], [1, 4], [0, 6], [1, 7], [5, 9], [2, 10], [5, 12], [2, 13], [14, 15], [8, 16], [11, 18], [17, 19]],
+          }
+        </script>
+      </logic-editor>
+    </div>
+
+    <div class="check" aria-live="polite">
+      <div><span class="label">Inputs A B Cin</span><span class="v" id="in">–</span></div>
+      <div><span class="label">Tool shows S · Cout</span><span class="v" id="out">–</span></div>
+      <div><span class="label">Key (S = A⊕B⊕Cin, Cout = AB + Cin(A⊕B))</span><span class="v" id="key">–</span></div>
+    </div>
+
+    <section class="honesty">
+      <h2>For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> the current Logic build (<code>bundle.js</code> from logic.modulo-info.ch, dated 2026-07-30, MIT), copied to <code>vendor/logic-jppellet/</code>. The full adder was hand-authored in its JSON5 format for this page (same gates and nets as the other candidates); positions are ours. Not re-skinned. The strip above reads the tool's live outputs; it is ours.</li>
+        <li><b>Weight:</b> about 1.1 MB on first load, measured in the browser: the 817 KB bundle (about 250 KB gzipped; this dev server sends it uncompressed), plus 158 KB of Bootstrap 4 CSS that the bundle itself fetches from jsDelivr, plus 145 KB of pad fonts every page shares.</li>
+        <li><b>Touch:</b> partial. Tapping an input works, but to fit a phone the tool's zoom drops to about 40%, so the input circles are roughly 10 px and the names are tiny.</li>
+        <li><b>To ship:</b> its API is thinly documented and the project is small (one maintainer); it has propagation-delay animation, hidden-component exercises and circuit tests we have not tried here.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const ed = $("ed");
+// Read the tool's own components: inputs by name, outputs by name.
+function comps() {
+  const list = ed.editor?.components ?? ed.components;
+  const all = list?.all ? [...list.all()] : list ? [...list] : [];
+  const by = {};
+  for (const c of all) { const n = c._name ?? c.name; if (n) by[n] = c; }
+  return by;
+}
+const val = c => { const v = c?.value ?? c?._value; return Array.isArray(v) ? v[0] : v; };
+function read() {
+  try {
+    const c = comps(); if (!c.A) return;
+    const [A, B, C, S, Co] = ["A", "B", "Cin", "S", "Cout"].map(n => +!!val(c[n]));
+    $("in").textContent = `${A} ${B} ${C}`;
+    $("out").textContent = `${S} · ${Co}`;
+    const eS = A ^ B ^ C, eC = (A & B) | (C & (A ^ B)), ok = eS === S && eC === Co;
+    $("key").innerHTML = `${eS} · ${eC} <span class="${ok ? "ok" : "bad"}">${ok ? "match" : "MISMATCH"}</span>`;
+  } catch (e) { /* not ready */ }
+}
+setInterval(read, 300);
+
+// Only change: the tool's own zoom, set once so the circuit fills the frame width (the drawing spans ~740 px at 100%).
+const fit = () => { if (!ed.setZoom || !ed.components) return false;
+  const z = Math.max(30, Math.min(150, (document.getElementById("frame").clientWidth / 780) * 100));
+  ed.setZoom(z, false);
+  document.getElementById("frame").style.height = Math.max(200, Math.round(3.6 * z + 40)) + "px";
+  return true; };
+const t = setInterval(() => fit() && clearInterval(t), 100);
+</script>
+</body>
+</html>

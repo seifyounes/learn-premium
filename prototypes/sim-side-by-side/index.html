@@ -1,0 +1,196 @@
+<!doctype html>
+<!-- PROTOTYPE (throwaway): side-by-side simulator candidates for the wayfinder ticket
+     "Which simulators look and feel best, side by side?" (seifyounes/learn-premium#24).
+     One route, switchable by ?area=<area>&tool=<id>[&vs=<id>]; a floating bar cycles candidates. -->
+<html lang="en" data-pad="bluegrey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulators Side by Side</title>
+<link rel="stylesheet" href="shared/pad.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .top { flex: none; background: var(--sheet); border-bottom: 2px solid var(--print); }
+  .top .title-block { grid-template-columns: minmax(180px, 1.1fr) 3fr; border: 0; }
+  .areas { display: flex; flex-wrap: wrap; gap: 0; border: 1.5px solid var(--print); width: max-content; max-width: 100%; }
+  .areas button {
+    appearance: none; border: 0; border-inline-start: 1px solid var(--print); background: var(--sheet); color: var(--print);
+    font: 700 14px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase;
+    min-height: 40px; padding: 0 12px; cursor: pointer;
+  }
+  .areas button:first-child { border-inline-start: 0; }
+  .areas button[aria-pressed="true"] { background: var(--graphite); color: var(--sheet); }
+  .areas button:hover:not([aria-pressed="true"]) { background: color-mix(in srgb, var(--print) 10%, var(--sheet)); }
+  .areas select { display: none; }
+  .stage { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--print); }
+  .stage.vs { grid-template-columns: 1fr 1fr; }
+  .pane { position: relative; min-width: 0; min-height: 0; background: var(--desk); display: flex; flex-direction: column; }
+  .pane[hidden] { display: none; }
+  .pane .pane-head { display: none; }
+  .stage.vs .pane .pane-head {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--sheet); border-bottom: 1px solid var(--print);
+  }
+  .pane-head select { font: 600 15px/1.2 var(--f-body); color: var(--graphite); background: var(--sheet); border: 1.2px solid var(--pencil); min-height: 36px; border-radius: 0; flex: 1; min-width: 0; }
+  iframe { flex: 1; width: 100%; border: 0; display: block; background: var(--desk); }
+  .empty { margin: 40px auto; max-width: 60ch; padding: 0 16px; }
+
+  /* The switcher is prototype chrome, deliberately NOT part of the design being judged. */
+  .switcher {
+    position: fixed; inset-block-end: 14px; inset-inline-start: 50%; transform: translateX(-50%); z-index: 10;
+    display: flex; align-items: center; gap: 2px; padding: 4px; background: #111; color: #fff;
+    border-radius: 999px; box-shadow: 0 6px 24px rgb(0 0 0 / .35); font: 600 14px/1.2 system-ui, sans-serif;
+    max-width: calc(100vw - 16px);
+  }
+  .switcher button, .switcher a {
+    appearance: none; border: 0; background: transparent; color: #fff; min-width: 44px; min-height: 44px; border-radius: 999px;
+    cursor: pointer; font: inherit; display: inline-grid; place-items: center; text-decoration: none; padding: 0 10px;
+  }
+  .switcher button:hover, .switcher a:hover { background: #333; }
+  .switcher button[aria-pressed="true"] { background: #fff; color: #111; }
+  .switcher .now { padding: 0 8px; text-align: center; min-width: 0; }
+  .switcher .now b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+  .switcher .now small { display: block; opacity: .7; font-weight: 500; font-size: 12px; white-space: nowrap; }
+  .switcher .wide-only { display: inline-grid; }
+
+  @media (max-width: 1099px) {
+    .stage.vs { grid-template-columns: 1fr; }
+    .stage.vs .pane:nth-child(2) { display: none; }
+    .switcher .wide-only { display: none; }
+  }
+  @media (max-width: 480px) {
+    .switcher .now b { max-width: 34vw; }
+    .switcher a { padding: 0 8px; }
+  }
+  @media (max-width: 760px) {
+    .top .title-block { grid-template-columns: 1fr; }
+    .top .title-block > .cell:first-child { display: none; }
+    .areas { width: 100%; }
+    .areas button { display: none; }
+    .areas select {
+      display: block; width: 100%; min-height: 44px; border: 0; background: var(--sheet); color: var(--graphite);
+      font: 700 16px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .06em; text-transform: uppercase; padding: 0 10px; border-radius: 0;
+    }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="title-block">
+    <div class="cell"><span class="label">Prototype</span><span class="value">Simulators, side by side</span></div>
+    <div class="cell"><span class="label">Area</span><div class="areas" id="areas"></div></div>
+  </div>
+</header>
+
+<div class="stage" id="stage">
+  <section class="pane" id="paneA"><div class="pane-head"><span class="label">Left</span><select id="selA" aria-label="Left candidate"></select></div><iframe id="frameA" title="Candidate"></iframe></section>
+  <section class="pane" id="paneB" hidden><div class="pane-head"><span class="label">Right</span><select id="selB" aria-label="Right candidate"></select></div><iframe id="frameB" title="Compared candidate"></iframe></section>
+</div>
+
+<nav class="switcher" aria-label="Prototype switcher">
+  <button id="prev" aria-label="Previous candidate">&larr;</button>
+  <div class="now"><b id="nowName">…</b><small id="nowMeta"></small></div>
+  <button id="next" aria-label="Next candidate">&rarr;</button>
+  <button id="vsBtn" class="wide-only" aria-pressed="false" title="Compare two side by side">Compare</button>
+  <a id="alone" href="#" target="_blank" rel="noopener" title="Open this candidate on its own (use this on a phone)">Open&nbsp;alone</a>
+</nav>
+
+<script type="module">
+const AREAS = [
+  { id: 'analog', title: 'Analog & power', pad: 'bluegrey' },
+  { id: 'logic', title: 'Logic', pad: 'graphite' },
+  { id: 'plc', title: 'PLC / ladder', pad: 'steel' },
+  { id: 'pneumatics', title: 'Pneumatics', pad: 'steel' },
+  { id: 'control', title: 'Control', pad: 'bluegrey' },
+  { id: 'fsm', title: 'FSM', pad: 'graphite' },
+];
+const manifests = {};
+await Promise.all(AREAS.map(async a => {
+  try { const r = await fetch(`candidates/${a.id}/manifest.json`, { cache: 'no-store' }); if (r.ok) manifests[a.id] = await r.json(); } catch {}
+}));
+
+const $ = id => document.getElementById(id);
+const params = () => new URLSearchParams(location.search);
+const list = area => manifests[area]?.candidates ?? [];
+
+function state() {
+  const p = params();
+  const area = AREAS.some(a => a.id === p.get('area')) ? p.get('area') : AREAS[0].id;
+  const c = list(area);
+  const tool = c.some(x => x.id === p.get('tool')) ? p.get('tool') : c[0]?.id;
+  const vs = c.some(x => x.id === p.get('vs')) ? p.get('vs') : null;
+  return { area, tool, vs };
+}
+function go(next, push = false) {
+  const p = new URLSearchParams();
+  p.set('area', next.area); if (next.tool) p.set('tool', next.tool); if (next.vs) p.set('vs', next.vs);
+  history[push ? 'pushState' : 'replaceState'](null, '', '?' + p);
+  render();
+}
+const src = (area, id) => `candidates/${area}/${list(area).find(x => x.id === id)?.file ?? id + '.html'}`;
+
+function render() {
+  const s = state();
+  const area = AREAS.find(a => a.id === s.area);
+  document.documentElement.dataset.pad = manifests[s.area]?.pad ?? area.pad;
+
+  // area picker: printed segments on a laptop, a select on a phone
+  const box = $('areas'); box.innerHTML = '';
+  const sel = document.createElement('select'); sel.setAttribute('aria-label', 'Area');
+  for (const a of AREAS) {
+    const n = list(a.id).length;
+    const b = document.createElement('button'); b.textContent = a.title + (n ? '' : ' ·');
+    b.title = n ? `${n} candidates` : 'still being built';
+    b.setAttribute('aria-pressed', a.id === s.area); b.onclick = () => go({ area: a.id }, true); box.append(b);
+    const o = new Option(`${a.title}${n ? ` (${n})` : ' (building)'}`, a.id, false, a.id === s.area); sel.append(o);
+  }
+  sel.onchange = () => go({ area: sel.value }, true); box.append(sel);
+
+  const c = list(s.area);
+  const stage = $('stage');
+  if (!c.length) {
+    $('frameA').srcdoc = `<link rel="stylesheet" href="${location.origin}${location.pathname.replace(/[^/]*$/, '')}shared/pad.css"><div class="empty" style="margin:40px auto;max-width:60ch;padding:0 16px;font:17px/1.5 system-ui">The ${area.title} candidates are still being built. Reload in a while.</div>`;
+    $('nowName').textContent = area.title; $('nowMeta').textContent = 'still being built';
+    $('paneB').hidden = true; stage.classList.remove('vs'); return;
+  }
+  const i = c.findIndex(x => x.id === s.tool);
+  const cur = c[i];
+  const want = (f, url) => { if (f.dataset.src !== url) { f.dataset.src = url; f.src = url; } };
+  want($('frameA'), src(s.area, cur.id));
+  $('frameA').title = cur.name;
+  $('nowName').textContent = `${String.fromCharCode(65 + i)} · ${cur.name}`;
+  $('nowMeta').textContent = `${area.title} · ${i + 1} of ${c.length} · ${cur.kind}`;
+  $('alone').href = src(s.area, cur.id);
+
+  const fill = (el, value) => { el.innerHTML = ''; c.forEach((x, k) => el.append(new Option(`${String.fromCharCode(65 + k)} · ${x.name}`, x.id, false, x.id === value))); };
+  fill($('selA'), cur.id);
+  const vsOn = !!s.vs;
+  $('vsBtn').setAttribute('aria-pressed', vsOn);
+  stage.classList.toggle('vs', vsOn); $('paneB').hidden = !vsOn;
+  if (vsOn) { fill($('selB'), s.vs); want($('frameB'), src(s.area, s.vs)); }
+}
+
+function step(d) {
+  const s = state(); const c = list(s.area); if (!c.length) return;
+  const i = c.findIndex(x => x.id === s.tool);
+  go({ ...s, tool: c[(i + d + c.length) % c.length].id });
+}
+$('prev').onclick = () => step(-1);
+$('next').onclick = () => step(1);
+$('vsBtn').onclick = () => {
+  const s = state(); const c = list(s.area);
+  if (s.vs) return go({ ...s, vs: null });
+  const other = c.find(x => x.id !== s.tool); if (other) go({ ...s, vs: other.id });
+};
+$('selA').onchange = e => go({ ...state(), tool: e.target.value });
+$('selB').onchange = e => go({ ...state(), vs: e.target.value });
+addEventListener('keydown', e => {
+  if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft') step(-1);
+  if (e.key === 'ArrowRight') step(1);
+});
+addEventListener('popstate', render);
+render();
+</script>
+</body>
+</html>

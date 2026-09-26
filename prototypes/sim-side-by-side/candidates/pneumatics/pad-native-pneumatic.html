@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" data-pad="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pad-native pneumatic</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="pad-native-pneumatic.css">
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Pad-native pneumatic</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value"><span style="white-space:nowrap">A+ B+ B− A−</span> · cascade</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Agent-built</span></div>
+  </header>
+
+  <section class="body-pad sim">
+    <div class="stage">
+      <figure class="circuit-box box">
+        <svg id="circuit" viewBox="0 0 730 540" role="img" aria-labelledby="circuit-title">
+          <title id="circuit-title">Two double-acting cylinders A and B on a two-group cascade: A+ B+ B− A−</title>
+        </svg>
+      </figure>
+
+      <figure class="dsd-box box">
+        <figcaption class="dsd-head">
+          <span class="label">Displacement-step diagram</span>
+          <span class="dsd-key"><i class="k-live"></i>this run <i class="k-key"></i>answer key <i class="k-air"></i>live group line</span>
+        </figcaption>
+        <svg id="dsd" aria-label="Displacement-step diagram, drawn as the cycle runs"></svg>
+      </figure>
+    </div>
+
+    <aside class="panel">
+      <button class="btn primary start" id="start" type="button" aria-pressed="false">
+        <span class="start-word">Start</span>
+        <span class="start-hint">tap: one cycle · hold: repeat</span>
+      </button>
+
+      <div class="transport">
+        <button class="btn" id="play" type="button" aria-pressed="false">Pause</button>
+        <button class="btn" id="step" type="button" title="Run to the next event, then hold (→)">Next event</button>
+        <button class="btn icon" id="reset" type="button" aria-label="Reset to rest">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.1-5" /><path d="M5 3.5V8h4.5" /></svg>
+        </button>
+      </div>
+
+      <div class="speed-row">
+        <span class="label">Speed</span>
+        <div class="seg" id="speed" role="group" aria-label="Simulation speed">
+          <button type="button" data-speed="0.25">¼×</button>
+          <button type="button" data-speed="0.5" aria-pressed="true">½×</button>
+          <button type="button" data-speed="1">1×</button>
+        </div>
+      </div>
+
+      <div class="now box-print" aria-live="polite">
+        <div class="now-top">
+          <span class="label">Step</span>
+          <span class="steps" id="steps">
+            <b data-k="1">1</b><b data-k="2">2</b><b data-k="3">3</b><b data-k="4">4</b>
+          </span>
+          <span class="move qty" id="move">rest</span>
+        </div>
+        <p class="caption" id="caption">At rest. Line II holds both cylinders home; a0 is made and waits for START.</p>
+      </div>
+
+      <table class="readout" aria-label="Machine state">
+        <tbody>
+          <tr><th scope="row">Cylinder A</th><td id="ro-a">0.00 · home</td></tr>
+          <tr><th scope="row">Cylinder B</th><td id="ro-b">0.00 · home</td></tr>
+          <tr><th scope="row">Group line</th><td id="ro-g">II</td></tr>
+          <tr><th scope="row">Conflicts</th><td id="ro-c">0</td></tr>
+          <tr><th scope="row">Sim time</th><td id="ro-t">0.00 s</td></tr>
+        </tbody>
+      </table>
+
+      <ol class="log" id="log" aria-label="Event log"></ol>
+    </aside>
+  </section>
+
+  <section class="body-pad">
+    <div class="honesty" id="honesty">
+      <p class="label">For the Owner</p>
+      <ul>
+        <li><b>Real:</b> the engine (<code>pad-native-pneumatic.engine.mjs</code>, no DOM) decides every frame: valve states → which lines hold air (union-find through the open valve paths) → pilots shift spools after 40 ms → pistons travel → rollers make/break → next event. The view only draws its state. <code>check-pad-native-pneumatic.mjs</code> runs it in Node: sequence A+ B+ B− A−, no pilot conflict, the step table in <code>circuit.md</code>, return to rest, hold-to-repeat, and it proves the conflict check bites on the naive wiring (24/24 PASS).</li>
+        <li><b>Simplified:</b> kinematic, not physical. Pistons move at constant speed (A 1.0 s out / 0.8 s back, B 0.9 / 0.7 s), lines fill instantly, no loads, forces or flow restrictors. Enough for sequence teaching; not for timing or force questions.</li>
+        <li><b>Hand-drawn:</b> the circuit layout is hand-placed coordinates for this one circuit. Shipping needs an auto-layout (or an agent-authored layout block) from the circuit JSON, a symbol set for 5/3, 3/2 pilot, timers, AND/OR, flow control, and the electro-pneumatic (solenoid + relay) half.</li>
+        <li><b>Weight:</b> first load 58 KB of our own files (HTML 5 KB, CSS 9 KB, view 23 KB, engine 12 KB, shared pad.css 8 KB; uncompressed from the static server) plus the shared pad web fonts. No libraries: one HTML, one CSS, one engine module; fonts come from the shared pad.</li>
+        <li><b>Touch:</b> works. START is a 64 px printed key and the START symbol in the circuit is tappable too; holding either repeats the cycle. The circuit scales to the phone width, labels grow to stay ≥ 12 px.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+<script type="module" src="pad-native-pneumatic.view.mjs"></script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+/* PROTOTYPE (throwaway): the Computation Pad frame shared by every candidate page.
+   Tokens and roles follow DESIGN.md on design/visual-identity. Pad set per page:
+   <html data-pad="bluegrey|graphite|steel|teal|violet|green|indigo">. Light only. */
+
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Atkinson+Hyperlegible+Mono:wght@400;500;600&family=Atkinson+Hyperlegible+Next:wght@400;600;700&display=swap");
+
+:root {
+  --graphite: #262B25;
+  --pencil: #3D433C;
+  --red-pen: #C0341D;
+  /* default pad = Blue-grey (electric circuits) */
+  --desk: #C8D5DE; --sheet: #E1E9EF; --grid-fine: #C9D6E0; --grid-major: #B3C4D1;
+  --print: #1F4B73; --muted: #4A5763; --shadow: 26 40 55;
+
+  --f-print: Archivo, "Arial Narrow", sans-serif;
+  --f-body: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --f-qty: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+}
+[data-pad="green"]    { --desk:#CFDCC2; --sheet:#E6EFDC; --grid-fine:#CADBBB; --grid-major:#B9CEA7; --print:#2E5A38; --muted:#4F5B4B; --shadow:30 45 28; }
+[data-pad="bluegrey"] { --desk:#C8D5DE; --sheet:#E1E9EF; --grid-fine:#C9D6E0; --grid-major:#B3C4D1; --print:#1F4B73; --muted:#4A5763; --shadow:26 40 55; }
+[data-pad="teal"]     { --desk:#BDDBD8; --sheet:#DAEFED; --grid-fine:#BBDCD9; --grid-major:#A2CCC8; --print:#035455; --muted:#455A5A; --shadow:22 52 50; }
+[data-pad="violet"]   { --desk:#D3D1E2; --sheet:#EAE8F4; --grid-fine:#D4D1E4; --grid-major:#C2BFD6; --print:#493F6F; --muted:#555364; --shadow:46 44 58; }
+[data-pad="steel"]    { --desk:#C8D6DA; --sheet:#E2ECEE; --grid-fine:#C8D7DB; --grid-major:#B3C6CB; --print:#32484F; --muted:#4C575C; --shadow:34 49 52; }
+[data-pad="graphite"] { --desk:#D2D3D6; --sheet:#E9EAEC; --grid-fine:#D3D4D7; --grid-major:#C1C2C6; --print:#3A3B43; --muted:#54555A; --shadow:43 45 56; }
+[data-pad="indigo"]   { --desk:#CCD3E5; --sheet:#E5EAF6; --grid-fine:#CCD4E8; --grid-major:#B8C2DA; --print:#2D3E7E; --muted:#4E5566; --shadow:40 45 61; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { color-scheme: light; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--desk); color: var(--graphite);
+  font: 400 17px/1.5 var(--f-body);
+}
+::selection { background: var(--print); color: var(--sheet); }
+
+/* The printed 5 mm grid: fine every 20px, major every 100px, offset -1px. */
+.grid-paper {
+  background-color: var(--sheet);
+  background-image:
+    linear-gradient(to right, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-fine) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-fine) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+}
+
+/* The sheet on the desk: the only shadow. */
+.sheet {
+  max-width: 1200px; margin: 24px auto; border-radius: 2px;
+  box-shadow: 0 1px 1px rgb(var(--shadow) / .10), 0 5px 12px -3px rgb(var(--shadow) / .18), 0 26px 46px -22px rgb(var(--shadow) / .45);
+  padding: 0 0 28px;
+}
+@media (max-width: 900px) { .sheet { margin: 0; border-radius: 0; box-shadow: none; } }
+
+/* Title block: cells on a print ground so the gaps read as ruled lines. */
+.title-block {
+  display: grid; gap: 1px; background: var(--print); border: 2px solid var(--print);
+  grid-template-columns: 2.6fr 1fr 1fr;
+}
+.title-block > .cell { background: var(--sheet); padding: 8px 12px 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-width: 0; }
+.title-block .value { font: 700 21px/1.15 var(--f-print); font-variation-settings: "wdth" 80; color: var(--graphite); }
+.title-block .value.qty { font: 500 19px/1 var(--f-qty); font-feature-settings: "tnum" 1; }
+@media (max-width: 760px) { .title-block { grid-template-columns: 1fr 1fr; } .title-block > .cell:first-child { grid-column: 1 / -1; } }
+
+/* A printed field label names the field it sits in, never a kicker. */
+.label {
+  font: 600 12px/1 var(--f-print); font-variation-settings: "wdth" 80;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--print);
+}
+
+.body-pad { padding: 20px 24px 0; }
+@media (max-width: 900px) { .body-pad { padding: 16px 16px 0; } }
+
+.prose { max-width: 70ch; }
+.muted { color: var(--muted); font-size: 15px; line-height: 1.45; }
+.qty { font-family: var(--f-qty); font-feature-settings: "tnum" 1; }
+
+/* Printed buttons: square, 1.5px print border. */
+.btn {
+  appearance: none; border: 1.5px solid var(--print); background: var(--sheet); color: var(--print);
+  font: 700 15px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase;
+  min-height: 42px; padding: 0 14px; border-radius: 0; cursor: pointer; touch-action: manipulation;
+  transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+.btn:hover { background: color-mix(in srgb, var(--print) 10%, var(--sheet)); }
+.btn:focus-visible, .seg button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--print); outline-offset: 2px; }
+.btn.primary { background: var(--print); color: var(--sheet); }
+.btn.primary:hover { background: color-mix(in srgb, var(--print) 82%, black); }
+.btn[aria-pressed="true"] { background: var(--graphite); color: var(--sheet); border-color: var(--graphite); }
+.btn:disabled { opacity: .4; cursor: default; }
+
+/* Segmented printed choice (circuit picker, idealisation toggle). */
+.seg { display: inline-flex; border: 1.5px solid var(--print); }
+.seg button {
+  appearance: none; border: 0; border-inline-start: 1px solid var(--print); background: var(--sheet); color: var(--print);
+  font: 700 14px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase;
+  min-height: 40px; padding: 0 12px; cursor: pointer; border-radius: 0;
+}
+.seg button:first-child { border-inline-start: 0; }
+.seg button[aria-pressed="true"] { background: var(--graphite); color: var(--sheet); }
+
+/* Ruled boxes: pencil for the student's working, print for printed structure. */
+.box { border: 1.2px solid var(--pencil); background: var(--sheet); }
+.box-print { border: 1.5px solid var(--print); background: var(--sheet); }
+
+/* Readouts: a small ruled table of quantities. */
+.readout { border-collapse: collapse; font: 400 16px/1 var(--f-qty); font-feature-settings: "tnum" 1; }
+.readout th { font: 600 12px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; color: var(--print); text-align: start; }
+.readout th, .readout td { border-bottom: 1px solid var(--pencil); padding: 7px 12px 7px 0; height: 29px; }
+.readout td { color: var(--pencil); }
+
+/* Red pen: a stroke or text, never a fill. */
+.red { color: var(--red-pen); }
+.answer { border: 1.5px solid var(--red-pen); outline: 1.5px solid var(--red-pen); outline-offset: 3px; padding: 8px 12px; }
+
+/* Honesty cell for things the Owner must know (hatched print). */
+.honesty {
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--print) 11%, transparent) 0 1px, transparent 1px 7px), var(--sheet);
+  border: 1.5px solid var(--print); padding: 10px 14px; font-size: 15px;
+}
+
+input[type="range"] { accent-color: var(--print); width: 100%; min-height: 32px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}

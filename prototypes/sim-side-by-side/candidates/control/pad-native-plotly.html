@@ -1,0 +1,392 @@
+<!doctype html>
+<!-- PROTOTYPE (throwaway): agent-built Bode + Nyquist + step, Plotly restyled into pad inks. -->
+<html lang="en" data-pad="bluegrey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pad-native frequency response · Control systems</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="control.css">
+<style>
+  .lab { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-template-rows: auto auto; gap: 16px; }
+  #f-bode { grid-row: 1 / span 2; }
+  #f-bode .plot { height: 496px; }
+  #f-nyq .plot, #f-step .plot { height: 204px; }
+  .controls { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; margin-top: 16px; }
+  .tabs { display: none; }
+  .fig .plot { background: var(--sheet); }
+  /* Plotly chrome in pad inks */
+  .js-plotly-plot .plotly .hoverlayer .hovertext path { stroke-width: 1.2px !important; }
+  .js-plotly-plot .plotly, .js-plotly-plot .plotly div { font-family: var(--f-qty); }
+  .js-plotly-plot .plotly .main-svg { overflow: visible; }
+
+  .check { margin-top: 16px; border: 1.2px solid var(--pencil); background: var(--sheet); padding: 12px 14px; display: grid; gap: 10px; }
+  .check-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .check-row p { margin: 0; max-width: 70ch; }
+  #py-status { font: 400 15px/1.4 var(--f-body); color: var(--pencil); }
+  #py-status .qty { color: var(--graphite); }
+  .cmp { width: 100%; max-width: 720px; }
+  .cmp td:first-child { font-family: var(--f-body); color: var(--graphite); }
+  .cmp .ok { color: var(--graphite); }
+  .cmp .bad { color: var(--red-pen); }
+  .progress { height: 2px; background: var(--grid-major); position: relative; overflow: hidden; max-width: 720px; }
+  .progress i { position: absolute; inset: 0; background: var(--print); transform-origin: left center; transform: scaleX(0); transition: transform 400ms var(--ease-out); }
+
+  @media (max-width: 900px) {
+    .lab { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .lab .fig { display: none; border-top: 0; }
+    .lab .fig.on { display: flex; }
+    #f-bode { grid-row: auto; }
+    #f-bode .plot { height: 380px; }
+    #f-nyq .plot, #f-step .plot { height: 380px; }
+    .tabs { display: flex; border-bottom: 1.5px solid var(--print); }
+    .tabs button { flex: 1; appearance: none; background: transparent; border: 1.5px solid transparent; border-bottom: 0; margin-bottom: -1.5px; min-height: 44px; font: 700 14px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; color: var(--print); cursor: pointer; }
+    .tabs button[aria-selected="true"] { background: var(--sheet); color: var(--graphite); border-color: var(--print); }
+    .controls { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Pad-native: Plotly + our LTI core</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">K / s(s+2), unity feedback</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Agent-built</span></div>
+  </header>
+
+  <section class="body-pad">
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" aria-selected="true" data-tab="f-bode">Bode</button>
+      <button role="tab" aria-selected="false" data-tab="f-nyq">Nyquist</button>
+      <button role="tab" aria-selected="false" data-tab="f-step">Step</button>
+    </div>
+    <div class="lab">
+      <figure class="fig on" id="f-bode" style="margin:0">
+        <figcaption class="fig-head"><span class="label">Bode, open loop <span class="greek">L(jω)</span></span><span class="note" id="l-note">L(s) = 4 / s(s+2)</span></figcaption>
+        <div class="plot" id="p-bode" role="img" aria-label="Bode magnitude and phase of the open loop, with the phase margin marked"></div>
+      </figure>
+      <figure class="fig" id="f-nyq" style="margin:0">
+        <figcaption class="fig-head"><span class="label">Nyquist</span><span class="note">−1 is the critical point</span></figcaption>
+        <div class="plot" id="p-nyq" role="img" aria-label="Nyquist plot of the open loop"></div>
+      </figure>
+      <figure class="fig" id="f-step" style="margin:0">
+        <figcaption class="fig-head"><span class="label">Closed-loop step</span><span class="note" id="t-note">T(s) = 4 / (s² + 2s + 4)</span></figcaption>
+        <div class="plot" id="p-step" role="img" aria-label="Closed-loop unit-step response"></div>
+      </figure>
+    </div>
+
+    <div class="controls">
+      <div class="gain">
+        <label class="k-now" for="k"><span class="label">Gain K</span><span id="k-out">4.00</span></label>
+        <button class="btn" type="button" id="k-dn" aria-label="Decrease K"><svg viewBox="0 0 18 18"><path d="M3 9h12"/></svg></button>
+        <input class="k-slider" id="k" type="range" min="0.1" max="10" step="0.05" value="4">
+        <button class="btn" type="button" id="k-up" aria-label="Increase K"><svg viewBox="0 0 18 18"><path d="M3 9h12M9 3v12"/></svg></button>
+      </div>
+      <div class="readouts" aria-live="polite">
+        <div><span class="label">Phase margin</span><span class="v" data-r="pm">51.8<small>°</small></span></div>
+        <div><span class="label">Crossover <span class="greek">ω<sub>gc</sub></span></span><span class="v" data-r="wgc">1.572<small>rad/s</small></span></div>
+        <div><span class="label">Gain margin</span><span class="v" data-r="gm">∞</span></div>
+        <div><span class="label">Damping <span class="greek">ζ</span></span><span class="v" data-r="zeta">0.500</span></div>
+        <div><span class="label">Overshoot</span><span class="v" data-r="os">16.3<small>%</small></span></div>
+        <div><span class="label" id="ts-label">Settling <span class="greek">T<sub>s</sub> = 4/ζω<sub>n</sub></span></span><span class="v" data-r="ts">4.00<small>s</small></span></div>
+      </div>
+    </div>
+
+    <div class="check">
+      <div class="check-row">
+        <button class="btn" type="button" id="py-go">Check with python-control</button>
+        <p class="muted">Loads Python (Pyodide) and python-control into this page, recomputes poles, overshoot, settling and phase margin at the current K, and reports what it cost.</p>
+      </div>
+      <div class="progress" aria-hidden="true"><i id="py-bar"></i></div>
+      <p id="py-status" aria-live="polite" style="margin:0"></p>
+      <table class="readout cmp" id="py-table" hidden>
+        <thead><tr><th>Quantity</th><th>Our core</th><th>python-control</th><th>Difference</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="body-pad">
+    <div class="honesty">
+      <span class="label">For the Owner</span>
+      <p><strong>Real:</strong> every curve and number comes from <code>control-core.engine.mjs</code>, the same core as the root-locus candidate, checked in Node by <code>check-control-core.mjs</code> (31 of 31 PASS against python-control: PM 51.827° at 1.5723 rad/s, OS 16.303 %, poles −1 ± 1.732051j). Phase is summed factor by factor, so it never wraps. Plotly only draws; the red pen (PM bracket, ring at crossover, overshoot and settling marks) is drawn as our own traces.</p>
+      <p><strong>First load:</strong> <span class="qty" id="weight">measuring…</span>. Plotly's bundle is 4.7 MB unzipped and this local server does not gzip (about 1.4 MB gzipped). <strong>Touch:</strong> works: tap a curve for a value readout; zoom and pan are switched off so the page scrolls; on a phone the three views sit behind printed tabs.</p>
+      <p><strong>The python-control button</strong> is here only so you feel its cost on a phone: the research puts python-control in the build gate, not in the page. On this laptop it took about 26 s and about 33 MB (Pyodide, NumPy, SciPy, matplotlib and friends, python-control), and agreed with our core on all six values to within 3 × 10⁻⁵.</p>
+      <p><strong>To ship:</strong> a lighter renderer (Plotly is the heaviest thing on any page here; a custom Plotly bundle or our own SVG would do), and the same <code>sim.json</code> lesson format as the root-locus page.</p>
+    </div>
+  </section>
+</main>
+
+<script src="../../node_modules/plotly.js-dist-min/plotly.min.js"></script>
+<script type="module">
+import { PLANT, analyse, horizon, bode, nyquist, loopAt } from './control-core.engine.mjs';
+
+const Plotly = window.Plotly;
+const cs = getComputedStyle(document.documentElement);
+const ink = (n) => cs.getPropertyValue(n).trim();
+const C = { graphite: ink('--graphite'), pencil: ink('--pencil'), print: ink('--print'), red: ink('--red-pen'), sheet: ink('--sheet'), muted: ink('--muted'), gf: ink('--grid-fine'), gm: ink('--grid-major') };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MONO = '"Atkinson Hyperlegible Mono", ui-monospace, monospace';
+const PRINT = 'Archivo, "Arial Narrow", sans-serif';
+const KMIN = 0.1, KMAX = 10;
+const minus = (s) => String(s).replace(/-/g, '−');
+let K = 4;
+
+const axis = (o = {}) => ({
+  showline: true, linecolor: C.pencil, linewidth: 1.2, mirror: false, ticks: 'outside', tickcolor: C.pencil, ticklen: 4, tickwidth: 1.2,
+  tickfont: { family: MONO, size: 12, color: C.pencil }, showgrid: true, gridcolor: C.gm, gridwidth: 1,
+  minor: { showgrid: true, gridcolor: C.gf, gridwidth: 1 }, zeroline: false, fixedrange: true,
+  title: { font: { family: PRINT, size: 13, color: C.print }, standoff: 6 }, separatethousands: false, exponentformat: 'none', ...o,
+});
+const base = (o = {}) => ({
+  paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: C.sheet, showlegend: false, dragmode: false, hovermode: 'closest',
+  font: { family: MONO, size: 12, color: C.pencil }, separators: '.,',
+  hoverlabel: { bgcolor: C.sheet, bordercolor: C.pencil, font: { family: MONO, size: 13, color: C.graphite } },
+  ...o,
+});
+const config = { displayModeBar: false, responsive: true, scrollZoom: false, doubleClick: false, showTips: false };
+const line = (x, y, color, width = 2.2, extra = {}) => ({ x, y, mode: 'lines', line: { color, width, ...extra.line }, hoverinfo: 'skip', ...extra, line: { color, width, ...(extra.line || {}) } });
+const note = (x, y, text, o = {}) => ({ x, y, text: minus(text), showarrow: false, font: { family: MONO, size: 13, color: C.pencil }, bgcolor: C.sheet, borderpad: 1, ...o });
+const small = () => innerWidth < 900;
+
+// ---------------- Bode ----------------
+function bodeFig(a) {
+  const pts = bode(PLANT, K, { wMin: 0.05, wMax: 50, n: 360 });
+  const w = pts.map((p) => p.w);
+  const { pmDeg, wgc } = a.margins;
+  const phGc = -180 + pmDeg;
+  const lw = Math.log10(wgc);
+  const t = [
+    line([0.05, 50], [0, 0], C.print, 1.2, { line: { dash: 'dash' } }),
+    line(w, pts.map((p) => p.magDb), C.graphite, 2.4, { hovertemplate: 'ω %{x:.3f} rad/s<br>|L| %{y:.1f} dB<extra></extra>', hoverinfo: undefined }),
+    line([0.05, 50], [-180, -180], C.print, 1.2, { yaxis: 'y2', line: { dash: 'dash' } }),
+    line(w, pts.map((p) => p.phaseDeg), C.graphite, 2.4, { yaxis: 'y2', hovertemplate: 'ω %{x:.3f} rad/s<br>∠L %{y:.1f}°<extra></extra>', hoverinfo: undefined }),
+    // crossover guide through both plots, pencil dotted
+    line([wgc, wgc], [0, 60], C.pencil, 1, { line: { dash: 'dot' } }),
+    line([wgc, wgc], [phGc, -80], C.pencil, 1, { yaxis: 'y2', line: { dash: 'dot' } }),
+    // red pen: ring at 0 dB crossover, PM bracket from −180° up to the phase curve
+    { x: [wgc], y: [0], mode: 'markers', marker: { symbol: 'circle-open', size: 16, color: C.red, line: { width: 2, color: C.red } }, hoverinfo: 'skip' },
+    line([wgc, wgc], [-180, phGc], C.red, 2.2, { yaxis: 'y2' }),
+    line([wgc / 1.12, wgc * 1.12], [-180, -180], C.red, 2.2, { yaxis: 'y2' }),
+    line([wgc / 1.12, wgc * 1.12], [phGc, phGc], C.red, 2.2, { yaxis: 'y2' }),
+  ];
+  const annotations = [
+    note(Math.log10(wgc) + 0.08, -180 + pmDeg / 2, `PM ${pmDeg.toFixed(1)}°`, { xref: 'x', yref: 'y2', xanchor: 'left', font: { family: MONO, size: 14, color: C.red } }),
+    note(lw + 0.07, 8, `ωgc ${wgc.toFixed(3)}`, { xref: 'x', yref: 'y', xanchor: 'left', yanchor: 'bottom' }),
+  ];
+  const layout = base({
+    margin: { l: 52, r: 14, t: 10, b: 44 },
+    xaxis: axis({ type: 'log', range: [Math.log10(0.05), Math.log10(50)], anchor: 'y2', title: { text: 'ω (rad/s)', font: { family: PRINT, size: 13, color: C.print }, standoff: 4 }, dtick: 1, minor: { showgrid: true, gridcolor: C.gf, dtick: 'D1' } }),
+    xaxis2: axis({ type: 'log', range: [Math.log10(0.05), Math.log10(50)], matches: 'x', anchor: 'y', showticklabels: false, dtick: 1, minor: { showgrid: true, gridcolor: C.gf, dtick: 'D1' } }),
+    yaxis: axis({ domain: [0.54, 1], range: [-60, 60], dtick: 20, title: { text: '|L| (dB)', font: { family: PRINT, size: 13, color: C.print }, standoff: 4 }, minor: { showgrid: true, gridcolor: C.gf, dtick: 10 } }),
+    yaxis2: axis({ domain: [0, 0.46], range: [-195, -80], dtick: 30, tick0: -180, title: { text: 'phase (°)', font: { family: PRINT, size: 13, color: C.print }, standoff: 4 }, minor: { showgrid: true, gridcolor: C.gf, dtick: 15 } }),
+    annotations,
+  });
+  t.forEach((tr) => { if (!tr.yaxis) tr.xaxis = 'x2'; else tr.xaxis = 'x'; });
+  return { data: t, layout };
+}
+
+// ---------------- Nyquist ----------------
+function nyqFig(a) {
+  const pts = nyquist(PLANT, K, { wMin: 0.02, wMax: 300, n: 500, clip: 12 });
+  const re = pts.map((p) => p.re), im = pts.map((p) => p.im);
+  const th = Array.from({ length: 181 }, (_, i) => (i / 180) * 2 * Math.PI);
+  const { pmDeg, wgc } = a.margins;
+  const L = loopAt(PLANT, K, wgc); // the point where the curve crosses the unit circle
+  const a0 = Math.PI, a1 = Math.atan2(L[1], L[0]) + (L[1] < 0 ? 2 * Math.PI : 0);
+  const arc = Array.from({ length: 40 }, (_, i) => a0 + ((a1 - a0) * i) / 39);
+  const mid = arc[Math.floor(arc.length / 2)];
+  // direction arrow at a mid frequency
+  const wa = 1.0, pA = loopAt(PLANT, K, wa), pB = loopAt(PLANT, K, wa * 1.25);
+  const data = [
+    line(th.map(Math.cos), th.map(Math.sin), C.print, 1.2, { line: { dash: 'dash' } }),
+    line(re, im.map((v) => -v), C.pencil, 1.6, { line: { dash: 'dash' } }),
+    line(re, im, C.graphite, 2.4, { customdata: pts.map((p) => p.w), hovertemplate: 'ω %{customdata:.3f} rad/s<br>%{x:.3f} %{y:+.3f}j<extra></extra>', hoverinfo: undefined }),
+    { x: [-1], y: [0], mode: 'markers', marker: { symbol: 'cross-thin', size: 14, line: { width: 2.2, color: C.graphite } }, hoverinfo: 'skip' },
+    line(arc.map(Math.cos), arc.map(Math.sin), C.red, 2.2),
+    { x: [L[0]], y: [L[1]], mode: 'markers', marker: { symbol: 'circle-open', size: 13, line: { width: 2, color: C.red } }, hoverinfo: 'skip' },
+  ];
+  const layout = base({
+    margin: { l: 44, r: 12, t: 8, b: 34 },
+    xaxis: axis({ range: [-3.1, 1.1], dtick: 1, minor: { showgrid: true, gridcolor: C.gf, dtick: 0.5 }, title: { text: 'Re', font: { family: PRINT, size: 13, color: C.print }, standoff: 2 } }),
+    yaxis: axis({ range: [-2.4, 2.4], dtick: 1, minor: { showgrid: true, gridcolor: C.gf, dtick: 0.5 }, scaleanchor: 'x', scaleratio: 1, title: { text: 'Im', font: { family: PRINT, size: 13, color: C.print }, standoff: 2 } }),
+    annotations: [
+      note(-1, 0.12, '−1', { yanchor: 'bottom', font: { family: MONO, size: 13, color: C.graphite } }),
+      note(Math.cos(mid) - 0.12, Math.sin(mid) - 0.1, `PM ${pmDeg.toFixed(1)}°`, { xanchor: 'right', yanchor: 'top', font: { family: MONO, size: 14, color: C.red } }),
+      { x: pB[0], y: pB[1], ax: pA[0], ay: pA[1], axref: 'x', ayref: 'y', showarrow: true, arrowhead: 2, arrowsize: 1.2, arrowwidth: 1.8, arrowcolor: C.graphite, text: '' },
+      note(pB[0] + 0.1, pB[1], 'ω ↑', { xanchor: 'left', font: { family: MONO, size: 12, color: C.muted } }),
+    ],
+  });
+  return { data, layout };
+}
+
+// ---------------- step ----------------
+function stepFig(a) {
+  const { t, y } = a.step, xs = [], ys = [], tEnd = 8;
+  const stride = Math.max(1, Math.round(0.01 / (t[1] - t[0])));
+  for (let i = 0; i < t.length && t[i] <= tEnd + 1e-9; i += stride) { xs.push(t[i]); ys.push(y[i]); }
+  const inf = a.info, hasOS = inf.osPct > 0.05;
+  const data = [
+    line([0, tEnd], [1, 1], C.print, 1.2, { line: { dash: 'dash' } }),
+    line([0, tEnd], [1.02, 1.02], C.pencil, 1, { line: { dash: 'dot' }, opacity: 0.7 }),
+    line([0, tEnd], [0.98, 0.98], C.pencil, 1, { line: { dash: 'dot' }, opacity: 0.7 }),
+    line(xs, ys, C.graphite, 2.4, { hovertemplate: 't %{x:.2f} s<br>y %{y:.4f}<extra></extra>', hoverinfo: undefined }),
+  ];
+  const ann = [];
+  if (hasOS) {
+    const dx = 0.18;
+    data.push(line([inf.tPeak + dx, inf.tPeak + dx], [1, inf.peak], C.red, 2.2));
+    data.push({ x: [inf.tPeak], y: [inf.peak], mode: 'markers', marker: { symbol: 'circle-open', size: 15, line: { width: 2, color: C.red } }, hoverinfo: 'skip' });
+    ann.push(note(inf.tPeak, inf.peak + 0.07, `${inf.osPct.toFixed(1)} %`, { yanchor: 'bottom', font: { family: MONO, size: 14, color: C.red } }));
+  }
+  if (Number.isFinite(inf.ts) && inf.ts > 0 && inf.ts < tEnd) {
+    data.push(line([inf.ts, inf.ts], [0.9, 1.1], C.red, 2.2));
+    ann.push(note(inf.ts, 0.86, `${inf.ts.toFixed(2)} s`, { yanchor: 'top', font: { family: MONO, size: 14, color: C.red } }));
+  }
+  const layout = base({
+    margin: { l: 40, r: 12, t: 8, b: 34 },
+    xaxis: axis({ range: [0, tEnd], dtick: 1, minor: { showgrid: true, gridcolor: C.gf, dtick: 0.5 }, title: { text: 't (s)', font: { family: PRINT, size: 13, color: C.print }, standoff: 2 } }),
+    yaxis: axis({ range: [0, 1.6], dtick: 0.5, minor: { showgrid: true, gridcolor: C.gf, dtick: 0.1 } }),
+    annotations: ann,
+  });
+  return { data, layout };
+}
+
+// ---------------- readouts ----------------
+const R = Object.fromEntries([...document.querySelectorAll('[data-r]')].map((e) => [e.dataset.r, e]));
+const u = (v, unit) => `${v}<small>${unit}</small>`;
+const fmtK = (k) => (Math.abs(k - Math.round(k)) < 1e-9 ? String(Math.round(k)) : k.toFixed(2));
+function readouts(a) {
+  const m = a.margins, so = a.so, under = so.zeta < 1;
+  R.pm.innerHTML = u(m.pmDeg.toFixed(1), '°');
+  R.wgc.innerHTML = u(m.wgc.toFixed(3), 'rad/s');
+  R.gm.textContent = Number.isFinite(m.gmDb) ? `${m.gmDb.toFixed(1)} dB` : '∞';
+  R.zeta.textContent = so.zeta.toFixed(3);
+  R.os.innerHTML = u(a.info.osPct.toFixed(1), '%');
+  document.getElementById('ts-label').innerHTML = under ? 'Settling <span class="greek">T<sub>s</sub> = 4/ζω<sub>n</sub></span>' : 'Settling <span class="greek">T<sub>s</sub></span>, 2 % band';
+  R.ts.innerHTML = u((under ? so.tsTextbook : a.info.ts).toFixed(2), 's');
+  document.getElementById('k-out').textContent = K.toFixed(2);
+  document.getElementById('l-note').textContent = `L(s) = ${fmtK(K)} / s(s+2)`;
+  document.getElementById('t-note').textContent = `T(s) = ${fmtK(K)} / (s² + 2s + ${fmtK(K)})`;
+}
+
+// ---------------- render ----------------
+const P = { bode: document.getElementById('p-bode'), nyq: document.getElementById('p-nyq'), step: document.getElementById('p-step') };
+let last = null;
+function render() {
+  const a = analyse(PLANT, K, horizon(PLANT, K, 8));
+  last = a;
+  for (const [el, f] of [[P.bode, bodeFig], [P.nyq, nyqFig], [P.step, stepFig]]) {
+    if (el.offsetParent === null) { el.dataset.stale = '1'; continue; }
+    const { data, layout } = f(a);
+    Plotly.react(el, data, layout, config);
+    delete el.dataset.stale;
+  }
+  readouts(a);
+  return a;
+}
+const slider = document.getElementById('k');
+let raf = null;
+function setK(k) {
+  K = Math.min(KMAX, Math.max(KMIN, k)); slider.value = K;
+  if (raf) cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(() => { raf = null; render(); });
+}
+slider.addEventListener('input', () => setK(+slider.value));
+document.getElementById('k-dn').addEventListener('click', () => setK(Math.round((K - 0.25) * 20) / 20));
+document.getElementById('k-up').addEventListener('click', () => setK(Math.round((K + 0.25) * 20) / 20));
+
+// phone tabs
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+  document.querySelectorAll('.lab .fig').forEach((f) => f.classList.toggle('on', f.id === b.dataset.tab));
+  render();
+  drawOn(document.getElementById(b.dataset.tab));
+}));
+let rw = innerWidth;
+addEventListener('resize', () => { if (innerWidth === rw) return; rw = innerWidth; setK(K); });
+
+// The authored moment: the curves draw like a pen, then the red marks.
+function drawOn(scope, delay = 0) {
+  if (reduce) return;
+  scope.querySelectorAll('.scatterlayer .trace path.js-line').forEach((p) => {
+    const stroke = p.style.stroke || p.getAttribute('stroke') || '';
+    const isRed = stroke.replace(/\s/g, '').includes('192,52,29') || stroke.toLowerCase() === C.red.toLowerCase();
+    const L = p.getTotalLength ? p.getTotalLength() : 0;
+    if (!L) return;
+    p.animate([{ strokeDasharray: `${L} ${L}`, strokeDashoffset: L }, { strokeDasharray: `${L} ${L}`, strokeDashoffset: 0 }],
+      { duration: isRed ? 520 : 900, delay: delay + (isRed ? 950 : 0), easing: isRed ? 'cubic-bezier(.37,0,.63,1)' : 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' });
+  });
+  scope.querySelectorAll('.annotation, .scatterlayer .points').forEach((n) => n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, delay: delay + 1000, easing: 'ease-out', fill: 'backwards' }));
+}
+
+await document.fonts.ready;
+render();
+drawOn(document.querySelector('.lab'));
+if (!reduce) document.querySelectorAll('.readouts > div').forEach((d, i) => { d.style.animationDelay = `${700 + i * 30}ms`; d.classList.add('land'); });
+
+// ---------------- python-control, on demand ----------------
+const status = document.getElementById('py-status'), bar = document.getElementById('py-bar');
+const setBar = (f) => { bar.style.transform = `scaleX(${f})`; };
+let py = null;
+document.getElementById('py-go').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget; btn.disabled = true;
+  const t0 = performance.now(), mark = performance.getEntriesByType('resource').length;
+  const say = (s) => { status.innerHTML = `${s} <span class="qty">${((performance.now() - t0) / 1000).toFixed(1)} s</span>`; };
+  try {
+    if (!py) {
+      say('Loading Pyodide 0.29.4 from jsDelivr…'); setBar(0.1);
+      await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/pyodide/v0.29.4/full/pyodide.js'; s.onload = res; s.onerror = () => rej(new Error('Pyodide did not load (offline?)')); document.head.append(s); });
+      py = await window.loadPyodide(); setBar(0.35);
+      say('Loading NumPy, SciPy, micropip…');
+      await py.loadPackage(['micropip', 'numpy', 'scipy']); setBar(0.7);
+      say('Installing python-control (and matplotlib, which it pulls in)…');
+      await py.runPythonAsync('import micropip\nawait micropip.install("control")'); setBar(0.9);
+    }
+    say('Computing at the current K…');
+    const out = JSON.parse(await py.runPythonAsync(`
+import control as ct, numpy as np, json
+K = ${K}
+G = ct.tf([K], [1, 2, 0]); T = ct.feedback(G, 1)
+p = sorted(ct.poles(T), key=lambda z: (-z.imag, z.real))
+gm, pm, wcg, wcp = ct.margin(G)
+info = ct.step_info(T, T=np.linspace(0, 12, 120001), SettlingTimeThreshold=0.02)
+json.dumps(dict(p0=[float(p[0].real), float(p[0].imag)], os=float(info['Overshoot']), ts=float(info['SettlingTime']), pm=float(pm), wgc=float(wcp), ver=ct.__version__))`));
+    setBar(1);
+    const secs = (performance.now() - t0) / 1000;
+    const res = performance.getEntriesByType('resource').slice(mark);
+    const bytes = res.reduce((s, r) => s + (r.transferSize || r.encodedBodySize || 0), 0);
+    const cached = res.reduce((s, r) => s + (r.transferSize ? 0 : r.encodedBodySize || 0), 0);
+    const hidden = res.filter((r) => !r.transferSize && !r.decodedBodySize).length;
+    const a = analyse(PLANT, K, { tEnd: 12, dt: 1e-3 });
+    const rows = [
+      ['Pole (upper), real', a.poles[0][0], out.p0[0], 6], ['Pole (upper), imag', a.poles[0][1], out.p0[1], 6],
+      ['Overshoot (%)', a.info.osPct, out.os, 4], ['Settling, 2 % band (s)', a.info.ts, out.ts, 4],
+      ['Phase margin (°)', a.margins.pmDeg, out.pm, 4], ['Crossover (rad/s)', a.margins.wgc, out.wgc, 5],
+    ];
+    const tb = document.querySelector('#py-table tbody'); tb.innerHTML = '';
+    for (const [n, ours, ref, d] of rows) {
+      const diff = Math.abs(ours - ref), ok = diff <= Math.max(1e-3, Math.abs(ref) * 1e-3);
+      tb.insertAdjacentHTML('beforeend', `<tr><td>${n}</td><td>${minus(ours.toFixed(d))}</td><td>${minus(ref.toFixed(d))}</td><td class="${ok ? 'ok' : 'bad'}">${diff.toExponential(1)}</td></tr>`);
+    }
+    document.getElementById('py-table').hidden = false;
+    status.innerHTML = `python-control ${out.ver} agrees at K = ${K.toFixed(2)}. This check took <span class="qty">${secs.toFixed(1)} s</span> and <span class="qty">${(bytes / 1048576).toFixed(1)} MB</span>` + (hidden ? ` plus ${hidden} file${hidden > 1 ? 's' : ''} whose size PyPI does not expose` : '') + (cached > 1048576 ? ` (${(cached / 1048576).toFixed(1)} MB of it came from the browser cache this time).` : '.') + (res.length ? '' : ' (Python was already loaded.)');
+  } catch (e) {
+    status.textContent = `The check failed: ${e.message}. It needs a network connection to jsDelivr and PyPI.`;
+  } finally { btn.disabled = false; }
+});
+
+// First-load weight for the honesty cell.
+const measure = () => setTimeout(() => {
+  // First-load weight = encoded body sizes of every file the page fetched (this server does not
+  // gzip, so that equals the transfer on a cold load, give or take headers); a warm reload is 0.
+  const n = performance.getEntriesByType('navigation')[0];
+  const res = performance.getEntriesByType('resource').filter((r) => !r.name.includes('pyodide'));
+  const bytes = n.encodedBodySize + res.reduce((s, r) => s + (r.encodedBodySize || r.transferSize || 0), 0);
+  const big = res.slice().sort((a, b) => b.encodedBodySize - a.encodedBodySize)[0];
+  document.getElementById('weight').textContent = `${Math.round(bytes / 1024)} KB on a cold load, ${res.length + 1} files (largest: ${big.name.split('/').pop()}, ${Math.round(big.encodedBodySize / 1024)} KB)`;
+}, 400);
+if (document.readyState === 'complete') measure(); else addEventListener('load', measure);
+</script>
+</body>
+</html>

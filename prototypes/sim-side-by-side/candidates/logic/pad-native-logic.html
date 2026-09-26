@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en" data-pad="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pad-native logic · Logic circuits</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="logic.css">
+<style>
+  /* ---------- bench layout ---------- */
+  .bench { display: grid; grid-template-columns: minmax(0, 2.15fr) minmax(0, 1fr); gap: 20px 28px; align-items: start; }
+  .bench-main > * + * { margin-top: 14px; }
+  @media (max-width: 900px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: stretch; justify-content: space-between; }
+
+  /* Input switches: printed toggles, the digit in mono, pressed = graphite. */
+  .switches { display: flex; gap: 10px; flex: 1 1 330px; max-width: 460px; }
+  .sw {
+    flex: 1 1 0; min-width: 0; min-height: 60px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 10px;
+    appearance: none; border: 1.5px solid var(--print); background: var(--sheet); color: var(--print); border-radius: 0;
+    padding: 6px 12px; cursor: pointer; touch-action: manipulation; text-align: start;
+    transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+  }
+  .sw:hover { background: color-mix(in srgb, var(--print) 10%, var(--sheet)); }
+  .sw:focus-visible { outline: 2px solid var(--print); outline-offset: 2px; }
+  .sw .nm { font: 700 20px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .02em; }
+  .sw .dg { font: 500 28px/1 var(--f-qty); font-feature-settings: "tnum" 1; justify-self: end; }
+  .sw .hint { grid-column: 1 / -1; font: 600 12px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+  .sw[aria-pressed="true"] { background: var(--graphite); border-color: var(--graphite); color: var(--sheet); }
+  .sw .dg { display: inline-block; }
+
+  .mode { display: flex; flex-direction: column; gap: 6px; }
+  .mode .seg button { min-height: 44px; }
+
+  /* ---------- schematic ---------- */
+  .sch-box { border: 1.2px solid var(--pencil); background: var(--sheet); position: relative; }
+  .sch-box > .label { position: absolute; inset-inline-start: 10px; top: 9px; }
+  svg.sch, svg.trace { display: block; width: 100%; height: auto; --k: 1; }
+  .sch text, .trace text { paint-order: stroke; stroke: var(--sheet); stroke-width: calc(var(--k) * 4px); stroke-linejoin: round; }
+  .sch .io { font: 700 calc(var(--k) * 16px) var(--f-print); font-variation-settings: "wdth" 80; fill: var(--graphite); }
+  .sch .gname { font: 600 calc(var(--k) * 12.5px) var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .06em; fill: var(--muted); stroke: none; }
+  .sch .tag { font: 400 calc(var(--k) * 13px) var(--f-body); fill: var(--pencil); }
+  .sch .tag .v { font-family: var(--f-qty); font-weight: 500; fill: var(--graphite); }
+  .sch .wire { fill: none; stroke: var(--pencil); stroke-width: calc(var(--k) * 1.3px); stroke-linejoin: round; stroke-linecap: round; opacity: .72; }
+  .sch .ink { fill: none; stroke: var(--graphite); stroke-width: calc(var(--k) * 4.4px); stroke-linejoin: round; stroke-linecap: butt;
+              stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  .sch .dot { fill: var(--pencil); transition: transform 200ms var(--ease-out); transform-box: fill-box; transform-origin: center; }
+  .sch .dot.hi { fill: var(--graphite); transform: scale(1.45); }
+  .sch .body { fill: var(--sheet); stroke: var(--graphite); stroke-width: calc(var(--k) * 2px); stroke-linejoin: round; }
+  .sch .back { fill: none; stroke: var(--graphite); stroke-width: calc(var(--k) * 2px); stroke-linecap: round; }
+  .sch .term { fill: var(--sheet); stroke: var(--graphite); stroke-width: calc(var(--k) * 1.6px); transition: fill 160ms var(--ease-out); }
+  .sch .term.hi { fill: var(--graphite); }
+  .sch .hit { fill: transparent; cursor: pointer; }
+  .sch .hit:focus-visible { outline: none; }
+  .sch .hit:focus-visible + .focusring { opacity: 1; }
+  .sch .focusring { fill: none; stroke: var(--print); stroke-width: calc(var(--k) * 2px); opacity: 0; }
+
+  /* ---------- outputs ---------- */
+  .outs { display: grid; grid-template-columns: auto auto minmax(0, 1fr); border: 1.2px solid var(--pencil); background: var(--sheet); }
+  .outs > div { padding: 7px 14px 10px; display: flex; flex-direction: column; gap: 7px; border-inline-end: 1px solid var(--pencil); min-width: 0; }
+  .outs > div:last-child { border-inline-end: 0; }
+  .outs .big { font: 500 30px/1 var(--f-qty); font-feature-settings: "tnum" 1; color: var(--graphite); display: inline-block; min-width: 2ch; }
+  .outs .sum { font: 400 16px/1.35 var(--f-qty); font-feature-settings: "tnum" 1; color: var(--pencil); }
+  .outs .sum b { color: var(--graphite); font-weight: 600; }
+  .outs.settling .big { color: var(--muted); }
+  .state { font: 600 12px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .land { animation: land 260ms var(--ease-out) both; }
+  @keyframes land { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 520px) { .outs { grid-template-columns: 1fr 1fr; } .outs > div:last-child { grid-column: 1 / -1; border-top: 1px solid var(--pencil); } .outs > div:nth-child(2) { border-inline-end: 0; } }
+
+  /* ---------- timing (real devices) ---------- */
+  .timing { border: 1.2px solid var(--pencil); background: var(--sheet); }
+  .timing header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; padding: 8px 12px 4px; }
+  .timing .delays { font: 400 14px/1 var(--f-qty); color: var(--muted); margin-inline-end: auto; }
+  .timing .clock { font: 500 16px/1 var(--f-qty); font-feature-settings: "tnum" 1; color: var(--graphite); }
+  .trace .nm { font: 700 calc(var(--k) * 13px) var(--f-print); font-variation-settings: "wdth" 80; fill: var(--graphite); }
+  .trace .tick { font: 400 calc(var(--k) * 12.5px) var(--f-qty); fill: var(--pencil); }
+  .trace .grid { stroke: var(--grid-major); stroke-width: calc(var(--k) * 1px); }
+  .trace .axis { stroke: var(--pencil); stroke-width: calc(var(--k) * 1px); }
+  .trace .wave { fill: none; stroke: var(--graphite); stroke-width: calc(var(--k) * 1.8px); stroke-linejoin: round; }
+  .trace .wave.int { stroke: var(--pencil); stroke-width: calc(var(--k) * 1.3px); }
+  .trace .head { stroke: var(--print); stroke-width: calc(var(--k) * 1.2px); stroke-dasharray: calc(var(--k) * 4px) calc(var(--k) * 3px); }
+  .trace .redring { fill: none; stroke: var(--red-pen); stroke-width: calc(var(--k) * 2px); stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  .timing .note { padding: 2px 12px 10px; margin: 0; font-size: 15.5px; line-height: 1.45; max-width: 70ch; }
+  .timing .note.red { color: var(--red-pen); }
+  .ideal-note { margin-bottom: 0; }
+  .demo { margin-top: 0; min-height: 44px; }
+
+  /* ---------- truth table ---------- */
+  .tt-wrap { position: relative; }
+  .tt { width: 100%; border-collapse: collapse; table-layout: fixed; font: 400 16px/1 var(--f-qty); font-feature-settings: "tnum" 1; }
+  .tt caption { caption-side: bottom; text-align: start; padding-top: 10px; font: 400 15px/1.45 var(--f-body); }
+  .tt th { font: 600 12px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; color: var(--print);
+           text-align: center; padding: 0 0 9px; border-bottom: 1.5px solid var(--print); }
+  .tt td { text-align: center; height: 38px; border-bottom: 1px solid color-mix(in srgb, var(--pencil) 55%, transparent); color: var(--pencil); padding: 0; }
+  .tt td.o { color: var(--graphite); font-weight: 500; }
+  .tt .split { border-inline-start: 1.5px solid var(--print); }
+  .tt col.seen { width: 34px; }
+  .tt tbody tr { cursor: pointer; transition: background-color 150ms var(--ease-out); }
+  .tt tbody tr:hover { background: color-mix(in srgb, var(--print) 8%, transparent); }
+  .tt tbody tr:focus-visible { outline: 2px solid var(--print); outline-offset: -2px; }
+  .tt tbody tr.cur td { color: var(--graphite); font-weight: 600; }
+  .tt .tick { width: 18px; height: 18px; display: block; margin: 0 auto; }
+  .tt .tick path { fill: none; stroke: var(--graphite); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  .tt tr.seen .tick path { stroke-dashoffset: 0; transition: stroke-dashoffset 300ms var(--ease-out); }
+  @media (max-width: 900px) { .tt td { height: 44px; } }
+  svg.ring-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .ring-layer path { fill: none; stroke: var(--red-pen); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  .tt-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .tt-head .count { font: 400 15px/1 var(--f-body); color: var(--muted); }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <div class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Pad-native logic</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">1-bit full adder</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Agent-built</span></div>
+  </div>
+
+  <div class="body-pad">
+    <div class="bench">
+      <div class="bench-main">
+        <div class="controls">
+          <div class="switches" role="group" aria-label="Inputs">
+            <button class="sw" id="sw-A" aria-pressed="false" data-in="A"><span class="nm">A</span><span class="dg">0</span></button>
+            <button class="sw" id="sw-B" aria-pressed="false" data-in="B"><span class="nm">B</span><span class="dg">0</span></button>
+            <button class="sw" id="sw-Cin" aria-pressed="false" data-in="Cin"><span class="nm">Cin</span><span class="dg">0</span></button>
+          </div>
+          <div class="mode">
+            <span class="label">Gates</span>
+            <div class="seg" role="group" aria-label="Gate model">
+              <button id="m-ideal" aria-pressed="true">Ideal</button>
+              <button id="m-real" aria-pressed="false">Real devices</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sch-box">
+          <svg class="sch" id="sch" viewBox="0 0 840 410" role="img" aria-labelledby="sch-title">
+            <title id="sch-title">Full adder: G1 XOR and G2 AND take A and B; G3 XOR gives S from P and Cin; G4 AND gives T; G5 OR gives Cout from T and G.</title>
+            <g id="wires"></g><g id="inks"></g><g id="dots"></g><g id="bodies"></g><g id="labels"></g><g id="hits"></g>
+          </svg>
+        </div>
+
+        <div class="outs" id="outs" aria-live="polite">
+          <div><span class="label">Sum S</span><span class="big" id="o-S">0</span></div>
+          <div><span class="label">Carry Cout</span><span class="big" id="o-Cout">0</span></div>
+          <div><span class="label">As a number</span><span class="sum" id="o-sum"></span><span class="state" id="o-state">Settled</span></div>
+        </div>
+
+        <p class="muted ideal-note" id="ideal-note">Ideal gates answer instantly. The pen draws them gate by gate only to show the order you read the circuit: inputs, then G1 and G2, then G3 and G4, then G5.</p>
+
+        <section class="timing hidden" id="timing" aria-label="Timing diagram">
+          <header>
+            <span class="label">Timing, real devices</span>
+            <span class="delays">XOR 12 ns · AND 8 ns · OR 8 ns</span>
+            <span class="clock" id="clock">t = 0 ns</span>
+          </header>
+          <svg class="trace" id="trace" viewBox="0 0 840 318" role="img" aria-label="Timing diagram of every net after the last change"></svg>
+          <p class="note muted" id="trace-note">Flip an input to record what each wire does, nanosecond by nanosecond (1 ns is played as 45 ms).</p>
+          <p class="note" style="padding-top:0"><button class="btn demo" id="demo">Show a glitch</button></p>
+        </section>
+      </div>
+
+      <aside class="bench-side">
+        <div class="tt-head"><span class="label">Truth table</span><span class="count" id="seen-count">1 of 8 rows tried</span></div>
+        <div class="tt-wrap" id="tt-wrap">
+          <table class="tt" id="tt">
+            <colgroup><col><col><col><col><col><col class="seen"></colgroup>
+            <thead><tr><th scope="col">A</th><th scope="col">B</th><th scope="col">Cin</th><th scope="col" class="split">S</th><th scope="col">Cout</th><th scope="col"><span class="sr-only">Tried</span></th></tr></thead>
+            <tbody></tbody>
+            <caption class="muted">Tap a row to set all three inputs at once.</caption>
+          </table>
+          <svg class="ring-layer" id="ring-layer" aria-hidden="true"><path id="ring" pathLength="1"/></svg>
+        </div>
+      </aside>
+    </div>
+
+    <section class="honesty" style="margin-top:22px">
+      <h2>For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> every value comes from a small gate-level engine (<code>pad-native-logic.engine.mjs</code>), not from animation. Ideal mode evaluates the gates in logic-depth order; Real devices runs an event-driven simulation with a delay per gate. <code>check-pad-native-logic.mjs</code> runs it in Node against <code>circuits/expected.json</code>: all 8 rows, all 64 row-to-row changes in both modes, and the Cout hazard timing: 20/20 PASS. The same checks passed in the browser.</li>
+        <li><b>Assumed:</b> the real-device delays (XOR 12 ns, AND 8 ns, OR 8 ns) are illustrative placeholders of the right order for a 74HC-class gate, not measured or from a datasheet; the model uses transport delay (short pulses are not swallowed). The schematic coordinates are hand-placed for this one circuit.</li>
+        <li><b>Weight:</b> <span id="w">about 190 KB on first load, measured in the browser: 45 KB of page, engine and CSS (uncompressed), the other 145 KB are the pad fonts every page shares. No libraries.</span></li>
+        <li><b>Touch:</b> works: 60 px input switches, 44 px truth-table rows on a phone, and the wire ends in the drawing are tappable too.</li>
+        <li><b>To ship:</b> a layout step that places gates and routes wires from a netlist (or from the Professor's figure) for any circuit; flip-flops and clocks for sequential circuits; RTL mirroring of the drawing was not attempted.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+import { INPUTS, NETS, GATES, LEVEL, REAL_DELAYS_NS, settle, ideal, real, rowIndex, rowInputs } from "./pad-native-logic.engine.mjs";
+
+const NS = "http://www.w3.org/2000/svg";
+const $ = id => document.getElementById(id);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); parent?.appendChild(e); return e; };
+
+// ---------------------------------------------------------------- drawing
+// Coordinates follow the Professor's figure: Cin across the top, A/B into G1 with rails down to G2.
+const GATE_AT = {
+  G1: { x: 230, cy: 170 }, G2: { x: 230, cy: 350 }, G3: { x: 500, cy: 190 }, G4: { x: 500, cy: 280 }, G5: { x: 640, cy: 320 },
+};
+// Each net: one polyline per sink, always starting at the driver, so ink runs the way the signal does.
+const ROUTES = {
+  Cin: [[[70, 50], [440, 50], [440, 210], [516, 210]], [[70, 50], [440, 50], [440, 300], [500, 300]]],
+  A: [[[70, 150], [246, 150]], [[70, 150], [110, 150], [110, 330], [230, 330]]],
+  B: [[[70, 190], [246, 190]], [[70, 190], [150, 190], [150, 370], [230, 370]]],
+  P: [[[320, 170], [516, 170]], [[320, 170], [380, 170], [380, 260], [500, 260]]],
+  G: [[[310, 350], [620, 350], [620, 340], [650, 340]]],
+  T: [[[580, 280], [610, 280], [610, 300], [650, 300]]],
+  S: [[[590, 190], [740, 190]]],
+  Cout: [[[720, 320], [740, 320]]],
+};
+const JUNCTIONS = { Cin: [[440, 210]], A: [[110, 150]], B: [[150, 190]], P: [[380, 170]] };
+const TAGS = { P: [328, 159], G: [320, 339], T: [590, 267] };
+const IN_Y = { Cin: 50, A: 150, B: 190 };
+const OUT_Y = { S: 190, Cout: 320 };
+
+const shape = (type, x, cy) => {
+  const y = cy - 30, b = y + 60;
+  if (type === "AND") return { body: `M${x} ${y}H${x + 50}A30 30 0 0 1 ${x + 50} ${b}H${x}Z`, cx: x + 34 };
+  if (type === "OR") return { body: `M${x} ${y}Q${x + 50} ${y} ${x + 80} ${cy}Q${x + 50} ${b} ${x} ${b}Q${x + 18} ${cy} ${x} ${y}Z`, cx: x + 40 };
+  return { body: `M${x + 10} ${y}Q${x + 60} ${y} ${x + 90} ${cy}Q${x + 60} ${b} ${x + 10} ${b}Q${x + 28} ${cy} ${x + 10} ${y}Z`,
+           back: `M${x} ${y}Q${x + 18} ${cy} ${x} ${b}`, cx: x + 50 };
+};
+const pts = p => "M" + p.map(q => q.join(" ")).join("L");
+
+const sch = $("sch");
+const inks = {}, dots = {}, tagVals = {}, terms = {};
+for (const [net, routes] of Object.entries(ROUTES)) {
+  inks[net] = [];
+  for (const r of routes) {
+    el("path", { d: pts(r), class: "wire" }, $("wires"));
+    inks[net].push(el("path", { d: pts(r), class: "ink", pathLength: 1 }, $("inks")));
+  }
+  dots[net] = (JUNCTIONS[net] ?? []).map(([x, y]) => el("circle", { cx: x, cy: y, r: 3.6, class: "dot" }, $("dots")));
+}
+for (const [id, g] of Object.entries(GATES)) {
+  const { x, cy } = GATE_AT[id], s = shape(g.type, x, cy);
+  if (s.back) el("path", { d: s.back, class: "back" }, $("bodies"));
+  el("path", { d: s.body, class: "body" }, $("bodies"));
+  const t = el("text", { x: s.cx, y: cy, class: "gname", "text-anchor": "middle", "dominant-baseline": "central" }, $("labels"));
+  t.textContent = id;
+}
+for (const [net, [x, y]] of Object.entries(TAGS)) {
+  const t = el("text", { x, y, class: "tag" }, $("labels"));
+  t.append(net + " = ");
+  tagVals[net] = el("tspan", { class: "v" }, t);
+}
+for (const n of INPUTS) {
+  const y = IN_Y[n];
+  terms[n] = el("circle", { cx: 70, cy: y, r: 6, class: "term" }, $("labels"));
+  el("text", { x: 56, y, class: "io", "text-anchor": "end", "dominant-baseline": "central" }, $("labels")).textContent = n;
+  const hit = el("rect", { x: 0, y: y - 21, width: 100, height: 42, class: "hit", tabindex: -1, role: "button", "aria-label": `Toggle ${n}` }, $("hits"));
+  hit.addEventListener("click", () => toggle(n));
+}
+for (const n of ["S", "Cout"]) {
+  const y = OUT_Y[n];
+  terms[n] = el("circle", { cx: 740, cy: y, r: 8, class: "term" }, $("labels"));
+  el("text", { x: 756, y, class: "io", "dominant-baseline": "central" }, $("labels")).textContent = n;
+}
+
+// Keep drawn text and strokes at fixed screen sizes however wide the drawing is (12px floor on phones).
+const fitK = svg => new ResizeObserver(() => {
+  const w = svg.getBoundingClientRect().width;
+  if (w) svg.style.setProperty("--k", (svg.viewBox.baseVal.width / w).toFixed(3));
+}).observe(svg);
+fitK(sch); fitK($("trace"));
+
+// ---------------------------------------------------------------- motion helpers
+let timers = [];
+const later = (ms, fn) => { if (ms <= 0 || reduce.matches) { fn(); return; } const id = setTimeout(() => { timers = timers.filter(t => t.id !== id); fn(); }, ms); timers.push({ id, fn, at: performance.now() + ms }); };
+function flush() { // interrupted motion completes rather than freezes
+  const pending = timers.sort((a, b) => a.at - b.at); timers = [];
+  for (const t of pending) { clearTimeout(t.id); t.fn(); }
+  for (const a of document.getAnimations()) if (a.effect?.target?.closest?.("main")) a.finish();
+}
+const offsetOf = p => parseFloat(getComputedStyle(p).strokeDashoffset) || 0;
+function inkNet(net, on, dur) {
+  for (const p of inks[net]) {
+    let from = offsetOf(p);
+    if (from <= -0.999) from = 1;                 // fully lifted: the same as not yet drawn
+    const to = on ? 0 : (from > 0.001 ? 1 : -1);   // lift ink from the driver end, like the signal leaving
+    p.getAnimations().forEach(a => a.cancel());
+    p.style.strokeDashoffset = to;
+    if (!reduce.matches && dur > 0 && from !== to)
+      p.animate([{ strokeDashoffset: from }, { strokeDashoffset: to }], { duration: dur, easing: "cubic-bezier(.45,.05,.4,1)" });
+  }
+  for (const d of dots[net]) d.classList.toggle("hi", !!on);
+  if (terms[net]) terms[net].classList.toggle("hi", !!on);
+  if (tagVals[net]) tagVals[net].textContent = on ? "1" : "0";
+}
+const land = node => { node.classList.remove("land"); void node.offsetWidth; if (!reduce.matches) node.classList.add("land"); };
+
+// ---------------------------------------------------------------- state
+let inputs = { A: 0, B: 0, Cin: 0 };
+let mode = "ideal";
+const seen = new Set();
+const LEVEL_MS = 300, DRAW_MS = 260, NS_MS = 45, REAL_DRAW_MS = 150;
+
+function paintSwitches() {
+  for (const n of INPUTS) {
+    const b = $("sw-" + n);
+    b.setAttribute("aria-pressed", inputs[n] ? "true" : "false");
+    b.setAttribute("aria-label", `${n} is ${inputs[n]}, press to flip`);
+    b.querySelector(".dg").textContent = inputs[n];
+  }
+}
+function paintOutputs(v, settled) {
+  for (const o of ["S", "Cout"]) { const e = $("o-" + o); if (e.textContent !== String(v[o])) { e.textContent = v[o]; land(e); } }
+  $("outs").classList.toggle("settling", !settled);
+  $("o-state").textContent = settled ? "Settled" : "Settling…";
+  if (settled) {
+    const n = inputs.A + inputs.B + inputs.Cin;
+    $("o-sum").innerHTML = `${inputs.A} + ${inputs.B} + ${inputs.Cin} = <b>${n}</b> = binary <b>${v.Cout}${v.S}</b>`;
+    land($("o-sum"));
+  }
+}
+
+// ---------------------------------------------------------------- truth table
+const tbody = $("tt").tBodies[0];
+for (let r = 0; r < 8; r++) {
+  const i = rowInputs(r), v = settle(i);
+  const tr = document.createElement("tr");
+  tr.tabIndex = 0; tr.dataset.row = r;
+  tr.setAttribute("aria-label", `Set A ${i.A}, B ${i.B}, Cin ${i.Cin}: S ${v.S}, Cout ${v.Cout}`);
+  tr.innerHTML = `<td>${i.A}</td><td>${i.B}</td><td>${i.Cin}</td><td class="o split">${v.S}</td><td class="o">${v.Cout}</td>
+    <td><svg class="tick" viewBox="0 0 18 18" aria-hidden="true"><path pathLength="1" d="M3.5 9.5l3.6 3.8L14.5 4.5"/></svg></td>`;
+  tr.addEventListener("click", () => setInputs(rowInputs(r)));
+  tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setInputs(rowInputs(r)); } });
+  tbody.appendChild(tr);
+}
+// A red-pen ring: a slightly uneven loop that overshoots its start, drawn around the current row.
+function ringPath(x, y, w, h) {
+  const cx = x + w / 2, cy = y + h / 2, rx = w / 2 + 7, ry = h / 2 + 3;
+  const out = [];
+  for (let s = 0; s <= 44; s++) {
+    const a = Math.PI * (1.08 + (2.1 * s) / 44);
+    const wob = 1 + 0.02 * Math.sin(s * 0.9) + (s > 38 ? 0.025 * (s - 38) / 6 : 0);
+    out.push([cx + Math.cos(a) * rx * wob, cy + Math.sin(a) * ry * (wob + (s > 38 ? 0.12 * (s - 38) / 6 : 0))]);
+  }
+  return "M" + out.map(p => p[0].toFixed(1) + " " + p[1].toFixed(1)).join("L");
+}
+let ringRow = -1;
+function placeRing(r, animate) {
+  const tr = tbody.rows[r], wrap = $("tt-wrap").getBoundingClientRect(), b = tr.getBoundingClientRect();
+  const cells = tr.cells, last = cells[4].getBoundingClientRect();
+  const ring = $("ring");
+  ring.setAttribute("d", ringPath(b.left - wrap.left + 2, b.top - wrap.top, last.right - b.left - 4, b.height));
+  for (const t of tbody.rows) t.classList.toggle("cur", +t.dataset.row === r);
+  ring.getAnimations().forEach(a => a.cancel());
+  ring.style.strokeDashoffset = 0;
+  if (animate && !reduce.matches) ring.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 520, easing: "cubic-bezier(.37,0,.63,1)" });
+  ringRow = r;
+}
+function markSeen(r) {
+  seen.add(r); tbody.rows[r].classList.add("seen");
+  $("seen-count").textContent = seen.size === 8 ? "All 8 rows tried" : `${seen.size} of 8 rows tried`;
+}
+new ResizeObserver(() => ringRow >= 0 && placeRing(ringRow, false)).observe($("tt-wrap"));
+
+// ---------------------------------------------------------------- timing diagram
+const TR = { x0: 64, x1: 822, t0: -4, t1: 40, top: 12, row: 34, amp: 16 };
+const tx = t => TR.x0 + ((t - TR.t0) / (TR.t1 - TR.t0)) * (TR.x1 - TR.x0);
+const rowY = i => TR.top + i * TR.row;
+function drawTrace(run, animate) {
+  const svg = $("trace"); svg.replaceChildren();
+  const bottom = rowY(NETS.length) + 4;
+  for (let t = 0; t <= TR.t1; t += 4) el("line", { x1: tx(t), x2: tx(t), y1: TR.top - 4, y2: bottom, class: "grid" }, svg);
+  el("line", { x1: TR.x0, x2: TR.x1, y1: bottom, y2: bottom, class: "axis" }, svg);
+  for (let t = 0; t <= TR.t1; t += 8) el("text", { x: tx(t), y: bottom + 18, class: "tick", "text-anchor": "middle" }, svg).textContent = t;
+  const clip = el("clipPath", { id: "reveal" }, el("defs", {}, svg));
+  const rect = el("rect", { x: 0, y: 0, width: TR.x1 + 4, height: bottom + 2 }, clip);
+  const g = el("g", { "clip-path": "url(#reveal)" }, svg);
+  NETS.forEach((n, i) => {
+    const y0 = rowY(i) + TR.amp + 6, y1 = y0 - TR.amp;
+    el("text", { x: TR.x0 - 10, y: y0 - TR.amp / 2, class: "nm", "text-anchor": "end", "dominant-baseline": "central" }, svg).textContent = n;
+    let v = run.before[n], d = `M${TR.x0} ${v ? y1 : y0}`;
+    for (const e of run.events.filter(e => e.net === n)) { d += `H${tx(e.t)}V${e.value ? y1 : y0}`; v = e.value; }
+    d += `H${TR.x1}`;
+    el("path", { d, class: "wave" + (["P", "G", "T"].includes(n) ? " int" : "") }, g);
+  });
+  const head = el("line", { x1: tx(0), x2: tx(0), y1: TR.top - 6, y2: bottom, class: "head" }, svg);
+  const endNs = Math.max(run.endNs ?? 0, 1);
+  const endX = tx(Math.min(TR.t1, endNs)), startX = tx(0);
+  if (animate && !reduce.matches) {
+    // The pen reveals the traces at the playhead's speed, then carries on to the end of the axis.
+    rect.setAttribute("width", startX);
+    const pxPerMs = (endX - startX) / (endNs * NS_MS);
+    rect.animate([{ transform: "scaleX(1)" }, { transform: `scaleX(${(TR.x1 + 4) / startX})` }], { duration: (TR.x1 + 4 - startX) / pxPerMs, easing: "linear", fill: "forwards" });
+    head.animate([{ transform: "translateX(0)" }, { transform: `translateX(${endX - startX}px)` }], { duration: endNs * NS_MS, easing: "linear", fill: "forwards" });
+    const t0 = performance.now();
+    const tick = () => { const ns = Math.min(endNs, (performance.now() - t0) / NS_MS); $("clock").textContent = `t = ${Math.floor(ns)} ns`; if (ns < endNs) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  } else {
+    head.setAttribute("transform", `translate(${endX - startX} 0)`);
+    $("clock").textContent = `t = ${run.endNs ?? 0} ns`;
+  }
+  return { svg, rowOf: n => NETS.indexOf(n), bottom };
+}
+function markGlitches(run, t) {
+  const outs = run.glitches.filter(g => g.net === "S" || g.net === "Cout");
+  for (const gl of outs) {
+    const i = t.rowOf(gl.net), y0 = rowY(i) + TR.amp + 6, cy = y0 - TR.amp / 2;
+    const x0 = tx(gl.from) - 10, x1 = tx(gl.to) + 10, rx = (x1 - x0) / 2, ry = TR.amp / 2 + 11, cx = (x0 + x1) / 2;
+    const p = [];
+    for (let s = 0; s <= 40; s++) { const a = Math.PI * (0.95 + (2.12 * s) / 40), w = 1 + 0.03 * Math.sin(s * 1.3) + (s > 33 ? 0.06 * (s - 33) / 7 : 0); p.push(`${(cx + Math.cos(a) * rx * w).toFixed(1)} ${(cy + Math.sin(a) * ry * w).toFixed(1)}`); }
+    const ring = el("path", { d: "M" + p.join("L"), class: "redring", pathLength: 1 }, t.svg);
+    ring.style.strokeDashoffset = 0;
+    if (!reduce.matches) ring.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 520, easing: "cubic-bezier(.37,0,.63,1)" });
+  }
+  const note = $("trace-note");
+  if (outs.length) {
+    note.className = "note red";
+    note.textContent = outs.map(g => `${g.net} reads ${g.value} from ${g.from} to ${g.to} ns before it settles at ${g.settlesAt}.`).join(" ")
+      + " A glitch: ideal gates never show it, and the truth table only holds once the circuit has settled.";
+  } else {
+    note.className = "note muted";
+    note.textContent = run.events.length ? `Settled after ${run.endNs} ns with no glitch on S or Cout.` : "Nothing changed.";
+  }
+}
+
+// ---------------------------------------------------------------- run a change
+function setInputs(next) {
+  flush();
+  const prev = { ...inputs };
+  inputs = { A: next.A & 1, B: next.B & 1, Cin: next.Cin & 1 };
+  paintSwitches();
+  const r = rowIndex(inputs);
+  if (mode === "ideal") {
+    const run = ideal(prev, inputs);
+    const levelMs = lv => lv * LEVEL_MS;
+    for (const e of run.events) later(levelMs(e.level), () => inkNet(e.net, e.value, DRAW_MS));
+    const lastLevel = run.events.at(-1)?.level ?? 0;
+    const outAt = n => { const e = run.events.find(e => e.net === n); return e ? levelMs(e.level) + DRAW_MS : 0; };
+    later(Math.max(outAt("S"), outAt("Cout")), () => paintOutputs(run.after, true));
+    later(run.events.length ? levelMs(lastLevel) + DRAW_MS + 60 : 0, () => { placeRing(r, true); markSeen(r); });
+  } else {
+    const run = real(prev, inputs);
+    paintOutputs(settle(prev), false);
+    const t = drawTrace(run, true);
+    for (const e of run.events) later(e.t * NS_MS, () => {
+      inkNet(e.net, e.value, REAL_DRAW_MS);
+      if (e.net === "S" || e.net === "Cout") { const cur = { S: +$("o-S").textContent, Cout: +$("o-Cout").textContent, [e.net]: e.value }; paintOutputs(cur, false); }
+    });
+    const end = run.endNs * NS_MS + REAL_DRAW_MS;
+    later(end, () => { $("clock").textContent = `t = ${run.endNs} ns`; paintOutputs(run.after, true); markGlitches(run, t); placeRing(r, true); markSeen(r); });
+  }
+}
+const toggle = n => setInputs({ ...inputs, [n]: inputs[n] ? 0 : 1 });
+
+for (const n of INPUTS) $("sw-" + n).addEventListener("click", () => toggle(n));
+addEventListener("keydown", e => {
+  if (e.target.closest?.("input, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = { a: "A", b: "B", c: "Cin" }[e.key.toLowerCase()];
+  if (k) toggle(k);
+});
+function setMode(m) {
+  flush();
+  mode = m;
+  $("m-ideal").setAttribute("aria-pressed", m === "ideal"); $("m-real").setAttribute("aria-pressed", m === "real");
+  $("timing").classList.toggle("hidden", m !== "real");
+  $("ideal-note").classList.toggle("hidden", m !== "ideal");
+  if (m === "real") { $("trace").replaceChildren(); drawTrace({ before: settle(inputs), events: [], endNs: 0, glitches: [] }, false);
+    $("trace-note").className = "note muted"; $("trace-note").textContent = "Flip an input to record what each wire does, nanosecond by nanosecond (1 ns is played as 45 ms)."; }
+}
+$("m-ideal").addEventListener("click", () => setMode("ideal"));
+$("m-real").addEventListener("click", () => setMode("real"));
+$("demo").addEventListener("click", () => {
+  // A = B = Cin = 1, then A falls: G drops at 8 ns but T only rises at 20 ns, so Cout dips.
+  const was = mode; mode = "ideal"; setInputs({ A: 1, B: 1, Cin: 1 }); flush(); mode = was;
+  setInputs({ A: 0, B: 1, Cin: 1 });
+});
+
+// ---------------------------------------------------------------- first paint (instant)
+const v0 = settle(inputs);
+for (const n of NETS) inkNet(n, v0[n], 0);
+paintSwitches(); paintOutputs(v0, true);
+requestAnimationFrame(() => {
+  placeRing(0, false); markSeen(0);
+  // #real, #101, #demo in the address start the page in that state (shareable; used for QA screenshots).
+  const h = location.hash;
+  if (/real|demo/.test(h)) setMode("real");
+  const m = h.match(/([01])([01])([01])/);
+  if (m) setInputs({ A: +m[1], B: +m[2], Cin: +m[3] });
+  if (/demo/.test(h)) $("demo").click();
+});
+
+// QA hook: what the page shows, for the browser check.
+window.__padLogic = {
+  set: (A, B, Cin, m = "ideal") => { setMode(m); setInputs({ A, B, Cin }); flush(); },
+  shown: () => ({ S: +$("o-S").textContent, Cout: +$("o-Cout").textContent, ring: ringRow,
+    inked: Object.fromEntries(NETS.map(n => [n, offsetOf(inks[n][0]) === 0 ? 1 : 0])), tags: Object.fromEntries(Object.entries(tagVals).map(([k, t]) => [k, +t.textContent])) }),
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "area": "analog",
+  "title": "Analog & power circuits",
+  "pad": "bluegrey",
+  "circuit": "Picker: buck converter (Lecture Ex. 2), half-wave SCR rectifier with R load (Ex. 5), CE amplifier (Sheet 5 circuit i)",
+  "candidates": [
+    {
+      "id": "circuitjs-stock",
+      "name": "CircuitJS, stock",
+      "file": "circuitjs-stock.html",
+      "kind": "Ready-made",
+      "oneLine": "CircuitJS exactly as it ships, dark canvas, menus and editing, inside the pad frame.",
+      "loadKB": 1306,
+      "touch": "partial",
+      "accuracy": "Not re-measured here; same circuits/ files measured in CircuitJS by the circuit-sim prototype (buck Vo 19.52 V vs 20, SCR 40.18 V vs 40.5, CE Av −157 vs −163.3).",
+      "caveats": "Looks like CircuitJS, not the pad; students can edit or break the circuit; no idealisation switch; sidebar shows a 404 from the self-hosted copy."
+    },
+    {
+      "id": "circuitjs-pad",
+      "name": "CircuitJS, pad skin",
+      "file": "circuitjs-pad.html",
+      "kind": "Ready-made, re-skinned",
+      "oneLine": "Locked CircuitJS multiplied onto the grid, pad sliders and toggle outside, live readouts.",
+      "loadKB": 1340,
+      "touch": "works",
+      "accuracy": "Live CircuitJS values vs circuits/expected.json in headless Chrome: ideal buck Vo 19.97 V, SCR Vo,av 40.50 V, CE Q-point within 0.3%, Av −154.8 (5% VT gap noted).",
+      "caveats": "Sliders re-import edited circuit text on release (sim restarts); buck runs ~1 ms circuit time per second; phone shows CircuitJS's menu button and padlock."
+    },
+    {
+      "id": "pad-native-spice",
+      "name": "Pad-native SPICE",
+      "file": "pad-native-spice.html",
+      "kind": "Agent-built",
+      "oneLine": "Hand-drawn pad schematic, current dots and grid plots, all solved live by ngspice-WASM.",
+      "loadKB": 20100,
+      "touch": "works",
+      "accuracy": "check-pad-native-spice.mjs: 90 PASS / 0 FAIL — same engine in Node vs expected.json (both modes), a 40 ms reference run, and hand formulas across slider ranges.",
+      "caveats": "20 MB ngspice engine (5.7 MB gzipped) before the first solve; schematics hand-drawn per circuit; DCM and saturation get a warning, not formulas."
+    }
+  ]
+}

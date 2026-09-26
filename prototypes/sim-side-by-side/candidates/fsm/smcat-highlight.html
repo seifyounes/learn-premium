@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en" data-pad="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>smcat highlight FSM</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="fsm-common.css">
+<style>
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 18px; }
+  .xseg button { min-width: 56px; min-height: 52px; font: 600 22px/1 var(--f-qty); }
+  .xseg button[data-x="1"][aria-pressed="true"] { background: var(--live); }
+  .bar .btn { min-height: 52px; }
+  #clock { min-width: 140px; font-size: 17px; }
+  .readout-row { display: flex; gap: 1px; background: var(--print); border: 1.5px solid var(--print); }
+  .readout-row > div { background: var(--sheet); padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 6px; min-width: 76px; }
+  .readout-row .v { font: 500 22px/1 var(--f-qty); color: var(--graphite); }
+  .readout-row .v.on { color: var(--live); }
+  .fig { border: 1.2px solid var(--pencil); padding: 12px; overflow: auto; }
+  .fig svg { display: block; width: 100%; max-width: 860px; height: auto; margin: 0 auto; }
+  .fig.tb svg { max-width: 250px; }
+  /* re-skin state-machine-cat's graphviz output toward pad inks */
+  .fig .graph > polygon { fill: transparent; }
+  .fig text { font-family: var(--f-qty); fill: var(--graphite); }
+  .fig .edge text { fill: var(--muted); }
+  .fig .edge path { stroke: var(--pencil); stroke-width: 1.3; transition: stroke 200ms var(--ease-out); }
+  .fig .edge polygon { fill: var(--pencil); stroke: var(--pencil); transition: fill 200ms var(--ease-out); }
+  .fig .state.regular path { stroke: var(--graphite); stroke-width: 1.6; fill: var(--sheet); transition: fill 200ms var(--ease-out); }
+  .fig .state.regular > polygon[fill="black"] { fill: var(--pencil); stroke: var(--pencil); }
+  .fig .state.initial ellipse { fill: var(--graphite); stroke: var(--graphite); }
+  .fig .state.cur path { fill: var(--graphite); stroke-width: 2.4; }
+  .fig .state.cur text { fill: var(--sheet); font-weight: 600; }
+  .fig .state.cur > polygon[fill="black"] { fill: var(--sheet); stroke: var(--sheet); }
+  .fig .edge.armed path { stroke: var(--graphite); stroke-width: 2.4; }
+  .fig .edge.armed polygon { fill: var(--graphite); stroke: var(--graphite); }
+  .fig .edge.armed text { fill: var(--graphite); font-weight: 600; }
+  .fig .edge.fired path { stroke: var(--live); stroke-width: 3; }
+  .fig .edge.fired polygon { fill: var(--live); stroke: var(--live); }
+  .legend { font: 400 15px/1.45 var(--f-body); color: var(--muted); margin: 8px 0 0; max-width: 72ch; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">state-machine-cat 12 + highlight</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Moore 101 detector</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made, re-skinned</span></div>
+  </header>
+
+  <div class="body-pad">
+    <div class="bar">
+      <div class="field">
+        <span class="label" id="x-label">Input X</span>
+        <div class="seg xseg" role="group" aria-labelledby="x-label">
+          <button type="button" data-x="0" aria-pressed="true">0</button>
+          <button type="button" data-x="1" aria-pressed="false">1</button>
+        </div>
+      </div>
+      <button type="button" class="btn primary" id="clock">Clock</button>
+      <button type="button" class="btn" id="reset">Reset</button>
+      <div class="readout-row" aria-live="polite">
+        <div><span class="label">State</span><span class="v" id="st">S0</span></div>
+        <div><span class="label">Z</span><span class="v" id="z">0</span></div>
+        <div><span class="label">Edges</span><span class="v" id="n">0</span></div>
+      </div>
+    </div>
+    <div class="fig" id="fig" aria-label="State diagram"></div>
+    <p class="legend">The dark state is the present state; the dark arrow is the one the next clock will take for the X you have set.</p>
+  </div>
+
+  <div class="wrap-honesty">
+    <section class="honesty" aria-label="For the Owner">
+      <h2>For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> the diagram is state-machine-cat 12 (graphviz dot layout) rendering an agent-written text file (<code>machine-101.smcat</code>) once, in Node (<code>build-smcat.mjs</code>): one left-right SVG for wide screens, one top-down for phones. The page only re-colours it and toggles classes; a 5-line lookup engine moves the highlight.</li>
+        <li><b>Accuracy:</b> <code>check-smcat-highlight.mjs</code> parses the smcat source with smcat itself and runs the tiny engine: state table and test sequence, <b>21 of 21 PASS</b>.</li>
+        <li><b>Faked or missing:</b> no motion along arrows, no tables, no timing strip. The state boxes keep smcat's rounded corners (it draws them as paths; the design system wants square). Arrow positions come from graphviz, so they can change when the machine changes.</li>
+        <li><b>First load:</b> <span class="qty">169 KB</span> cold from the local server, about 140 KB of it the pad fonts; no layout engine loads in the browser (the SVGs are 8 to 9 KB).</li>
+        <li><b>Touch:</b> works; the controls are 52 px tall and nothing needs hover (a CDP touch tap on CLOCK clocks it). On a phone the top-down diagram is tall, so S3 sits below the fold.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+<script type="module">
+import { init, next, z } from "./smcat-highlight.engine.mjs";
+const S = { state: init, x: 0, n: 0 };
+const fig = document.getElementById("fig");
+const narrow = matchMedia("(max-width: 700px)");
+const nodes = {}, edges = {};
+
+async function load() {
+  const dir = narrow.matches ? "tb" : "lr";
+  fig.className = "fig " + dir;
+  fig.innerHTML = await (await fetch(`smcat-highlight-${dir}.svg`)).text();
+  const svg = fig.querySelector("svg");
+  svg.removeAttribute("width"); svg.removeAttribute("height");
+  for (const k in nodes) delete nodes[k];
+  for (const k in edges) delete edges[k];
+  for (const g of svg.querySelectorAll("g.node")) {
+    nodes[g.querySelector("title").textContent] = g;
+    // smcat draws the rounded outline last; move it behind the text so it can take a fill
+    const outline = g.querySelector(":scope > path");
+    if (outline) g.insertBefore(outline, g.querySelector("title").nextSibling);
+  }
+  for (const g of svg.querySelectorAll("g.edge")) edges[g.querySelector("title").textContent.replace("->", ">")] = g;
+  render();
+}
+function render() {
+  for (const [id, g] of Object.entries(nodes)) g.classList.toggle("cur", id === S.state);
+  const armed = `${S.state}>${next(S.state, S.x)}`;
+  for (const [id, g] of Object.entries(edges)) g.classList.toggle("armed", id === armed);
+  document.getElementById("st").textContent = S.state;
+  const zv = document.getElementById("z"); zv.textContent = z(S.state); zv.classList.toggle("on", !!z(S.state));
+  document.getElementById("n").textContent = S.n;
+  document.querySelectorAll(".xseg button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.x) === S.x)));
+}
+function clock() {
+  const from = S.state, to = next(from, S.x);
+  S.state = to; S.n++;
+  for (const g of Object.values(edges)) g.classList.remove("fired");
+  const fired = edges[`${from}>${to}`];
+  if (fired) { fired.classList.add("fired"); setTimeout(() => fired.classList.remove("fired"), 600); }
+  render();
+}
+document.querySelectorAll(".xseg button").forEach((b) => b.addEventListener("click", () => { S.x = Number(b.dataset.x); render(); }));
+document.getElementById("clock").addEventListener("click", clock);
+document.getElementById("reset").addEventListener("click", () => { S.state = init; S.n = 0; render(); });
+narrow.addEventListener("change", load);
+const seq = new URLSearchParams(location.search).get("seq");
+load().then(() => { if (seq && /^[01]+$/.test(seq)) for (const c of seq) { S.x = Number(c); clock(); } });
+</script>
+</body>
+</html>

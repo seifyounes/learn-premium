@@ -1,0 +1,16 @@
+{
+  "name": "sim-side-by-side-prototype",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PROTOTYPE for wayfinder ticket 'Which simulators look and feel best, side by side?' (#24). Throwaway.",
+  "scripts": {
+    "start": "python -m http.server 8724 --bind 0.0.0.0"
+  },
+  "dependencies": {
+    "digitaljs": "^0.14.2",
+    "eecircuit-engine": "^1.8.0",
+    "jsxgraph": "^1.13.3",
+    "plotly.js-dist-min": "^3.0.0",
+    "state-machine-cat": "^12.0.0"
+  }
+}

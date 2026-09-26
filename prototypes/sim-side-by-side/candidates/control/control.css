@@ -1,0 +1,54 @@
+/* PROTOTYPE (throwaway): shared CSS for the control candidates (pad inks, printed figure frames,
+   the gain control and the readout strip). pad.css stays the source of tokens. */
+
+code { font-family: var(--f-qty); font-size: .94em; }
+.greek { text-transform: none; letter-spacing: 0; font-family: var(--f-body); font-weight: 700; font-size: 1.12em; }
+.greek sub { font-size: .72em; line-height: 0; vertical-align: -.2em; }
+
+/* A figure plotted on the sheet: printed caption cell above, the plot on the pad grid below. */
+.fig { display: flex; flex-direction: column; min-width: 0; border: 1.5px solid var(--print); background: var(--sheet); }
+.fig-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 12px 8px; border-bottom: 1px solid var(--print); min-height: 36px; }
+.fig-head .label { white-space: nowrap; }
+.fig-head .note { font: 400 13px/1.2 var(--f-qty); color: var(--muted); text-align: end; }
+.plot { position: relative; flex: 1 0 auto; }
+.plot.grid-paper { background-color: var(--sheet); }
+
+/* Gain control: printed nudge buttons flanking a ruled slider. */
+.gain { display: grid; grid-template-columns: auto 44px minmax(0, 1fr) 44px; align-items: center; gap: 0 10px; padding: 10px 12px; border: 1.5px solid var(--print); background: var(--sheet); }
+.gain .k-now { font: 500 26px/1 var(--f-qty); font-feature-settings: "tnum" 1; color: var(--graphite); min-width: 5.2ch; display: flex; flex-direction: column; gap: 6px; }
+.gain .k-now .label { font-size: 12px; }
+.gain .btn { width: 44px; min-height: 44px; padding: 0; display: grid; place-items: center; }
+.gain .btn svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; stroke-linecap: round; fill: none; }
+
+input[type="range"].k-slider { -webkit-appearance: none; appearance: none; background: transparent; height: 44px; margin: 0; cursor: pointer; touch-action: pan-y; }
+.k-slider::-webkit-slider-runnable-track { height: 2px; background: var(--print); }
+.k-slider::-moz-range-track { height: 2px; background: var(--print); }
+.k-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; margin-top: -12px; background: var(--graphite); border: 2px solid var(--sheet); outline: 1.5px solid var(--graphite); border-radius: 0; }
+.k-slider::-moz-range-thumb { width: 22px; height: 22px; background: var(--graphite); border: 2px solid var(--sheet); outline: 1.5px solid var(--graphite); border-radius: 0; }
+.k-slider:focus-visible { outline: 2px solid var(--print); outline-offset: 2px; }
+
+/* Readout strip: title-block style cells, one quantity each. */
+.readouts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; background: var(--print); border: 1.5px solid var(--print); }
+.readouts > div { background: var(--sheet); padding: 7px 10px 9px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-width: 0; }
+.readouts .v { font: 500 23px/1 var(--f-qty); font-feature-settings: "tnum" 1; color: var(--graphite); white-space: nowrap; }
+.readouts .v small { font: 400 14px/1 var(--f-qty); color: var(--muted); margin-inline-start: 3px; }
+.readouts .sub { font: 400 13px/1.25 var(--f-qty); color: var(--muted); }
+@media (max-width: 760px) {
+  .readouts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .readouts .v { font-size: 19px; }
+  .readouts .v small { font-size: 12px; margin-inline-start: 2px; }
+  .readouts > div { padding: 6px 8px 8px; gap: 6px; }
+}
+
+/* Values land in hand order (opacity + 2px drop), instant under reduced motion. */
+.land { animation: land 260ms var(--ease-out) both; }
+@keyframes land { from { opacity: 0; transform: translateY(-2px); } }
+
+/* JSXGraph / SVG text on the sheet: knocked out with a sheet stroke so it never sits on a grid line. */
+.ink-qty { font-family: var(--f-qty) !important; font-feature-settings: "tnum" 1; paint-order: stroke; stroke: var(--sheet); stroke-width: 4px; stroke-linejoin: round; }
+.ink-print { font-family: var(--f-print) !important; font-variation-settings: "wdth" 80; font-weight: 600; letter-spacing: .06em; paint-order: stroke; stroke: var(--sheet); stroke-width: 4px; stroke-linejoin: round; }
+.ink-red { font-family: var(--f-qty) !important; font-weight: 500; paint-order: stroke; stroke: var(--sheet); stroke-width: 5px; stroke-linejoin: round; }
+
+.honesty p { margin: 0 0 6px; max-width: 110ch; }
+.honesty p:last-child { margin-bottom: 0; }
+.honesty .label { display: block; margin: 0 0 8px; }

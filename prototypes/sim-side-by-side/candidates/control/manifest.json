@@ -1,0 +1,41 @@
+{
+  "area": "control",
+  "title": "Control systems",
+  "pad": "bluegrey",
+  "circuit": "G(s) = K / (s(s+2)) in unity negative feedback, K set by the student (key at K = 4)",
+  "candidates": [
+    {
+      "id": "pathview",
+      "name": "PathView + PathSim",
+      "file": "pathview.html",
+      "kind": "Ready-made",
+      "oneLine": "Hosted Simulink-style block editor, PathSim in Pyodide, our .pvm model loaded by URL.",
+      "loadKB": 34900,
+      "touch": "partial",
+      "accuracy": "In-embed scope peak 1.1630331 (OS 16.303 %); same .pvm via pvm2py in CPython PathSim gives identical trace, Ts(2 %) 4.04 s.",
+      "caveats": "Third-party hosted site and CDN; Run ready after ~21 s; editor panels crowd a phone; no viewer mode; params are Python expressions."
+    },
+    {
+      "id": "pad-native-jsxgraph",
+      "name": "Pad-native root locus (JSXGraph)",
+      "file": "pad-native-jsxgraph.html",
+      "kind": "Agent-built",
+      "oneLine": "Drag closed-loop poles along the root locus; step response and readouts follow live.",
+      "loadKB": 1108,
+      "touch": "works",
+      "accuracy": "check-control-core.mjs: 31/31 PASS vs python-control (poles, OS 16.303 %, PM 51.827°, ωgc 1.5723, Ts, K = 1/2/8/16).",
+      "caveats": "JSXGraph is 946 KB ungzipped here; locus arrows placed for this plant; Ts readout is 4/ζωn, true 2 % time shown as red tick."
+    },
+    {
+      "id": "pad-native-plotly",
+      "name": "Pad-native frequency response (Plotly)",
+      "file": "pad-native-plotly.html",
+      "kind": "Agent-built",
+      "oneLine": "Bode with phase margin marked, Nyquist and step, K slider; optional in-page python-control check.",
+      "loadKB": 4910,
+      "touch": "works",
+      "accuracy": "Same core, 31/31 PASS in Node; in-page python-control 0.10.2 check agreed on six values to within 3e-5.",
+      "caveats": "Plotly is 4.7 MB ungzipped; the python-control button costs ~33 MB and ~26 s; phone shows one view at a time behind tabs."
+    }
+  ]
+}

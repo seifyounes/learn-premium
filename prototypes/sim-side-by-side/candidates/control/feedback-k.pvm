@@ -1,0 +1,78 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "created": "2026-09-26T10:00:00.000Z",
+    "modified": "2026-09-26T10:00:00.000Z",
+    "name": "unity-feedback-K-over-s-s-plus-2",
+    "description": "G(s) = K / (s(s+2)) in unity negative feedback. K is set in the code context."
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "step", "type": "StepSource", "name": "Step r(t)",
+        "position": { "x": 80, "y": 200 },
+        "inputs": [],
+        "outputs": [ { "id": "step-output-0", "nodeId": "step", "name": "out 0", "direction": "output", "index": 0 } ],
+        "params": { "amplitude": "1.0", "tau": "0.0" }
+      },
+      {
+        "id": "sum", "type": "Adder", "name": "Error e",
+        "position": { "x": 240, "y": 200 },
+        "inputs": [
+          { "id": "sum-input-0", "nodeId": "sum", "name": "in 0", "direction": "input", "index": 0 },
+          { "id": "sum-input-1", "nodeId": "sum", "name": "in 1", "direction": "input", "index": 1 }
+        ],
+        "outputs": [ { "id": "sum-output-0", "nodeId": "sum", "name": "out 0", "direction": "output", "index": 0 } ],
+        "params": { "operations": "\"+-\"" }
+      },
+      {
+        "id": "gain", "type": "Amplifier", "name": "Gain K",
+        "position": { "x": 380, "y": 200 },
+        "inputs": [ { "id": "gain-input-0", "nodeId": "gain", "name": "in 0", "direction": "input", "index": 0 } ],
+        "outputs": [ { "id": "gain-output-0", "nodeId": "gain", "name": "out 0", "direction": "output", "index": 0 } ],
+        "params": { "gain": "K" },
+        "pinnedParams": ["gain"]
+      },
+      {
+        "id": "plant", "type": "TransferFunctionNumDen", "name": "Plant 1 over s(s+2)",
+        "position": { "x": 540, "y": 200 },
+        "inputs": [ { "id": "plant-input-0", "nodeId": "plant", "name": "in 0", "direction": "input", "index": 0 } ],
+        "outputs": [ { "id": "plant-output-0", "nodeId": "plant", "name": "out 0", "direction": "output", "index": 0 } ],
+        "params": { "Num": "[1.0]", "Den": "[1.0, 2.0, 0.0]" },
+        "pinnedParams": ["Num", "Den"]
+      },
+      {
+        "id": "scope", "type": "Scope", "name": "Scope",
+        "position": { "x": 760, "y": 190 },
+        "inputs": [
+          { "id": "scope-input-0", "nodeId": "scope", "name": "in 0", "direction": "input", "index": 0 },
+          { "id": "scope-input-1", "nodeId": "scope", "name": "in 1", "direction": "input", "index": 1 }
+        ],
+        "outputs": [],
+        "params": { "labels": "[\"r(t)\", \"y(t)\"]" }
+      }
+    ],
+    "connections": [
+      { "id": "c1", "sourceNodeId": "step",  "sourcePortIndex": 0, "targetNodeId": "sum",   "targetPortIndex": 0 },
+      { "id": "c2", "sourceNodeId": "sum",   "sourcePortIndex": 0, "targetNodeId": "gain",  "targetPortIndex": 0 },
+      { "id": "c3", "sourceNodeId": "gain",  "sourcePortIndex": 0, "targetNodeId": "plant", "targetPortIndex": 0 },
+      { "id": "c4", "sourceNodeId": "plant", "sourcePortIndex": 0, "targetNodeId": "scope", "targetPortIndex": 1, "label": "y" },
+      { "id": "c5", "sourceNodeId": "plant", "sourcePortIndex": 0, "targetNodeId": "sum",   "targetPortIndex": 1 },
+      { "id": "c6", "sourceNodeId": "step",  "sourcePortIndex": 0, "targetNodeId": "scope", "targetPortIndex": 0 }
+    ],
+    "annotations": [
+      {
+        "id": "note", "position": { "x": 80, "y": 40 },
+        "content": "## Unity feedback, $G(s) = \\dfrac{K}{s(s+2)}$\n\nChange `K` in the Code panel, then Run. At $K = 4$: overshoot 16.3 %, $T_s = 4/(\\zeta\\omega_n) = 4$ s.",
+        "width": 560, "height": 110, "fontSize": 13
+      }
+    ]
+  },
+  "events": [],
+  "codeContext": { "code": "# Loop gain. Change it and press Run.\nK = 4.0\n" },
+  "simulationSettings": {
+    "duration": "8", "dt": "0.005", "solver": "RK4", "adaptive": false,
+    "atol": "1e-6", "rtol": "1e-3", "ftol": "1e-12", "dt_min": "", "dt_max": "",
+    "ghostTraces": 4, "plotResults": true
+  }
+}

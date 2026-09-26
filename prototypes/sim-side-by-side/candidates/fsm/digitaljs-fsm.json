@@ -1,0 +1,30 @@
+{
+  "_note": "PROTOTYPE: agent-written DigitalJS circuit for the Moore 101 detector (machine.md). DigitalJS FSM cells are Mealy with numbered states (0..3 = S0..S3); the Moore output is expressed by giving every arrow out of a state that state's Z.",
+  "devices": {
+    "clk": { "type": "Clock", "label": "CLK", "net": "CLK", "propagation": 100 },
+    "x": { "type": "Button", "label": "X", "net": "X" },
+    "rst": { "type": "Button", "label": "RESET", "net": "RST" },
+    "fsm": {
+      "type": "FSM", "label": "101 detector", "bits": { "in": 1, "out": 1 },
+      "polarity": { "clock": true, "arst": true }, "states": 4, "init_state": 0,
+      "trans_table": [
+        { "state_in": 0, "ctrl_in": "0", "state_out": 0, "ctrl_out": "0" },
+        { "state_in": 0, "ctrl_in": "1", "state_out": 1, "ctrl_out": "0" },
+        { "state_in": 1, "ctrl_in": "0", "state_out": 2, "ctrl_out": "0" },
+        { "state_in": 1, "ctrl_in": "1", "state_out": 1, "ctrl_out": "0" },
+        { "state_in": 2, "ctrl_in": "0", "state_out": 0, "ctrl_out": "0" },
+        { "state_in": 2, "ctrl_in": "1", "state_out": 3, "ctrl_out": "0" },
+        { "state_in": 3, "ctrl_in": "0", "state_out": 2, "ctrl_out": "1" },
+        { "state_in": 3, "ctrl_in": "1", "state_out": 1, "ctrl_out": "1" }
+      ]
+    },
+    "z": { "type": "Lamp", "label": "Z", "net": "Z" }
+  },
+  "connectors": [
+    { "from": { "id": "x", "port": "out" }, "to": { "id": "fsm", "port": "in" }, "name": "X" },
+    { "from": { "id": "clk", "port": "out" }, "to": { "id": "fsm", "port": "clk" }, "name": "CLK" },
+    { "from": { "id": "rst", "port": "out" }, "to": { "id": "fsm", "port": "arst" }, "name": "RST" },
+    { "from": { "id": "fsm", "port": "out" }, "to": { "id": "z", "port": "in" }, "name": "Z" }
+  ],
+  "subcircuits": {}
+}

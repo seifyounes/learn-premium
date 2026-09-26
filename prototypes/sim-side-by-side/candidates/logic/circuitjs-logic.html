@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en" data-pad="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CircuitJS logic · Logic circuits</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="logic.css">
+<style>
+  #frame { height: 480px; }
+  #frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+  @media (max-width: 600px) { #frame { height: 380px; } }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <div class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">CircuitJS (Falstad), logic mode</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">1-bit full adder</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </div>
+
+  <div class="body-pad">
+    <div class="tool-note">
+      <p class="muted prose">Tap the <b>L</b>/<b>H</b> logic inputs (A, B, Cin) to flip them. Wires carry CircuitJS's own voltage colours and moving dots; the outputs S and Cout read H or L.</p>
+    </div>
+
+    <div class="tool-frame" id="frame"><iframe id="cjs" title="CircuitJS full adder" loading="eager"></iframe></div>
+
+    <div class="check" aria-live="polite">
+      <div><span class="label">Inputs A B Cin</span><span class="v" id="in">–</span></div>
+      <div><span class="label">Tool shows S · Cout</span><span class="v" id="out">–</span></div>
+      <div><span class="label">Key (S = A⊕B⊕Cin, Cout = AB + Cin(A⊕B))</span><span class="v" id="key">–</span></div>
+    </div>
+
+    <section class="honesty">
+      <h2>For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> the self-hosted current CircuitJS build (<code>vendor/circuitjs/</code>) running <code>circuits/logic/circuitjs.txt</code> unchanged, with the embed options <code>hideSidebar</code>, <code>hideMenu</code>, <code>whiteBackground</code>, <code>editable=false</code>. Not re-skinned. Logic here is analogue underneath: gates are 5 V models, so the strip reads node voltages (above 2.5 V = 1).</li>
+        <li><b>Weight:</b> about 1.3 MB on first load, measured in the browser: 1.13 MB of CircuitJS scripts (about 270 KB gzipped; this dev server sends them uncompressed) plus 145 KB of pad fonts every page shares.</li>
+        <li><b>Touch:</b> tapping a logic input toggles it (checked at phone width), but on a phone the whole drawing shrinks to fit, so the L/H inputs are about 10 px targets and the labels are unreadably small. The red padlock is CircuitJS's own sign that editing is off. It takes a few seconds to start.</li>
+        <li><b>To ship:</b> GPL-2.0 (a licence decision); the drawing is small on a phone; the look is CircuitJS's, with its own colours inside our frame.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const txt = await (await fetch("../../circuits/logic/circuitjs.txt")).text();
+const params = "running=true&whiteBackground=true&hideSidebar=true&hideMenu=true&editable=false&hideInfoBox=true&cct=" + encodeURIComponent(txt);
+const frame = $("cjs");
+frame.src = "../../vendor/circuitjs/circuitjs.html?" + params;
+
+function read() {
+  const sim = frame.contentWindow?.CircuitJS1;
+  if (!sim || !sim.getNodeVoltage) return;
+  try {
+    const b = n => (sim.getNodeVoltage(n) > 2.5 ? 1 : 0);
+    const [A, B, C, S, Co] = ["A", "B", "Cin", "S", "Cout"].map(b);
+    $("in").textContent = `${A} ${B} ${C}`;
+    $("out").textContent = `${S} · ${Co}`;
+    const eS = A ^ B ^ C, eC = (A & B) | (C & (A ^ B)), ok = eS === S && eC === Co;
+    $("key").innerHTML = `${eS} · ${eC} <span class="${ok ? "ok" : "bad"}">${ok ? "match" : "MISMATCH"}</span>`;
+  } catch (e) { /* loading */ }
+}
+setInterval(read, 300);
+</script>
+</body>
+</html>

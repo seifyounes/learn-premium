@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en" data-pad="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MechSimulator benchmark</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<style>
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .why { padding: 14px 16px; display: grid; gap: 12px; }
+  .why p { margin: 0; }
+  .go { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 64px; width: 100%; text-decoration: none; font-size: 17px; }
+  .go svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .how { font-size: 15px; color: var(--muted); }
+  .notes { padding: 12px 16px 14px; }
+  .notes ol { margin: 8px 0 0; padding-inline-start: 22px; display: grid; gap: 10px; }
+  .notes li { max-width: 72ch; }
+  .notes li::marker { font: 500 15px var(--f-qty); color: var(--pencil); }
+  .notes b { font-weight: 600; }
+  .honesty ul { margin: 6px 0 0; padding-inline-start: 18px; }
+  .honesty li { margin: 4px 0; max-width: 95ch; }
+  .honesty code { font: 400 13.5px/1 var(--f-qty); }
+  .honesty .label { margin: 0; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">MechSimulator (benchmark only)</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Its “Cascade” preset: <span style="white-space:nowrap">A+ B+ B− A−</span></span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+
+  <section class="body-pad grid">
+    <div class="why box-print">
+      <span class="label">Why a link, not a frame</span>
+      <p>MechSimulator cannot be embedded: it sends <code class="qty">frame-ancestors 'self'</code> and <code class="qty">X-Frame-Options: SAMEORIGIN</code> (checked today), and its terms forbid copying or mirroring. So it opens in its own tab, as a look-and-feel benchmark to hold the other two candidates against.</p>
+      <a class="btn primary go" href="https://mechsimulator.com/tools/pneumatic-circuit/" target="_blank" rel="noopener noreferrer">
+        Open MechSimulator
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M14 5h5v5" /><path d="M19 5l-8 8" /><path d="M18 14v5H5V6h5" /></svg>
+      </a>
+      <p class="how">There: tap <b>Cascade</b> under Pre-built circuits, then <b>Run Circuit</b>, then the <b>3/2 Push Button</b> in the diagram. It shows a cookie notice for analytics and ads.</p>
+    </div>
+
+    <div class="notes box">
+      <span class="label">What it does well (seen 2026-09-26)</span>
+      <ol>
+        <li><b>The same circuit is one tap away.</b> Its Cascade preset loads exactly A+ B+ B− A−, with a short plain-language paragraph on why the group valve cures the overlap (group 1 exhausts, so a1 stops holding B+).</li>
+        <li><b>Air you can see.</b> Lines animate as pressure moves, working lines are solid and pilot lines dashed, and a 0–6 bar colour scale sits under the diagram. Valve symbols switch position as they are piloted.</li>
+        <li><b>Numbers beside the picture.</b> Live tiles for supply pressure, flow, air used per cycle, net cylinder force, piston speed and load ratio: a semi-physical model (force balance, orifice flow), not just a sequencer.</li>
+        <li><b>A whole course in one tool.</b> Simulate / Explore / Practice / Quiz modes, electro-pneumatic and hydraulic siblings, 52 drag-and-drop ISO 1219 parts, zoom and pan buttons, share links.</li>
+        <li><b>Where it is weaker:</b> the look is a dark glowing dashboard (the opposite of the pad); on a phone it asks you to drag the diagram sideways or use a desktop; and with the cascade loaded its displacement-diagram header still read “A+ B+ A− B− sequence”.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="body-pad">
+    <div class="honesty">
+      <p class="label">For the Owner</p>
+      <ul>
+        <li><b>Real vs faked:</b> nothing of MechSimulator is in the repo: no screenshot, no code, no copied text. This page is a link plus my notes from using it in a browser tab today.</li>
+        <li><b>Weight:</b> this page is 5 KB plus the shared pad.css and fonts. MechSimulator’s own weight is not measured (it loads outside our frame, with analytics and ad scripts).</li>
+        <li><b>Touch:</b> the link works on touch. MechSimulator itself binds pointer/touch and pinch-zoom per the research; on a phone it recommends a larger screen.</li>
+        <li><b>Accuracy:</b> not checked against our key. I watched its cascade start (A+) after pressing its push button; I did not time or verify the full order there.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+</body>
+</html>

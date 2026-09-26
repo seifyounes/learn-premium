@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-pad="bluegrey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CircuitJS Pad Skin</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="pad-native-spice.css">
+<style>
+  /* The sim's white canvas multiplies onto the pad sheet, so the printed grid shows through it. */
+  .cjs-frame { border: 1.2px solid var(--pencil); }
+  .cjs-frame iframe { display: block; width: 100%; height: 470px; border: 0; mix-blend-mode: multiply; background: transparent; }
+  @media (max-width: 760px) { .cjs-frame iframe { height: 400px; } }
+  .hint { margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block tb">
+    <div class="cell"><span class="label">Tool</span><span class="value">CircuitJS, pad skin</span></div>
+    <div class="cell circuit"><span class="label" id="circuit-label">Circuit</span>
+      <div class="seg" role="group" aria-labelledby="circuit-label" id="picker">
+        <button type="button" data-id="buck" aria-pressed="true">Buck</button>
+        <button type="button" data-id="scr" aria-pressed="false">SCR rectifier</button>
+        <button type="button" data-id="ce-amp" aria-pressed="false">CE amp</button>
+      </div>
+    </div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made, re-skinned</span></div>
+  </header>
+
+  <div class="body-pad">
+    <div class="given box" id="given"></div>
+    <section class="bench">
+      <div class="schem-col">
+        <div class="cjs-frame"><iframe id="cjs" title="CircuitJS simulator, re-skinned to the pad"></iframe></div>
+        <p class="muted hint" id="hint"></p>
+      </div>
+      <div class="controls">
+        <div class="ctl mode">
+          <div class="ctl-head"><span class="label" id="mode-label">Devices</span></div>
+          <div class="seg" role="group" aria-labelledby="mode-label" id="mode" style="margin-top:8px">
+            <button type="button" data-mode="ideal" aria-pressed="true">Professor's ideals</button>
+            <button type="button" data-mode="real" aria-pressed="false">Real devices</button>
+          </div>
+          <p class="mode-note" id="mode-note"></p>
+        </div>
+        <div id="sliders" class="controls"></div>
+        <button class="btn" type="button" id="reset" hidden>Back to the example</button>
+        <div class="sheet-table">
+          <div class="caption"><h2 id="table-title">Readouts</h2><span class="status" id="status"><span class="pen"></span><span id="status-txt">Starting CircuitJS</span></span></div>
+          <table class="readout" id="readout" aria-describedby="gapnote">
+            <thead><tr><th scope="col">Qty</th><th scope="col" class="num">CircuitJS<span class="th-sub">live</span></th><th scope="col" class="num" id="prof-h">Professor</th><th scope="col" class="gap">Gap</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p class="gapnote" id="gapnote" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <aside class="honesty" aria-labelledby="owner-h">
+      <h2 id="owner-h">For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> the simulation is stock CircuitJS (self-hosted, same origin) with its sidebar, menus and info box hidden, editing off, the white-background mode, and the canvas multiplied onto the pad sheet so the grid shows through. Its voltage colours and current dots are its own. The sliders and the toggle sit outside the canvas: each change edits the circuit text (duty cycle, load R, firing phase, β, RC, and the re-seeded L and C) and re-imports it through <span class="qty">CircuitJS1.importCircuit</span>.</li>
+        <li><b>Readouts:</b> measured live from CircuitJS through its API on every time step (node voltages and element currents), averaged over whole periods after a settling window. Zo and r′e are not measurable this way and show a dash.</li>
+        <li><b>Idealisation:</b> CircuitJS has no ideal diode or SCR, so "Professor's ideals" redefines its default junction to a near-ideal one (about 0.07 V at 1 A) for the buck diode and the SCR; "Real devices" restores CircuitJS's own junction (about 0.8–0.9 V). For the CE amp the transistor stays the file's model (VBE = 0.70 V); CircuitJS fixes VT at 25.9 mV, so its gain stays about 5% under the course's r′e = 25 mV / IE key. "Real" adds an assumed 100 V Early voltage.</li>
+        <li><b>Accuracy:</b> measured live in headless Chrome at the example values against circuits/expected.json. Ideals: buck Vo 19.97 V (key 20), SCR Vo,av 40.50 V (40.5), CE Q-point within 0.3%, Av −154.8 (−163.3, the VT gap above). Real: buck 19.51 V, SCR 40.21 V. At α = 90° the SCR read 26.96 V against the formula's 27.01 V.</li>
+        <li><b>Weight:</b> <span id="weight">measured on a cold load in headless Chrome: 1.34 MB transferred in 41 requests (CircuitJS itself is about 1.1 MB of it), fonts included.</span></li>
+        <li><b>Touch:</b> the pad controls are 44 px and work by touch; the canvas is display-only. On a phone CircuitJS still draws its own menu button and a red padlock (its "not editable" mark), and squeezes its two scopes into a narrow strip.</li>
+        <li><b>To ship:</b> a new circuit needs its text hand-edited for each slider (token positions differ per element type), CircuitJS runs slower than real time (the buck shows about 1 ms of circuit time per second), and its look cannot be pushed further than colours and blending.</li>
+      </ul>
+    </aside>
+  </div>
+</main>
+<script type="module" src="circuitjs-pad.js"></script>
+</body>
+</html>

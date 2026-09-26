@@ -1,0 +1,16 @@
+scanTime 100 ms; STOP initial true
+PASS t=0.00 s  M1 1 (want 1)  M2 0 (want 0)  T1.ET 0 (want 0)
+PASS t=1.00 s  M1 1 (want 1)  M2 0 (want 0)  T1.ET 1000 (want 1000)
+PASS t=4.90 s  M1 1 (want 1)  M2 0 (want 0)  T1.ET 4900 (want 4900)
+FAIL t=5.00 s  M1 1 (want 1)  M2 0 (want 1)  T1.ET 5000 (want 5000)
+PASS t=5.10 s  M1 1 (want 1)  M2 1 (want 1)  T1.ET 5000 (want 5000)
+PASS t=7.00 s  M1 1 (want 1)  M2 1 (want 1)  T1.ET 5000 (want 5000)
+FAIL t=8.00 s  M1 0 (want 0)  M2 1 (want 0)  T1.ET 5000 (want 0)
+FAIL t=8.10 s  M1 0 (want 0)  M2 1 (want 0)  T1.ET 0 (want 0)
+PASS t=8.50 s  M1 0 (want 0)  M2 0 (want 0)  T1.ET 0 (want 0)
+PASS t=9.00 s  M1 0 (want 0)  M2 0 (want 0)  T1.ET 0 (want 0)
+PASS t=10.00 s  M1 1 (want 1)  M2 0 (want 0)  T1.ET 0 (want 0)
+PASS t=10.20 s  M1 1 (want 1)  M2 0 (want 0)  T1.ET 200 (want 200)
+PASS t=14.90 s  M1 1 (want 1)  M2 0 (want 0)  T1.ET 4900 (want 4900)
+FAIL t=15.00 s  M1 1 (want 1)  M2 0 (want 1)  T1.ET 5000 (want 5000)
+10/14 checkpoints PASS

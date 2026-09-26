@@ -1,0 +1,52 @@
+{
+  "area": "logic",
+  "title": "Logic circuits",
+  "pad": "graphite",
+  "circuit": "1-bit full adder (G1..G5): S = A xor B xor Cin, Cout = A·B + Cin·(A xor B)",
+  "candidates": [
+    {
+      "id": "digitaljs",
+      "name": "DigitalJS",
+      "file": "digitaljs.html",
+      "kind": "Ready-made",
+      "oneLine": "DigitalJS 0.14.2 as shipped, auto-laid-out full adder with clickable input buttons.",
+      "loadKB": 2500,
+      "touch": "partial",
+      "accuracy": "All 8 rows read back through its API in the browser: 8/8 PASS against circuits/expected.json.",
+      "caveats": "2.3 MB bundle (jQuery, JointJS, ELK). Auto-layout differs from the figure. Phone: 1x, scrolls sideways in frame, small targets."
+    },
+    {
+      "id": "logic-jppellet",
+      "name": "Logic (jppellet)",
+      "file": "logic-jppellet.html",
+      "kind": "Ready-made",
+      "oneLine": "The <logic-editor> web component in tryout mode, full adder hand-authored in its JSON5.",
+      "loadKB": 1134,
+      "touch": "partial",
+      "accuracy": "All 8 rows set and read through its components in the browser: 8/8 PASS against circuits/expected.json.",
+      "caveats": "Bundle fetches Bootstrap CSS from jsDelivr. Thin API, one maintainer. Zoomed to fit, so phone targets are about 10 px."
+    },
+    {
+      "id": "circuitjs-logic",
+      "name": "CircuitJS logic mode",
+      "file": "circuitjs-logic.html",
+      "kind": "Ready-made",
+      "oneLine": "Falstad CircuitJS running circuits/logic/circuitjs.txt with L/H logic inputs and moving current dots.",
+      "loadKB": 1296,
+      "touch": "partial",
+      "accuracy": "All 8 rows loaded with importCircuit, S and Cout node voltages read (0 V / 5 V): 8/8 PASS.",
+      "caveats": "GPL-2.0. Slow to start (seconds). On a phone the drawing shrinks to tiny L/H targets. Red padlock icon shows."
+    },
+    {
+      "id": "pad-native-logic",
+      "name": "Pad-native logic",
+      "file": "pad-native-logic.html",
+      "kind": "Agent-built",
+      "oneLine": "Inked SVG schematic, pen-drawn propagation, live truth table with red-pen ring, real-device glitch timing.",
+      "loadKB": 191,
+      "touch": "works",
+      "accuracy": "check-pad-native-logic.mjs: 8 rows, 64 transitions in both modes, hazard timing, 20/20 PASS; same 16 row checks in the browser.",
+      "caveats": "Gate delays are illustrative placeholders. Schematic coordinates hand-placed for this circuit; any new circuit needs a layout step."
+    }
+  ]
+}

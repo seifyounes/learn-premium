@@ -1,0 +1,15 @@
+initial,
+S0 [label="S0"]: Z = 0,
+S1 [label="S1"]: Z = 0,
+S2 [label="S2"]: Z = 0,
+S3 [label="S3" class="detect"]: Z = 1;
+
+initial => S0: reset;
+S0 => S0: 0;
+S0 => S1: 1;
+S1 => S1: 1;
+S1 => S2: 0;
+S2 => S0: 0;
+S2 => S3: 1;
+S3 => S1: 1;
+S3 => S2: 0;

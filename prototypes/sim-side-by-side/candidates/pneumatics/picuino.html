@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-pad="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Picuino neumatic</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<style>
+  .how { margin: 0 0 10px; }
+  .frame-box { border: 1.5px solid var(--print); background: #fff; }
+  .frame-box iframe { display: block; width: 100%; height: min(76vh, 760px); min-height: 520px; border: 0; }
+  .honesty ul { margin: 6px 0 0; padding-inline-start: 18px; }
+  .honesty li { margin: 4px 0; max-width: 95ch; }
+  .honesty code { font: 400 13.5px/1 var(--f-qty); }
+  .honesty .label { margin: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .row .btn { display: inline-grid; place-items: center; text-decoration: none; min-height: 44px; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Picuino neumatic v2.9</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value"><span style="white-space:nowrap">A+ B+ B− A−</span> · its own example</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+
+  <section class="body-pad">
+    <div class="row">
+      <p class="how prose muted">Press <b>▶</b> in its toolbar, then click the <b>INIT VALVE</b> push-button (1.4). The
+        <b>⎍</b> toolbar button opens its displacement-step diagram. Mouse only.</p>
+      <a class="btn" href="../../vendor/neumatic/docs/index.html?loadFile=multi-abba.txt" target="_blank" rel="noopener">Open full screen</a>
+    </div>
+    <div class="frame-box">
+      <iframe src="../../vendor/neumatic/docs/index.html?loadFile=multi-abba.txt" title="Picuino pneumatic simulator running its A+ B+ B− A− example"></iframe>
+    </div>
+  </section>
+
+  <section class="body-pad">
+    <div class="honesty">
+      <p class="label">For the Owner</p>
+      <ul>
+        <li><b>Real:</b> the unmodified app (GPL-3.0, github.com/picuino/neumatic, commit <code>fe66ee7</code>, 2026-08-31), self-hosted from <code>vendor/neumatic/docs/</code> and loaded with its own <code>?loadFile=multi-abba.txt</code> example. That example is a two-group cascade: group valve 1.5, rollers 1.2/1.3/2.2/2.3, INIT VALVE 1.4 in series with 1.2. Numbering is Picuino’s (1.0 = A, 2.0 = B), not ours.</li>
+        <li><b>Accuracy:</b> observed, not gated. In the browser I polled its two cylinders after one INIT press: A+ B+ B− A−, then both home (a physical-ish air model, about 3.3 s per cycle). Its engine is tied to the canvas, so a Node gate would need the engine extracted first.</li>
+        <li><b>Weight:</b> first load 183 KB: its single 166 KB index.html + the 5.7 KB example, plus this 4 KB wrapper and the shared 7.5 KB pad.css (uncompressed from the static server), then the shared pad fonts.</li>
+        <li><b>Touch:</b> no. Confirmed on the 375 px mobile preset: the canvas binds only mousedown/mousemove/mouseup (no touch or pointer handlers), it renders 500 px wide so cylinder B and the group valve are cut off, and its own pan needs middle-mouse or Space-drag. A phone browser’s compatibility click might still fire the push-button on a tap (not tried on a device); swiping the frame sideways is the only way to see the rest.</li>
+        <li><b>To ship:</b> add pointer events, strip the editor chrome (File/Draw/Edit menus) for a student view, re-skin to the pad, extract the engine for a Node gate, and replace coordinate-matched pipes with port-named connections.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+</body>
+</html>

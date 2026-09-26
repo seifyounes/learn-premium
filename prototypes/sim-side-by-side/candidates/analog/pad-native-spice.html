@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" data-pad="bluegrey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pad-native SPICE</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="pad-native-spice.css">
+<link rel="modulepreload" href="pad-native-spice.engine.mjs">
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block tb">
+    <div class="cell"><span class="label">Tool</span><span class="value">Pad-native SPICE</span></div>
+    <div class="cell circuit"><span class="label" id="circuit-label">Circuit</span>
+      <div class="seg" role="group" aria-labelledby="circuit-label" id="picker">
+        <button type="button" data-id="buck" aria-pressed="true">Buck</button>
+        <button type="button" data-id="scr" aria-pressed="false">SCR rectifier</button>
+        <button type="button" data-id="ce-amp" aria-pressed="false">CE amp</button>
+      </div>
+    </div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Agent-built</span></div>
+  </header>
+
+  <div class="body-pad">
+    <div class="given box" id="given"></div>
+
+    <section class="bench">
+      <div class="schem-col">
+        <div class="schem-wrap" id="schem"></div>
+        <div class="playbar">
+          <button class="btn" type="button" id="play" aria-pressed="false" aria-label="Pause playback">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g id="play-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 3v10M11 3v10"/></g></svg>
+            <span id="play-txt">Pause</span>
+          </button>
+          <span class="probe" id="probe" aria-live="off"></span>
+          <span class="legend"><svg width="30" height="8" aria-hidden="true"><path d="M3 4H27" stroke="var(--current)" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 9"/></svg>current</span>
+        </div>
+        <section class="plots">
+          <div class="caption"><h2 id="plot-title">Waveforms</h2><span class="status" id="plot-status"></span></div>
+          <div id="plots"></div>
+        </section>
+      </div>
+
+      <div class="controls">
+        <div class="ctl mode">
+          <div class="ctl-head"><span class="label" id="mode-label">Devices</span></div>
+          <div class="seg" role="group" aria-labelledby="mode-label" id="mode" style="margin-top:8px">
+            <button type="button" data-mode="ideal" aria-pressed="true">Professor's ideals</button>
+            <button type="button" data-mode="real" aria-pressed="false">Real devices</button>
+          </div>
+          <p class="mode-note" id="mode-note"></p>
+        </div>
+        <div id="sliders" class="controls"></div>
+        <button class="btn" type="button" id="reset" hidden>Back to the example</button>
+
+        <div class="sheet-table">
+          <div class="caption"><h2 id="table-title">Readouts</h2><span class="status" id="status"><span class="pen"></span><span id="status-txt">Loading ngspice</span></span></div>
+          <table class="readout" id="readout" aria-describedby="gapnote">
+            <thead><tr><th scope="col">Qty</th><th scope="col" class="num">ngspice</th><th scope="col" class="num" id="prof-h">Professor</th><th scope="col" class="gap">Gap</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p class="gapnote" id="gapnote" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+
+    <aside class="honesty" aria-labelledby="owner-h">
+      <h2 id="owner-h">For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> every number and every trace comes from ngspice 47 (eecircuit-engine, WebAssembly) running in a Web Worker in this page. Each slider or toggle change rebuilds the netlist and re-solves it (buck about 0.2–0.5 s, SCR and CE amp about 0.1–0.3 s on a laptop). The current dots are driven by the solved currents (speed proportional to amps) and replay the last solved periods in slow motion; the switch, diode and SCR states come from the same vectors.</li>
+        <li><b>Hand-made:</b> the three schematics are drawn by hand in SVG for this prototype, not generated from the netlists. The Professor column shows his key at the example's values and his hand formulas elsewhere.</li>
+        <li><b>Idealisation:</b> "Professor's ideals" uses a near-ideal diode/thyristor and, for the CE amp, VT = 25 mV with VBE pinned at 0.700 V. "Real devices" uses a 0.8 V diode, a 1 V thyristor, and a 27 °C NPN with an assumed 100 V Early voltage. The one-line note under the table names whatever gap is left.</li>
+        <li><b>Accuracy gate:</b> <span class="qty">check-pad-native-spice.mjs</span> runs this exact engine in Node against <span class="qty">circuits/expected.json</span>, a 40 ms reference run and the hand formulas across the slider ranges: 90 PASS, 0 FAIL.</li>
+        <li><b>Weight:</b> <span id="weight">cold first load measured at about 20.1 MB transferred (19.9 MB of it is the ngspice WASM engine, served uncompressed by this static server; gzip would make it about 5.7 MB). The page, fonts and scripts are about 215 KB. The first solve waits for the engine (1–3 s on a laptop over localhost).</span> <span id="weight-live"></span></li>
+        <li><b>Touch:</b> sliders, toggles and playback are 44 px targets and work by touch; the page does not scroll sideways at 390 px.</li>
+        <li><b>To ship:</b> generate the schematic from the netlist (or an authored layout file), serve the engine gzipped and cached, add a first-visit progress bar for the engine download, and cover DCM/saturation with their own formulas instead of a warning.</li>
+      </ul>
+    </aside>
+  </div>
+</main>
+<script type="module" src="pad-native-spice.js"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en" data-pad="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CircuitJS relay ladder</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="embed.css">
+<style>
+  .frame-box iframe.cjs { height: min(640px, max(460px, calc(100vh - 230px))); }
+  @media (max-width: 900px) { .frame-box iframe.cjs { height: 440px; } }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">CircuitJS relay ladder</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Two-conveyor start, hardwired</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+
+  <div class="stage">
+    <figure class="box-print frame-box" style="margin:0">
+      <div class="head"><span class="label">CircuitJS, self-hosted</span>
+        <span class="btn-row" style="margin:0"><button class="btn" id="reload">Reset circuit</button></span></div>
+      <iframe class="cjs" id="cjs" title="CircuitJS relay circuit: START, STOP, K1 with seal-in, on-delay relay KT, lamps M1 and M2"></iframe>
+    </figure>
+
+    <div class="prog">
+      <div>
+        <span class="label">The same logic, wired</span>
+        <ol>
+          <li>STOP (NC push button) and START (NO push button) feed relay coil K1; K1's own NO contact across START is the seal-in.</li>
+          <li>A second K1 contact lights lamp M1 (conveyor 1).</li>
+          <li>A third K1 contact energises KT, an on-delay relay set to 5 s; KT's contact lights lamp M2 (conveyor 2).</li>
+        </ol>
+      </div>
+      <div>
+        <span class="label">How to drive it</span>
+        <ol>
+          <li>Press and hold START briefly (click or touch the switch), then let go: K1 holds itself in, M1 lights.</li>
+          <li>About 5 s later M2 lights.</li>
+          <li>Press STOP: K1 drops, KT drops, both lamps go out.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <section class="honesty">
+    <h2>For the Owner</h2>
+    <ul>
+      <li><b>Real vs faked:</b> an electrical simulation (MNA solver) of a relay circuit, not a PLC: no scan cycle, no program. The circuit text (<span class="qty">circuitjs-relay.txt</span>) was written by the agent using CircuitJS's own relay coil (on-delay type for KT), relay contact and momentary switch elements. Sim speed is set so 1 s of circuit time takes about 1 s of wall time.</li>
+      <li><b>Accuracy:</b> <span class="qty">check-circuitjs-relay.mjs</span> presses START and STOP with the mouse in headless Chrome and logs every time step: 5/5 PASS. M1 lights 10 ms after K1 pulls in, M2 lights 5.010 s after M1 (5 s delay plus the contact's 5 ms), STOP drops K1, M1 and M2 within 20 ms. Circuit time runs close to wall time (0.95x to 1.06x across runs).</li>
+      <li><b>First load:</b> <span class="qty">1.30 MB</span> over 36 requests (uncompressed local server; CircuitJS itself is about 1.15 MB of that).</li>
+      <li><b>Touch:</b> CircuitJS handles touch on its canvas and a normal tap on START is long enough (K1 pulls in within 5 ms), but on a phone the whole ladder shrinks to fit and the switches become small targets. Not tried on a real phone.</li>
+      <li><b>To ship:</b> good for the hardwired relay-control lectures only; it cannot show rungs, a scan or a TON's ET. Lamps stand in for motors.</li>
+    </ul>
+  </section>
+</main>
+<script>
+async function load() {
+  const txt = await (await fetch("circuitjs-relay.txt")).text();
+  const q = new URLSearchParams({ hideSidebar: "true", hideMenu: "true", whiteBackground: "true", running: "true", editable: "false", cct: txt });
+  document.getElementById("cjs").src = "../../vendor/circuitjs/circuitjs.html?" + q.toString();
+}
+load();
+document.getElementById("reload").addEventListener("click", () => { document.getElementById("cjs").src = "about:blank"; setTimeout(load, 50); });
+</script>
+</body>
+</html>

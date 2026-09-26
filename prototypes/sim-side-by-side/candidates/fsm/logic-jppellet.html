@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" data-pad="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logic FSM gates</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="fsm-common.css">
+<style>
+  .editor-box { height: 520px; }
+  .editor-box logic-editor { display: block; width: 100%; height: 100%; }
+  .eqs { font: 400 17px/1.6 var(--f-qty); color: var(--graphite); margin: 12px 0 0; }
+  .eqs .ov { text-decoration: overline; }
+  .legend { font: 400 15px/1.45 var(--f-body); color: var(--muted); margin: 6px 0 0; max-width: 72ch; }
+  @media (max-width: 900px) { .editor-box { height: 300px; } }
+</style>
+<script src="../../vendor/logic-jppellet/bundle.js"></script>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Logic (jppellet)</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Moore 101 detector, gates</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+
+  <div class="body-pad">
+    <div class="tool-frame editor-box">
+      <logic-editor id="le" mode="tryout">
+        <script type="application/json5">
+        { // agent-written; v8 format (written v0, migrated by the editor, then pasted back)
+          v: 8,
+          components: [
+            {pos: [70, 150], id: 0, name: 'X', val: 0, type: 'in'},
+            {pos: [430, 415], id: 1, name: 'CLK', val: 0, isPushButton: true, type: 'in'},
+            {pos: [430, 465], id: 2, name: 'Reset', val: 0, isPushButton: true, type: 'in'},
+            {pos: [800, 110], id: 51, name: 'Q1', type: 'out'},
+            {pos: [800, 390], id: 52, name: 'Q0', type: 'out'},
+            {pos: [800, 250], id: 50, name: 'Z', type: 'out'},
+            {type: 'not', pos: [170, 210], in: 10, out: 11},
+            {type: 'and', pos: [300, 210], in: [14, 15], out: 16},
+            {type: 'and', pos: [290, 80], in: [17, 18], out: 19},
+            {type: 'and', pos: [380, 100], in: [20, 21], out: 22},
+            {type: 'or', pos: [470, 160], in: [23, 24], out: 25},
+            {type: 'and', pos: [710, 250], in: [26, 27], out: 28},
+            {type: 'ff-d', pos: [580, 170], in: [31, 32, 33, 30], out: [34, 35], state: 0, showContent: true},
+            {type: 'ff-d', pos: [580, 330], in: [41, 42, 43, 40], out: [44, 45], state: 0, showContent: true},
+          ],
+          wires: [[0, 10], [0, 21], [0, 40], [1, 31], [1, 41], [2, 33], [2, 43], [11, 15], [44, 14], [44, 27], [44, 52], [34, 17], [34, 26], [34, 51], [45, 18], [19, 20], [16, 23], [22, 24], [25, 30], [28, 50]]
+        }
+        </script>
+      </logic-editor>
+    </div>
+    <p class="eqs">D<sub>1</sub> = Q<sub>0</sub>·<span class="ov">X</span> + Q<sub>1</sub>·<span class="ov">Q<sub>0</sub></span>·X &nbsp;&nbsp; D<sub>0</sub> = X &nbsp;&nbsp; Z = Q<sub>1</sub>·Q<sub>0</sub></p>
+    <p class="legend">Set X, then tap CLK once per clock edge (a push button: press is the rising edge). Q1 Q0 = 00, 01, 10, 11 are S0, S1, S2, S3.</p>
+  </div>
+
+  <div class="wrap-honesty">
+    <section class="honesty" aria-label="For the Owner">
+      <h2>For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> Logic by jppellet (MIT) as shipped, in its try-out mode, loading an agent-written gate-level circuit: two D flip-flops, the next-state gates from the excitation equations above (from <code>machine.md</code>), CLK as a push button, and a Reset.</li>
+        <li><b>Accuracy:</b> <code>check-logic-jppellet.mjs</code> drives this very page in headless Chrome (sets X, pulses CLK, reads Q1 Q0 Z): the test sequence, <b>4 of 4 PASS</b> (state and Z in all 8 periods and after all 8 edges).</li>
+        <li><b>No state machine view:</b> Logic has no state diagram or state table; the student sees wires and flip-flop contents only. The positions of every gate were picked by hand.</li>
+        <li><b>First load:</b> <span class="qty">997 KB</span> cold from the local server (uncompressed): the Logic bundle is 817 KB, and it also fetches Bootstrap CSS from a CDN.</li>
+        <li><b>Touch:</b> partial. A CDP touch tap on X toggles it, but at 390 px the page zooms the editor to about 39% so the whole circuit fits, and the inputs become roughly 10 px targets with tiny labels.</li>
+        <li><b>To ship:</b> a layout step for the gates, and the state names next to Q1 Q0; the tool has built-in test suites that could hold the test sequence.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+<script>
+// Host-page integration only: on a narrow screen, zoom the editor so the whole circuit fits its box
+// (the circuit is ~880 px wide at 100%). The tool itself is untouched.
+const fit = () => {
+  const le = document.getElementById("le");
+  const w = le.getBoundingClientRect().width;
+  if (le.setZoom) le.setZoom(w < 880 ? Math.max(30, Math.floor((w / 900) * 100)) : 100, true);
+  if (le.setTranslation) le.setTranslation(0, 0);
+  window.dispatchEvent(new Event("resize"));
+};
+customElements.whenDefined("logic-editor").then(() => { setTimeout(fit, 400); setTimeout(fit, 1200); });
+</script>
+</body>
+</html>

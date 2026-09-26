@@ -1,0 +1,62 @@
+{
+  "name": "Two-conveyor start sequence",
+  "scanMs": 10,
+  "tags": {
+    "START": { "kind": "input", "addr": "%I0.0", "wiring": "NO", "desc": "Start push button (NO)" },
+    "STOP":  { "kind": "input", "addr": "%I0.1", "wiring": "NC", "desc": "Stop push button (NC)" },
+    "M1":    { "kind": "output", "addr": "%Q0.0", "desc": "Conveyor 1 motor" },
+    "M2":    { "kind": "output", "addr": "%Q0.1", "desc": "Conveyor 2 motor" }
+  },
+  "timers": { "T1": { "type": "TON", "pt": 5000 } },
+  "rungs": [
+    {
+      "id": "R1",
+      "comment": "Seal-in: START latches M1",
+      "elements": [
+        { "id": "p1", "type": "par", "branches": [
+          [ { "id": "c_start", "type": "NO", "tag": "START" } ],
+          [ { "id": "c_hold",  "type": "NO", "tag": "M1" } ]
+        ] },
+        { "id": "c_stop", "type": "NO", "tag": "STOP" },
+        { "id": "q_m1",   "type": "coil", "tag": "M1" }
+      ]
+    },
+    {
+      "id": "R2",
+      "comment": "M2 follows M1 after 5 s",
+      "elements": [
+        { "id": "c_m1",  "type": "NO", "tag": "M1" },
+        { "id": "t1",    "type": "TON", "timer": "T1" },
+        { "id": "q_m2",  "type": "coil", "tag": "M2" }
+      ]
+    }
+  ],
+  "expect": [
+    { "t": 0,     "press": { "START": true },  "note": "press START",
+      "check": { "M1": true,  "M2": false, "T1.ET": 0,    "T1.Q": false } },
+    { "t": 1000,  "press": { "START": false }, "note": "release START: seal-in holds M1",
+      "check": { "M1": true,  "M2": false, "T1.ET": 1000, "T1.Q": false } },
+    { "t": 4990,  "note": "one scan before PT",
+      "check": { "M1": true,  "M2": false, "T1.ET": 4990, "T1.Q": false } },
+    { "t": 5000,  "note": "ET reaches PT: M2 starts",
+      "check": { "M1": true,  "M2": true,  "T1.ET": 5000, "T1.Q": true } },
+    { "t": 7000,  "note": "ET capped at PT",
+      "check": { "M1": true,  "M2": true,  "T1.ET": 5000, "T1.Q": true } },
+    { "t": 8000,  "press": { "STOP": true },   "note": "press STOP: both drop in the same scan, timer reset",
+      "check": { "M1": false, "M2": false, "T1.ET": 0,    "T1.Q": false } },
+    { "t": 8500,  "press": { "STOP": false },  "note": "release STOP: stays off",
+      "check": { "M1": false, "M2": false, "T1.ET": 0,    "T1.Q": false } },
+    { "t": 9000,  "press": { "START": true, "STOP": true }, "note": "START and STOP together: STOP wins",
+      "check": { "M1": false, "M2": false, "T1.ET": 0 } },
+    { "t": 9500,  "press": { "START": false, "STOP": false }, "note": "release both",
+      "check": { "M1": false, "M2": false } },
+    { "t": 10000, "press": { "START": true },  "note": "press START again",
+      "check": { "M1": true,  "M2": false, "T1.ET": 0 } },
+    { "t": 10200, "press": { "START": false }, "note": "release START",
+      "check": { "M1": true,  "M2": false, "T1.ET": 200 } },
+    { "t": 14990, "note": "timer restarted from 0, not resumed",
+      "check": { "M1": true,  "M2": false, "T1.ET": 4990 } },
+    { "t": 15000, "note": "M2 on 5 s after the second start",
+      "check": { "M1": true,  "M2": true,  "T1.ET": 5000, "T1.Q": true } }
+  ]
+}

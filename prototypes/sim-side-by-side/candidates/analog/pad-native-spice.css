@@ -1,0 +1,143 @@
+/* PROTOTYPE: candidate C, pad-native-spice. Extra rules on top of shared/pad.css. */
+:root {
+  /* The one meaning colour inside the simulator: current. Hue ~160°, far from the red pen (32°). */
+  --current: #127A5B;
+  --ink-ghost: color-mix(in srgb, var(--pencil) 34%, transparent);
+}
+
+.tb { grid-template-columns: 1.1fr 2fr .8fr; }
+.tb .seg { width: 100%; }
+.tb .seg button { flex: 1; min-height: 44px; padding: 0 8px; }
+@media (max-width: 760px) {
+  .tb { grid-template-columns: 1fr 1fr; }
+  .tb > .cell.circuit { grid-column: 1 / -1; order: 3; }
+}
+
+.given { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline; padding: 7px 12px 9px; margin-top: 16px; }
+.given .qty { font-size: 15px; color: var(--graphite); }
+.given .src { color: var(--muted); font-size: 15px; }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1fr) 392px; gap: 20px 28px; margin-top: 16px; }
+@media (max-width: 980px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- schematic ---------- */
+.schem-wrap { position: relative; }
+.schem { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+.schem .wire { fill: none; stroke: var(--pencil); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.schem .sym { fill: none; stroke: var(--graphite); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.schem .sym-fill { fill: var(--graphite); stroke: none; }
+.schem .node { fill: var(--graphite); }
+.schem .term { fill: var(--sheet); stroke: var(--graphite); stroke-width: 2; }
+.schem .flow { fill: none; stroke: var(--current); stroke-linecap: round; stroke-dasharray: 0 22; }
+.schem .lbl { font-family: var(--f-qty); fill: var(--graphite); paint-order: stroke; stroke: var(--sheet); stroke-width: 5px; stroke-linejoin: round; }
+.schem .lbl.name { font-family: var(--f-print); font-weight: 700; font-variation-settings: "wdth" 80; }
+.schem .lbl.val { fill: var(--pencil); }
+.schem .lbl.cur { fill: var(--current); }
+.schem .on { stroke: var(--current); }
+.schem .sym.dim { stroke: var(--pencil); opacity: .55; }
+.schem .blade { transition: transform 90ms linear; }
+
+.playbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; border-top: 1px solid var(--pencil); padding-top: 8px; }
+.playbar .btn { min-width: 44px; min-height: 44px; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; }
+.playbar .probe { font: 400 15px/1.3 var(--f-qty); font-feature-settings: "tnum" 1; color: var(--pencil); }
+.playbar .probe b { font-weight: 500; color: var(--graphite); }
+.playbar .probe .i { color: var(--current); }
+.legend { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; margin-inline-start: auto; }
+.legend svg { flex: none; }
+
+/* ---------- controls ---------- */
+.controls { display: grid; gap: 14px; align-content: start; }
+.ctl { border: 1.2px solid var(--pencil); background: var(--sheet); padding: 8px 12px 6px; }
+.ctl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ctl-val { font: 500 21px/1 var(--f-qty); font-feature-settings: "tnum" 1; color: var(--graphite); }
+.ctl-val small { font-size: 15px; color: var(--pencil); font-weight: 400; }
+
+/* Printed range: square thumb, print rule track. */
+.range { -webkit-appearance: none; appearance: none; background: transparent; width: 100%; height: 44px; margin: 0; cursor: pointer; touch-action: pan-y; }
+.range::-webkit-slider-runnable-track { height: 2px; background: var(--print); }
+.range::-moz-range-track { height: 2px; background: var(--print); }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 26px; margin-top: -12px; background: var(--sheet); border: 2px solid var(--graphite); border-radius: 0; }
+.range::-moz-range-thumb { width: 18px; height: 22px; background: var(--sheet); border: 2px solid var(--graphite); border-radius: 0; }
+.range:active::-webkit-slider-thumb { background: var(--graphite); }
+.range:focus-visible { outline: 2px solid var(--print); outline-offset: 2px; }
+.ticks { display: flex; justify-content: space-between; font: 400 13px/1 var(--f-qty); color: var(--muted); margin-top: -4px; padding-bottom: 2px; }
+
+.mode .seg { display: flex; width: 100%; }
+.mode .seg button { flex: 1; min-height: 44px; }
+.mode-note { color: var(--muted); font-size: 15px; line-height: 1.4; margin: 8px 0 2px; }
+
+.resetrow { display: flex; gap: 10px; align-items: center; }
+.resetrow .btn { min-height: 44px; }
+.resetrow .muted { font-size: 15px; }
+
+/* ---------- readouts ---------- */
+.sheet-table { position: relative; }
+.caption { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 28px; }
+.caption h2 { margin: 0; font: 700 20px/1.2 var(--f-print); font-variation-settings: "wdth" 80; color: var(--graphite); }
+.status { font: 600 12px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+.status .pen { width: 44px; height: 2px; background: var(--pencil); transform-origin: left center; transform: scaleX(0); }
+.status.busy .pen { animation: pen 900ms var(--ease-out) infinite; }
+@keyframes pen { 0% { transform: scaleX(0); opacity: 1; } 70% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+
+.readout { width: 100%; table-layout: fixed; margin-top: 6px; }
+.readout th:first-child, .readout td:first-child { width: 26%; }
+.readout th.num, .readout td.num { text-align: end; padding-inline-end: 10px; }
+.readout th.gap, .readout td.gap { width: 17%; text-align: end; padding-inline-end: 0; }
+.readout td.q { font-family: var(--f-body); color: var(--graphite); font-size: 16px; }
+.readout td.sim { color: var(--graphite); font-weight: 500; }
+.readout td.gap { color: var(--muted); font-size: 14px; }
+.readout td .u { color: var(--muted); font-size: 13px; margin-inline-start: 3px; }
+.readout sub { font-size: .72em; }
+.readout .th-sub { display: block; font: 400 12px/1.2 var(--f-body); letter-spacing: 0; text-transform: none; color: var(--muted); margin-top: 3px; }
+.readout.busy td.sim, .readout.busy td.gap { opacity: .42; transition: opacity 200ms var(--ease-out); }
+.readout td.sim { position: relative; }
+.ring { position: absolute; inset: -6px -2px -6px -10px; width: calc(100% + 12px); height: calc(100% + 12px); pointer-events: none; overflow: visible; }
+.ring path { fill: none; stroke: var(--red-pen); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.gapnote { margin-top: 10px; font-size: 15px; line-height: 1.45; color: var(--pencil); padding-inline-start: 12px; border-inline-start: 1px solid var(--pencil); }
+.gapnote b { font-weight: 600; color: var(--graphite); }
+.gapnote.warn { color: var(--red-pen); border-inline-start-color: var(--red-pen); }
+
+/* ---------- plots ---------- */
+.plots { margin-top: 22px; }
+.plots .caption h2 { font-size: 19px; }
+.plot { display: block; width: 100%; margin-top: 8px; border: 1.2px solid var(--pencil); background: var(--sheet); }
+.plot text { font-family: var(--f-qty); font-size: 13px; fill: var(--pencil); }
+.plot text.name { font-family: var(--f-print); font-weight: 700; font-size: 14px; font-variation-settings: "wdth" 80; }
+.plot .gf { stroke: var(--grid-fine); stroke-width: 1; }
+.plot .gm { stroke: var(--grid-major); stroke-width: 1; }
+.plot .axis { stroke: var(--pencil); stroke-width: 1.2; }
+.plot .tr { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.plot .ghost { fill: none; stroke: var(--ink-ghost); stroke-width: 1.5; stroke-dasharray: 3 4; }
+.plot .cursor { stroke: var(--graphite); stroke-width: 1; stroke-dasharray: 2 3; }
+.plot .kd { fill: var(--sheet); stroke-width: 2; }
+.plot .knock { paint-order: stroke; stroke: var(--sheet); stroke-width: 4px; stroke-linejoin: round; }
+.plot-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.plot-row.two { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+@media (max-width: 760px) { .plot-row.two { grid-template-columns: minmax(0, 1fr); } }
+
+.err { color: var(--red-pen); font-size: 15px; }
+
+.honesty { margin-top: 26px; }
+.honesty h2 { margin: 0 0 6px; font: 700 17px/1.2 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .06em; text-transform: uppercase; color: var(--print); }
+.honesty ul { margin: 0; padding-inline-start: 18px; }
+.honesty li { margin: 3px 0; max-width: 92ch; }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Phone and narrow: schematic, playback, controls + readouts, then the waveforms. */
+@media (max-width: 980px) {
+  .schem-col { display: contents; }
+  .schem-wrap { order: 1; } .playbar { order: 2; } .bench > .controls { order: 3; } .plots { order: 4; margin-top: 4px; }
+}
+@media (max-width: 760px) {
+  .tb { grid-template-columns: 1fr auto; }
+  .tb > .cell:first-child { grid-column: auto; }
+  .tb .value { font-size: 19px; }
+  .tb .seg button { font-size: 13px; letter-spacing: .05em; padding: 0 4px; }
+  .legend { margin-inline-start: 0; }
+}
+.label .gk { text-transform: none; font-family: var(--f-body); font-size: 14px; letter-spacing: 0; }
+#reset[hidden] { display: none; }
+#reset { justify-self: start; }
+.controls { gap: 12px; }

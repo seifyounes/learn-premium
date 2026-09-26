@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" data-pad="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pad-native FSM</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="fsm-common.css">
+<link rel="stylesheet" href="pad-native-fsm.css">
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Pad-native FSM</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Moore 101 detector</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Agent-built</span></div>
+  </header>
+
+  <div class="body-pad sim">
+    <div class="col-a">
+      <section class="fig box" aria-label="State diagram">
+        <span class="label">State diagram</span>
+        <svg id="diagram" viewBox="0 0 505 400" role="img" aria-label="State diagram of the Moore 101 detector"></svg>
+      </section>
+
+      <section class="timing box" aria-label="Timing diagram">
+        <div class="timing-head"><span class="label">Timing</span><span class="label" id="timing-count"></span></div>
+        <div class="timing-body">
+          <svg class="timing-labels" id="timing-labels" width="58" height="160" aria-hidden="true"></svg>
+          <div class="timing-scroll" id="timing-scroll" tabindex="0" aria-label="Timing diagram, scrolls sideways"><svg id="timing"></svg></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-b">
+      <section class="drive" aria-label="Controls">
+        <div class="drive-main">
+          <div class="field xfield">
+            <span class="label" id="x-label">Input X</span>
+            <div class="seg xseg" role="group" aria-labelledby="x-label">
+              <button type="button" data-x="0" aria-pressed="true">0</button>
+              <button type="button" data-x="1" aria-pressed="false">1</button>
+            </div>
+          </div>
+          <button type="button" class="btn primary clock" id="clock" aria-describedby="clock-note">
+            <svg viewBox="0 0 34 22" aria-hidden="true"><path d="M2 18H12V4H22" /><path d="M8 10.5 12 6.5 16 10.5" /><path d="M22 4H32" opacity=".45"/></svg>
+            <span>Clock</span>
+          </button>
+        </div>
+        <p class="hint" id="clock-note">Set X, then clock: the rising edge samples X and the machine moves along one arrow.</p>
+      </section>
+
+      <section class="status" aria-live="polite" aria-label="Machine state">
+        <div class="cell"><span class="label">Period</span><span class="v qty" id="st-period">1</span></div>
+        <div class="cell cell-state"><span class="label">State</span><span class="v qty" id="st-state">S0</span><span class="m" id="st-meaning">reset</span></div>
+        <div class="cell"><span class="label">Q1 Q0</span><span class="v qty" id="st-code">0 0</span></div>
+        <div class="cell cell-z"><span class="label">Output Z</span><span class="lamp qty" id="st-z">0</span></div>
+      </section>
+
+      <section class="drive-more ctrl-row" aria-label="More controls">
+        <button type="button" class="btn" id="auto" aria-pressed="false">Auto-clock</button>
+        <button type="button" class="btn" id="play" aria-pressed="false">Play <span class="qty">10101101</span></button>
+        <button type="button" class="btn" id="reset">Reset</button>
+      </section>
+
+      <section class="tables" aria-label="Tables">
+        <div class="seg tabs" role="tablist" aria-label="Table">
+          <button type="button" role="tab" id="tab-st" aria-controls="panel-st" aria-selected="true" aria-pressed="true">State table</button>
+          <button type="button" role="tab" id="tab-enc" aria-controls="panel-enc" aria-selected="false" aria-pressed="false">Encoded + D</button>
+        </div>
+        <div class="panel" id="panel-st" role="tabpanel" aria-labelledby="tab-st">
+          <table class="readout tbl" id="tbl-st"></table>
+          <p class="hint">Moore: Z belongs to the state, so it has one column, not one per input.</p>
+        </div>
+        <div class="panel" id="panel-enc" role="tabpanel" aria-labelledby="tab-enc" hidden>
+          <table class="readout tbl tbl-enc" id="tbl-enc"></table>
+          <div class="eqs" id="eqs" aria-label="Excitation equations"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="wrap-honesty">
+    <section class="honesty" aria-label="For the Owner">
+      <h2>For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> every table, equation, state and Z on this page comes from <code>pad-native-fsm.engine.mjs</code> stepping the machine in <code>machine-101.mjs</code>; nothing is typed into the view. The engine also minimises D1, D0 and Z itself. <code>check-pad-native-fsm.mjs</code> runs it in Node against the hand-written key (<code>machine.md</code>): <b>49 of 49 PASS</b>, including the test sequence (Z after each edge 0 0 1 0 1 0 0 1).</li>
+        <li><b>Hand-placed:</b> the diagram's state positions and arrow bends are fixed coordinates for this one machine. A real build would lay out any machine with elkjs or dagre at build time, then check that labels do not collide.</li>
+        <li><b>First load:</b> <span class="qty">196 KB</span> cold, measured over CDP from the local server (uncompressed), of which about 140 KB is the three pad fonts. The page code is about 45 KB; no libraries, the motion is the Web Animations API.</li>
+        <li><b>Touch:</b> works. Every control is at least 48 px tall and nothing needs hover or drag; a CDP touch tap on CLOCK in an emulated 390 × 844 phone clocks the machine. Not tried on a real phone. Keys on a laptop: <span class="qty">0</span> / <span class="qty">1</span> set X, <span class="qty">C</span> clocks.</li>
+        <li><b>To ship:</b> an auto-layout step for other machines, a Mealy view (outputs on the arrows), a JK/T flip-flop option in the UI (the engine derives both, untested), and an accessibility pass on the SVG.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+<script type="module" src="pad-native-fsm.view.mjs"></script>
+</body>
+</html>

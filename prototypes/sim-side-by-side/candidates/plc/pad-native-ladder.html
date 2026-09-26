@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en" data-pad="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pad-native ladder</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<style>
+  :root {
+    --live: #1F6F47;              /* energised: power flow, running motor (hue ~150, far from the red pen) */
+    --live-soft: color-mix(in srgb, #1F6F47 16%, transparent);
+  }
+  .rig { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); grid-template-areas: "lad side" "tim side"; gap: 20px; padding: 20px 24px 0; align-items: start; }
+  .rig > .lad-box { grid-area: lad; } .rig > .side { grid-area: side; } .rig > .timing { grid-area: tim; }
+  .side { display: grid; gap: 20px; }
+  .box-print > .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 12px 7px; border-bottom: 1px solid var(--print); }
+  .head .status { font: 400 14px/1 var(--f-qty); font-feature-settings: "tnum" 1; color: var(--pencil); white-space: nowrap; }
+  .head .status b { font-weight: 600; color: var(--live); }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+  /* ---------- ladder ---------- */
+  #ladder { --k: 1; padding: 6px 10px 12px; }
+  .lad text { font-family: var(--f-print); font-variation-settings: "wdth" 80; fill: var(--graphite); }
+  .lad .tag { font-size: calc(15px * var(--k)); font-weight: 700; letter-spacing: .04em; text-anchor: middle; }
+  .lad .pin { font-size: calc(13px * var(--k)); font-weight: 600; fill: var(--print); letter-spacing: .06em; }
+  .lad .fb { font-size: calc(15px * var(--k)); font-weight: 800; fill: var(--print); letter-spacing: .08em; text-anchor: middle; }
+  .lad .cmt { font-family: var(--f-body); font-variation-settings: normal; font-size: calc(14px * var(--k)); fill: var(--muted); }
+  .lad .rno { font-family: var(--f-qty); font-size: calc(13px * var(--k)); fill: var(--sheet); text-anchor: middle; }
+  .lad .val { font-family: var(--f-qty); font-variation-settings: normal; font-feature-settings: "tnum" 1; font-size: calc(15px * var(--k)); fill: var(--pencil); }
+  .lad .val.on { fill: var(--live); font-weight: 600; }
+  .lad .val.pt { fill: var(--muted); }
+  .wire { fill: none; stroke: var(--pencil); stroke-width: 1.6; stroke-linecap: square; }
+  .live { fill: none; stroke: var(--live); stroke-width: 5; stroke-linecap: square;
+          stroke-dasharray: 1 1; stroke-dashoffset: 1; transition: stroke-dashoffset 90ms linear; }
+  .live.on { stroke-dashoffset: 0; transition: stroke-dashoffset 130ms linear var(--d, 0ms); }
+  .rail-l { stroke: var(--live); stroke-width: 5; }
+  .rail-r { stroke: var(--pencil); stroke-width: 2.5; }
+  .plate { stroke: var(--pencil); stroke-width: 2; fill: none; transition: stroke 120ms var(--ease-out), stroke-width 120ms var(--ease-out); }
+  .gap { fill: var(--pencil); opacity: 0; transition: opacity 120ms var(--ease-out); }
+  .closed .plate { stroke: var(--graphite); stroke-width: 3.5; }
+  .closed .gap { opacity: .2; }
+  .powered .plate { stroke: var(--live); stroke-width: 5; }
+  .powered .gap { fill: var(--live); opacity: 1; }
+  .coil .arc { fill: none; stroke: var(--pencil); stroke-width: 2; transition: stroke-width 120ms var(--ease-out); }
+  .coil .core { fill: var(--live); transform-box: fill-box; transform-origin: center; transform: scale(0); transition: transform 180ms var(--ease-out); }
+  .coil.on .arc { stroke: var(--live); stroke-width: 5; }
+  .coil.on .core { transform: scale(1); }
+  .fbox { fill: var(--sheet); stroke: var(--print); stroke-width: 1.8; }
+  .fbox-q { fill: none; stroke: var(--pencil); stroke-width: 1.6; }
+  .etbar-bg { stroke: var(--grid-major); stroke-width: 5; }
+  .etbar { stroke: var(--live); stroke-width: 5; transform-box: fill-box; transform-origin: left center; }
+  .hit { fill: transparent; cursor: pointer; touch-action: none; }
+  .hit:focus-visible { outline: none; stroke: var(--print); stroke-width: 2; stroke-dasharray: 4 3; }
+
+  /* ---------- plant ---------- */
+  #plant { padding: 6px 10px 8px; }
+  #plant { --k: 1; }
+  .plant text { font-family: var(--f-print); font-variation-settings: "wdth" 80; font-weight: 700; fill: var(--graphite); font-size: calc(14px * var(--k)); letter-spacing: .06em; }
+  .plant .motor text { font-size: calc(13px * var(--k)); }
+  .plant .state { font-family: var(--f-qty); font-variation-settings: normal; font-weight: 400; fill: var(--pencil); letter-spacing: 0; }
+  .plant .state.on { fill: var(--live); font-weight: 600; }
+  .frame { fill: none; stroke: var(--pencil); stroke-width: 1.4; }
+  .belt { fill: none; stroke: var(--pencil); stroke-width: 2; }
+  .cleats { fill: none; stroke: var(--graphite); stroke-width: 4; stroke-dasharray: 3 13; animation: belt 267ms linear infinite; animation-play-state: paused; }
+  .running .cleats { animation-play-state: running; }
+  @keyframes belt { to { stroke-dashoffset: -16; } }
+  .roller circle { fill: var(--sheet); stroke: var(--graphite); stroke-width: 2; }
+  .roller .spokes { stroke: var(--pencil); stroke-width: 1.6; transform-box: fill-box; transform-origin: center; animation: spin 1.26s linear infinite; animation-play-state: paused; }
+  .running .roller .spokes { animation-play-state: running; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .motor circle { fill: var(--sheet); stroke: var(--pencil); stroke-width: 2; transition: stroke 150ms var(--ease-out), stroke-width 150ms var(--ease-out); }
+  .motor text { text-anchor: middle; }
+  .running .motor circle { stroke: var(--live); stroke-width: 4.5; }
+  .parcel { fill: var(--sheet); stroke: var(--graphite); stroke-width: 1.8; }
+  .parcel-tape { stroke: var(--pencil); stroke-width: 1.2; }
+  .bin { fill: none; stroke: var(--pencil); stroke-width: 1.6; }
+  .plant-st { width: 100%; border-top: 1px solid var(--print); }
+  .plant-st th, .plant-st td { padding-inline: 12px; }
+  .plant-st tr:last-child th, .plant-st tr:last-child td { border-bottom: 0; }
+  .plant-st td { text-align: end; }
+  .plant-st td.on { color: var(--live); font-weight: 600; }
+
+  /* ---------- panel: push buttons ---------- */
+  .panel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pb { appearance: none; display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 10px; min-height: 76px; padding: 10px 12px;
+        border: 2px solid var(--graphite); background: var(--sheet); color: var(--graphite); cursor: pointer; text-align: start;
+        touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; border-radius: 0;
+        transition: transform 70ms var(--ease-out), background-color 120ms var(--ease-out); }
+  .pb .sym { display: grid; place-items: center; width: 52px; height: 52px; border: 2px solid currentColor; font: 600 26px/1 var(--f-qty); }
+  .pb .nm { font: 800 20px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; display: block; }
+  .pb .sub { font: 400 13px/1.2 var(--f-qty); color: var(--pencil); display: block; margin-top: 6px; white-space: nowrap; }
+  .pb.stop { background: var(--graphite); color: var(--sheet); }
+  .pb.stop .sub { color: color-mix(in srgb, var(--sheet) 80%, var(--graphite)); }
+  .pb[aria-pressed="true"] { transform: translateY(3px); }
+  .pb.start[aria-pressed="true"] { background: color-mix(in srgb, var(--graphite) 14%, var(--sheet)); }
+  .pb.stop[aria-pressed="true"] { background: color-mix(in srgb, var(--graphite) 78%, var(--sheet)); }
+  .pb:focus-visible { outline: 2px solid var(--print); outline-offset: 3px; }
+  .panel-note { grid-column: 1 / -1; margin: 0; font-size: 15px; color: var(--muted); }
+  .tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  /* ---------- I/O image ---------- */
+  .io { width: 100%; }
+  .io td.v { color: var(--graphite); text-align: end; }
+  .io td.v span { display: inline-block; }
+  .io td.v .on { font-weight: 600; color: var(--live); }
+  .io td.a { color: var(--muted); }
+  .io .land { animation: land 260ms var(--ease-out); }
+  @keyframes land { from { opacity: 0; transform: translateY(-2px); } }
+  .io th, .io td { padding-inline: 12px; }
+  .io th:last-child { text-align: end; }
+
+  /* ---------- timing ---------- */
+  #timing { padding: 4px 10px 10px; }
+  .tim text { font-family: var(--f-print); font-variation-settings: "wdth" 80; font-weight: 700; font-size: 13px; fill: var(--print); letter-spacing: .06em; }
+  .tim .tick { font-family: var(--f-qty); font-variation-settings: normal; font-weight: 400; font-size: 12px; fill: var(--muted); letter-spacing: 0; }
+  .tim .base { stroke: var(--grid-major); stroke-width: 1; }
+  .tim .tr { fill: none; stroke: var(--graphite); stroke-width: 2; stroke-linejoin: miter; }
+  .tim .tr.out { stroke: var(--live); stroke-width: 2.6; }
+  .tim .ptref { stroke: var(--pencil); stroke-width: 1; stroke-dasharray: 3 4; }
+  .tim .now { stroke: var(--pencil); stroke-width: 1; }
+  .dim path { fill: none; stroke: var(--red-pen); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 1; animation: draw 520ms cubic-bezier(.37,0,.63,1) forwards; }
+  .dim text { font-family: var(--f-qty); font-variation-settings: normal; font-weight: 500; font-size: 13px; fill: var(--red-pen); letter-spacing: 0; opacity: 0; animation: fadein 200ms 480ms var(--ease-out) forwards; }
+  @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes fadein { to { opacity: 1; } }
+
+  .honesty { margin: 20px 24px 0; }
+  .honesty h2 { font: 700 15px/1 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; color: var(--print); margin: 2px 0 8px; }
+  .honesty ul { margin: 0; padding-inline-start: 18px; }
+  .honesty li { margin: 3px 0; }
+
+  @media (max-width: 900px) {
+    .rig { grid-template-columns: 1fr; grid-template-areas: "lad" "side" "tim"; padding: 16px 16px 0; gap: 16px; }
+    .side { gap: 16px; }
+    .honesty { margin: 16px 16px 0; }
+    .panel { position: sticky; bottom: 0; z-index: 2; background: var(--sheet); padding: 10px 0; border-top: 1.5px solid var(--print); }
+    .panel-note { display: none; }
+    .pb { min-height: 64px; }
+    .pb .sym { width: 44px; height: 44px; font-size: 22px; }
+    .pb { grid-template-columns: 44px 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cleats, .roller .spokes { animation: none; }
+    .live, .live.on { transition: none; }
+    .dim path { animation: none; stroke-dashoffset: 0; }
+    .dim text { animation: none; opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Pad-native ladder</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Two-conveyor start</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Agent-built</span></div>
+  </header>
+
+  <section class="rig">
+    <figure class="box-print lad-box" style="margin:0">
+      <div class="head"><span class="label">Ladder</span><span class="status" id="status">RUN</span></div>
+      <div id="ladder"></div>
+    </figure>
+
+    <div class="side">
+      <div class="panel" id="panel">
+        <button class="pb start" id="pb-START" data-tag="START" aria-pressed="false">
+          <span class="sym" aria-hidden="true">I</span>
+          <span><span class="nm">Start</span><span class="sub">NO %I0.0</span></span>
+        </button>
+        <button class="pb stop" id="pb-STOP" data-tag="STOP" aria-pressed="false">
+          <span class="sym" aria-hidden="true">O</span>
+          <span><span class="nm">Stop</span><span class="sub">NC %I0.1</span></span>
+        </button>
+        <p class="panel-note">Hold a button, or tap its contact in the ladder. STOP is wired normally closed, so its input bit reads 1 until you press it.</p>
+      </div>
+
+      <figure class="box-print" style="margin:0">
+        <div class="head"><span class="label">Plant</span><span class="status" id="count">0 parcels delivered</span></div>
+        <div id="plant"></div>
+        <table class="readout plant-st"><tbody>
+          <tr><th>Conveyor 1 · M1</th><td id="st-c1">stopped</td></tr>
+          <tr><th>Conveyor 2 · M2</th><td id="st-c2">stopped</td></tr>
+        </tbody></table>
+      </figure>
+
+      <figure class="box-print" style="margin:0">
+        <div class="head"><span class="label">I/O image</span>
+          <span class="tools"><button class="btn" id="reset" style="min-height:44px">Reset</button></span></div>
+        <table class="readout io" id="io">
+          <thead><tr><th>Tag</th><th>Address</th><th>Value</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </figure>
+    </div>
+
+    <figure class="box-print timing" style="margin:0">
+    <div class="head"><span class="label">Timing · last 12 s</span><span class="status" id="clock">t 0.00 s</span></div>
+    <div id="timing"></div>
+  </figure>
+  </section>
+
+
+  <section class="honesty" id="honesty">
+    <h2>For the Owner</h2>
+    <ul>
+      <li><b>Real:</b> every lamp, wire and belt is driven by a PLC scan engine (<span class="qty">pad-native-ladder.engine.mjs</span>, 10 ms scan, IEC TON) solving <span class="qty">program.json</span>. The same engine replays the answer key in Node: <span class="qty">check-pad-native-ladder.mjs</span>, 46/46 PASS. The red 5.00 s dimension is measured from the recorded edges, not typed in.</li>
+      <li><b>Animated, not simulated:</b> the power trace draws in over about 0.2 s so the eye can follow it; the engine state it shows changed in one scan. Parcels are a visual plant model (belts move only while their motor output is 1); they do not feed back into the PLC.</li>
+      <li><b>First load:</b> <span class="qty">192 KB</span> over 9 requests (fresh cache, uncompressed local server); 140 KB of that is the pad's three web fonts, the simulator itself is 44 KB. No framework, no third-party script.</li>
+      <li><b>Touch:</b> push buttons and the START/STOP contacts in the ladder use pointer events with press-and-hold (targets 48 px and up); a quick tap still lasts at least one scan. On phones the buttons stay pinned to the bottom of the screen. Checked with mouse and an emulated 375 px touch viewport, not on a real phone.</li>
+      <li><b>To ship:</b> a general ladder layout for wider programs (branches inside branches, more function blocks: TOF, TP, CTU/CTD, SET/RESET coils), an editor if students must write rungs, and the agent step that writes <span class="qty">program.json</span> from a lecture figure.</li>
+    </ul>
+  </section>
+</main>
+
+<script type="module">
+import { createPLC } from "./pad-native-ladder.engine.mjs";
+
+const SVGNS = "http://www.w3.org/2000/svg";
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const el = (name, attrs = {}, parent) => {
+  const n = document.createElementNS(SVGNS, name);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (parent) parent.appendChild(n);
+  return n;
+};
+const txt = (parent, x, y, s, cls, extra = {}) => { const t = el("text", { x, y, class: cls, ...extra }, parent); t.textContent = s; return t; };
+
+const program = await (await fetch("./program.json")).json();
+const plc = createPLC(program);
+
+/* ================= ladder: generic layout from program.json ================= */
+let W = 560, RR = 538;
+const RL = 22, PITCH = 62;
+const SLOT = { NO: 96, NC: 96, coil: 100, TON: 214 };
+const width = (e) => e.type === "par" ? Math.max(...e.branches.map(seriesW)) + 48 : SLOT[e.type];
+const seriesW = (list) => list.reduce((a, e) => a + width(e), 0);
+const rows = (e) => e.type === "par" ? e.branches.reduce((a, b) => a + Math.max(1, ...b.map(rows)), 0) : 1;
+const drop = (e) => e.type === "TON" ? 52 : 0;   // extra depth under the rung line
+
+const svg = el("svg", { class: "lad", viewBox: `0 0 ${W} 100`, role: "img", "aria-label": "Ladder diagram of the two-conveyor start sequence" });
+const ladderBox = document.getElementById("ladder");
+ladderBox.appendChild(svg);
+let gWires, gLive, gSym, gHit;
+let segs = [];            // { live, src: () => bool }
+let views = {};           // element id -> { g, kind, ... }
+let trace = {};
+
+function wire(x1, y1, x2, y2, src) {
+  if (x1 === x2 && y1 === y2) return;
+  const d = `M${x1} ${y1} L${x2} ${y2}`;
+  const base = el("path", { d, class: "wire" }, gWires);
+  const live = el("path", { d, class: "live", pathLength: 1 }, gLive);
+  live.style.setProperty("--d", `${Math.round((Math.min(x1, x2) - RL) / 2.6)}ms`);
+  segs.push({ live, src });
+}
+const pin = (id) => () => !!trace[id]?.pin;
+const pout = (id) => () => !!trace[id]?.pout;
+
+function drawContact(e, x, y, w) {
+  const cx = x + w / 2;
+  wire(x, y, cx - 10, y, pin(e.id));
+  wire(cx + 10, y, x + w, y, pout(e.id));
+  const g = el("g", { class: "contact" }, gSym);
+  el("rect", { class: "gap", x: cx - 8, y: y - 15, width: 16, height: 30 }, g);
+  el("path", { class: "plate", d: `M${cx - 10} ${y - 18} V${y + 18} M${cx + 10} ${y - 18} V${y + 18}` }, g);
+  if (e.type === "NC") el("path", { class: "plate", d: `M${cx - 14} ${y + 20} L${cx + 14} ${y - 20}` }, g);
+  txt(gSym, cx, y - 28, e.tag, "tag");
+  views[e.id] = { g, kind: "contact" };
+  const def = program.tags[e.tag];
+  if (def?.kind === "input") {
+    const hit = el("rect", { class: "hit", x: cx - 42, y: y - 50, width: 84, height: 80, tabindex: 0, role: "button",
+      "aria-label": `Press ${e.tag} (hold)` }, gHit);
+    bindHold(hit, e.tag);
+  }
+}
+function drawCoil(e, x, y, w) {
+  const cx = x + w / 2;
+  wire(x, y, cx - 14, y, pin(e.id));
+  wire(cx + 14, y, RR, y, pout(e.id));
+  const g = el("g", { class: "coil" }, gSym);
+  el("circle", { class: "core", cx, cy: y, r: 7 }, g);
+  el("path", { class: "arc", d: `M${cx - 8} ${y - 17} A 22 22 0 0 0 ${cx - 8} ${y + 17} M${cx + 8} ${y - 17} A 22 22 0 0 1 ${cx + 8} ${y + 17}` }, g);
+  txt(gSym, cx, y - 28, e.tag, "tag");
+  views[e.id] = { g, kind: "coil" };
+}
+function drawTON(e, x, y, w) {
+  const bx = x + 20, bw = w - 40, top = y - 26, h = 78;
+  wire(x, y, bx, y, pin(e.id));
+  wire(bx + bw, y, x + w, y, pout(e.id));
+  const g = el("g", { class: "ton" }, gSym);
+  el("rect", { class: "fbox", x: bx, y: top, width: bw, height: h }, g);
+  txt(g, bx + bw / 2, top - 10, e.timer, "tag");
+  txt(g, bx + bw / 2, y + 5, "TON", "fb");
+  txt(g, bx + 8, y + 5, "IN", "pin");
+  txt(g, bx + bw - 8, y + 5, "Q", "pin", { "text-anchor": "end" });
+  txt(g, bx + 8, y + 32, "PT", "pin");
+  txt(g, bx + bw - 8, y + 32, "ET", "pin", { "text-anchor": "end" });
+  el("line", { class: "etbar-bg", x1: bx + 8, x2: bx + bw - 8, y1: top + h - 9, y2: top + h - 9 }, g);
+  const bar = el("line", { class: "etbar", x1: bx + 8, x2: bx + bw - 8, y1: top + h - 9, y2: top + h - 9 }, g);
+  const et = txt(g, bx, top + h + 26, "", "val");
+  const pt = txt(g, bx, top + h + 50, "", "val pt");
+  pt.textContent = `PT ${(program.timers[e.timer].pt / 1000).toFixed(2)} s`;
+  views[e.id] = { g, kind: "ton", bar, et, timer: e.timer };
+}
+function drawSeries(list, x, y, endX) {
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i];
+    let w = width(e);
+    if (e.type === "coil") { // coils sit against the right rail; stretch a wire to them
+      const cx0 = RR - w;
+      wire(x, y, cx0, y, i ? pout(list[i - 1].id) : () => true);
+      x = cx0;
+    }
+    if (e.type === "par") drawPar(e, x, y, w);
+    else if (e.type === "TON") drawTON(e, x, y, w);
+    else if (e.type === "coil") drawCoil(e, x, y, w);
+    else drawContact(e, x, y, w);
+    x += w;
+  }
+  return x;
+}
+function drawPar(e, x, y, w) {
+  let by = y;
+  const jl = x + 16, jr = x + w - 16;
+  wire(x, y, jl, y, pin(e.id));
+  e.branches.forEach((br, i) => {
+    if (i > 0) wire(jl, y, jl, by, pin(e.id));                          // left rail of the branch
+    wire(jl, by, jl + 8, by, pin(e.id));
+    const end = drawSeries(br, jl + 8, by, jr);
+    wire(end, by, jr, by, () => !!trace[e.id]?.branchOut?.[i]);
+    if (i > 0) wire(jr, by, jr, y, () => !!trace[e.id]?.branchOut?.[i]); // closes back to the rung
+    by += PITCH * Math.max(1, ...br.map(rows));
+  });
+  wire(jr, y, x + w, y, pout(e.id));
+}
+
+// Lay the ladder out at the box's own width (1 unit = 1 px on wide screens); below 560 px
+// the 560-unit drawing scales down and text is counter-scaled via --k to stay >= 13 px.
+function buildLadder(boxW) {
+  W = Math.max(560, Math.round(boxW)); RR = W - 22;
+  svg.replaceChildren(); segs = []; views = {};
+  gWires = el("g", {}, svg); gLive = el("g", {}, svg); gSym = el("g", {}, svg); gHit = el("g", {}, svg);
+  let y = 14;
+  program.rungs.forEach((r, i) => {
+    el("rect", { x: RL + 12, y, width: 24, height: 24, fill: "var(--graphite)" }, gSym);
+    txt(gSym, RL + 24, y + 17, String(i + 1), "rno");
+    txt(gSym, RL + 46, y + 18, r.comment, "cmt");
+    const line = y + 72;
+    drawSeries(r.elements, RL, line, RR);
+    const h = Math.max(...r.elements.map(rows)) * PITCH + Math.max(...r.elements.map(drop));
+    y = line + h - 14;
+  });
+  const H = y + 4;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  el("line", { class: "rail-l", x1: RL, x2: RL, y1: 4, y2: H - 4 }, gWires);
+  el("line", { class: "rail-r", x1: RR, x2: RR, y1: 4, y2: H - 4 }, gWires);
+  fitText();
+}
+function fitText() { const w = svg.getBoundingClientRect().width || W; svg.style.setProperty("--k", (W / w).toFixed(3)); }
+let builtFor = 0;
+const innerW = () => ladderBox.clientWidth - 20;
+new ResizeObserver(() => { const w = innerW(); if (Math.abs(w - builtFor) > 4) { builtFor = w; buildLadder(w); if (window.__render) __render(0); } else fitText(); }).observe(ladderBox);
+builtFor = innerW(); buildLadder(builtFor);
+
+/* ================= plant: two conveyors ================= */
+const PW = 400, PH = 200;
+const psvg = el("svg", { class: "plant", viewBox: `0 0 ${PW} ${PH}`, role: "img", "aria-label": "Conveyor 1 feeds conveyor 2" });
+document.getElementById("plant").appendChild(psvg);
+const C1 = { x1: 34, x2: 236, y: 56, r: 11 }, C2 = { x1: 190, x2: 352, y: 140, r: 11 };
+function conveyor(c, name, motorAt) {
+  const g = el("g", {}, psvg);
+  const { x1, x2, y: cy, r } = c;
+  const loop = `M${x1} ${cy - r} H${x2} A${r} ${r} 0 0 1 ${x2} ${cy + r} H${x1} A${r} ${r} 0 0 1 ${x1} ${cy - r} Z`;
+  el("path", { class: "belt", d: loop }, g);
+  el("path", { class: "cleats", d: loop }, g);
+  for (const x of [x1, x2]) {
+    const rg = el("g", { class: "roller" }, g);
+    el("circle", { cx: x, cy, r: r - 3 }, rg);
+    el("path", { class: "spokes", d: `M${x - 6} ${cy} H${x + 6} M${x} ${cy - 6} V${cy + 6}` }, rg);
+  }
+  const mx = motorAt === "tail" ? x1 : x2, my = cy + r + 24;
+  const lx1 = motorAt === "tail" ? x1 + 34 : x1 + 16, lx2 = motorAt === "tail" ? x2 - 16 : x2 - 34;
+  el("path", { class: "frame", d: `M${lx1} ${cy + r} V${cy + r + 38} M${lx2} ${cy + r} V${cy + r + 38} M${lx1 - 10} ${cy + r + 38} H${lx1 + 10} M${lx2 - 10} ${cy + r + 38} H${lx2 + 10}` }, g);
+  const mg = el("g", { class: "motor" }, g);
+  el("path", { class: "frame", d: `M${mx} ${cy} V${my - 16}` }, mg);
+  el("circle", { cx: mx, cy: my, r: 16 }, mg);
+  txt(mg, mx, my + 6, "M", "");
+  return { g, st: document.getElementById(name) };
+}
+const conv1 = conveyor(C1, "st-c1", "tail");
+const conv2 = conveyor(C2, "st-c2", "head");
+el("path", { class: "bin", d: `M${C2.x2 + 20} ${C2.y + 26} V${C2.y + 50} H${C2.x2 + 44} V${C2.y + 26}` }, psvg);
+const fitPlant = () => { const w = psvg.getBoundingClientRect().width || PW; psvg.parentElement.style.setProperty("--k", (PW / w).toFixed(3)); };
+new ResizeObserver(fitPlant).observe(psvg); fitPlant();
+const gParcels = el("g", {}, psvg);
+
+// parcels move along a 1-D track: belt 1 top, a free drop, belt 2 top, then into the bin
+const S1 = C1.x2 - C1.x1, SDROP = 40, S2START = S1 + SDROP, S2 = S2START + (C2.x2 - (C1.x2 + 12)), GAP = 34, SPEED = 60, BINDROP = 34;
+const parcels = []; let delivered = 0;
+function trackXY(s) {
+  if (s <= S1) return [C1.x1 + s, C1.y - C1.r];
+  if (s <= S2START) { const f = (s - S1) / SDROP; return [C1.x2 + 12 * f, C1.y - C1.r + (C2.y - C1.y) * f * f]; }
+  if (s <= S2) return [C1.x2 + 12 + (s - S2START), C2.y - C2.r];
+  const f = Math.min(1, (s - S2) / BINDROP); return [C2.x2 + 32 * f, C2.y - C2.r + 60 * f * f];
+}
+function stepParcels(dt, m1, m2) {
+  parcels.sort((a, b) => b.s - a.s);
+  for (let i = 0; i < parcels.length; i++) {
+    const p = parcels[i], ahead = parcels[i - 1];
+    let v = p.s < S1 ? (m1 ? SPEED : 0) : p.s < S2START ? 140 : p.s < S2 ? (m2 ? SPEED : 0) : 140;
+    let s = p.s + v * dt / 1000;
+    if (p.s <= S1 && s > S1 && ahead && ahead.s < S2START + GAP) s = S1;   // landing spot on belt 2 occupied
+    if (ahead) s = Math.min(s, ahead.s - GAP);
+    p.s = Math.max(p.s, s);
+  }
+  for (let i = parcels.length - 1; i >= 0; i--) if (parcels[i].s >= S2 + BINDROP) { parcels[i].node.remove(); parcels.splice(i, 1); delivered++; }
+  const last = parcels.reduce((m, p) => Math.min(m, p.s), Infinity);
+  if (m1 && last > GAP * 1.9) addParcel(0);
+  for (const p of parcels) {
+    const [x, y2] = trackXY(p.s);
+    const fade = p.s > S2 + BINDROP * .6 ? 0 : 1;
+    p.node.setAttribute("transform", `translate(${x.toFixed(1)} ${y2.toFixed(1)})`);
+    p.node.style.opacity = fade;
+  }
+}
+function addParcel(s) {
+  const g = el("g", {}, gParcels);
+  el("rect", { class: "parcel", x: -12, y: -18, width: 24, height: 18 }, g);
+  el("path", { class: "parcel-tape", d: "M-12 -9 H12 M0 -18 V0" }, g);
+  parcels.push({ s, node: g });
+}
+[0, 70, 140].forEach(addParcel);   // a few parcels waiting on belt 1
+
+/* ================= I/O image ================= */
+const ioRows = [
+  ["START", "%I0.0", () => plc.snapshot().bits.START ? 1 : 0],
+  ["STOP", "%I0.1", () => plc.snapshot().bits.STOP ? 1 : 0],
+  ["M1", "%Q0.0", () => plc.snapshot().outputs.M1 ? 1 : 0],
+  ["M2", "%Q0.1", () => plc.snapshot().outputs.M2 ? 1 : 0],
+  ["T1.ET", "", () => (plc.snapshot().timers.T1.et / 1000).toFixed(2) + " s"],
+  ["T1.Q", "", () => plc.snapshot().timers.T1.q ? 1 : 0],
+];
+const tbody = document.querySelector("#io tbody");
+const ioCells = ioRows.map(([tag, addr]) => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${tag}</td><td class="a">${addr || "timer"}</td><td class="v"><span></span></td>`;
+  tbody.appendChild(tr);
+  return tr.querySelector("span");
+});
+
+/* ================= timing diagram ================= */
+const WIN = 12000;
+const lanes = [
+  { key: "START", get: (s) => +s.bits.START, out: false },
+  { key: "STOP", get: (s) => +s.bits.STOP, out: false },
+  { key: "M1", get: (s) => +s.outputs.M1, out: true },
+  { key: "M2", get: (s) => +s.outputs.M2, out: true },
+  { key: "T1.ET", get: (s) => s.timers.T1.et / s.timers.T1.pt, out: false, analog: true },
+];
+const hist = lanes.map(() => []);
+const tsvg = el("svg", { class: "tim", role: "img", "aria-label": "Timing diagram of inputs, outputs and timer" });
+document.getElementById("timing").appendChild(tsvg);
+const LANE = 36, LEFT = 62, TOP = 8;
+const TH = TOP + lanes.length * LANE + 24;
+let TW = 600;
+const gGrid = el("g", {}, tsvg), gTr = el("g", {}, tsvg), gDim = el("g", {}, tsvg);
+const trPaths = lanes.map((l, i) => {
+  txt(tsvg, 0, TOP + i * LANE + LANE - 12, l.key, "");
+  return el("path", { class: "tr" + (l.out ? " out" : "") }, gTr);
+});
+const ptRef = el("line", { class: "ptref" }, gGrid);
+const nowLine = el("line", { class: "now" }, gGrid);
+const fitTiming = () => { TW = Math.max(300, tsvg.getBoundingClientRect().width || 600); tsvg.setAttribute("viewBox", `0 0 ${TW} ${TH}`); drawGrid(); };
+new ResizeObserver(fitTiming).observe(document.getElementById("timing"));
+function drawGrid() {
+  gGrid.querySelectorAll(".base").forEach((n) => n.remove());
+  lanes.forEach((l, i) => { const yb = TOP + i * LANE + LANE - 8; el("line", { class: "base", x1: LEFT, x2: TW, y1: yb, y2: yb }, gGrid); });
+}
+const tickG = el("g", {}, tsvg);
+const dims = new Map();
+
+function renderTiming(now) {
+  const x0 = LEFT, x1 = TW - 4, span = x1 - x0;
+  const tx = (t) => x0 + ((t - (now - WIN)) / WIN) * span;
+  lanes.forEach((l, i) => {
+    const yb = TOP + i * LANE + LANE - 8, yt = yb - LANE + 16;
+    const yv = (v) => yb - v * (yb - yt);
+    const h = hist[i];
+    let d = "";
+    for (let k = 0; k < h.length; k++) {
+      const [t, v] = h[k];
+      const x = Math.max(x0, tx(t)).toFixed(1);
+      if (!d) d = `M${x} ${yv(v).toFixed(1)}`;
+      else d += l.analog ? ` L${x} ${yv(v).toFixed(1)}` : ` H${x} V${yv(v).toFixed(1)}`;
+    }
+    if (h.length) d += ` H${tx(now).toFixed(1)}`;
+    trPaths[i].setAttribute("d", d);
+    if (l.analog) { ptRef.setAttribute("x1", x0); ptRef.setAttribute("x2", x1); ptRef.setAttribute("y1", yt); ptRef.setAttribute("y2", yt); }
+  });
+  nowLine.setAttribute("x1", tx(now)); nowLine.setAttribute("x2", tx(now)); nowLine.setAttribute("y1", TOP); nowLine.setAttribute("y2", TH - 22);
+  // seconds ticks
+  tickG.replaceChildren();
+  const step = span < 420 ? 4000 : 2000;
+  for (let s = Math.ceil((now - WIN) / step) * step; s <= now; s += step) {
+    if (s < 0) continue;
+    const x = tx(s);
+    if (x < x0 + 10) continue;
+    txt(tickG, x, TH - 6, (s / 1000).toFixed(0) + " s", "tick", { "text-anchor": "middle" });
+    el("line", { class: "base", x1: x, x2: x, y1: TH - 22, y2: TH - 18 }, tickG);
+  }
+  // red-pen dimension: M1 rising edge -> M2 rising edge, measured from the recorded history
+  const m1 = hist[2], m2 = hist[3];
+  for (let k = 1; k < m2.length; k++) {
+    if (m2[k][1] !== 1 || m2[k - 1][1] !== 0) continue;
+    const tRise2 = m2[k][0];
+    let tRise1 = null;
+    for (let j = m1.length - 1; j >= 1; j--) if (m1[j][1] === 1 && m1[j - 1][1] === 0 && m1[j][0] <= tRise2) { tRise1 = m1[j][0]; break; }
+    if (tRise1 === null) continue;
+    let dm = dims.get(tRise2);
+    if (!dm) {
+      const g = el("g", { class: "dim" }, gDim);
+      const p = el("path", { pathLength: 1 }, g);
+      const t = el("text", { "text-anchor": "middle" }, g);
+      t.textContent = `${((tRise2 - tRise1) / 1000).toFixed(2)} s`;
+      dm = { g, p, t }; dims.set(tRise2, dm);
+    }
+    const xa = tx(tRise1), xb = tx(tRise2), yd = TOP + 3 * LANE + LANE - 16;
+    dm.p.setAttribute("d", `M${xa} ${yd - 34} V${yd + 6} M${xa + 7} ${yd - 4} L${xa} ${yd} L${xa + 7} ${yd + 4} M${xa} ${yd} H${xb} M${xb - 7} ${yd - 4} L${xb} ${yd} L${xb - 7} ${yd + 4}`);
+    dm.t.setAttribute("x", (xa + xb) / 2); dm.t.setAttribute("y", yd - 6);
+    dm.g.style.display = xb < x0 ? "none" : "";
+  }
+  for (const [k, dm] of dims) if (k < now - WIN - 6000) { dm.g.remove(); dims.delete(k); }
+}
+
+/* ================= input handling ================= */
+const held = { START: false, STOP: false };
+const pendingRelease = new Set();
+let scansSincePress = { START: 0, STOP: 0 };
+function setHeld(tag, on) {
+  if (on) {
+    held[tag] = true; pendingRelease.delete(tag); scansSincePress[tag] = 0; plc.press(tag, true);
+  } else if (held[tag]) {
+    held[tag] = false;
+    if (scansSincePress[tag] === 0) pendingRelease.add(tag); else plc.press(tag, false); // a tap lasts at least one scan
+  }
+  document.getElementById("pb-" + tag).setAttribute("aria-pressed", String(on));
+}
+function bindHold(node, tag) {
+  node.addEventListener("pointerdown", (ev) => { ev.preventDefault(); node.setPointerCapture?.(ev.pointerId); setHeld(tag, true); });
+  for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) node.addEventListener(t, () => setHeld(tag, false));
+  node.addEventListener("keydown", (ev) => { if ((ev.key === " " || ev.key === "Enter") && !ev.repeat) { ev.preventDefault(); setHeld(tag, true); } });
+  node.addEventListener("keyup", (ev) => { if (ev.key === " " || ev.key === "Enter") { ev.preventDefault(); setHeld(tag, false); } });
+  node.addEventListener("contextmenu", (ev) => ev.preventDefault());
+}
+bindHold(document.getElementById("pb-START"), "START");
+bindHold(document.getElementById("pb-STOP"), "STOP");
+
+/* ================= loop ================= */
+let simT = 0, acc = 0, last = performance.now(), snap = plc.scan(0);
+function record(s) {
+  lanes.forEach((l, i) => {
+    const v = l.get(s), h = hist[i], prev = h[h.length - 1];
+    if (!prev || prev[1] !== v || (l.analog && v > 0 && v < 1)) h.push([s.t, v]);
+    while (h.length > 2 && h[1][0] < s.t - WIN - 2000) h.shift();
+  });
+}
+record(snap);
+document.getElementById("reset").addEventListener("click", () => {
+  plc.reset(); for (const t of Object.keys(held)) { if (held[t]) plc.press(t, true); }
+  simT = 0; acc = 0; hist.forEach((h) => (h.length = 0)); for (const dm of dims.values()) dm.g.remove(); dims.clear();
+  snap = plc.scan(0); record(snap);
+});
+
+const prevText = new Map();
+function render(dtFrame) {
+  trace = snap.trace;
+  for (const s of segs) { const on = s.src(); if (s.on !== on) { s.on = on; s.live.classList.toggle("on", on); } }
+  for (const [id, v] of Object.entries(views)) {
+    const t = trace[id] || {};
+    if (v.kind === "contact") { v.g.classList.toggle("closed", !!t.closed); v.g.classList.toggle("powered", !!t.pout); }
+    else if (v.kind === "coil") v.g.classList.toggle("on", !!t.on);
+    else if (v.kind === "ton") {
+      const T1 = snap.timers[v.timer];
+      v.bar.style.transform = `scaleX(${(T1.et / T1.pt).toFixed(4)})`;
+      v.et.textContent = `ET ${(T1.et / 1000).toFixed(2)} s`;
+      v.et.classList.toggle("on", T1.q);
+    }
+  }
+  ioCells.forEach((cell, i) => {
+    const v = ioRows[i][2]();
+    const s = String(v);
+    if (prevText.get(i) !== s) {
+      prevText.set(i, s);
+      cell.textContent = s;
+      cell.classList.toggle("on", v === 1 && ["M1", "M2", "T1.Q"].includes(ioRows[i][0]));
+      if (!reduce && i !== 4) { cell.classList.remove("land"); void cell.offsetWidth; cell.classList.add("land"); }
+    }
+  });
+  const m1 = snap.outputs.M1, m2 = snap.outputs.M2;
+  conv1.g.classList.toggle("running", m1 && !reduce); conv2.g.classList.toggle("running", m2 && !reduce);
+  conv1.g.querySelector(".motor").classList.toggle("on", m1);
+  conv1.g.classList.toggle("on", m1); conv2.g.classList.toggle("on", m2);
+  // motor ring stays inked under reduced motion even though belts don't animate
+  conv1.g.querySelector(".motor circle").style.stroke = m1 ? "var(--live)" : ""; conv1.g.querySelector(".motor circle").style.strokeWidth = m1 ? 4.5 : "";
+  conv2.g.querySelector(".motor circle").style.stroke = m2 ? "var(--live)" : ""; conv2.g.querySelector(".motor circle").style.strokeWidth = m2 ? 4.5 : "";
+  conv1.st.textContent = m1 ? "RUNNING" : "stopped"; conv1.st.classList.toggle("on", m1);
+  conv2.st.textContent = m2 ? "RUNNING" : "stopped"; conv2.st.classList.toggle("on", m2);
+  stepParcels(dtFrame, m1, m2);
+  document.getElementById("count").textContent = `${delivered} parcel${delivered === 1 ? "" : "s"} delivered`;
+  document.getElementById("status").innerHTML = `<b>RUN</b> · scan ${program.scanMs} ms`;
+  document.getElementById("clock").textContent = `t ${(simT / 1000).toFixed(2)} s`;
+  renderTiming(simT);
+}
+
+function frame(now) {
+  const dt = Math.min(now - last, 2000); last = now;
+  acc += dt;
+  while (acc >= program.scanMs) {
+    acc -= program.scanMs; simT += program.scanMs;
+    snap = plc.scan(simT);
+    for (const t of Object.keys(scansSincePress)) scansSincePress[t]++;
+    for (const t of pendingRelease) plc.press(t, false);
+    pendingRelease.clear();
+    record(snap);
+  }
+  render(dt);
+  requestAnimationFrame(frame);
+}
+window.__render = render;
+render(0);
+requestAnimationFrame(frame);
+// ?demo=<s>: fast-forward the real engine <s> seconds with START tapped at 0.3 s (for unattended screenshots)
+const demo = Number(new URLSearchParams(location.search).get("demo"));
+if (demo > 0) {
+  for (let t = program.scanMs; t <= demo * 1000; t += program.scanMs) {
+    if (t === 300) plc.press("START", true);
+    if (t === 600) plc.press("START", false);
+    simT = t; snap = plc.scan(t); record(snap);
+    stepParcels(program.scanMs, snap.outputs.M1, snap.outputs.M2);
+  }
+  render(0);
+}
+window.__plc = { plc, get snap() { return snap; } };
+</script>
+</body>
+</html>

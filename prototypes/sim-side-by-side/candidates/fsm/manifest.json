@@ -1,0 +1,52 @@
+{
+  "area": "fsm",
+  "title": "Sequential logic & FSMs",
+  "pad": "graphite",
+  "circuit": "Moore 101 sequence detector (overlapping), one input X, one output Z, two D flip-flops",
+  "candidates": [
+    {
+      "id": "pad-native-fsm",
+      "name": "Pad-native FSM",
+      "file": "pad-native-fsm.html",
+      "kind": "Agent-built",
+      "oneLine": "Own engine: state diagram with travelling token, linked tables, equations, growing timing strip.",
+      "loadKB": 196,
+      "touch": "works",
+      "accuracy": "check-pad-native-fsm.mjs: engine vs hand-written key (state table, encoded/D table, minimised equations, test sequence) 49/49 PASS",
+      "caveats": "Diagram positions are hand-placed for this machine; other machines need a build-time layout step. D flip-flops only in the UI."
+    },
+    {
+      "id": "digitaljs-fsm",
+      "name": "DigitalJS 0.14 FSM cell",
+      "file": "digitaljs-fsm.html",
+      "kind": "Ready-made",
+      "oneLine": "DigitalJS circuit with its FSM cell, running clock, own state graph and waveform monitor.",
+      "loadKB": 2490,
+      "touch": "partial",
+      "accuracy": "check-digitaljs-fsm.mjs: FSM cell run headless in Node (Clock swapped for a Button), test sequence + 8 table entries 20/20 PASS",
+      "caveats": "Mealy only, numbered states, Z written on every arrow; dagre graph draws self-loops as labels on the node; 2.3 MB bundle uncompressed."
+    },
+    {
+      "id": "logic-jppellet",
+      "name": "Logic (jppellet)",
+      "file": "logic-jppellet.html",
+      "kind": "Ready-made",
+      "oneLine": "Gate-level build: two D flip-flops, next-state gates, CLK push button, in Logic's editor.",
+      "loadKB": 998,
+      "touch": "partial",
+      "accuracy": "check-logic-jppellet.mjs: drives this page in headless Chrome, test sequence state and Z per period and per edge 4/4 PASS",
+      "caveats": "No state diagram or table; hand-placed gates with crossing wires; at phone width zoomed to ~39%, so inputs are ~10 px targets."
+    },
+    {
+      "id": "smcat-highlight",
+      "name": "state-machine-cat + highlight",
+      "file": "smcat-highlight.html",
+      "kind": "Ready-made, re-skinned",
+      "oneLine": "Static smcat/graphviz diagram rendered at build time; clock toggles a current-state highlight.",
+      "loadKB": 169,
+      "touch": "works",
+      "accuracy": "check-smcat-highlight.mjs: smcat source parsed by smcat vs key, plus the tiny engine on the test sequence, 21/21 PASS",
+      "caveats": "No motion, tables or timing; rounded state boxes (smcat paths); tall top-down diagram on phones puts S3 below the fold."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+/* PROTOTYPE (throwaway): bits shared by the four FSM candidate pages. Light only, square, pad inks. */
+:root {
+  /* One meaning colour inside the simulators: logic 1 / energised. Blue, far from the red pen's hue. */
+  --live: #0A6A92;
+  --live-tint: color-mix(in srgb, #0A6A92 16%, var(--sheet));
+}
+html, body { overflow-x: hidden; }
+.honesty h2 { font: 700 15px/1.2 var(--f-print); font-variation-settings: "wdth" 80; letter-spacing: .08em; text-transform: uppercase; color: var(--print); margin: 2px 0 8px; }
+.honesty ul { margin: 0; padding-inline-start: 18px; }
+.honesty li { margin: 4px 0; max-width: 78ch; }
+.honesty code, .mono { font-family: var(--f-qty); font-size: .95em; }
+.wrap-honesty { padding: 22px 24px 0; }
+@media (max-width: 900px) { .wrap-honesty { padding: 18px 16px 0; } }
+
+.field { position: relative; }
+.field > .label { display: block; margin-bottom: 8px; }
+.ctrl-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+.ctrl-row .btn { min-height: 48px; }
+.hint { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
+.hint kbd { font: 500 13px/1 var(--f-qty); border: 1px solid var(--pencil); padding: 2px 5px; }
+@media (hover: none) { .hint.keys { display: none; } }
+
+/* An embedded third-party tool sits in a printed frame, as it really is inside it. */
+.tool-frame { border: 1.5px solid var(--print); background: #fff; position: relative; overflow: auto; }
+.tool-frame > .label { position: sticky; inset-inline-start: 0; top: 0; display: inline-block; background: var(--sheet); padding: 6px 10px; border-inline-end: 1px solid var(--print); border-bottom: 1px solid var(--print); z-index: 2; }

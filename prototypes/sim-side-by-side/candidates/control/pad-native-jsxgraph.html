@@ -1,0 +1,376 @@
+<!doctype html>
+<!-- PROTOTYPE (throwaway): agent-built root locus + step response, JSXGraph restyled into pad inks. -->
+<html lang="en" data-pad="bluegrey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pad-native root locus · Control systems</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="control.css">
+<style>
+  .lab { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; }
+  .lab .fig .plot { height: 440px; }
+  .controls { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; margin-top: 16px; }
+  .band-note { margin: 8px 0 0; }
+  .jxg { position: relative; width: 100%; height: 100%; overflow: hidden; }
+  .jxg svg { overflow: visible; }
+  #splane .jxg { touch-action: none; cursor: default; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 400 13px/1.2 var(--f-qty); color: var(--muted); }
+  .legend svg { width: 14px; height: 14px; vertical-align: -2px; margin-inline-end: 4px; overflow: visible; }
+  @media (max-width: 900px) {
+    .lab, .controls { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .controls { margin-top: 12px; }
+    #splane .plot { height: 300px; }
+    #step .plot { height: 250px; }
+    .controls { display: flex; flex-direction: column-reverse; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Pad-native: JSXGraph + our LTI core</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">K / s(s+2), unity feedback</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Agent-built</span></div>
+  </header>
+
+  <section class="body-pad">
+    <div class="lab">
+      <figure class="fig" id="splane" style="margin:0">
+        <figcaption class="fig-head">
+          <span class="label">Root locus, s-plane</span>
+          <span class="legend" aria-hidden="true">
+            <span><svg viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="var(--graphite)" stroke-width="2" stroke-linecap="round"/></svg>open loop</span>
+            <span><svg viewBox="0 0 14 14"><rect x="2.5" y="2.5" width="9" height="9" fill="var(--graphite)"/></svg>drag me</span>
+          </span>
+        </figcaption>
+        <div class="plot grid-paper" role="application" aria-label="s-plane root locus. Drag a closed-loop pole along the locus to set K; the K slider below does the same."><div class="jxg" id="board-s"></div></div>
+      </figure>
+      <figure class="fig" id="step" style="margin:0">
+        <figcaption class="fig-head">
+          <span class="label">Unit-step response y(t)</span>
+          <span class="note" id="tf-note">T(s) = 4 / (s² + 2s + 4)</span>
+        </figcaption>
+        <div class="plot grid-paper" role="img" aria-label="Closed-loop unit-step response" id="step-plot"><div class="jxg" id="board-t"></div></div>
+      </figure>
+    </div>
+
+    <div class="controls">
+      <div class="gain">
+        <label class="k-now" for="k"><span class="label">Gain K</span><span id="k-out">4.00</span></label>
+        <button class="btn" type="button" id="k-dn" aria-label="Decrease K"><svg viewBox="0 0 18 18"><path d="M3 9h12"/></svg></button>
+        <input class="k-slider" id="k" type="range" min="0.1" max="10" step="0.05" value="4" aria-describedby="k-out">
+        <button class="btn" type="button" id="k-up" aria-label="Increase K"><svg viewBox="0 0 18 18"><path d="M3 9h12M9 3v12"/></svg></button>
+      </div>
+      <div>
+        <div class="readouts" id="readouts" aria-live="polite">
+          <div><span class="label">Gain K</span><span class="v" data-r="K">4.00</span></div>
+          <div><span class="label">Damping <span class="greek">ζ</span></span><span class="v" data-r="zeta">0.500</span></div>
+          <div><span class="label">Nat. freq. <span class="greek">ω<sub>n</sub></span></span><span class="v" data-r="wn">2.00<small>rad/s</small></span></div>
+          <div><span class="label">Overshoot</span><span class="v" data-r="os">16.3<small>%</small></span></div>
+          <div><span class="label" id="ts-label">Settling <span class="greek">T<sub>s</sub> = 4/ζω<sub>n</sub></span></span><span class="v" data-r="ts">4.00<small>s</small></span></div>
+          <div><span class="label">Phase margin</span><span class="v" data-r="pm">51.8<small>°</small></span></div>
+        </div>
+        <p class="muted band-note" id="band-note">2 % band first held at 4.04 s (red tick on the plot).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="body-pad">
+    <div class="honesty">
+      <span class="label">For the Owner</span>
+      <p><strong>Real:</strong> every number and curve comes from <code>control-core.engine.mjs</code> (polynomials, roots, RK4 step, margins by bisection, locus sweep), the same file <code>check-control-core.mjs</code> runs in Node: 31 of 31 PASS against python-control (poles −1 ± 1.732051j, OS 16.303 %, PM 51.827° at 1.5723 rad/s, Ts 4.0 s, plus K = 2, 8, 16). JSXGraph only draws and handles the drag; dragging a pole asks the core which K puts a pole nearest your finger and snaps both poles to it.</p>
+      <p><strong>Settling:</strong> the Ts readout is the textbook 4/(ζωn) = 4.00 s; the red tick marks where the true response enters the 2 % band for good (4.04 s). A real build pins the Professor's convention.</p>
+      <p><strong>First load:</strong> <span class="qty" id="weight">measuring…</span>. JSXGraph (969 KB unminified-size bundle) is most of it and this local server does not gzip; gzipped it is about 290 KB. <strong>Touch:</strong> works; the poles have a 30 px touch radius and the s-plane captures the finger so the page does not scroll under a drag.</p>
+      <p><strong>To ship:</strong> a <code>sim.json</code> per lesson (plant, gains, which marks), a tree-shaken JSXGraph or our own SVG, and locus direction arrows for any plant (the arrows here are placed for this plant).</p>
+    </div>
+  </section>
+</main>
+
+<script src="../../node_modules/jsxgraph/distrib/jsxgraphcore.js"></script>
+<script type="module">
+import { PLANT, analyse, horizon, rootLocus, breakPoints, gainNearest, closedLoopPoles } from './control-core.engine.mjs';
+
+const JXG = window.JXG;
+const cs = getComputedStyle(document.documentElement);
+const ink = (n) => cs.getPropertyValue(n).trim();
+const C = { graphite: ink('--graphite'), pencil: ink('--pencil'), print: ink('--print'), red: ink('--red-pen'), sheet: ink('--sheet'), muted: ink('--muted') };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const KMIN = 0.1, KMAX = 10;
+const minus = (v, d = 2) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+
+JXG.Options.text.display = 'internal';
+JXG.Options.text.highlight = false;
+JXG.Options.elements.highlight = false;
+JXG.Options.point.showInfobox = false;
+JXG.Options.precision.touch = 30;
+JXG.Options.precision.mouse = 10;
+JXG.Options.precision.hasPoint = 10;
+
+let K = 4;
+let S = null, T = null; // the two boards and their elements
+
+/** Choose px-per-step as a multiple of the 20 px pad grid so every tick lands on a printed grid line. */
+function fitAxis(px, lo, hi, step, padLo, padHi) {
+  const loPx = Math.round(padLo / 20) * 20 || 0;
+  // the largest px-per-step that still shows at least 80 % of the wanted range
+  let pps = 20;
+  for (let c = 20; c <= 400; c += 20) if (((px - loPx - padHi) / c) * step >= 0.8 * (hi - lo)) pps = c;
+  const unit = pps / step;
+  return { unit, loPx, min: lo - loPx / unit, max: lo + (px - loPx) / unit };
+}
+function alignPaper(el, xPx, yPx) {
+  const p = `${xPx - 1}px ${yPx - 1}px`;
+  el.style.backgroundPosition = [p, p, p, p].join(', ');
+}
+const txt = (b, x, y, s, a = {}) => b.create('text', [x, y, s], { fixed: true, fontSize: 13, fontUnit: 'px', cssClass: 'ink-qty', highlightCssClass: 'ink-qty', strokeColor: C.pencil, anchorX: 'middle', anchorY: 'middle', ...a });
+const seg = (b, p, q, a = {}) => b.create('segment', [p, q], { fixed: true, strokeColor: C.pencil, strokeWidth: 1.2, lineCap: 'round', ...a });
+
+// ---------------- the s-plane ----------------
+function buildS() {
+  const box = document.getElementById('board-s'), W = box.clientWidth, H = box.clientHeight;
+  // uniform scale so angles (the ζ line) and the ωn circle are true
+  const needY = 3.4, needX = [-3.2, 0.9];
+  let unit = Math.max(20, Math.floor(Math.min(H / (2 * needY), W / (needX[1] - needX[0])) / 20) * 20);
+  const oyPx = Math.round(H / 2 / 20) * 20;
+  const oxPx = W - Math.round((needX[1] * unit + 24) / 20) * 20; // origin near the right, room for the left half-plane
+  const bb = [-oxPx / unit, oyPx / unit, (W - oxPx) / unit, -(H - oyPx) / unit];
+  alignPaper(box.parentElement, oxPx, oyPx);
+  const b = JXG.JSXGraph.initBoard(box, { boundingbox: bb, keepaspectratio: false, axis: false, grid: false, showCopyright: false, showNavigation: false, pan: { enabled: false }, zoom: { enabled: false }, resize: { enabled: false }, showFullscreen: false });
+  const px = (n) => n / unit;
+  const [x0, y1, x1, y0] = bb;
+
+  // axes in pencil, ticks on grid lines, labels knocked out of the grid
+  seg(b, [x0, 0], [x1, 0]); seg(b, [0, y0], [0, y1]);
+  for (let i = Math.max(-4, Math.ceil(x0)); i <= Math.floor(x1); i++) if (i !== 0) { seg(b, [i, -px(4)], [i, px(4)]); txt(b, i, -px(15), minus(i, 0)); }
+  for (let j = Math.ceil(y0); j <= Math.floor(y1); j++) if (j !== 0) { seg(b, [-px(4), j], [px(4), j]); txt(b, px(8), j, `${minus(j, 0)}j`, { anchorX: 'left' }); }
+  txt(b, x1 - px(10), px(14), 'σ', { cssClass: 'ink-print', highlightCssClass: 'ink-print', strokeColor: C.print, anchorX: 'right', fontSize: 15 });
+  txt(b, -px(8), y1 - px(14), 'jω', { cssClass: 'ink-print', highlightCssClass: 'ink-print', strokeColor: C.print, anchorX: 'right', fontSize: 15 });
+  txt(b, x0 + px(14), y1 - px(16), 'stable: left half-plane', { cssClass: 'ink-print', highlightCssClass: 'ink-print', strokeColor: C.muted, anchorX: 'left', fontSize: 13 });
+
+  // the locus: two branches, pencil, with arrows in the direction of increasing K
+  const Ks = [];
+  for (let i = 0; i <= 500; i++) Ks.push(1e-4 * Math.pow(400 / 1e-4, i / 500));
+  Ks.push(1); Ks.sort((a, c) => a - c);
+  const branches = rootLocus(PLANT, Ks);
+  const locus = branches.map((br) => b.create('curve', [br.map((p) => p.re), br.map((p) => p.im)], { strokeColor: C.pencil, strokeWidth: 1.8, fixed: true, lineCap: 'round' }));
+  const arrowAt = (k0, k1) => closedLoopPoles(PLANT, k0).map((p, i) => [p, closedLoopPoles(PLANT, k1)[i]]);
+  const arrows = [];
+  for (const [p, q] of arrowAt(0.35, 0.5)) arrows.push(b.create('arrow', [[p[0], p[1]], [q[0], q[1]]], { strokeColor: C.pencil, strokeWidth: 1.8, fixed: true, lastArrow: { type: 2, size: 7 } }));
+  for (const [p, q] of arrowAt(5.6, 6.2)) arrows.push(b.create('arrow', [[p[0], p[1]], [q[0], q[1]]], { strokeColor: C.pencil, strokeWidth: 1.8, fixed: true, lastArrow: { type: 2, size: 7 } }));
+
+  // break-away point, labelled below the axis
+  const bp = breakPoints(PLANT)[0];
+  txt(b, bp.s, -px(38), `K = ${bp.K.toFixed(0)}`, { strokeColor: C.muted });
+
+  // open-loop poles
+  for (const p of [[0, 0], [-2, 0]]) b.create('point', p, { fixed: true, name: '', face: 'x', size: 6, strokeWidth: 2.2, strokeColor: C.graphite, fillColor: C.graphite, withLabel: false });
+
+  // ζ line through the upper pole and the ωn circle: printed guides, faint
+  const zRay = b.create('segment', [[0, 0], [0, 0]], { fixed: true, strokeColor: C.print, strokeOpacity: 0.55, strokeWidth: 1.2, dash: 2 });
+  const wnCircle = b.create('circle', [[0, 0], 1], { fixed: true, strokeColor: C.print, strokeOpacity: 0.4, strokeWidth: 1.2, dash: 2, fillOpacity: 0, hasInnerPoints: false });
+
+  // closed-loop poles: draggable graphite squares with their values beside them
+  const pts = [0, 1].map(() => b.create('point', [0, 0], { name: '', withLabel: false, face: '[]', size: 7, strokeColor: C.graphite, fillColor: C.graphite, strokeWidth: 1.5 }));
+  const lbls = [0, 1].map(() => txt(b, 0, 0, '', { strokeColor: C.graphite, anchorX: 'right', fontSize: 14 }));
+  let dragging = -1;
+  pts.forEach((p, i) => {
+    p.on('down', () => { dragging = i; });
+    p.on('drag', () => { const k = gainNearest(PLANT, [p.X(), p.Y()], { kMin: KMIN, kMax: KMAX }); setK(k, i, [p.X(), p.Y()]); });
+    p.on('up', () => { dragging = -1; });
+  });
+
+  return { b, unit, px, pts, lbls, zRay, wnCircle, locus, arrows, bb };
+}
+
+function updateS(a, dragIdx = -1, at = null) {
+  const { b, pts, lbls, zRay, wnCircle, px, bb } = S;
+  let poles = a.poles.slice(); // sorted: upper (or right-most real) first
+  if (dragIdx >= 0 && at) { // the dragged square takes the pole nearest the finger
+    const d = (p) => Math.hypot(p[0] - at[0], p[1] - at[1]);
+    const near = d(poles[0]) <= d(poles[1]) ? 0 : 1;
+    if (near !== dragIdx) poles = [poles[1], poles[0]];
+  }
+  poles.forEach((p, i) => pts[i].setPosition(JXG.COORDS_BY_USER, [p[0], p[1]]));
+  const complex = Math.abs(a.poles[0][1]) > 1e-9;
+  poles.forEach((p, i) => {
+    const s = complex ? `${minus(p[0])} ${p[1] >= 0 ? '+' : '−'} ${Math.abs(p[1]).toFixed(2)}j` : minus(p[0]);
+    const x = complex ? p[0] - px(14) : p[0];
+    const close = Math.abs(poles[0][0] - poles[1][0]) * S.unit < 64;
+    const y = complex ? p[1] : px(i === 1 && close ? 42 : 22);
+    lbls[i].setText(s);
+    lbls[i].setAttribute({ anchorX: complex ? 'right' : 'middle' });
+    lbls[i].setCoords(x, y);
+  });
+  const up = a.poles[0];
+  const wn = Math.hypot(up[0], up[1]);
+  const scale = Math.hypot(bb[0], bb[1]) / wn * 1.2;
+  zRay.point2.setPosition(JXG.COORDS_BY_USER, complex ? [up[0] * scale, up[1] * scale] : [0, 0]);
+  zRay.setAttribute({ visible: complex });
+  wnCircle.setRadius(complex ? wn : 0);
+  wnCircle.setAttribute({ visible: complex });
+  b.update();
+}
+
+// ---------------- the step response ----------------
+function buildT() {
+  const box = document.getElementById('board-t'), W = box.clientWidth, H = box.clientHeight;
+  const ax = fitAxis(W, 0, 8, 1, 44, 16);
+  const ay = fitAxis(H, 0, 1.6, 0.2, 30, 10);
+  const bb = [ax.min, ay.max, ax.max, ay.min];
+  alignPaper(box.parentElement, ax.loPx, H - ay.loPx);
+  const b = JXG.JSXGraph.initBoard(box, { boundingbox: bb, keepaspectratio: false, axis: false, grid: false, showCopyright: false, showNavigation: false, pan: { enabled: false }, zoom: { enabled: false }, resize: { enabled: false }, registerEvents: false, showFullscreen: false });
+  const pxX = (n) => n / ax.unit, pxY = (n) => n / ay.unit;
+  const tEnd = Math.floor(bb[2] * 10) / 10;
+
+  seg(b, [0, 0], [tEnd, 0]); seg(b, [0, 0], [0, bb[1] - pxY(6)]);
+  for (let i = 1; i <= Math.floor(tEnd); i++) { seg(b, [i, 0], [i, -pxY(5)]); txt(b, i, -pxY(15), String(i)); }
+  txt(b, tEnd, pxY(14), 't (s)', { cssClass: 'ink-print', highlightCssClass: 'ink-print', strokeColor: C.print, anchorX: 'right', fontSize: 13 });
+  for (let v = 0.2; v <= bb[1] + 1e-9; v += 0.2) { seg(b, [0, v], [-pxX(5), v]); txt(b, -pxX(9), v, v.toFixed(1), { anchorX: 'right' }); }
+  txt(b, -pxX(9), 0, '0', { anchorX: 'right' });
+
+  // reference and 2 % band: printed guides
+  seg(b, [0, 1], [tEnd, 1], { strokeColor: C.print, strokeWidth: 1.2, dash: 2, strokeOpacity: 0.8 });
+  const bandHi = seg(b, [0, 1.02], [tEnd, 1.02], { strokeColor: C.pencil, strokeWidth: 1, dash: 1, strokeOpacity: 0.6 });
+  const bandLo = seg(b, [0, 0.98], [tEnd, 0.98], { strokeColor: C.pencil, strokeWidth: 1, dash: 1, strokeOpacity: 0.6 });
+
+  const curve = b.create('curve', [[0], [0]], { strokeColor: C.graphite, strokeWidth: 2.4, fixed: true, lineCap: 'round', lineJoin: 'round' });
+
+  // red pen: overshoot bracket + ring at the peak, settling tick on the band
+  const red = { strokeColor: C.red, strokeWidth: 2, lineCap: 'round', fixed: true };
+  const osBar = seg(b, [0, 1], [0, 1.2], red);
+  const osCapA = seg(b, [0, 1], [0, 1], red), osCapB = seg(b, [0, 1], [0, 1], red);
+  const ring = b.create('point', [0, 0], { fixed: true, name: '', withLabel: false, face: 'o', size: 9, strokeColor: C.red, strokeWidth: 2, fillOpacity: 0, fillColor: 'none' });
+  const osTxt = txt(b, 0, 0, '', { cssClass: 'ink-red', highlightCssClass: 'ink-red', strokeColor: C.red, anchorX: 'middle', fontSize: 14 });
+  const tsTick = seg(b, [0, 0], [0, 0], red);
+  const tsTxt = txt(b, 0, 0, '', { cssClass: 'ink-red', highlightCssClass: 'ink-red', strokeColor: C.red, anchorX: 'middle', fontSize: 14 });
+  return { b, curve, osBar, osCapA, osCapB, ring, osTxt, tsTick, tsTxt, pxX, pxY, tEnd, bandHi, bandLo };
+}
+
+function updateT(a) {
+  const { b, curve, osBar, osCapA, osCapB, ring, osTxt, tsTick, tsTxt, pxX, pxY } = T;
+  const { t, y } = a.step;
+  const xs = [], ys = [];
+  const stride = Math.max(1, Math.round(0.01 / (t[1] - t[0])));
+  for (let i = 0; i < t.length && t[i] <= T.tEnd + 1e-9; i += stride) { xs.push(t[i]); ys.push(y[i]); }
+  curve.dataX = xs; curve.dataY = ys;
+  const inf = a.info, hasOS = inf.osPct > 0.05;
+  [osBar, osCapA, osCapB, ring, osTxt].forEach((e) => e.setAttribute({ visible: hasOS }));
+  if (hasOS) {
+    const x = inf.tPeak;
+    osBar.point1.setPosition(JXG.COORDS_BY_USER, [x + pxX(14), 1]); osBar.point2.setPosition(JXG.COORDS_BY_USER, [x + pxX(14), inf.peak]);
+    osCapA.point1.setPosition(JXG.COORDS_BY_USER, [x + pxX(9), 1]); osCapA.point2.setPosition(JXG.COORDS_BY_USER, [x + pxX(19), 1]);
+    osCapB.point1.setPosition(JXG.COORDS_BY_USER, [x + pxX(9), inf.peak]); osCapB.point2.setPosition(JXG.COORDS_BY_USER, [x + pxX(19), inf.peak]);
+    ring.setPosition(JXG.COORDS_BY_USER, [x, inf.peak]);
+    osTxt.setText(`${inf.osPct.toFixed(1)} %`);
+    osTxt.setCoords(x, inf.peak + pxY(24));
+  }
+  const ok = Number.isFinite(inf.ts) && inf.ts > 0 && inf.ts < T.tEnd;
+  tsTick.setAttribute({ visible: ok }); tsTxt.setAttribute({ visible: ok });
+  if (ok) {
+    const yb = y[Math.min(y.length - 1, Math.round(inf.ts / (t[1] - t[0])))] >= 1 ? 1.02 : 0.98;
+    tsTick.point1.setPosition(JXG.COORDS_BY_USER, [inf.ts, yb - pxY(16)]); tsTick.point2.setPosition(JXG.COORDS_BY_USER, [inf.ts, yb + pxY(16)]);
+    tsTxt.setText(`${inf.ts.toFixed(2)} s`);
+    tsTxt.setCoords(inf.ts, yb - pxY(30));
+  }
+  b.update();
+}
+
+// ---------------- readouts ----------------
+const R = Object.fromEntries([...document.querySelectorAll('[data-r]')].map((e) => [e.dataset.r, e]));
+function updateReadouts(a) {
+  const u = (v, unit) => `${v}<small>${unit}</small>`;
+  const so = a.so;
+  R.K.textContent = a.K.toFixed(2);
+  R.zeta.textContent = so.zeta.toFixed(3);
+  R.wn.innerHTML = u(so.wn.toFixed(2), 'rad/s');
+  R.os.innerHTML = u(a.info.osPct.toFixed(1), '%');
+  const under = so.zeta < 1;
+  document.getElementById('ts-label').innerHTML = under ? 'Settling <span class="greek">T<sub>s</sub> = 4/ζω<sub>n</sub></span>' : 'Settling <span class="greek">T<sub>s</sub></span>, 2 % band';
+  R.ts.innerHTML = u((under ? so.tsTextbook : a.info.ts).toFixed(2), 's');
+  R.pm.innerHTML = u(a.margins.pmDeg.toFixed(1), '°');
+  document.getElementById('k-out').textContent = a.K.toFixed(2);
+  document.getElementById('tf-note').textContent = `T(s) = ${fmtK(a.K)} / (s² + 2s + ${fmtK(a.K)})`;
+  document.getElementById('band-note').textContent = under
+    ? `2 % band first held at ${a.info.ts.toFixed(2)} s (red tick on the plot); 4/ζωn is the textbook estimate.`
+    : `Overdamped (ζ ≥ 1): no overshoot, so the settling time is read from the 2 % band.`;
+}
+const fmtK = (k) => (Math.abs(k - Math.round(k)) < 1e-9 ? String(Math.round(k)) : k.toFixed(2));
+
+// ---------------- wiring ----------------
+const slider = document.getElementById('k');
+let pending = null;
+function setK(k, dragIdx = -1, at = null) {
+  K = Math.min(KMAX, Math.max(KMIN, k));
+  if (dragIdx < 0) slider.value = K;
+  else slider.value = K;
+  const a = analyse(PLANT, K, horizon(PLANT, K, T.tEnd));
+  updateS(a, dragIdx, at);
+  updateT(a);
+  updateReadouts(a);
+}
+slider.addEventListener('input', () => {
+  const k = +slider.value;
+  if (pending) cancelAnimationFrame(pending);
+  pending = requestAnimationFrame(() => { pending = null; setK(k); });
+});
+const nudge = (d) => setK(Math.round((K + d) * 20) / 20);
+document.getElementById('k-dn').addEventListener('click', () => nudge(-0.25));
+document.getElementById('k-up').addEventListener('click', () => nudge(0.25));
+
+function build() {
+  if (S) JXG.JSXGraph.freeBoard(S.b);
+  if (T) JXG.JSXGraph.freeBoard(T.b);
+  S = buildS(); T = buildT();
+  setK(K);
+}
+
+// The authored moment: the locus draws, the poles land, the response draws, then the red pen.
+function drawOn(el, delay, dur) {
+  const path = el && el.rendNode;
+  if (!path || !path.getTotalLength) return;
+  const L = path.getTotalLength();
+  path.animate([{ strokeDasharray: `${L} ${L}`, strokeDashoffset: L }, { strokeDasharray: `${L} ${L}`, strokeDashoffset: 0 }], { duration: dur, delay, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' });
+}
+function fadeIn(el, delay, dur = 260) {
+  const n = el && el.rendNode;
+  if (n) n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: dur, delay, easing: 'ease-out', fill: 'backwards' });
+}
+function intro() {
+  if (reduce) return;
+  S.locus.forEach((c) => drawOn(c, 0, 800));
+  S.arrows.forEach((a) => fadeIn(a, 650));
+  S.pts.forEach((p, i) => fadeIn(p, 750 + i * 60));
+  S.lbls.forEach((l, i) => fadeIn(l, 850 + i * 60));
+  fadeIn(S.zRay, 900); fadeIn(S.wnCircle, 900);
+  drawOn(T.curve, 500, 900);
+  [T.osBar, T.osCapA, T.osCapB, T.tsTick].forEach((e) => drawOn(e, 1450, 520));
+  [T.ring, T.osTxt, T.tsTxt].forEach((e) => fadeIn(e, 1500, 400));
+  document.querySelectorAll('.readouts > div').forEach((d, i) => { d.style.animationDelay = `${1100 + i * 30}ms`; d.classList.add('land'); });
+}
+
+await document.fonts.ready;
+build();
+intro();
+let rt = null, first = true, lastW = 0;
+const ro = new ResizeObserver((es) => {
+  const w = Math.round(es[0].contentRect.width);
+  if (first || w === lastW) { first = false; lastW = w; return; }
+  lastW = w; clearTimeout(rt); rt = setTimeout(build, 120);
+});
+ro.observe(document.querySelector('.lab'));
+
+// First-load weight for the honesty cell (same-origin transfer sizes).
+const measure = () => setTimeout(() => {
+  // First-load weight = encoded body sizes of every file the page fetched (this server does not
+  // gzip, so that equals the transfer on a cold load, give or take headers); a warm reload is 0.
+  const n = performance.getEntriesByType('navigation')[0];
+  const res = performance.getEntriesByType('resource').filter((r) => !r.name.includes('pyodide'));
+  const bytes = n.encodedBodySize + res.reduce((s, r) => s + (r.encodedBodySize || r.transferSize || 0), 0);
+  const big = res.slice().sort((a, b) => b.encodedBodySize - a.encodedBodySize)[0];
+  document.getElementById('weight').textContent = `${Math.round(bytes / 1024)} KB on a cold load, ${res.length + 1} files (largest: ${big.name.split('/').pop()}, ${Math.round(big.encodedBodySize / 1024)} KB)`;
+}, 400);
+if (document.readyState === 'complete') measure(); else addEventListener('load', measure);
+</script>
+</body>
+</html>

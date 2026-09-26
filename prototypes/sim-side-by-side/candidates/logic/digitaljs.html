@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-pad="graphite">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DigitalJS · Logic circuits</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="logic.css">
+<style>
+  #frame { overflow: auto; -webkit-overflow-scrolling: touch; }
+  #paper { margin: 0 auto; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <div class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">DigitalJS 0.14.2</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">1-bit full adder</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </div>
+
+  <div class="body-pad">
+    <div class="tool-note">
+      <p class="muted prose">Tap the <b>A</b>, <b>B</b> and <b>Cin</b> buttons in the drawing to toggle them. Lamps S and Cout light when high. Drag the gates to rearrange; the layout is DigitalJS's own auto-layout.</p>
+    </div>
+
+    <div class="tool-frame" id="frame"><div id="paper" aria-label="DigitalJS full adder"></div></div>
+
+    <div class="check" aria-live="polite">
+      <div><span class="label">Inputs A B Cin</span><span class="v" id="in">–</span></div>
+      <div><span class="label">Tool shows S · Cout</span><span class="v" id="out">–</span></div>
+      <div><span class="label">Key (S = A⊕B⊕Cin, Cout = AB + Cin(A⊕B))</span><span class="v" id="key">–</span></div>
+    </div>
+
+    <section class="honesty">
+      <h2>For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> DigitalJS 0.14.2 exactly as shipped (<code>dist/main.js</code>), running the same full-adder JSON as the circuit prototype (<code>circuits/logic/digitaljs.json</code>). Nothing is re-skinned. The strip above reads the tool's own outputs through its API; it is ours, not DigitalJS's.</li>
+        <li><b>Weight:</b> about 2.5 MB on first load, measured in the browser (main.js alone is 2.33 MB; this dev server sends it uncompressed, gzip would make it about 0.7 MB), plus 145 KB of pad fonts every page shares. One file bundles jQuery, Backbone, JointJS and the ELK layout engine.</li>
+        <li><b>Touch:</b> partial. At phone width the drawing stays at 1x and scrolls sideways inside its frame; the input buttons are about 25 px and the gate and pin labels are under 12 px. Gates drag, so a finger can move one by accident.</li>
+        <li><b>To ship:</b> the jQuery/JointJS look would need restyling to sit on the pad; auto-layout places gates differently from the Professor's figure; far too heavy for a phone-first study site unless lazy-loaded.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<script src="../../node_modules/digitaljs/dist/main.js"></script>
+<script type="module">
+const json = await (await fetch("../../circuits/logic/digitaljs.json")).json();
+const circuit = new digitaljs.Circuit(json);
+const paper = circuit.displayOn(window.jQuery ? jQuery("#paper") : document.getElementById("paper"));
+// Only change: zoom the paper up to fill the frame on wide screens (DigitalJS's own scale call).
+// On a phone it stays at 1x and scrolls sideways inside its frame, as the real tool does.
+let fitted = false;
+paper.on("render:done", () => {
+  if (fitted) return; fitted = true;
+  const avail = document.getElementById("frame").clientWidth - 8;
+  const w = paper.getContentBBox().width / paper.scale().sx;
+  const k = Math.max(1, Math.min(1.7, avail / (w + 60)));
+  paper.scale(k); paper.fitToContent({ padding: 30, allowNewOrigin: "any" });
+});
+circuit.start();
+window.dj = circuit; // for QA from the console
+
+const $ = id => document.getElementById(id);
+const bin = sig => sig.toBin();
+function read() {
+  try {
+    const A = bin(circuit._graph.getCell("A").get("outputSignals").out);
+    const B = bin(circuit._graph.getCell("B").get("outputSignals").out);
+    const C = bin(circuit._graph.getCell("Cin").get("outputSignals").out);
+    const S = bin(circuit.getOutput("S")), Co = bin(circuit.getOutput("Cout"));
+    $("in").textContent = `${A} ${B} ${C}`;
+    $("out").textContent = `${S} · ${Co}`;
+    const a = +A, b = +B, c = +C, eS = a ^ b ^ c, eC = (a & b) | (c & (a ^ b));
+    const ok = String(eS) === S && String(eC) === Co;
+    $("key").innerHTML = `${eS} · ${eC} <span class="${ok ? "ok" : "bad"}">${ok ? "match" : "MISMATCH"}</span>`;
+  } catch (e) { /* not ready yet */ }
+}
+circuit.on("postUpdateGates", read);
+setInterval(read, 400);
+</script>
+</body>
+</html>

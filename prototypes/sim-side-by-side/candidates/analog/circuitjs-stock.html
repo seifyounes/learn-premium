@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" data-pad="bluegrey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CircuitJS Stock</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="pad-native-spice.css">
+<style>
+  .frame { margin-top: 16px; border: 1.5px solid var(--print); background: #fff; }
+  .frame iframe { display: block; width: 100%; height: min(72vh, 660px); min-height: 420px; border: 0; }
+  .note { margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block tb">
+    <div class="cell"><span class="label">Tool</span><span class="value">CircuitJS, stock</span></div>
+    <div class="cell circuit"><span class="label" id="circuit-label">Circuit</span>
+      <div class="seg" role="group" aria-labelledby="circuit-label" id="picker">
+        <button type="button" data-id="buck" aria-pressed="true">Buck</button>
+        <button type="button" data-id="scr" aria-pressed="false">SCR rectifier</button>
+        <button type="button" data-id="ce-amp" aria-pressed="false">CE amp</button>
+      </div>
+    </div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+  <div class="body-pad">
+    <div class="frame"><iframe id="cjs" title="CircuitJS simulator, stock build" allow="clipboard-write"></iframe></div>
+    <p class="muted note" id="note"></p>
+
+    <aside class="honesty" aria-labelledby="owner-h">
+      <h2 id="owner-h">For the Owner</h2>
+      <ul>
+        <li><b>Real:</b> this is the current CircuitJS build (self-hosted copy in <span class="qty">vendor/circuitjs/</span>), exactly as it ships: its own dark canvas, menus, sidebar, scopes and editing. Each circuit is the file from <span class="qty">circuits/</span> loaded with <span class="qty">?cct=</span>; the buck uses its steady-state-seeded text so it does not spend 25 ms of simulated time settling.</li>
+        <li><b>Accuracy:</b> not re-checked here. The circuit-sim prototype measured these same files in CircuitJS: buck Vo 19.52 V (key 20, the diode drop), SCR Vo,av 40.18 V (key 40.5, its fixed ~0.9 V SCR drop), CE amp Av −157 (key −163.3, CircuitJS's VT is 25.9 mV). Candidate B's "real devices" mode runs these same files and measured 19.51 V and 40.21 V live. There is no idealisation switch here: CircuitJS always uses real-ish devices.</li>
+        <li><b>Weight:</b> <span id="weight">measured on a cold load in headless Chrome: 1.31 MB transferred in 38 requests, fonts included. The sidebar's "Error response 404" is this self-hosted copy missing CircuitJS's example-circuit library; the simulator itself is unaffected.</span></li>
+        <li><b>Touch:</b> partial. CircuitJS has its own touch handling and a phone menu button, but its menus, long-press edit dialogs, small scope strip and element hit targets are desktop-first. Checked only in an emulated 390 px viewport, not on a real phone.</li>
+        <li><b>To ship:</b> nothing to build, but it looks like CircuitJS, not the pad, and a student can edit or break the circuit freely.</li>
+      </ul>
+    </aside>
+  </div>
+</main>
+<script type="module">
+  const NOTES = {
+    buck: "Buck converter, lecture Example 2, running live. Scope 1: output voltage on R. Scope 2: inductor current. Drag, edit or right-click anything.",
+    scr: "Half-wave SCR rectifier, lecture Example 5 (α = 60°), running live. Scopes: vo on R and the source vs.",
+    "ce-amp": "CE amplifier, Sheet 5 circuit (i), running live from its DC operating point. Scopes: vi and vo.",
+  };
+  const FILES = { buck: "buck/circuitjs-steady.txt", scr: "scr/circuitjs.txt", "ce-amp": "ce-amp/circuitjs.txt" };
+  const q = new URLSearchParams(location.search).get("circuit");
+  async function show(id) {
+    document.querySelectorAll("#picker button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === id)));
+    const text = await fetch("../../circuits/" + FILES[id]).then(r => r.text());
+    document.getElementById("cjs").src = "../../vendor/circuitjs/circuitjs.html?cct=" + encodeURIComponent(text.trim());
+    document.getElementById("note").textContent = NOTES[id];
+  }
+  document.getElementById("picker").addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(b.dataset.id); });
+  show(FILES[q] ? q : "buck");
+</script>
+</body>
+</html>

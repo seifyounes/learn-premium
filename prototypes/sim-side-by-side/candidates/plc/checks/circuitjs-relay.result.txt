@@ -1,0 +1,8 @@
+PASS  START: M1 on at once: K1 energised at 0.540 s, M1 lit at 0.550 s
+PASS  seal-in holds after START released: M1 stayed lit until STOP (off at 8.425 s)
+PASS  M2 on 5 s after M1: M2 lit at 5.560 s, 5.010 s after M1
+PASS  STOP: both drop together: K1 off 8.415 s, M1 off 8.425 s, M2 off 8.435 s
+PASS  after STOP released: stays off: M1 0, M2 0 at the end
+(circuit time ran at 0.95x wall time in headless Chrome)
+
+5/5 PASS

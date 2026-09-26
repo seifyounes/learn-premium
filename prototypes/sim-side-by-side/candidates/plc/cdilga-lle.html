@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-pad="steel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ladder Logic Editor</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="embed.css">
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">Ladder Logic Editor (cdilga)</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">Two-conveyor start (as ST)</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+
+  <div class="stage">
+    <figure class="box-print frame-box" style="margin:0">
+      <div class="head"><span class="label">Self-hosted build, program preloaded</span>
+        <span class="btn-row" style="margin:0">
+          <button class="btn" id="reload">Reload program</button>
+          <a href="https://lle.dilger.dev/" target="_blank" rel="noopener">Live demo</a>
+        </span></div>
+      <iframe class="tall" id="app" title="Ladder Logic Editor running the two-conveyor program"></iframe>
+    </figure>
+
+    <div class="prog">
+      <div>
+        <span class="label">Program loaded (Structured Text)</span>
+        <pre id="st"></pre>
+      </div>
+      <div>
+        <span class="label">How to drive it</span>
+        <ol>
+          <li>Press Run in the app's toolbar (on a phone: the Debug tab, then Run).</li>
+          <li>Under Variables, BOOL, tap START to TRUE, then back to FALSE: M1 latches.</li>
+          <li>Watch T1's ET in the TON block; M2 turns on after 5 s.</li>
+          <li>Tap STOP to FALSE (the NC button pressed): M1 drops, M2 a scan or two later.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <section class="honesty">
+    <h2>For the Owner</h2>
+    <ul>
+      <li><b>Real vs faked:</b> the live demo at lle.dilger.dev can be framed (no X-Frame-Options), but a page cannot put a program into another site's storage. So this is the same code (commit 60de5f1, Jan 2026, MIT) built into <span class="qty">vendor/lle/</span> and served from here; this page writes the program into its localStorage before loading it. Nothing is re-skinned.</li>
+      <li><b>Accuracy:</b> the timeline was replayed through the app's own interpreter and store in Node (<span class="qty">checks/cdilga-lle.result.txt</span>): 10/14 checkpoints PASS. M2 comes on one scan late (5.1 s, not 5.0 s) and drops two scans late after STOP (M1 off at 8.0 s, M2 still on until 8.2 s), because T1.Q and ET update after the rung that reads them. Default scan 100 ms.</li>
+      <li><b>First load:</b> <span class="qty">1.41 MB</span> over 11 requests from this uncompressed local server, mostly one 1.14 MB script (React, React Flow, CodeMirror); about 380 KB gzipped as its own host serves it.</li>
+      <li><b>Touch:</b> the app switches to its own phone layout with a bottom tab bar (Ladder, Code, Variables); variables toggle by tap. Power flow is styled in its code but not wired, so rungs do not light up.</li>
+      <li><b>To ship:</b> wire its power-flow highlight, fix the timer update order, and add a URL or postMessage load so programs open without the localStorage trick.</li>
+    </ul>
+  </section>
+</main>
+<script>
+const ST = `PROGRAM TwoConveyorStart
+VAR
+  START : BOOL;          (* START push button, NO: TRUE while pressed *)
+  STOP : BOOL := TRUE;   (* STOP push button, NC: TRUE at rest *)
+  M1 : BOOL;             (* conveyor 1 motor *)
+  M2 : BOOL;             (* conveyor 2 motor *)
+  T1 : TON;
+END_VAR
+M1 := (START OR M1) AND STOP;
+T1(IN := M1, PT := T#5s);
+M2 := T1.Q;
+END_PROGRAM
+`;
+document.getElementById("st").textContent = ST;
+function load() {
+  const now = new Date().toISOString();
+  const project = {
+    meta: { version: "1.0", name: "Two-conveyor start", created: now, modified: now, editorVersion: "1.0.0" },
+    programs: [{ id: "program_two_conveyor", name: "TwoConveyorStart", type: "PROGRAM", structuredText: ST, lastSyncSource: "st", syncValid: true, variables: [] }],
+    globalVariables: [],
+  };
+  try {
+    localStorage.setItem("ladder-logic-editor-project", JSON.stringify({
+      $schema: "https://ladder-logic-editor/schema/project-v1.json", fileVersion: "1.0", exportedAt: now,
+      project, currentProgramId: "program_two_conveyor" }));
+    localStorage.removeItem("ladder-logic-editor-files");
+  } catch (e) { /* storage blocked: the app opens its default project */ }
+  document.getElementById("app").src = "../../vendor/lle/index.html#/";
+}
+load();
+document.getElementById("reload").addEventListener("click", () => { document.getElementById("app").src = "about:blank"; setTimeout(load, 50); });
+</script>
+</body>
+</html>

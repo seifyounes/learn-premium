@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- PROTOTYPE (throwaway): PathView + PathSim, the hosted instance, embedded as it really is. -->
+<html lang="en" data-pad="bluegrey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PathView · Control systems</title>
+<link rel="stylesheet" href="../../shared/pad.css">
+<link rel="stylesheet" href="control.css">
+<style>
+  .pv-frame { position: relative; border: 1.5px solid var(--print); background: var(--sheet); }
+  .pv-frame iframe { display: block; width: 100%; height: min(74vh, 720px); min-height: 460px; border: 0; background: #fff; }
+  @media (max-width: 760px) { .pv-frame iframe { height: 78vh; min-height: 520px; } }
+  .pv-status { position: absolute; inset-inline-start: 12px; inset-block-start: 12px; font: 400 15px/1.35 var(--f-body); color: var(--pencil); background: var(--sheet); border: 1px solid var(--pencil); padding: 6px 10px; pointer-events: none; transition: opacity 300ms var(--ease-out); }
+  .pv-status[hidden] { display: block; opacity: 0; }
+  .howto { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; margin: 0 0 12px; }
+  .howto ol { margin: 0; padding-inline-start: 22px; max-width: 70ch; }
+  .howto li { margin: 2px 0; }
+  .howto code { font-family: var(--f-qty); font-size: .95em; }
+</style>
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block">
+    <div class="cell"><span class="label">Tool</span><span class="value">PathView + PathSim</span></div>
+    <div class="cell"><span class="label">Circuit</span><span class="value">K / s(s+2), unity feedback</span></div>
+    <div class="cell"><span class="label">Kind</span><span class="value">Ready-made</span></div>
+  </header>
+
+  <section class="body-pad">
+    <div class="howto">
+      <ol class="muted">
+        <li>Wait for the block diagram, then press <strong>Run</strong> (the play button). The scope plots r(t) and y(t).</li>
+        <li>Change the gain: open <strong>Code</strong> and edit <code>K = 4.0</code>, or double-click the Gain K block. Run again; earlier runs stay as ghost traces.</li>
+      </ol>
+      <a class="btn" id="open-full" href="#" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">Open full screen</a>
+    </div>
+    <div class="pv-frame">
+      <iframe id="pv" title="PathView block diagram editor with the unity-feedback model loaded" allow="clipboard-write" loading="eager"></iframe>
+      <p class="pv-status" id="pv-status">Loading PathView and Python (Pyodide)…</p>
+    </div>
+  </section>
+
+  <section class="body-pad">
+    <div class="honesty">
+      <p class="label" style="margin:0 0 8px">For the Owner</p>
+      <p style="margin:0 0 6px"><strong>Real:</strong> the hosted PathView at view.pathsim.org (GitHub Pages; no X-Frame-Options or CSP, so it iframes), running PathSim in Pyodide in a Web Worker. The model is our own <code>feedback-k.pvm</code> (Step → Adder "+−" → Amplifier K → TransferFunctionNumDen [1]/[1, 2, 0] → Scope, feedback from y), written to the documented .pvm spec and passed as <code>?model=</code>. Our local server sends no CORS header, so this page fetches the .pvm and hands it over as a <code>data:</code> URL, which also works on a phone.</p>
+      <p style="margin:0 0 6px"><strong>Accuracy:</strong> run in this embed, the scope's y(t) peaks at 1.1630331 at t = 1.815 s (overshoot 16.303 %, python-control: 16.303 %). The same .pvm through PathView's own pvm2py in CPython PathSim 0.25.1 gives the identical trace and 2 % settling at 4.04 s. The tool shows the curve, not those numbers: the student reads them off the scope.</p>
+      <p style="margin:0 0 6px"><strong>First load:</strong> about <span class="qty">34 MB</span> transferred: the editor app <span class="qty">0.85 MB</span>, Pyodide core <span class="qty">5.1 MB</span>, NumPy + SciPy <span class="qty">18.3 MB</span>, matplotlib and friends (PathSim pulls them in) <span class="qty">9.7 MB</span>, PathSim <span class="qty">0.2 MB</span>. The worker's requests do not show in the page's network log, so the sizes are the compressed sizes of exactly those files. The diagram appears in about 5 s; Run is ready after about <span class="qty">21 s</span> even with a warm cache on this laptop. <strong>Touch:</strong> partial. It pans and zooms, but it is an editor: panels crowd a 390 px screen and there is no viewer-only mode. Light theme forced with <code>?theme=light</code>; its look is PathView's own, not the pad.</p>
+      <p style="margin:0"><strong>To ship:</strong> self-host a pinned build (we depend on a third-party site and its CDN Pyodide), a viewer mode, and a parameter allow-list, because every .pvm param is a Python expression.</p>
+    </div>
+  </section>
+</main>
+<script type="module">
+  const t0 = performance.now();
+  const iframe = document.getElementById('pv');
+  const status = document.getElementById('pv-status');
+  const text = await (await fetch('feedback-k.pvm')).text();
+  // Minified + base64 keeps the URL near 4 KB (GitHub Pages answers 414 above ~8 KB).
+  const bytes = new TextEncoder().encode(JSON.stringify(JSON.parse(text)));
+  const model = 'data:application/json;base64,' + btoa(String.fromCharCode(...bytes));
+  const src = 'https://view.pathsim.org/editor?theme=light&model=' + encodeURIComponent(model);
+  document.getElementById('open-full').href = src;
+  iframe.addEventListener('load', () => {
+    const s = ((performance.now() - t0) / 1000).toFixed(1);
+    status.innerHTML = `Editor loaded in <span class="qty">${s} s</span>. Python keeps loading inside it (about 20 s).`;
+    setTimeout(() => { status.hidden = true; }, 3500);
+  }, { once: true });
+  iframe.src = src;
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "area": "pneumatics",
+  "title": "Pneumatics & hydraulics",
+  "pad": "steel",
+  "circuit": "Two double-acting cylinders, 5/2 double-pilot valves, rollers a0/a1/b0/b1, START: A+ B+ B− A− on a two-group cascade (see circuit.md)",
+  "candidates": [
+    {
+      "id": "pad-native-pneumatic",
+      "name": "Pad-native pneumatic",
+      "file": "pad-native-pneumatic.html",
+      "kind": "Agent-built",
+      "oneLine": "Discrete-event engine behind ISO 1219 SVG in pad inks, live displacement-step diagram",
+      "loadKB": 58,
+      "touch": "works",
+      "accuracy": "check-pad-native-pneumatic.mjs runs the engine in Node: A+ B+ B− A−, no pilot conflict, circuit.md step table, return to rest, naive wiring caught (24/24 PASS)",
+      "caveats": "Kinematic model (constant piston speed, instant lines). Hand-placed layout for this one circuit; no solenoids, 5/3, timers or hydraulics yet."
+    },
+    {
+      "id": "picuino",
+      "name": "Picuino neumatic v2.9",
+      "file": "picuino.html",
+      "kind": "Ready-made",
+      "oneLine": "Open-source canvas pneumatic simulator, self-hosted, running its own A+ B+ B− A− cascade example",
+      "loadKB": 183,
+      "touch": "no",
+      "accuracy": "Observed only: polled both cylinders in the browser after one INIT press, A+ B+ B− A− then home. No Node gate (engine tied to canvas).",
+      "caveats": "Mouse-only; 500 px canvas cut off on a phone. Full editor chrome shown to students. GPL-3.0, one maintainer."
+    },
+    {
+      "id": "mechsimulator-benchmark",
+      "name": "MechSimulator (benchmark only)",
+      "file": "mechsimulator-benchmark.html",
+      "kind": "Ready-made",
+      "oneLine": "Link-out plus notes: cannot be framed or mirrored, kept as look-and-feel benchmark",
+      "loadKB": 5,
+      "touch": "partial",
+      "accuracy": "not checked: closed and not embeddable; its Cascade preset started A+ when pressed, full order not verified",
+      "caveats": "Opens in a new tab with analytics/ad cookies. Dark glowing dashboard look. Its diagram header mislabelled the cascade as A+ B+ A− B−."
+    }
+  ]
+}

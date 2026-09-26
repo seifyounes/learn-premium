@@ -1,0 +1,122 @@
+{
+ "pad-native-ladder-desktop": {
+  "kb": 192,
+  "requests": 9,
+  "sideScroll": false,
+  "top": [
+   "88 KB https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2",
+   "36 KB http://localhost:8724/candidates/plc/pad-native-ladder.html",
+   "33 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2",
+   "17 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblemono/v8/tss4AoFBci4C4gvhPXrt3wjT1MqSzhA4t7IIcncBiwKthFw.woff2",
+   "8 KB http://localhost:8724/shared/pad.css",
+   "5 KB http://localhost:8724/candidates/plc/pad-native-ladder.engine.mjs",
+   "3 KB http://localhost:8724/candidates/plc/program.json",
+   "1 KB https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Atkinson+Hyperlegible+Mono:"
+  ]
+ },
+ "pad-native-ladder-phone": {
+  "kb": 192,
+  "requests": 9,
+  "sideScroll": false,
+  "top": [
+   "88 KB https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2",
+   "36 KB http://localhost:8724/candidates/plc/pad-native-ladder.html",
+   "34 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2",
+   "17 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblemono/v8/tss4AoFBci4C4gvhPXrt3wjT1MqSzhA4t7IIcncBiwKthFw.woff2",
+   "8 KB http://localhost:8724/shared/pad.css",
+   "5 KB http://localhost:8724/candidates/plc/pad-native-ladder.engine.mjs",
+   "3 KB http://localhost:8724/candidates/plc/program.json",
+   "1 KB https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Atkinson+Hyperlegible+Mono:"
+  ]
+ },
+ "plcsimulator-online-desktop": {
+  "kb": 1388,
+  "requests": 56,
+  "sideScroll": false,
+  "top": [
+   "507 KB 57D375900C837E6B1859F18AEFE2234546860.4",
+   "185 KB https://pagead2.googlesyndication.com/pagead/managed/js/adsense/m202609210101/show_ads_impl.js",
+   "153 KB https://www.googletagmanager.com/gtag/js?l=dataLayer&id=G-DS4V8Y2WEF",
+   "89 KB https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2",
+   "67 KB 57D375900C837E6B1859F18AEFE2234546860.3",
+   "60 KB https://excalidraw.com/Virgil.woff2",
+   "51 KB https://app.plcsimulator.online/assets/ladder-logic-editor-BYUOv1PN.png",
+   "42 KB https://fonts.gstatic.com/s/roboto/v51/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBA.woff2"
+  ]
+ },
+ "plcsimulator-online-phone": {
+  "kb": 1269,
+  "requests": 44,
+  "sideScroll": false,
+  "top": [
+   "507 KB 53D1A7F0764A45C880F261498418DDF425852.4",
+   "185 KB https://pagead2.googlesyndication.com/pagead/managed/js/adsense/m202609210101/show_ads_impl.js",
+   "153 KB https://www.googletagmanager.com/gtag/js?l=dataLayer&id=G-DS4V8Y2WEF",
+   "89 KB https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2",
+   "67 KB 53D1A7F0764A45C880F261498418DDF425852.3",
+   "60 KB https://excalidraw.com/Virgil.woff2",
+   "42 KB https://fonts.gstatic.com/s/roboto/v51/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBA.woff2",
+   "33 KB https://eu-assets.i.posthog.com/static/1.428.8/surveys.js"
+  ]
+ },
+ "cdilga-lle-desktop": {
+  "kb": 1407,
+  "requests": 11,
+  "sideScroll": false,
+  "top": [
+   "1143 KB http://localhost:8724/vendor/lle/assets/index-CrA3bMKW.js",
+   "108 KB http://localhost:8724/vendor/lle/assets/index-DYvuo0p8.css",
+   "88 KB https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2",
+   "33 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2",
+   "17 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblemono/v8/tss4AoFBci4C4gvhPXrt3wjT1MqSzhA4t7IIcncBiwKthFw.woff2",
+   "8 KB http://localhost:8724/shared/pad.css",
+   "5 KB http://localhost:8724/candidates/plc/cdilga-lle.html",
+   "2 KB http://localhost:8724/candidates/plc/embed.css"
+  ]
+ },
+ "cdilga-lle-phone": {
+  "kb": 1407,
+  "requests": 11,
+  "sideScroll": false,
+  "top": [
+   "1143 KB http://localhost:8724/vendor/lle/assets/index-CrA3bMKW.js",
+   "108 KB http://localhost:8724/vendor/lle/assets/index-DYvuo0p8.css",
+   "88 KB https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2",
+   "33 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2",
+   "17 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblemono/v8/tss4AoFBci4C4gvhPXrt3wjT1MqSzhA4t7IIcncBiwKthFw.woff2",
+   "8 KB http://localhost:8724/shared/pad.css",
+   "5 KB http://localhost:8724/candidates/plc/cdilga-lle.html",
+   "2 KB http://localhost:8724/candidates/plc/embed.css"
+  ]
+ },
+ "circuitjs-relay-desktop": {
+  "kb": 1297,
+  "requests": 36,
+  "sideScroll": false,
+  "top": [
+   "556 KB http://localhost:8724/vendor/circuitjs/circuitjs/registerElements-C6fJiF2o.js",
+   "296 KB http://localhost:8724/vendor/circuitjs/circuitjs/CircuitElm-BIE7Xn-U.js",
+   "121 KB http://localhost:8724/vendor/circuitjs/circuitjs/UIManager-CNdBaQrs.js",
+   "89 KB https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2",
+   "33 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2",
+   "29 KB http://localhost:8724/vendor/circuitjs/circuitjs/CommandManager-kQJ-C1mV.js",
+   "27 KB http://localhost:8724/vendor/circuitjs/circuitjs/circuitjs-C7rWl_O9.js",
+   "26 KB http://localhost:8724/vendor/circuitjs/circuitjs/ScopePropertiesDialog-CJA1wNf4.js"
+  ]
+ },
+ "circuitjs-relay-phone": {
+  "kb": 1298,
+  "requests": 37,
+  "sideScroll": false,
+  "top": [
+   "556 KB http://localhost:8724/vendor/circuitjs/circuitjs/registerElements-C6fJiF2o.js",
+   "296 KB http://localhost:8724/vendor/circuitjs/circuitjs/CircuitElm-BIE7Xn-U.js",
+   "121 KB http://localhost:8724/vendor/circuitjs/circuitjs/UIManager-CNdBaQrs.js",
+   "89 KB https://fonts.gstatic.com/s/archivo/v25/k3kQo8UDI-1M0wlSfdnoLg.woff2",
+   "33 KB https://fonts.gstatic.com/s/atkinsonhyperlegiblenext/v7/NaPNcYPdHfdVxJw0IfIP0lvYFqijb-UxCtm5_wdGseiJn3o.woff2",
+   "29 KB http://localhost:8724/vendor/circuitjs/circuitjs/CommandManager-kQJ-C1mV.js",
+   "27 KB http://localhost:8724/vendor/circuitjs/circuitjs/circuitjs-C7rWl_O9.js",
+   "26 KB http://localhost:8724/vendor/circuitjs/circuitjs/ScopePropertiesDialog-CJA1wNf4.js"
+  ]
+ }
+}

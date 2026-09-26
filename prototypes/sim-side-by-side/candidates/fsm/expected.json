@@ -1,0 +1,28 @@
+{
+  "_source": "Hand-written answer key for the Moore 101 overlapping detector (machine.md). Typed by hand, not generated.",
+  "stateTable": {
+    "S0": { "X0": "S0", "X1": "S1", "Z": 0 },
+    "S1": { "X0": "S2", "X1": "S1", "Z": 0 },
+    "S2": { "X0": "S0", "X1": "S3", "Z": 0 },
+    "S3": { "X0": "S2", "X1": "S1", "Z": 1 }
+  },
+  "encoding": { "S0": "00", "S1": "01", "S2": "10", "S3": "11" },
+  "encodedTable": [
+    { "Q1Q0X": "000", "next": "00", "D1D0": "00", "Z": 0 },
+    { "Q1Q0X": "001", "next": "01", "D1D0": "01", "Z": 0 },
+    { "Q1Q0X": "010", "next": "10", "D1D0": "10", "Z": 0 },
+    { "Q1Q0X": "011", "next": "01", "D1D0": "01", "Z": 0 },
+    { "Q1Q0X": "100", "next": "00", "D1D0": "00", "Z": 0 },
+    { "Q1Q0X": "101", "next": "11", "D1D0": "11", "Z": 0 },
+    { "Q1Q0X": "110", "next": "10", "D1D0": "10", "Z": 1 },
+    { "Q1Q0X": "111", "next": "01", "D1D0": "01", "Z": 1 }
+  ],
+  "equations": { "D1": "Q0·X' + Q1·Q0'·X", "D0": "X", "Z": "Q1·Q0" },
+  "test": {
+    "X": [1, 0, 1, 0, 1, 1, 0, 1],
+    "presentStatePerPeriod": ["S0", "S1", "S2", "S3", "S2", "S3", "S1", "S2"],
+    "zPerPeriod": [0, 0, 0, 1, 0, 1, 0, 0],
+    "stateAfterEachEdge": ["S1", "S2", "S3", "S2", "S3", "S1", "S2", "S3"],
+    "zAfterEachEdge": [0, 0, 1, 0, 1, 0, 0, 1]
+  }
+}
