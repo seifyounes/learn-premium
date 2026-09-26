@@ -179,7 +179,7 @@ A Course supplies a value for each of these slots. The roles never move; only th
 - **Confirmed at intake.** The agent suggests the discipline's pad; the Owner confirms or swaps it. A discipline with no mapped pad gets the pad of the nearest listed discipline (control → Blue-grey, fluids and thermodynamics → Teal, statics and strength of materials → Steel), and Graphite-grey when nothing is close.
 - **Off-catalogue on request.** The Owner may name any other colour; the agent builds a pad from it. A good one joins the catalogue only with the Owner's approval.
 - **One config value.** The pad is a single setting in the Course config; changing it rebuilds the whole site.
-- **Tools and media.** Simulators, 3D viewers and plots take the pad's frame (sheet, grid, print, graphite) but keep colours that carry meaning (e.g. CircuitJS voltage colours). NotebookLM's Custom style is given the Course pad.
+- **Tools and media.** Framed tools (simulators, 3D viewers, embedded sims) take the pad's frame (sheet, grid, print, graphite) but keep colours that carry meaning, reds included (e.g. CircuitJS voltage colours, CPK oxygen in 3D); the red pen is never drawn inside a framed tool. Figures drawn onto the sheet follow the Red Hue Rule. NotebookLM's Custom style is given the Course pad.
 - **No colour-blind simulation gate.** Red marks always carry a shape (ring, double frame, stroke), so no meaning depends on colour alone; the ML green pad stays even though red and green print converge under deuteranopia (1.7:1 by lightness only).
 
 ### The starting pad catalogue (ticket #21)
@@ -218,6 +218,8 @@ The build checks every pad, catalogue or custom, against these, measured WCAG 2.
 **The Printed Ink Rule.** `print` is what came printed on the pad; graphite and pencil are what the student wrote. Content (values, answers, prose) is never set in `print`, and chrome (field labels, title-block rules, printed buttons) is never set in graphite.
 
 **The Palette Slot Rule.** A Course changes slot values, never roles, never the count of colours. No Course adds a second accent, a gradient, or a dark variant.
+
+**The Red Hue Rule.** Nothing drawn onto the sheet except the red pen sits within 60° of its OKLCH hue (32°). Framed tools keep their own meaning reds inside their frame; sheet figures, structures and plots do not. The build fails on a violation (ticket #25).
 
 ## Typography
 
@@ -339,6 +341,14 @@ The resume pointer: "You stopped here: W10.1, step 4 of 8" in red, the location 
 ### Figure
 
 Plotted on the sheet's own grid with the same `grid-fine` / `grid-major` lines; pencil axes, mono tick labels, graphite points (filled for one class, open for the other), labels knocked out with a 4px `sheet` stroke so they never sit on a grid line. Sticky beside the table on desktop. Motion (centroids travelling, focus strokes drawing) is 500–950ms and skipped under reduced motion.
+
+### Chemistry Figures (ticket #25)
+
+- **2D structures:** graphite skeletal drawings with element letters, as a Professor writes them; no atom colours on the sheet (CPK H, S and Cl are 1.1–1.3:1 on a pad sheet, and CPK oxygen sits 3° from the red pen).
+- **2D emphasis:** a pencil bracket with a pencil label names a group; when a worked step points at atoms, the red pen rings them, as it rings a result in the table. No fills or halos.
+- **3D viewer:** standard Jmol CPK element colours on a transparent background (the sheet shows through), graphite/pencil labels and axes. An element key (dot + symbol, only the elements present) sits below the viewer, and tapping or hovering an atom shows its symbol. The red pen is never drawn inside the viewer.
+- **Plots with several series** (species curves, isotherms, Pourbaix regions): graphite and pencil line styles and marker shapes, each series labelled at its line, regions named inside them; no categorical colours. Past about four series, split into small plots on a shared axis or let the student toggle series (hidden ones dim to pencil). This applies to chemistry only; other disciplines' multi-series colours are still open.
+- **Build gate:** fail on any sheet-figure colour within 60° of the red pen's hue, on non-graphite atoms in a 2D structure SVG, and on a 3D palette that is not standard CPK.
 
 ### Phone Tabs and Given Toggle
 
