@@ -348,7 +348,18 @@ Plotted on the sheet's own grid with the same `grid-fine` / `grid-major` lines; 
 - **2D emphasis:** a pencil bracket with a pencil label names a group; when a worked step points at atoms, the red pen rings them, as it rings a result in the table. No fills or halos.
 - **3D viewer:** standard Jmol CPK element colours on a transparent background (the sheet shows through), graphite/pencil labels and axes. An element key (dot + symbol, only the elements present) sits below the viewer, and tapping or hovering an atom shows its symbol. The red pen is never drawn inside the viewer.
 - **Plots with several series** (species curves, isotherms, Pourbaix regions): graphite and pencil line styles and marker shapes, each series labelled at its line, regions named inside them; no categorical colours. Past about four series, split into small plots on a shared axis or let the student toggle series (hidden ones dim to pencil). This applies to chemistry only; other disciplines' multi-series colours are still open.
+- **Apparatus (ticket #26):** every apparatus drawing (galvanic and electrolytic cells, titration and distillation set-ups, …) is a live 3D viewer (below), never a 2D schematic. Its state comes from the engine: in a cell the voltmeter shows the table's E, electron flow and the anode/cathode labels reverse when E < 0, and a solution's tint follows its concentration (e.g. Cu²⁺ blue).
 - **Build gate:** fail on any sheet-figure colour within 60° of the red pen's hue, on non-graphite atoms in a 2D structure SVG, and on a 3D palette that is not standard CPK.
+
+### Live 3D Viewers (ticket #26)
+
+Machine parts, mechanisms and chemistry apparatus are drawn live in three.js inside a framed viewer on the sheet.
+
+- **Look:** transparent background so the sheet grid shows through; matte materials (no gloss, no default three.js look); pencil edge lines; meaning colours allowed inside the frame (copper, zinc, solution tints, CPK); the red pen is never drawn inside a viewer.
+- **Labels:** HTML in graphite/pencil, Archivo and Atkinson Mono, at least 12px on a phone, hung beside or below the object, not on it.
+- **Touch:** one finger orbits (or drags the ringed driving pin of a mechanism), two fingers pinch-zoom inside the frame without zooming the page, and a printed Reset view key restores the default 3/4 view. The viewer loads lazily after first paint, so the table and plots never wait for it.
+- **Mechanisms:** a printed 2D | 3D switch shows the same live linkage either as the 3D parts or as the Professor's 2D sheet drawing (hatched ground pins, pencil bars, traces inking in), both driven by one kinematics engine; 3D is the default.
+- **Reduced motion:** moving particles become static arrows; a mechanism stops at its current angle.
 
 ### Phone Tabs and Given Toggle
 
