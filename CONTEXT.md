@@ -192,3 +192,44 @@ _Avoid_: media phase
 The one queue of pending Module media shared by all the Owner's Courses, drained nearest Exam
 sitting first within the plan's daily quota.
 _Avoid_: backlog
+
+### Quality
+
+**Gate**:
+A check a build must pass. It has only two outcomes on a finding: it blocks (the job that made the
+problem fixes it) or it raises a Checkpoint item (only the Owner can settle it). There is no
+warning level. Gates run at three points: per job, per Module and per deploy.
+_Avoid_: test (alone), lint (for the whole class), warning
+
+**Gate report**:
+What a gate run leaves behind: every gate with its result and what it covered, tied to the exact
+commit it checked. A gate that didn't run counts as failed, and a Module merges only with a
+green report for its final commit.
+_Avoid_: test log, QA notes
+
+**Negative control**:
+Deliberately broken input a gate must catch, proving it can see what it claims to check. Every
+gate has one.
+_Avoid_: fault injection (alone), self-test
+
+**Trap page**:
+A hidden page of seeded defects in every preview build. If a browser run misses any of them,
+the whole run is void.
+_Avoid_: test page, canary
+
+**Tool gallery**:
+The page in the Site template with one of every sim kind, the 3D viewer and a Pyodide run. The
+Owner tests it on a real phone once per Site template release.
+_Avoid_: demo page, Lab (the Course hub)
+
+**Provenance tag**:
+The origin every number, formula, dimension and sim constant carries: stated (in the Materials),
+derived (worked out, no official key), scaled (measured off a drawing) or assumed (supplied by
+the agent). Derived, scaled and assumed values say so on the page.
+_Avoid_: source label, confidence
+
+**Gate gap**:
+A new kind of defect found while building a Course that no gate caught yet. It is filed on
+learn-premium's own tracker with a broken fixture and lands as a gate in the next Site template
+release.
+_Avoid_: lesson learned, fold-back note
