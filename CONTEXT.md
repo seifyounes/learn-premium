@@ -65,6 +65,21 @@ Professor's figure only; students tune it but never rewire it. It ships only if 
 independently at build; otherwise the figure gets a step-through animation instead.
 _Avoid_: custom widget, demo, generated sim
 
+**Layout hints**:
+What a sim builder reads off the Professor's figure so the layout engine can redraw it: each part's
+coarse grid cell, turn and label side (for a state diagram, each state's cell and self-loop side).
+The builder never writes drawing coordinates; the engine places, straightens and routes from the
+hints. Used by schematic-type sims (circuits, automation, FSMs), not by plots or mechanisms.
+_Avoid_: coordinates, manual layout, auto-layout
+
+**Drawing gate**:
+The checks every Agent-built sim's drawing must pass: drawing ↔ model (parts, connectivity read
+from the drawing's geometry alone, labels, conventions, legibility, tidiness), model ↔ figure (the
+model's nets equal an independent Blind reader's), and drawing ↔ figure (arrangement, turn, label
+side, symbols, junction dots). All checks block, and a negative control of deliberately broken
+drawings must be caught on every build.
+_Avoid_: layout check, visual QA
+
 **Pilot course**:
 The Course whose v1 build is rebuilt first in v2 to prove the new pipeline end to end.
 Currently Machine Learning.
