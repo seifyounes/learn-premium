@@ -87,8 +87,15 @@ _Avoid_: test course, demo
 
 **v1**:
 The `/crash-course` skill as it stood on 2026-09-25 (vanilla-JS single-file engines). Reference
-only; learn-premium replaces it.
+only; learn-premium replaces it. After the Cut-over it stays installed only to resume or fix a
+Study site it built.
 _Avoid_: old skill, legacy (alone)
+
+**Cut-over**:
+The moment learn-premium becomes the main skill for building Study sites: when the Pilot
+course's v2 Study site is deployed with every Gate passing. Before it, learn-premium runs only
+when called by name.
+_Avoid_: launch, release, switch
 
 ### The Study site
 
@@ -148,7 +155,8 @@ _Avoid_: manual mode
 **Build ledger**:
 The record of one Course's build state, kept in its Course project: intake answers, Materials
 inventory, Module map, the state of every Module, sitting, job and media item, and the Owner's
-checkpoint answers. What a broken session resumes from.
+checkpoint answers. What a broken session resumes from. Its media item states are written only
+by the Media pass.
 _Avoid_: MEMORY.md (v1's ledger), status file, progress log
 
 **Module map**:
@@ -189,9 +197,15 @@ The separate, resumable run that makes Module media and sitting audio, spanning 
 _Avoid_: media phase
 
 **Media queue**:
-The one queue of pending Module media shared by all the Owner's Courses, drained nearest Exam
-sitting first within the plan's daily quota.
+The one queue of pending Module media shared by all the Owner's Courses, gathered afresh from
+their Build ledgers at every Media pass and drained nearest Exam sitting first within the plan's
+quota.
 _Avoid_: backlog
+
+**Course registry**:
+The machine's list of the Owner's Course projects, which the Media pass reads to gather the Media
+queue. A Course joins it at intake.
+_Avoid_: course list, index
 
 ### Quality
 
