@@ -242,6 +242,24 @@ The machine's list of the Owner's Course projects, which the Media pass reads to
 queue. A Course joins it at intake.
 _Avoid_: course list, index
 
+**Credit line**:
+One visible line of attribution on a Study site. Each embedded tool gets one where it is used,
+and the Professor gets one in the footer of every page, naming them, the Course and the
+University. A Credit line claims no endorsement and carries no disclaimer.
+_Avoid_: attribution (alone), about page, disclaimer
+
+**Licences file**:
+The third-party notices a Study site ships, at a URL the UI never links to, and committed with the
+Course project. It is generated from the shipped packages plus hand-written entries the Site
+template carries for what that generation can't see.
+_Avoid_: credits page, NOTICE (alone), about
+
+**Go-public check**:
+The skill step the Owner runs before making a Course project public: it scans the whole history
+for Materials, Professor-derived evidence and secrets, and confirms the Licences file is present.
+The Owner flips the visibility; a public Course project carries no licence of its own.
+_Avoid_: publish gate, open-sourcing
+
 ### Quality
 
 **Gate**:
