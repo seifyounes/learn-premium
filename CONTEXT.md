@@ -98,6 +98,13 @@ The Course whose v1 build is rebuilt first in v2 to prove the new pipeline end t
 Currently Machine Learning.
 _Avoid_: test course, demo
 
+**Second pilot**:
+The live-semester Course built after the Pilot course to prove the Disciplines Machine Learning
+never touches, on Materials that arrive lecture by lecture. It has its own exit criteria, and the
+Cut-over does not wait for it. Currently Automation. Every other Discipline is proven by its first
+real Course build, flagged unproven with extra Owner review until it meets the same bar.
+_Avoid_: second Pilot course, test course, pilot 2
+
 **v1**:
 The `/crash-course` skill as it stood on 2026-09-25 (vanilla-JS single-file engines). Reference
 only; learn-premium replaces it. After the Cut-over it stays installed only to resume or fix a
