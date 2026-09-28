@@ -155,7 +155,8 @@ _Avoid_: notebook (alone)
 
 **Module media**:
 The NotebookLM outputs a Module gets: Explainer video, Deep Dive audio, infographic. Never
-blocks the Module going live.
+blocks the Module going live. Re-encoded for the web and published from the Course project; the
+master copies stay in the Private folder.
 _Avoid_: videos, assets
 
 **Notebook recipe**:
@@ -207,9 +208,17 @@ scaled dimensions, new Disciplines) before it merges.
 _Avoid_: review, approval gate
 
 **Build evidence**:
-The transcriptions, recompute logs and gate reports behind a Course's content, kept with the
-Course project and never published.
+The transcriptions, crops, recompute logs and gate reports behind a Course's content, never
+published. Recompute logs and gate reports are committed in the Course project; anything that
+carries the Professor's text or pages (transcriptions, quotes, crops) lives in the Private folder.
 _Avoid_: scratch, artefacts
+
+**Private folder**:
+The per-Course folder beside the Materials, outside any repo, holding what must never be
+published or made public: the Professor-derived part of Build evidence and the master copies of
+Module media. A Course project holds only what its Study site publishes plus build records free
+of the Professor's text, so the repo can go public.
+_Avoid_: scratch, evidence folder, Course folder
 
 **Media pass**:
 The separate, resumable run that makes Module media and sitting audio, spanning days on quota.
