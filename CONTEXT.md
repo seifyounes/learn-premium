@@ -28,6 +28,19 @@ The repo for one Course's Study site: a copy of the Site template, plus that Cou
 and course config. One per Course, deployed on its own.
 _Avoid_: site repo, Course folder (when you mean the Materials folder)
 
+**Template release**:
+A tagged version of learn-premium: the skill, the Site template and its gates together, under one
+number. A Course project is pinned to one release and moves to a newer one only on the Owner's
+word. Only a release that passed the template's own checks and the Owner's real-phone pass
+reaches a Course.
+_Avoid_: template version (when you mean an untagged state), update, build
+
+**Course override**:
+A local fix to Site template code that one Course project needs before a Template release carries
+it. It shadows the template file, is tied to the Gate gap it works around, and is retired when a
+release closes that gap. Template code is never edited in a Course project any other way.
+_Avoid_: patch, hotfix, local edit
+
 **Owner**:
 The student who runs learn-premium for their own Course and studies from the Study site first.
 _Avoid_: user (ambiguous with site visitors)
@@ -172,6 +185,12 @@ _Avoid_: phase (v1's P-steps), batch
 The run, started only by Sitting complete, that builds one Exam sitting's Exam room and Revision.
 _Avoid_: exam phase
 
+**Upgrade wave**:
+The run, started only on the Owner's word, that moves a Course project to a newer Template
+release: re-copy the template, migrate content if needed, retire Course overrides, re-run the
+gates on every Module, then merge. A red Upgrade wave never merges; the Course stays where it was.
+_Avoid_: update, migration (alone), re-copy (for the whole run)
+
 **Course style sheet**:
 The Professor's notation, symbols, units, table forms and voice for one Course, written from
 Module 1 before any other Module is written. Every writer follows it.
@@ -233,8 +252,15 @@ _Avoid_: test page, canary
 
 **Tool gallery**:
 The page in the Site template with one of every sim kind, the 3D viewer and a Pyodide run. The
-Owner tests it on a real phone once per Site template release.
+Owner tests it on a real phone before every Template release.
 _Avoid_: demo page, Lab (the Course hub)
+
+**Fixture Course**:
+A small synthetic Course kept in learn-premium's own repo, written without any Professor's
+material, that exercises every component, every sim kind, the Tool gallery and the Trap page.
+The template's own checks build it on every change, and each major release proves its migration
+by upgrading the previous release's Fixture Course.
+_Avoid_: sample course, demo course, Pilot course (that one is real)
 
 **Provenance tag**:
 The origin every number, formula, dimension and sim constant carries: stated (in the Materials),
@@ -244,6 +270,6 @@ _Avoid_: source label, confidence
 
 **Gate gap**:
 A new kind of defect found while building a Course that no gate caught yet. It is filed on
-learn-premium's own tracker with a broken fixture and lands as a gate in the next Site template
-release.
+learn-premium's own tracker with a broken fixture and lands as a gate in the next Template
+release; until then the Course works around it with a Course override.
 _Avoid_: lesson learned, fold-back note
