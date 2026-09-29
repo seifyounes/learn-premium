@@ -1,0 +1,99 @@
+{
+  "gate": "stl-scl-live prototype gate (ticket #37)",
+  "commit": "6ce7a84",
+  "sourcesSha": "635b1f0ce157",
+  "sources": [
+    "s7core.mjs",
+    "stl.mjs",
+    "scl.mjs",
+    "listings/tank.awl",
+    "listings/warehouse.scl",
+    "listings/rulings.mjs",
+    "oracle/fc105.awl",
+    "oracle/awlsim_run.py",
+    "check.mjs",
+    "blind/scl-blind.mjs"
+  ],
+  "ranAt": "2026-09-29T14:20:14.826Z",
+  "result": "PASS",
+  "oracles": {
+    "stl": "awlsim (GPL-2.0-or-later, run from a local clone), with FC105 written in STL from Siemens' formula",
+    "scl": "blind/scl-blind.mjs, a second interpreter written without seeing scl.mjs"
+  },
+  "checks": [
+    {
+      "id": "stl-awlsim",
+      "lang": "STL",
+      "title": "stl.mjs agrees with awlsim bit for bit",
+      "result": "PASS",
+      "compared": "43 input cases (20 raw levels x unipolar/bipolar, pump on/off, 3 multi-scan sequences), 56 scans, 6088 statements; MB 0-127, QB 0-15, ACCU1, ACCU2, AR1 and status word after every scan and ACCU1/2, AR1, status word after every statement: 32304 8-to-32-bit patterns (112 accumulator values, and status bits, left undefined by the FC105 call were not compared)",
+      "mismatches": [],
+      "mismatchCount": 0
+    },
+    {
+      "id": "scl-blind",
+      "lang": "SCL",
+      "title": "scl.mjs agrees with the blind interpreter",
+      "result": "PASS",
+      "compared": "5 scan sequences, 91 scans; every output, static and \"Rack\" DB value after every scan (REAL bit for bit): 2002 values",
+      "mismatches": [],
+      "mismatchCount": 0
+    },
+    {
+      "id": "scl-hand",
+      "lang": "SCL",
+      "title": "scl.mjs follows the hand-written state walk",
+      "result": "PASS",
+      "compared": "state after every scan in 3 sequences, written by hand from the listing",
+      "mismatches": [],
+      "mismatchCount": 0
+    },
+    {
+      "id": "rulings-anchored",
+      "lang": "STL",
+      "title": "Every ruling sits on a line of its listing",
+      "result": "PASS",
+      "compared": "2 rulings (2 marked demo)",
+      "mismatches": [],
+      "mismatchCount": 0
+    }
+  ],
+  "negativeControls": [
+    {
+      "id": "stl-compare-ands-rlo",
+      "lang": "STL",
+      "title": "STL compare ANDs into an open logic string instead of writing RLO",
+      "planted": "stl.mjs: /* GATE-MUTANT:cmp */ s.RLO = r;  ->  s.RLO = s['/FC'] ? s.RLO & r : r;",
+      "result": "PASS",
+      "caught": true,
+      "firstMismatch": "raw 13824, bipolar, scan 1: QB 4 = 16#00, awlsim 16#01"
+    },
+    {
+      "id": "stl-int-no-wrap",
+      "lang": "STL",
+      "title": "+I/-I keep the exact sum: no 16-bit wrap, no OV",
+      "planted": "stl.mjs: /* GATE-MUTANT:int16 */  ->  return void (cpu.a1 = fn(int16(cpu.a2), int16(cpu.a1)) >>> 0, s.OV = 0);",
+      "result": "PASS",
+      "caught": true,
+      "firstMismatch": "raw -32768, unipolar, scan 1: after line 11 (+I) ACCU1 = 16#FFFF80C8, awlsim 16#000080C8"
+    },
+    {
+      "id": "scl-real-float64",
+      "lang": "SCL",
+      "title": "SCL REAL arithmetic kept in float64 (no float32 rounding)",
+      "planted": "scl.mjs: /* GATE-MUTANT:real-in */ f32(a.v), y = f32(b.v)  ->  a.v, y = b.v; scl.mjs: /* GATE-MUTANT:real */ f32(r)  ->  r",
+      "result": "PASS",
+      "caught": true,
+      "firstMismatch": "happy path: one pallet, scan 5: fill_pct = 16#41855555, oracle 16#41855556"
+    },
+    {
+      "id": "scl-exit-ignored",
+      "lang": "SCL",
+      "title": "SCL EXIT ignored: the loop runs on",
+      "planted": "scl.mjs: /* GATE-MUTANT:exit */ throw EXIT;  ->  break;",
+      "result": "PASS",
+      "caught": true,
+      "firstMismatch": "happy path: one pallet: scl.mjs error: index Rack.slot[3,4] outside 1..2"
+    }
+  ]
+}

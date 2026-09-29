@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- PROTOTYPE (throwaway, ticket #37). Template: `node build.mjs` inlines the CSS, the modules,
+     the listings and gate-report.json into dist/stl-scl-live.html, which opens by double-click. -->
+<html lang="en" data-pad="bluegrey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Listings that run</title>
+<meta name="description" content="Prototype: the Professor-style STL and SCL listings running live on a Computation Pad module page, checked at build by awlsim and a blind SCL interpreter.">
+<!-- BUILD:CSS -->
+</head>
+<body>
+<main class="sheet grid-paper">
+  <header class="title-block tb">
+    <div class="cell"><span class="label">Course</span><span class="value">Industrial Automation</span></div>
+    <div class="cell"><span class="label">Module</span><span class="value">PLC programs in STL and SCL</span></div>
+    <div class="cell"><span class="label">Section</span><span class="value">Listings that run</span></div>
+    <div class="cell"><span class="label">Listings</span><span class="value qty">2</span></div>
+    <div class="cell"><span class="label">Build gate</span><span class="value" id="tb-gate"></span></div>
+  </header>
+
+  <div class="body-pad">
+    <div class="honesty">
+      <strong>For the Owner.</strong> Throwaway prototype for ticket #37. Both listings were written for this
+      page on the lecture topics; no Professor text is used. The two rulings are demos, not decisions. The
+      course and module names are placeholders.
+    </div>
+
+    <section class="intro">
+      <p class="prose lead">How should a Study site run the Professor&rsquo;s STL and SCL listings, and what checks them?
+        Here our own interpreters run both listings in the page on one shared S7 core. At build, awlsim re-runs the
+        STL and a second SCL interpreter, written blind, re-runs the SCL; the report at the bottom shows what they compared.
+        Students tune the inputs and step; they never edit the code.</p>
+      <div class="display-row">
+        <div class="field">
+          <span class="label">REAL display · open question</span>
+          <div class="seg" role="group" aria-label="How REAL values are shown">
+            <button type="button" data-realmode="short" aria-pressed="true">57.3 · watch table</button>
+            <button type="button" data-realmode="exact" aria-pressed="false">57.29999924 · float32 digits</button>
+          </div>
+        </div>
+        <p class="note">Every REAL on this page is a float32. The first choice shows the shortest decimal that reads back
+          as the same float32, as a STEP 7 watch table does; the second shows ten digits of the stored value.</p>
+      </div>
+    </section>
+
+    <section class="listing-sec" id="stl" aria-labelledby="stl-h">
+      <header class="sec-head">
+        <h2 id="stl-h">Tank volume in STL</h2>
+        <p class="muted">A horizontal cylindrical tank: raw level from PIW 256, scaled by FC105, turned into litres
+          with ACOS and SQRT, then a register-indirect loop over four set-points and latched alarms.</p>
+      </header>
+      <div id="stl-run"></div>
+    </section>
+
+    <section class="listing-sec" id="scl" aria-labelledby="scl-h">
+      <header class="sec-head">
+        <h2 id="scl-h">Warehouse state machine in SCL</h2>
+        <p class="muted">A function block called once per scan. Its statics keep the state between scans; the rack
+          is a global data block holding a 2 &times; 3 array of a slot type.</p>
+      </header>
+      <div id="scl-run"></div>
+    </section>
+
+    <section class="listing-sec" id="gate" aria-labelledby="gate-h">
+      <header class="sec-head">
+        <h2 id="gate-h">Gate report</h2>
+        <p class="muted">Written by <code>node check.mjs</code> at build and embedded here. The page ships only if every row passes.</p>
+      </header>
+      <div id="gate-report"></div>
+    </section>
+  </div>
+</main>
+<!-- BUILD:SCRIPT -->
+</body>
+</html>

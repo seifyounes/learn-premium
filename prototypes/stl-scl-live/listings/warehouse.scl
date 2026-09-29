@@ -1,0 +1,99 @@
+// Written for this prototype (no Professor text): a store-only rack with 2 levels x 3 columns.
+TYPE "Slot"
+STRUCT
+    occupied : BOOL;            // a pallet is in the slot
+    item_id  : INT;             // which item it holds
+END_STRUCT;
+END_TYPE
+
+DATA_BLOCK "Rack"
+VAR
+    slot   : ARRAY[1..2, 1..3] OF "Slot";   // [level, column]
+    stored : INT;               // pallets in the rack
+END_VAR
+BEGIN
+END_DATA_BLOCK
+
+FUNCTION_BLOCK "Warehouse"
+VAR_INPUT
+    store_req : BOOL;           // operator asks to store a pallet
+    item_id   : INT;            // item on the pallet
+    arrived   : BOOL;           // crane arrival sensor at the target slot
+    reset     : BOOL;           // clears an error
+END_VAR
+VAR_OUTPUT
+    target_lvl : INT;           // slot the crane is sent to
+    target_col : INT;
+    busy  : BOOL;
+    done  : BOOL;               // one scan after a pallet is stored
+    error : BOOL;
+END_VAR
+VAR
+    state      : INT := 0;      // 0 IDLE, 1 SEARCH, 2 MOVE, 3 STORE, 9 ERROR
+    move_scans : INT;           // scans spent moving (watchdog)
+    last_req   : BOOL;          // store_req in the previous scan
+    fill_pct   : REAL;          // share of the rack in use, %
+END_VAR
+VAR_TEMP
+    lvl   : INT;
+    col   : INT;
+    found : BOOL;
+END_VAR
+BEGIN
+CASE #state OF
+    0:  // IDLE: wait for a new request (rising edge)
+        #done := FALSE;
+        IF #store_req AND NOT #last_req THEN
+            #busy := TRUE;
+            #state := 1;
+        END_IF;
+    1:  // SEARCH: first free slot, bottom level first
+        #found := FALSE;
+        FOR #lvl := 1 TO 2 DO
+            FOR #col := 1 TO 3 DO
+                IF NOT "Rack".slot[#lvl, #col].occupied THEN
+                    #found := TRUE;
+                    EXIT;               // leaves the column loop only
+                END_IF;
+            END_FOR;
+            IF #found THEN
+                EXIT;                   // leaves the level loop
+            END_IF;
+        END_FOR;
+        IF #found THEN
+            #target_lvl := #lvl;
+            #target_col := #col;
+            #move_scans := 0;
+            #state := 2;
+        ELSE
+            #busy := FALSE;
+            #error := TRUE;
+            #state := 9;
+        END_IF;
+    2:  // MOVE: wait for the arrival sensor
+        #move_scans := #move_scans + 1;
+        IF #arrived THEN
+            #state := 3;
+        ELSIF #move_scans > 20 THEN
+            #busy := FALSE;
+            #error := TRUE;
+            #state := 9;
+        END_IF;
+    3:  // STORE: book the pallet into the slot
+        "Rack".slot[#target_lvl, #target_col].occupied := TRUE;
+        "Rack".slot[#target_lvl, #target_col].item_id := #item_id;
+        "Rack".stored := "Rack".stored + 1;
+        #fill_pct := INT_TO_REAL("Rack".stored) / 6.0 * 100.0;
+        #busy := FALSE;
+        #done := TRUE;
+        #state := 0;
+    9:  // ERROR: hold until reset
+        IF #reset THEN
+            #error := FALSE;
+            #state := 0;
+        END_IF;
+ELSE
+    #state := 0;
+END_CASE;
+#last_req := #store_req;
+END_FUNCTION_BLOCK
