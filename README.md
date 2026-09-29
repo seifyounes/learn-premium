@@ -16,7 +16,9 @@ Pipeline for this effort: wayfinder → spec → tickets → implement → code 
 - `CONTEXT.md` — domain glossary.
 - `template/` — the Site template (Astro 7) that every Study site is built from.
 - `fixture-course/` — the synthetic Fixture Course the template builds on every change.
-- `src/` — the v2 skill (empty until the spec is locked).
+- `skill/` — the skill Claude Code loads (`SKILL.md`, scripts, the machine venv's lock file).
+- `install.ps1` — the re-runnable installer (Windows); see `docs/install.md`.
+- `tests/` — installer and install-check tests (synthetic repos only).
 
 ## How to run
 
@@ -27,3 +29,7 @@ cd template && npm ci && npm run build
 ```
 
 `npm test` builds it again with its negative controls; see `template/README.md`.
+
+Install learn-premium (needs a Template release tag):
+`powershell -ExecutionPolicy Bypass -File install.ps1`. Then type `/learn-premium <Materials path>`
+in Claude Code. Installer tests: `uv run --no-project --with pytest pytest tests`.

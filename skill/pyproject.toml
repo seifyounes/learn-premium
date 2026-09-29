@@ -1,0 +1,16 @@
+# The one machine Python venv (~/.claude/learn-premium/venv). Not a package: uv.lock beside this
+# file pins every version, and the installer syncs the venv from it with `uv sync --frozen`.
+# Change a dependency here, run `uv lock --project skill`, and ship both files in a Template release.
+[project]
+name = "learn-premium-venv"
+version = "0.0.0"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "build123d",      # machinery: parts → GLB
+    "faster-whisper", # narration transcripts
+    "control",        # python-control: root locus, step, Bode/Nyquist oracles
+    "sympy",
+    "CoolProp",       # heat transfer property tables
+    "awlsim",         # STL oracle for the S7 core
+    "python-pptx",    # the .pptx Materials reader
+]
