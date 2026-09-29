@@ -10,3 +10,6 @@ dist/
 Thumbs.db
 research/scratch/
 .claude/worktrees/
+__pycache__/
+.venv/
+.pytest_cache/
