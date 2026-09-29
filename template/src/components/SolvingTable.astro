@@ -12,16 +12,16 @@ const { table } = Astro.props;
 
 <figure class="overflow-x-auto">
   <figcaption
-    class="mbe-2 font-print text-[20px] font-bold [font-variation-settings:'wdth'_80]"
+    class="mbe-2 font-print text-caption font-bold [font-variation-settings:'wdth'_80]"
     set:html={prose(table.caption)}
   />
-  <table class="border-collapse bg-sheet font-quantity text-[15px] tabular-nums sm:text-quantity">
+  <table class="border-collapse bg-sheet font-quantity text-quantity-phone tabular-nums pad:text-quantity">
     <thead>
       <tr>
         {table.columns.map((c) => (
           <th scope="col" class="border border-pencil px-3 pbs-1 pbe-1.5 text-start align-bottom font-normal">
             <span class="field-label block" set:html={prose(c.label)} />
-            {c.unit && <span class="block text-[14px] text-pencil">{c.unit}</span>}
+            {c.unit && <span class="block text-unit text-pencil" set:html={prose(c.unit)} />}
           </th>
         ))}
       </tr>

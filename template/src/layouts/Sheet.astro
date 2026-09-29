@@ -6,7 +6,7 @@ import "@fontsource/atkinson-hyperlegible-mono/latin-400.css";
 import "@fontsource/atkinson-hyperlegible-mono/latin-500.css";
 import "katex/dist/katex.min.css";
 import "../styles/global.css";
-import { getCourse } from "../content/course";
+import { getCourse, prose } from "../content/course";
 
 interface Props {
   title: string;
@@ -14,6 +14,7 @@ interface Props {
 
 const { title } = Astro.props;
 const course = await getCourse();
+const { professor, course: courseName, university } = course.credit;
 ---
 
 <!doctype html>
@@ -24,12 +25,13 @@ const course = await getCourse();
     <meta name="robots" content="noindex, nofollow" />
     <title>{title} · {course.name}</title>
   </head>
-  <body class="min-h-dvh sm:px-6 sm:py-6">
-    <main class="sheet mx-auto max-w-[1200px] px-4 pbs-4 pbe-5 sm:rounded-sheet sm:px-10 sm:pbs-7 sm:pbe-6">
+  <body class="min-h-dvh pad:px-6 pad:py-6">
+    <main class="sheet mx-auto max-w-[1200px] px-4 pbs-4 pbe-5 pad:rounded-sheet pad:px-10 pad:pbs-7 pad:pbe-6">
       <slot />
-      <footer class="mbs-12 border-bs border-print pbs-3 text-body-small text-muted">
-        {course.credit.professor} · {course.credit.course} · {course.credit.university}
-      </footer>
+      <footer
+        class="mbs-12 border-bs border-print pbs-3 text-body-small text-muted"
+        set:html={[professor, courseName, university].map(prose).join(" · ")}
+      />
     </main>
   </body>
 </html>

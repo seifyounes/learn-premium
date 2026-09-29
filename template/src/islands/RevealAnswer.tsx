@@ -1,21 +1,29 @@
 import { useState } from "react";
 
 interface Props {
-  /** The model answer, already rendered to HTML (paper math) at build. */
-  html: string;
+  /** The model working, already rendered to HTML (paper math) at build. */
+  modelHtml: string;
+  answer: { value: number; tolerance: number };
+  /** The answer's unit, rendered to HTML at build like any prose field. */
+  unitHtml: string;
 }
 
 /** Keeps the model answer hidden until the student has tried the item. */
-export default function RevealAnswer({ html }: Props) {
+export default function RevealAnswer({ modelHtml, answer, unitHtml }: Props) {
   const [shown, setShown] = useState(false);
-  if (shown) return <div className="text-body" dangerouslySetInnerHTML={{ __html: html }} />;
+  if (!shown) {
+    return (
+      <button type="button" onClick={() => setShown(true)} className="button-print label-action">
+        Show model answer
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={() => setShown(true)}
-      className="h-[42px] border-[1.5px] border-print bg-sheet px-4 font-print text-label-action font-bold tracking-[0.08em] text-print uppercase transition-colors duration-150 ease-out hover:bg-[color-mix(in_srgb,var(--color-print)_10%,var(--color-sheet))]"
-    >
-      Show model answer
-    </button>
+    <div className="text-body">
+      <div dangerouslySetInnerHTML={{ __html: modelHtml }} />
+      <p className="font-quantity text-pencil">
+        {answer.value} <span dangerouslySetInnerHTML={{ __html: unitHtml }} /> (± {answer.tolerance})
+      </p>
+    </div>
   );
 }

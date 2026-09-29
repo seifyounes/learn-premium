@@ -10,6 +10,9 @@ describe("the Fixture Course", () => {
     expect(build.ok, build.output).toBe(true);
     expect(build.page("")).toContain("Fixture Course");
     expect(build.page("01-thermal-resistance")).toContain("Thermal resistance");
+    for (const route of ["", "01-thermal-resistance"]) {
+      expect(build.page(route), "the synthetic Course says so").toContain("Synthetic Course: written to test");
+    }
   });
 
   it("renders math as paper math, chemistry included", () => {
@@ -38,7 +41,7 @@ describe("the Fixture Course", () => {
     expect(build.page("")).toContain('<html lang="en" dir="ltr" data-pad="green">');
     const css = build.css();
     expect(css).toMatch(/\[data-pad=green\]\{[^}]*--pad-print:#2e5a38/);
-    // Every DESIGN.md token is a CSS variable, used or not, and utilities go through it.
+    // The colour tokens are CSS variables whether a page uses them or not, and utilities go through them.
     for (const token of [
       "--color-print:var(--pad-print)",
       "--color-muted:var(--pad-muted)",
