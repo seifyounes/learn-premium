@@ -214,6 +214,19 @@ The Owner's batched confirmation of one Module's open items (sheet-vs-recompute 
 scaled dimensions, new Disciplines) before it merges.
 _Avoid_: review, approval gate
 
+**Slip**:
+A place where the Professor's stated result is wrong by the Professor's own method or by the real
+system, which the Owner rules a mistake at a Checkpoint. The Study site ships the corrected value
+and shows both.
+_Avoid_: error, typo (alone)
+
+**Divergence**:
+A place where the Professor's stated result differs from the recompute or the real system and the
+Owner rules it the exam's truth at a Checkpoint. The Study site ships the Professor's value as the
+exam answer, with a note saying what the recompute or the real system gives; a sim still behaves
+like the real system and marks the line where they part.
+_Avoid_: discrepancy, conflict (alone)
+
 **Build evidence**:
 The transcriptions, crops, recompute logs and gate reports behind a Course's content, never
 published. Recompute logs and gate reports are committed in the Course project; anything that
