@@ -35,11 +35,12 @@ The first line is a summary for the Owner; the JSON after it is the full report.
   <installer>`). Run it only on the Owner's yes, then check again. Don't continue the run on a
   broken install.
 - **`releases_behind` > 0:** tell the Owner the summary line as is ("N commits / M releases
-  behind…"). Updating is the Owner's call: never pull, fetch into, check out or re-run the
-  installer on your own, and never in the middle of a wave. Carry on at the installed release.
+  behind…"). Moving to a newer release is the Owner's call: never pull, check out or re-run the
+  installer on your own, and never while a Module, Sitting or Upgrade wave is under way. Carry on
+  at the installed release.
 - **`fetch_error` set:** say origin couldn't be reached, so "behind" may be stale, and carry on.
 
-Note `installed_release`: the Build ledger records it for the wave.
+Note `installed_release`: the Build ledger records it for each wave this run starts.
 
 ### 2. Read the Build ledger and take the lock
 
