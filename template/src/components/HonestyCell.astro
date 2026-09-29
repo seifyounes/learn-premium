@@ -1,0 +1,12 @@
+---
+import { getCourse } from "../content/course";
+
+/** A full-width title-block cell, hatched in print, where a page must declare what it is. */
+const course = await getCourse();
+---
+
+{course.synthetic && (
+  <div class="label-action col-span-full bg-sheet bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--color-print)_11%,transparent)_0_1px,transparent_1px_7px)] px-3 pbs-2 pbe-2">
+    Synthetic Course: written to test the Site template, from no Professor's material
+  </div>
+)}

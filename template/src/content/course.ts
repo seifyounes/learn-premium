@@ -29,7 +29,7 @@ export async function getModules(): Promise<ModuleRef[]> {
 type ModuleCollection = "beats" | "worked" | "practice";
 
 /** A Module's entries of one kind, in file-number order (`summary/2.md` before `summary/10.md`). */
-export async function inModule<C extends ModuleCollection>(collection: C, moduleId: string) {
+export async function moduleEntries<C extends ModuleCollection>(collection: C, moduleId: string) {
   const entries = (await getCollection(collection)) as CollectionEntry<C>[];
   const order = (e: CollectionEntry<C>) => Number(e.id.split("/").pop());
   return entries.filter((e) => e.id.startsWith(`${moduleId}/`)).sort((a, b) => order(a) - order(b));

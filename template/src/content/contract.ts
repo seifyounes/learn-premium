@@ -8,7 +8,7 @@ export const course = z.strictObject({
   name: z.string().min(1),
   code: z.string().min(1),
   pad: z.enum(PADS),
-  /** A synthetic Course (the Fixture Course) says so on every page. */
+  /** A synthetic Course (the Fixture Course) says so in the title block of every page. */
   synthetic: z.boolean().default(false),
   credit: z.strictObject({
     professor: z.string().min(1),

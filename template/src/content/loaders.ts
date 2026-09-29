@@ -21,7 +21,7 @@ export interface CourseLoaderOptions {
   generateId?: (entry: string) => string;
 }
 
-const withoutExtension = (entry: string) => entry.replace(/\.(md|json|ya?ml)$/, "");
+export const withoutExtension = (entry: string) => entry.replace(/\.(md|json|ya?ml)$/, "");
 const slashes = (path: string) => path.replace(/\\/g, "/");
 
 /** A collection of JSON or YAML files. */
@@ -43,7 +43,7 @@ export function markdownLoader(options: CourseLoaderOptions): Loader {
   });
 }
 
-interface ReadFile {
+interface SourceFile {
   source: string;
   /** The file's absolute path with forward slashes, as errors name it. */
   file: string;
@@ -51,12 +51,12 @@ interface ReadFile {
   context: LoaderContext;
 }
 
-type Entry = Pick<Parameters<LoaderContext["store"]["set"]>[0], "data" | "body" | "rendered">;
+type LoadedEntry = Pick<Parameters<LoaderContext["store"]["set"]>[0], "data" | "body" | "rendered">;
 
 function courseLoader(
   name: string,
   { base, pattern, generateId = withoutExtension }: CourseLoaderOptions,
-  read: (file: ReadFile) => Promise<Entry>,
+  read: (file: SourceFile) => Promise<LoadedEntry>,
 ): Loader {
   return {
     name,

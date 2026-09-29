@@ -46,6 +46,25 @@
   --text-quantity--line-height: 1;
   --text-quantity-large: 26px;
   --text-quantity-large--line-height: 1;
+  /* Steps DESIGN.md names in its prose: the display on phones, the contents-line title, the
+     table caption, the table values on phones and their unit line (the 14px floor). */
+  --text-display-phone: 34px;
+  --text-display-phone--line-height: 0.95;
+  --text-contents-title: 18px;
+  --text-sheet-title-phone: 17px;
+  --text-sheet-title-phone--line-height: 1.2;
+  --text-caption: 20px;
+  --text-caption--line-height: 1.2;
+  --text-unit: 14px;
+  --text-quantity-phone: 15px;
+  --text-quantity-phone--line-height: 1;
+
+  --spacing-grid-minor: 20px;
+  --spacing-grid-major: 100px;
+  --spacing-margin-column: 216px;
+
+  /* Under 760px the sheet goes full-bleed: no desk margin, no shadow, no radius. */
+  --breakpoint-pad: 760px;
 }
 
 @layer base {
@@ -82,10 +101,11 @@
       linear-gradient(90deg, var(--color-grid-fine) 1px, transparent 1px),
       linear-gradient(0deg, var(--color-grid-fine) 1px, transparent 1px);
     background-size:
-      100px 100px,
-      100px 100px,
-      20px 20px,
-      20px 20px;
+      var(--spacing-grid-major) var(--spacing-grid-major),
+      var(--spacing-grid-major) var(--spacing-grid-major),
+      var(--spacing-grid-minor) var(--spacing-grid-minor),
+      var(--spacing-grid-minor) var(--spacing-grid-minor);
+    /* Offset so rules land on pixel edges; the grid is symmetric, so it needs no mirroring. */
     background-position: -1px -1px;
     box-shadow:
       0 1px 1px rgb(var(--pad-shadow) / 0.1),
@@ -108,6 +128,41 @@
     text-transform: uppercase;
     font-variation-settings: "wdth" 80;
     color: var(--color-print);
+  }
+
+  /* Action label: printed buttons, the back cell, and the honesty cell. */
+  .label-action {
+    font-family: var(--font-print);
+    font-size: var(--text-label-action);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variation-settings: "wdth" 80;
+    color: var(--color-print);
+  }
+
+  /* Headline: a group heading on its 2px print rule. */
+  .group-heading {
+    border-block-end: 2px solid var(--color-print);
+    padding-block-end: 4px;
+    font-family: var(--font-print);
+    font-size: var(--text-headline);
+    line-height: var(--text-headline--line-height);
+    font-weight: 700;
+    font-variation-settings: "wdth" 75;
+    color: var(--color-print);
+  }
+
+  /* Printed button: square, ruled in print, tinted 10% print on hover. */
+  .button-print {
+    min-block-size: 42px;
+    border: 1.5px solid var(--color-print);
+    background: var(--color-sheet);
+    padding-inline: 16px;
+    transition: background-color 150ms ease-out;
+  }
+  .button-print:hover {
+    background: color-mix(in srgb, var(--color-print) 10%, var(--color-sheet));
   }
 
   /* The answer: boxed twice in red pen, a stroke and never a fill. */

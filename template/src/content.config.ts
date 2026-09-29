@@ -1,14 +1,14 @@
 import { defineCollection } from "astro:content";
 import { resolve } from "node:path";
 import * as contract from "./content/contract";
-import { markdownLoader, structuredLoader } from "./content/loaders";
+import { markdownLoader, structuredLoader, withoutExtension } from "./content/loaders";
 
 // The Course's content folder sits beside the template layer. In this repo that is the Fixture
 // Course; CONTENT_DIR points the build at any other Course's content.
 const CONTENT_DIR = resolve(process.cwd(), process.env.CONTENT_DIR ?? "../fixture-course");
 
 /** `modules/01-slug/worked/1.json` → `01-slug/worked/1` */
-const moduleEntryId = (entry: string) => entry.replace(/^modules\//, "").replace(/\.(md|json|ya?ml)$/, "");
+const moduleEntryId = (entry: string) => withoutExtension(entry).replace(/^modules\//, "");
 
 export const collections = {
   course: defineCollection({
