@@ -1,0 +1,42 @@
+---
+import type { z } from "astro/zod";
+import type { solvingTable } from "../content/contract";
+import { prose } from "../content/course";
+
+/** The Professor's solving artefact, shown filled (static in v0; hand-order fill comes later). */
+interface Props {
+  table: z.infer<typeof solvingTable>;
+}
+const { table } = Astro.props;
+---
+
+<figure class="overflow-x-auto">
+  <figcaption
+    class="mbe-2 font-print text-[20px] font-bold [font-variation-settings:'wdth'_80]"
+    set:html={prose(table.caption)}
+  />
+  <table class="border-collapse bg-sheet font-quantity text-[15px] tabular-nums sm:text-quantity">
+    <thead>
+      <tr>
+        {table.columns.map((c) => (
+          <th scope="col" class="border border-pencil px-3 pbs-1 pbe-1.5 text-start align-bottom font-normal">
+            <span class="field-label block" set:html={prose(c.label)} />
+            {c.unit && <span class="block text-[14px] text-pencil">{c.unit}</span>}
+          </th>
+        ))}
+      </tr>
+    </thead>
+    <tbody>
+      {table.rows.map((row) => (
+        <tr class="h-[29px]">
+          {row.map((cell, i) => (
+            <td
+              class:list={["border border-pencil px-3 text-pencil", i === 0 ? "font-prose text-graphite" : "text-end"]}
+              set:html={prose(cell)}
+            />
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</figure>

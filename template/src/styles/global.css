@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@import "./pads.css";
+
+/* DESIGN.md tokens, always emitted as CSS variables. Pad slots come from the Course's pad; the inks
+   are fixed on every Course.
+   Tailwind's default palette, fonts and radii are cleared so only the pad's tokens exist. */
+@theme static {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-desk: var(--pad-desk);
+  --color-sheet: var(--pad-sheet);
+  --color-grid-fine: var(--pad-grid-fine);
+  --color-grid-major: var(--pad-grid-major);
+  --color-print: var(--pad-print);
+  --color-muted: var(--pad-muted);
+  --color-graphite: #262b25;
+  --color-pencil: #3d433c;
+  --color-red-pen: #c0341d;
+
+  --font-*: initial;
+  --font-print: "Archivo Variable", "Arial Narrow", sans-serif;
+  --font-prose: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --font-quantity: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+
+  --radius-*: initial;
+  --radius-sheet: 2px;
+
+  --text-display: 42px;
+  --text-display--line-height: 0.95;
+  --text-headline: 25px;
+  --text-headline--line-height: 1.1;
+  --text-title: 21px;
+  --text-title--line-height: 1.2;
+  --text-sheet-title: 19px;
+  --text-sheet-title--line-height: 1.2;
+  --text-body: 17px;
+  --text-body--line-height: 1.5;
+  --text-body-small: 15px;
+  --text-body-small--line-height: 1.45;
+  --text-label: 12px;
+  --text-label--line-height: 1;
+  --text-label-action: 15px;
+  --text-label-action--line-height: 1;
+  --text-quantity: 16px;
+  --text-quantity--line-height: 1;
+  --text-quantity-large: 26px;
+  --text-quantity-large--line-height: 1;
+}
+
+@layer base {
+  html {
+    background: var(--color-desk);
+    color: var(--color-graphite);
+    font-family: var(--font-prose);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+  ::selection {
+    background: var(--color-print);
+    color: var(--color-sheet);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-print);
+    outline-offset: 2px;
+  }
+  /* Math keeps its own case and spacing inside a field label: an uppercased k reads as kelvin. */
+  .katex {
+    font-size: 1.08em;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+}
+
+/* The pad layer: the sheet lying on the desk, with its two-weight printed grid. */
+@layer components {
+  .sheet {
+    background-color: var(--color-sheet);
+    background-image:
+      linear-gradient(90deg, var(--color-grid-major) 1px, transparent 1px),
+      linear-gradient(0deg, var(--color-grid-major) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-grid-fine) 1px, transparent 1px),
+      linear-gradient(0deg, var(--color-grid-fine) 1px, transparent 1px);
+    background-size:
+      100px 100px,
+      100px 100px,
+      20px 20px,
+      20px 20px;
+    background-position: -1px -1px;
+    box-shadow:
+      0 1px 1px rgb(var(--pad-shadow) / 0.1),
+      0 5px 12px -3px rgb(var(--pad-shadow) / 0.18),
+      0 26px 46px -22px rgb(var(--pad-shadow) / 0.45);
+  }
+  @media (width < 760px) {
+    .sheet {
+      box-shadow: none;
+      border-radius: 0;
+    }
+  }
+
+  /* Printed field label: names the field of the ruled cell it sits in. */
+  .field-label {
+    font-family: var(--font-print);
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variation-settings: "wdth" 80;
+    color: var(--color-print);
+  }
+
+  /* The answer: boxed twice in red pen, a stroke and never a fill. */
+  .answer-frame {
+    border: 1.5px solid var(--color-red-pen);
+    outline: 1.5px solid var(--color-red-pen);
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

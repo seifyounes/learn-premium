@@ -1,0 +1,8 @@
+name: Fixture Course
+code: FX 101
+pad: green
+synthetic: true
+credit:
+  professor: A. N. Example
+  course: Fixture Course (FX 101)
+  university: Example University

@@ -1,0 +1,11 @@
+---
+/** A ruled title block: cells on a print ground so the 1px gaps read as ruled lines. */
+interface Props {
+  class?: string;
+}
+const { class: className = "" } = Astro.props;
+---
+
+<div class:list={["grid gap-px border-2 border-print bg-print", className]}>
+  <slot />
+</div>

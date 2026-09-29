@@ -1,0 +1,44 @@
+# Builds the Fixture Course with the Site template on every template change, and runs the
+# template's own checks. A red run means the template may not be released.
+name: Template CI
+
+# Every branch, so a ticket branch is green before it merges; a PR shows its head commit's run.
+on:
+  push:
+    paths:
+      - "template/**"
+      - "fixture-course/**"
+      - ".github/workflows/template-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: template
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: template/.node-version
+          cache: npm
+          cache-dependency-path: template/package-lock.json
+      - run: npm ci
+      - name: Format
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint -- --max-warnings 0
+      - name: Type check (astro check)
+        run: npm run check
+      - name: Tests (Vitest; builds the Fixture Course and its negative controls)
+        run: npm test
+      - name: Build the Fixture Course
+        run: npm run build
