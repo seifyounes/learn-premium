@@ -117,6 +117,14 @@ course's v2 Study site is deployed with every Gate passing. Before it, learn-pre
 when called by name.
 _Avoid_: launch, release, switch
 
+**Machine install**:
+learn-premium set up on the Owner's machine: the release worktree (a checkout of one Template
+release that Claude Code loads the skill from, by a junction), the machine state folder, the
+machine venv and Playwright's browsers. Only an installer run the Owner asks for moves it to a
+newer Template release; each run starts with the install check, which reports what's missing and
+how far behind it is.
+_Avoid_: setup, deployment, update (for moving to a newer release)
+
 ### The Study site
 
 **Module**:
