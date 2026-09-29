@@ -1,0 +1,59 @@
+# Keeps the `blocked` label in step with GitHub's native issue dependencies.
+# A ticket carries `blocked` exactly while it has an open blocker, so the frontier
+# (open, unblocked, unassigned tickets) can be read from labels alone.
+name: Sync blocked label
+
+on:
+  issues:
+    types: [closed, reopened]
+  schedule:
+    # Daily safety net: dependency edges added or removed in the UI fire no issue event.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: blocked-label-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      EVENT_ISSUE: ${{ github.event.issue.number }}
+    steps:
+      - name: Sync
+        run: |
+          set -euo pipefail
+
+          sync_issue() {
+            local n=$1 state open_blockers labelled
+            state=$(gh api "repos/$REPO/issues/$n" --jq .state)
+            [ "$state" = open ] || return 0
+            open_blockers=$(gh api --paginate "repos/$REPO/issues/$n/dependencies/blocked_by" \
+              --jq '.[] | select(.state == "open") | .number' | wc -l)
+            labelled=$(gh api "repos/$REPO/issues/$n" --jq '[.labels[].name] | index("blocked") != null')
+            if [ "$open_blockers" -gt 0 ] && [ "$labelled" = false ]; then
+              gh issue edit "$n" -R "$REPO" --add-label blocked >/dev/null
+              echo "#$n: added blocked ($open_blockers open blockers)"
+            elif [ "$open_blockers" -eq 0 ] && [ "$labelled" = true ]; then
+              gh issue edit "$n" -R "$REPO" --remove-label blocked >/dev/null
+              echo "#$n: removed blocked (now on the frontier)"
+            fi
+          }
+
+          if [ -n "$EVENT_ISSUE" ]; then
+            # A ticket closed or reopened: re-check every ticket it blocks.
+            for n in $(gh api --paginate "repos/$REPO/issues/$EVENT_ISSUE/dependencies/blocking" --jq '.[].number'); do
+              sync_issue "$n"
+            done
+          else
+            # Full resync over every open ticket.
+            for n in $(gh issue list -R "$REPO" --state open --limit 1000 --json number --jq '.[].number'); do
+              sync_issue "$n"
+            done
+          fi
