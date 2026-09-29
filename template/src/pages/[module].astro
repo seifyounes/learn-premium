@@ -1,0 +1,118 @@
+---
+import { render } from "astro:content";
+import Cell from "../components/Cell.astro";
+import SolvingTable from "../components/SolvingTable.astro";
+import TitleBlock from "../components/TitleBlock.astro";
+import { getModules, inModule, prose, type ModuleRef } from "../content/course";
+import RevealAnswer from "../islands/RevealAnswer";
+import Sheet from "../layouts/Sheet.astro";
+
+export async function getStaticPaths() {
+  const modules = await getModules();
+  return modules.map((m) => ({ params: { module: m.id }, props: { module: m } }));
+}
+
+interface Props {
+  module: ModuleRef;
+}
+
+const { module } = Astro.props;
+const beats = await Promise.all(
+  (await inModule("beats", module.id)).map(async (b) => ({ beat: b, Content: (await render(b)).Content })),
+);
+const worked = await inModule("worked", module.id);
+const practice = await inModule("practice", module.id);
+const heading =
+  "mbs-10 mbe-4 border-be-2 border-print pbe-1 font-print text-headline font-bold text-print [font-variation-settings:'wdth'_75]";
+---
+
+<Sheet title={module.entry.data.title}>
+  <TitleBlock class="grid-cols-[auto_auto_1fr]">
+    <a
+      href="/"
+      class="flex items-center gap-2 bg-sheet px-3 font-print text-label-action font-bold tracking-[0.08em] text-print uppercase hover:bg-print/10"
+    >
+      <svg viewBox="0 0 16 16" class="size-4 rtl:-scale-x-100" aria-hidden="true">
+        <path
+          d="M10 3 5 8l5 5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        ></path>
+      </svg>
+      Back
+    </a>
+    <Cell label="Module">
+      <span class="font-quantity text-quantity-large font-medium text-graphite">{module.number}</span>
+    </Cell>
+    <Cell label="Title">
+      <h1 class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]">
+        {module.entry.data.title}
+      </h1>
+    </Cell>
+  </TitleBlock>
+
+  <section aria-labelledby="summary">
+    <h2 id="summary" class={heading}>
+      Summary
+    </h2>
+    {beats.map(({ beat, Content }) => (
+      <article class="mbe-6 max-w-[68ch]">
+        <h3 class="mbe-2 font-print text-sheet-title font-semibold [font-variation-settings:'wdth'_87]">
+          {beat.data.title}
+        </h3>
+        <div class="beat space-y-3">
+          <Content />
+        </div>
+      </article>
+    ))}
+  </section>
+
+  <section aria-labelledby="worked">
+    <h2 id="worked" class={heading}>
+      Worked examples
+    </h2>
+    {worked.map(({ data: w }) => (
+      <article class="mbe-8 space-y-4">
+        <TitleBlock class="grid-cols-[1fr_auto]">
+          <Cell label="Title">
+            <h3 class="font-print text-[17px] font-semibold text-graphite [font-variation-settings:'wdth'_87] sm:text-sheet-title">
+              {w.title}
+            </h3>
+          </Cell>
+          <Cell label="Example">
+            <span class="font-quantity text-quantity text-graphite">{w.code}</span>
+          </Cell>
+        </TitleBlock>
+        <div class="max-w-[68ch] border-[1.2px] border-pencil bg-sheet px-4 pbs-3 pbe-3">
+          <span class="field-label block mbe-1">Given</span>
+          <p set:html={prose(w.statement)} />
+        </div>
+        <SolvingTable table={w.table} />
+        <div class="answer-frame m-1 inline-block bg-sheet px-3.5 pbs-[7px] pbe-[9px]">
+          <span class="field-label block mbe-1">Answer</span>
+          <p class="font-semibold text-graphite" set:html={prose(w.answer)} />
+        </div>
+      </article>
+    ))}
+  </section>
+
+  <section aria-labelledby="practice">
+    <h2 id="practice" class={heading}>
+      Practice
+    </h2>
+    {practice.map(({ data: p }, i) => (
+      <article class="mbe-6 max-w-[68ch] space-y-3">
+        <p>
+          <span class="font-quantity text-graphite">{i + 1}.</span> <Fragment set:html={prose(p.question)} />
+        </p>
+        <RevealAnswer
+          client:visible
+          html={`${prose(p.model)}<p class="font-quantity text-pencil">${p.answer.value} ${p.answer.unit} (± ${p.answer.tolerance})</p>`}
+        />
+      </article>
+    ))}
+  </section>
+</Sheet>

@@ -1,0 +1,49 @@
+---
+import Cell from "../components/Cell.astro";
+import TitleBlock from "../components/TitleBlock.astro";
+import { getCourse, getModules } from "../content/course";
+import Sheet from "../layouts/Sheet.astro";
+
+const course = await getCourse();
+const modules = await getModules();
+---
+
+<Sheet title="Contents">
+  <TitleBlock class="grid-cols-1 sm:grid-cols-[2.6fr_1fr]">
+    <Cell label="Course">
+      <h1 class="font-print text-[34px] leading-[0.95] font-bold tracking-[-0.01em] text-graphite [font-variation-settings:'wdth'_75] sm:text-display">
+        {course.name}
+      </h1>
+    </Cell>
+    <Cell label="Modules">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{modules.length}</span>
+    </Cell>
+    {course.synthetic && (
+      <div class="bg-sheet bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--color-print)_11%,transparent)_0_1px,transparent_1px_7px)] px-3 pbs-2 pbe-2 font-print text-label-action font-bold tracking-[0.08em] text-print uppercase [font-variation-settings:'wdth'_80] sm:col-span-2">
+        Synthetic Course: written to test the Site template, from no Professor's material
+      </div>
+    )}
+  </TitleBlock>
+
+  <h2 class="mbs-8 border-be-2 border-print pbe-1 font-print text-headline font-bold text-print [font-variation-settings:'wdth'_75]">
+    Modules
+  </h2>
+  <ol>
+    {modules.map((m) => (
+      <li>
+        <a
+          href={`/${m.id}/`}
+          class="group grid grid-cols-[44px_1fr] items-center gap-4 border-be border-pencil/50 pbs-3 pbe-3 hover:bg-print/8"
+        >
+          <span class="grid size-11 place-items-center border-[1.5px] border-print font-print text-[20px] font-bold text-print">
+            {m.number}
+          </span>
+          <span>
+            <span class="block text-[18px] font-semibold group-hover:underline">{m.entry.data.title}</span>
+            <span class="block text-body-small text-muted">{m.entry.data.summary}</span>
+          </span>
+        </a>
+      </li>
+    ))}
+  </ol>
+</Sheet>

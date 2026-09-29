@@ -1,0 +1,10 @@
+question: >-
+  A furnace burns methane, $\ce{CH4 + 2O2 -> CO2 + 2H2O}$, and holds the inside face of its
+  fireclay wall at $600\ \text{K}$ above the outside face. The wall is $L = 0.25\ \text{m}$ thick
+  with $k = 1.0\ \text{W/(m·K)}$ and a face of $A = 4\ \text{m}^2$. Find the heat loss through the
+  wall, in kW.
+answer:
+  value: 9.6
+  unit: kW
+  tolerance: 0.05
+model: '$\dot{Q} = \frac{k A \Delta T}{L} = \frac{1.0 \times 4 \times 600}{0.25} = 9600\ \text{W} = 9.6\ \text{kW}$'

@@ -1,0 +1,11 @@
+/* Course pads: the only per-Course colour. A pad supplies a value for every slot in DESIGN.md;
+   the roles never move. v0 carries the reference pad; the catalogue and builder come with pads. */
+:root[data-pad="green"] {
+  --pad-desk: #cfdcc2;
+  --pad-sheet: #e6efdc;
+  --pad-grid-fine: #cadbbb;
+  --pad-grid-major: #b9cea7;
+  --pad-print: #2e5a38;
+  --pad-muted: #4f5b4b;
+  --pad-shadow: 30 45 28;
+}

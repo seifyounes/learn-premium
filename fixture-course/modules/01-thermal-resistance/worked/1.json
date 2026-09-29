@@ -1,0 +1,21 @@
+{
+  "code": "W01.1",
+  "title": "Heat loss through a composite wall",
+  "statement": "A wall of area $A = 1\\ \\text{m}^2$ is plaster, brick and insulation in series. The inside face is at $20\\ ^\\circ\\text{C}$ and the outside face at $-5\\ ^\\circ\\text{C}$. Find the heat loss $\\dot{Q}$.",
+  "table": {
+    "caption": "Layer resistances, $R = \\frac{L}{kA}$",
+    "columns": [
+      { "label": "Layer" },
+      { "label": "$L$", "unit": "m" },
+      { "label": "$k$", "unit": "W/(m·K)" },
+      { "label": "$R$", "unit": "K/W" }
+    ],
+    "rows": [
+      ["Plaster", "0.02", "0.5", "0.04"],
+      ["Brick", "0.20", "0.8", "0.25"],
+      ["Insulation", "0.05", "0.04", "1.25"],
+      ["Total", "", "", "1.54"]
+    ]
+  },
+  "answer": "$\\dot{Q} = \\frac{\\Delta T}{R_\\text{total}} = \\frac{25\\ \\text{K}}{1.54\\ \\text{K/W}} \\approx 16.2\\ \\text{W}$"
+}
