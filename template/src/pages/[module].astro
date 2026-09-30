@@ -77,7 +77,7 @@ const practice = await moduleEntries("practice", module.id);
     </h2>
     {worked.map(({ data: w }) => (
       <article class="mbe-10" data-artefact={w.artefact.kind}>
-        <WorkedSheet client:visible sheet={toSheet(w, prose)}>
+        <WorkedSheet client:visible sheet={toSheet(w, prose)} topicHtml={prose(module.entry.data.title)}>
           <GivenBox statement={w.statement} given={w.given} />
         </WorkedSheet>
       </article>

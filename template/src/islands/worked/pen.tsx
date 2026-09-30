@@ -2,6 +2,7 @@
 // appear instantly when `draw` is false (going back, reduced motion).
 import { motion } from "motion/react";
 import type { CSSProperties } from "react";
+import { IN_OUT_SINE, MARK_DRAW, TICK_DRAW } from "./timing.ts";
 
 /** A loose loop drawn around a value, overshooting where the pen closes it. */
 const RING = "M 16 7 C 42 -1 88 1 96 17 C 101 31 72 39 46 38 C 17 37 1 30 4 18 C 6 9 24 3 44 4";
@@ -34,7 +35,7 @@ export function PenRing({ draw, delay = 0, className = "", style }: RingProps) {
         vectorEffect="non-scaling-stroke"
         initial={draw ? { pathLength: 0 } : false}
         animate={{ pathLength: 1 }}
-        transition={{ duration: 0.52, ease: "easeInOut", delay }}
+        transition={{ duration: MARK_DRAW, ease: IN_OUT_SINE, delay }}
       />
     </svg>
   );
@@ -53,7 +54,7 @@ export function DoneTick({ draw }: { draw: boolean }) {
         strokeLinejoin="round"
         initial={draw ? { pathLength: 0 } : false}
         animate={{ pathLength: 1 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
+        transition={{ duration: TICK_DRAW, ease: "easeOut" }}
       />
     </svg>
   );

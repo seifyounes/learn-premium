@@ -19,9 +19,11 @@ A Worked example renders as one solved sheet (`src/islands/WorkedSheet.tsx`, a R
 title block with the step counter and the try-first toggle, the Given box, the steps margin (a
 step strip under 900px), the solving table with the step note below it, and the question figure
 pinned beside it (behind Table | Plot tabs under 900px). The page builds the sheet at build time
-(`toSheet` in `src/worked/sheet.ts`, prose already rendered to paper math); the island renders any
-step straight from `stateAt`, so going back is an instant redraw. Values land in the example's
-fill order, red-pen marks draw after them, and reduced motion makes every change instant.
+(`toSheet` in `src/worked/sheet.ts`, prose already rendered to paper math); the island is a thin
+view over two pure modules: `stateAt` (what is on the sheet at a step) and `src/worked/stepping.ts`
+(moving through it: going back redraws at once, try-first holds a step's values back). Values land
+in the example's fill order, red-pen marks draw after them (`src/islands/worked/timing.ts`), and
+reduced motion makes every change instant.
 
 ## Pads
 

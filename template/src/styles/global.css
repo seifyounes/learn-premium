@@ -57,6 +57,11 @@
   --text-unit: 14px;
   --text-quantity-phone: 15px;
   --text-quantity-phone--line-height: 1;
+  /* Quantity large in the worked title block (the step counter): 19–21px. */
+  --text-quantity-title: 21px;
+  --text-quantity-title--line-height: 1;
+  --text-quantity-title-phone: 19px;
+  --text-quantity-title-phone--line-height: 1;
 
   --spacing-grid-minor: 20px;
   --spacing-grid-major: 100px;
@@ -183,13 +188,37 @@
     order: 1;
     grid-column: 1 / -1;
   }
+  /* The narrowest phones give the mode its own row, under the title. */
+  @media (width < 380px) {
+    .worked-title-block {
+      grid-template-columns: repeat(2, auto);
+    }
+    .worked-mode {
+      order: 2;
+      grid-column: 1 / -1;
+    }
+  }
+  /* A table taller than the room beside the step note scrolls in its own box, header kept, so the
+     note and Next stay on screen (the Artefact Stays Rule). */
+  .table-box {
+    max-block-size: 42dvh;
+    overflow: auto;
+  }
+  .table-box thead th {
+    position: sticky;
+    inset-block-start: 0;
+    background: var(--color-sheet);
+  }
   @media (width >= 900px) {
     .worked-title-block {
-      grid-template-columns: 2.9fr repeat(3, auto);
+      grid-template-columns: 1fr 2.9fr repeat(3, auto);
     }
     .worked-title {
       order: 0;
       grid-column: auto;
+    }
+    .table-box {
+      max-block-size: 48dvh;
     }
   }
 

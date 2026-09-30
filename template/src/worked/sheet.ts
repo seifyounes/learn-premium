@@ -3,11 +3,14 @@
 // so going back is a fresh render of the earlier step, never an undo.
 import type { z } from "astro/zod";
 import type { FILL_ORDERS, worked } from "../content/contract.ts";
+import { parseCell } from "./cells.ts";
 
 export type Worked = z.output<typeof worked>;
 export type FillOrder = (typeof FILL_ORDERS)[number];
 type Plot = NonNullable<Worked["figure"]>;
 type PlotElement = Plot["elements"][number];
+/** Which side of its mark a label sits on; `start` and `end` run along the x axis. */
+export type LabelSide = Extract<PlotElement, { kind: "point" }>["side"];
 
 export interface AxisData {
   labelHtml: string;
@@ -18,7 +21,7 @@ export interface AxisData {
 }
 
 export type ElementData =
-  | { id: string; kind: "point"; at: [number, number]; labelHtml?: string; side: "above" | "below" | "start" | "end" }
+  | { id: string; kind: "point"; at: [number, number]; labelHtml?: string; side: LabelSide }
   | { id: string; kind: "line"; through: [number, number][]; labelHtml?: string }
   | { id: string; kind: "guide"; x: number; labelHtml?: string };
 
@@ -53,16 +56,6 @@ export interface SheetData {
   steps: StepData[];
   answerHtml: string;
 }
-
-/** `D2` → row 1, column 3 (both counted from 0). */
-function parseCell(ref: string): { row: number; col: number } {
-  const match = /^([A-Z])(\d+)$/.exec(ref);
-  if (!match?.[1] || !match[2]) throw new Error(`"${ref}" is not a cell reference`);
-  return { row: Number(match[2]) - 1, col: match[1].charCodeAt(0) - 65 };
-}
-
-/** Row and column counted from 0 → the cell's name, e.g. (1, 3) → `D2`. */
-export const cellAt = (row: number, col: number) => `${String.fromCharCode(65 + col)}${row + 1}`;
 
 /** Cells in the order a hand writes them: column by column top to bottom, or row by row. */
 export function handOrder(refs: readonly string[], order: FillOrder): string[] {
@@ -121,6 +114,7 @@ export function toSheet(example: Worked, html: (prose: string) => string): Sheet
     ...(unit === undefined ? {} : { unitHtml: html(unit) }),
   });
   const label = (text: string | undefined) => (text === undefined ? {} : { labelHtml: html(text) });
+  const axis = (a: Plot["x"]): AxisData => ({ ...withUnit(a), min: a.min, max: a.max, step: a.step });
   const element = (e: PlotElement): ElementData => {
     const { label: text, ...rest } = e;
     return { ...rest, ...label(text) };
@@ -140,8 +134,8 @@ export function toSheet(example: Worked, html: (prose: string) => string): Sheet
       : {
           figure: {
             captionHtml: html(figure.caption),
-            x: { ...withUnit(figure.x), min: figure.x.min, max: figure.x.max, step: figure.x.step },
-            y: { ...withUnit(figure.y), min: figure.y.min, max: figure.y.max, step: figure.y.step },
+            x: axis(figure.x),
+            y: axis(figure.y),
             elements: figure.elements.map(element),
             question: figure.question,
           },
