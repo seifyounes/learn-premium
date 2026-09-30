@@ -27,6 +27,7 @@
     "culori": "4.0.2",
     "hast-util-from-html": "2.0.3",
     "katex": "0.18.9",
+    "motion": "13.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "remark-math": "6.0.0",

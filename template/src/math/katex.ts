@@ -104,10 +104,24 @@ export function renderProse(text: string, locate: (offset: number) => SourceLoca
     onFormula(error);
     return "";
   }
-  return segments
-    .map((s) => (s.kind === "text" ? escapeHtml(s.text) : checkedTex(s.tex, s.display, locate(s.offset), onFormula)))
-    .join("");
+  let html = "";
+  let carried = "";
+  for (const [i, s] of segments.entries()) {
+    if (s.kind === "text") {
+      html += escapeHtml(s.text.slice(carried.length));
+      carried = "";
+      continue;
+    }
+    const math = checkedTex(s.tex, s.display, locate(s.offset), onFormula);
+    // Punctuation written straight after inline math stays on its line, as it would on paper.
+    const next = segments[i + 1];
+    carried = (!s.display && next?.kind === "text" && TRAILING_PUNCTUATION.exec(next.text)?.[0]) || "";
+    html += carried ? `<span class="whitespace-nowrap">${math}${escapeHtml(carried)}</span>` : math;
+  }
+  return html;
 }
+
+const TRAILING_PUNCTUATION = /^[.,;:!?)\]]+/;
 
 /** `renderTex`, but with `onFormula` given a bad formula is reported and renders as nothing. */
 export function checkedTex(tex: string, displayMode: boolean, at: SourceLocation, onFormula?: OnFormula): string {

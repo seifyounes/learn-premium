@@ -1,0 +1,37 @@
+---
+import { prose } from "../content/course";
+
+/** A Worked example's pencil-ruled Given box: the statement and the given data. Collapses on phones. */
+interface Props {
+  statement: string;
+  given: string[];
+}
+const { statement, given } = Astro.props;
+---
+
+<details class="given-box">
+  <summary class="label-action text-[14px]">
+    Given
+    <svg viewBox="0 0 16 16" class="given-chevron size-4" aria-hidden="true">
+      <path
+        d="M3 6l5 5 5-5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      ></path>
+    </svg>
+  </summary>
+  <div class="given-body">
+    <span class="field-label mbe-1">Given</span>
+    <p class="max-w-[68ch]" set:html={prose(statement)} />
+    {given.length > 0 && (
+      <ul class="mbs-2 flex flex-wrap gap-x-6 gap-y-1 text-graphite">
+        {given.map((g) => (
+          <li set:html={prose(g)} />
+        ))}
+      </ul>
+    )}
+  </div>
+</details>

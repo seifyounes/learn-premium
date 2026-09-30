@@ -13,6 +13,16 @@ the page templates place the components.
 Every file is read by `src/content/loaders.ts`. Bad LaTeX anywhere, or content that breaks the
 contract, fails the build and names the file (and, for LaTeX, the line).
 
+## Worked example sheet
+
+A Worked example renders as one solved sheet (`src/islands/WorkedSheet.tsx`, a React island):
+title block with the step counter and the try-first toggle, the Given box, the steps margin (a
+step strip under 900px), the solving table with the step note below it, and the question figure
+pinned beside it (behind Table | Plot tabs under 900px). The page builds the sheet at build time
+(`toSheet` in `src/worked/sheet.ts`, prose already rendered to paper math); the island renders any
+step straight from `stateAt`, so going back is an instant redraw. Values land in the example's
+fill order, red-pen marks draw after them, and reduced motion makes every change instant.
+
 ## Pads
 
 A Course's pad is one value in `course.yaml`: a catalogue key (`green`, `bluegrey`, `teal`,
@@ -48,13 +58,14 @@ Every finding either blocks or raises a Checkpoint item; there is no warning lev
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
 A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
-| Gate                 | Points         | Checks                                                                           |
-| -------------------- | -------------- | -------------------------------------------------------------------------------- |
-| `content-contract`   | job, deploy    | every content file against the Zod schemas                                       |
-| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                  |
-| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included            |
-| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it    |
-| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside |
+| Gate                 | Points         | Checks                                                                            |
+| -------------------- | -------------- | --------------------------------------------------------------------------------- |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas                                        |
+| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                   |
+| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first |
+| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included             |
+| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it     |
+| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside  |
 
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).
