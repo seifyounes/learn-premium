@@ -1,0 +1,44 @@
+# Checks the skill's Node scripts (the Build ledger commands) on every change to them. Windows too:
+# the Owner's machine builds, and file locking and renames differ there.
+name: Skill CI
+
+on:
+  push:
+    paths:
+      - "skill/**"
+      - ".github/workflows/skill-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skill-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: skill
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: skill/.node-version
+          cache: npm
+          cache-dependency-path: skill/package-lock.json
+      - run: npm ci
+      - name: Format
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint -- --max-warnings 0
+      - name: Type check
+        run: npm run typecheck
+      - name: Tests (Vitest, seam 2)
+        run: npm test
