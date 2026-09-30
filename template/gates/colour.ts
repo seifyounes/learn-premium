@@ -101,8 +101,11 @@ function cssRules(css: string): { selector: string; body: string }[] {
   }));
 }
 
-/** A rule scoped inside a framed tool, which keeps its own meaning colours. */
-const inFramedTool = (selector: string) => /\[data-framed-tool\b/.test(selector);
+/**
+ * A rule scoped inside a framed tool, which keeps its own meaning colours: every selector in its
+ * list, so `[data-framed-tool] .hot, .plot-line` still paints the sheet.
+ */
+const inFramedTool = (selector: string) => selector.split(",").every((one) => /\[data-framed-tool\b/.test(one));
 
 export const redHueRule: Gate = {
   id: "red-hue-rule",

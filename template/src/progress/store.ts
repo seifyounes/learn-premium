@@ -3,8 +3,10 @@
 // the site works the same. Every change is announced so the rail can mark sections done.
 import { emptyProgress, parseProgress, type Progress } from "./progress.ts";
 
-const KEY = "learn-premium:progress";
-const CHANGED = "learn-premium:progress";
+/** Where progress is stored. */
+const STORAGE_KEY = "learn-premium:progress";
+/** The event announcing a change on this page. */
+const CHANGED = "learn-premium:progress-changed";
 
 /** Progress for this page when storage can't hold it. */
 let unsaved: Progress | undefined;
@@ -12,7 +14,7 @@ let unsaved: Progress | undefined;
 export function readProgress(): Progress {
   if (unsaved) return unsaved;
   try {
-    return parseProgress(localStorage.getItem(KEY));
+    return parseProgress(localStorage.getItem(STORAGE_KEY));
   } catch {
     return emptyProgress();
   }
@@ -21,7 +23,7 @@ export function readProgress(): Progress {
 export function updateProgress(change: (p: Progress) => Progress): void {
   const next = change(readProgress());
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     unsaved = undefined;
   } catch {
     unsaved = next;
@@ -32,7 +34,7 @@ export function updateProgress(change: (p: Progress) => Progress): void {
 /** Calls `listener` whenever progress changes, here or in another tab. */
 export function onProgress(listener: () => void): () => void {
   const onStorage = (event: StorageEvent) => {
-    if (event.key === KEY || event.key === null) listener();
+    if (event.key === STORAGE_KEY || event.key === null) listener();
   };
   window.addEventListener(CHANGED, listener);
   window.addEventListener("storage", onStorage);

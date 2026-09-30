@@ -19,6 +19,9 @@ export function mediaFiles(m: Media): string[] {
   );
 }
 
+/** How a gate or the build names a media file its Module's `media/` folder doesn't hold. */
+export const notInMediaFolder = (file: string) => `names media/${file}, which isn't in the Module's media/ folder`;
+
 /** The files a Module's media names that its `media/` folder doesn't hold. */
 export const missingMediaFiles = (contentDir: string, module: string, m: Media) =>
   mediaFiles(m).filter((file) => !existsSync(join(mediaFolder(contentDir, module), file)));

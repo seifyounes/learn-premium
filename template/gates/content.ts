@@ -8,7 +8,7 @@ import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
 import { where, type MathError } from "../src/math/katex.ts";
 import { paperMathProcessor } from "../src/math/markdown.ts";
-import { missingMediaFiles, type Media } from "../src/media/media.ts";
+import { missingMediaFiles, notInMediaFolder, type Media } from "../src/media/media.ts";
 import { courseFiles, courseWith, slashes, type CourseFile } from "./course-files.ts";
 import type { Finding, Gate, GateRun } from "./runner.ts";
 
@@ -66,7 +66,7 @@ export const contentContract: Gate = {
           findings.push({
             outcome: "block",
             at: file.entry,
-            message: `names media/${missing}, which isn't in the Module's media/ folder`,
+            message: notInMediaFolder(missing),
           });
         }
       }

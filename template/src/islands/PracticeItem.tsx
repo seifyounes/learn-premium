@@ -86,7 +86,7 @@ function Numeric({
   const unit = unitHtml && <span className="answer-unit" dangerouslySetInnerHTML={{ __html: unitHtml }} />;
   return (
     <>
-      <form className="answer-form" onSubmit={check}>
+      <form className="answer-box" onSubmit={check}>
         <label className="field-label" htmlFor={id}>
           Your answer
         </label>
@@ -159,21 +159,23 @@ function Prose({
   };
   return (
     <>
-      <label className="field-label block mbe-1" htmlFor={id}>
-        Your answer
-      </label>
-      <textarea
-        id={id}
-        className="answer-text"
-        rows={4}
-        value={written}
-        readOnly={shown}
-        onChange={(e) => setWritten(e.target.value)}
-      />
+      <div className="answer-box">
+        <label className="field-label" htmlFor={id}>
+          Your answer
+        </label>
+        <textarea
+          id={id}
+          className="answer-text"
+          rows={4}
+          value={written}
+          readOnly={shown}
+          onChange={(e) => setWritten(e.target.value)}
+        />
+      </div>
       {!shown && (
         <button
           type="button"
-          className="button-print label-action mbs-2"
+          className="button-print label-action"
           disabled={!ready || written.trim() === ""}
           onClick={() => {
             setShown(true);
