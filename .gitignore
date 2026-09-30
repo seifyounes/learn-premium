@@ -13,3 +13,5 @@ research/scratch/
 __pycache__/
 .venv/
 .pytest_cache/
+# The Fixture Course's Gate reports; a Course project commits its own.
+fixture-course/build-records/

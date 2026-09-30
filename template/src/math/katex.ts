@@ -10,16 +10,28 @@ export interface SourceLocation {
 }
 
 export class MathError extends Error {
-  constructor(
-    readonly at: SourceLocation,
-    readonly tex: string,
-    reason: string,
-  ) {
-    const where = at.column === undefined ? `${at.file}:${at.line}` : `${at.file}:${at.line}:${at.column}`;
-    super(`${where} bad LaTeX: ${reason}\n  in: ${tex}`);
+  readonly at: SourceLocation;
+  readonly tex: string;
+  readonly reason: string;
+
+  constructor(at: SourceLocation, tex: string, reason: string) {
+    super(`${where(at)} bad LaTeX: ${reason}\n  in: ${tex}`);
     this.name = "MathError";
+    this.at = at;
+    this.tex = tex;
+    this.reason = reason;
   }
 }
+
+/** `file:line[:column]`, the way every error names a place in a Course's source. */
+export const where = (at: SourceLocation) =>
+  at.column === undefined ? `${at.file}:${at.line}` : `${at.file}:${at.line}:${at.column}`;
+
+/**
+ * Called once per formula, with its error if it has one. Given one, the math step collects instead
+ * of throwing: a bad formula renders as nothing and the rest carry on (the KaTeX gate's mode).
+ */
+export type OnFormula = (error: MathError | undefined) => void;
 
 export function renderTex(tex: string, displayMode: boolean, at: SourceLocation): string {
   try {
@@ -84,12 +96,29 @@ const escapeHtml = (s: string) =>
  * Renders one prose field (plain text with math) to HTML. `locate` maps an offset in the string
  * back to where it sits in the source file, so an error names the real line.
  */
-export function renderProse(text: string, locate: (offset: number) => SourceLocation): string {
+export function renderProse(text: string, locate: (offset: number) => SourceLocation, onFormula?: OnFormula): string {
   const segments = splitProse(text);
   if (!Array.isArray(segments)) {
-    throw new MathError(locate(segments.unclosedAt), text.slice(segments.unclosedAt), "unclosed $");
+    const error = new MathError(locate(segments.unclosedAt), text.slice(segments.unclosedAt), "unclosed $");
+    if (!onFormula) throw error;
+    onFormula(error);
+    return "";
   }
   return segments
-    .map((s) => (s.kind === "text" ? escapeHtml(s.text) : renderTex(s.tex, s.display, locate(s.offset))))
+    .map((s) => (s.kind === "text" ? escapeHtml(s.text) : checkedTex(s.tex, s.display, locate(s.offset), onFormula)))
     .join("");
+}
+
+/** `renderTex`, but with `onFormula` given a bad formula is reported and renders as nothing. */
+export function checkedTex(tex: string, displayMode: boolean, at: SourceLocation, onFormula?: OnFormula): string {
+  if (!onFormula) return renderTex(tex, displayMode, at);
+  try {
+    const html = renderTex(tex, displayMode, at);
+    onFormula(undefined);
+    return html;
+  } catch (error) {
+    if (!(error instanceof MathError)) throw error;
+    onFormula(error);
+    return "";
+  }
 }
