@@ -84,6 +84,7 @@ remaining capacity, and any limit in force.
 ## Reading Materials
 
 Every Blind reader reads a PDF or .pptx through the Materials reader (`scripts/reader/README.md`),
-never through a PDF's text layer: it renders the pages it looks at into the Private folder, fails
-loudly on a render with no pixels, and transcribes a deck's narration there. Give a Blind reader
+never through a PDF's text layer: it renders the pages and slides it looks at into the Private
+folder (slides through PowerPoint, which the machine needs), fails loudly on a render with no
+pixels, and transcribes a deck's narration there. Give a Blind reader
 only the Private folder's path for what it writes.

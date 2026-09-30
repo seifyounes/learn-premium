@@ -218,9 +218,9 @@ output, so their numbers can be compared.
 _Avoid_: extractor, OCR agent
 
 **Materials reader**:
-The tool every Blind reader reads Materials through: it renders PDF pages and looks at each render,
-reads a .pptx deck's slides, narration and embedded video, and transcribes the narration locally,
-writing all of it into the Private folder.
+The tool every Blind reader reads Materials through: it renders PDF pages and .pptx slides (through
+PowerPoint) and looks at each render, reads a deck's text, notes, narration and embedded video, and
+transcribes the narration locally, writing all of it into the Private folder.
 _Avoid_: parser, extractor, PDF text layer (as a way to read Materials)
 
 **Checkpoint**:
