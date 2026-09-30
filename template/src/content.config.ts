@@ -1,46 +1,19 @@
 import { defineCollection } from "astro:content";
 import { resolve } from "node:path";
-import * as contract from "./content/contract";
-import { markdownLoader, structuredLoader, withoutExtension } from "./content/loaders";
+import { COLLECTIONS, type CollectionLayout } from "./content/layout";
+import { markdownLoader, structuredLoader } from "./content/loaders";
 
 // The Course's content folder sits beside the template layer. In this repo that is the Fixture
 // Course; CONTENT_DIR points the build at any other Course's content.
 const CONTENT_DIR = resolve(process.cwd(), process.env.CONTENT_DIR ?? "../fixture-course");
 
-/** `modules/01-slug/worked/1.json` → `01-slug/worked/1` */
-const moduleEntryId = (entry: string) => withoutExtension(entry).replace(/^modules\//, "");
+const loader = ({ pattern, format, generateId }: CollectionLayout) =>
+  (format === "markdown" ? markdownLoader : structuredLoader)({ base: CONTENT_DIR, pattern, generateId });
 
 export const collections = {
-  course: defineCollection({
-    loader: structuredLoader({ base: CONTENT_DIR, pattern: "course.yaml", generateId: () => "course" }),
-    schema: contract.course,
-  }),
-  modules: defineCollection({
-    loader: structuredLoader({
-      base: CONTENT_DIR,
-      pattern: "modules/*/module.yaml",
-      generateId: (entry) => entry.split("/")[1] ?? entry,
-    }),
-    schema: contract.module,
-  }),
-  beats: defineCollection({
-    loader: markdownLoader({ base: CONTENT_DIR, pattern: "modules/*/summary/*.md", generateId: moduleEntryId }),
-    schema: contract.beat,
-  }),
-  worked: defineCollection({
-    loader: structuredLoader({
-      base: CONTENT_DIR,
-      pattern: "modules/*/worked/*.{json,yaml,yml}",
-      generateId: moduleEntryId,
-    }),
-    schema: contract.worked,
-  }),
-  practice: defineCollection({
-    loader: structuredLoader({
-      base: CONTENT_DIR,
-      pattern: "modules/*/practice/*.{json,yaml,yml}",
-      generateId: moduleEntryId,
-    }),
-    schema: contract.practice,
-  }),
+  course: defineCollection({ loader: loader(COLLECTIONS.course), schema: COLLECTIONS.course.schema }),
+  modules: defineCollection({ loader: loader(COLLECTIONS.modules), schema: COLLECTIONS.modules.schema }),
+  beats: defineCollection({ loader: loader(COLLECTIONS.beats), schema: COLLECTIONS.beats.schema }),
+  worked: defineCollection({ loader: loader(COLLECTIONS.worked), schema: COLLECTIONS.worked.schema }),
+  practice: defineCollection({ loader: loader(COLLECTIONS.practice), schema: COLLECTIONS.practice.schema }),
 };

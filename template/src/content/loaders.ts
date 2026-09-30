@@ -10,7 +10,7 @@ import { globSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isScalar, LineCounter, parseDocument, visit } from "yaml";
-import { renderProse, type SourceLocation } from "../math/katex";
+import { renderProse, type OnFormula, type SourceLocation } from "../math/katex.ts";
 
 export interface CourseLoaderOptions {
   /** Absolute path of the Course's content folder. */
@@ -18,10 +18,8 @@ export interface CourseLoaderOptions {
   /** Glob, relative to `base`, of the files this collection holds. */
   pattern: string;
   /** The entry id for a file path relative to `base` (forward slashes, extension kept). */
-  generateId?: (entry: string) => string;
+  generateId: (entry: string) => string;
 }
-
-export const withoutExtension = (entry: string) => entry.replace(/\.(md|json|ya?ml)$/, "");
 const slashes = (path: string) => path.replace(/\\/g, "/");
 
 /** A collection of JSON or YAML files. */
@@ -55,7 +53,7 @@ type LoadedEntry = Pick<Parameters<LoaderContext["store"]["set"]>[0], "data" | "
 
 function courseLoader(
   name: string,
-  { base, pattern, generateId = withoutExtension }: CourseLoaderOptions,
+  { base, pattern, generateId }: CourseLoaderOptions,
   read: (file: SourceFile) => Promise<LoadedEntry>,
 ): Loader {
   return {
@@ -96,8 +94,11 @@ export function splitFrontmatter(source: string): { frontmatter?: string; body: 
   return { frontmatter: `\n${match[1] ?? ""}`, body: blank + source.slice(block.length) };
 }
 
-/** Parses JSON or YAML, runs every string through the Paper Math step, and returns the data. */
-export function readStructured(source: string, file: string): Record<string, unknown> {
+/**
+ * Parses JSON or YAML, runs every string through the Paper Math step, and returns the data. Bad
+ * syntax always throws; bad math throws unless `onFormula` collects it.
+ */
+export function readStructured(source: string, file: string, onFormula?: OnFormula): Record<string, unknown> {
   const lines = new LineCounter();
   const doc = parseDocument(source, { lineCounter: lines, prettyErrors: false });
   const syntax = doc.errors[0];
@@ -114,7 +115,7 @@ export function readStructured(source: string, file: string): Record<string, unk
         const { line, col } = lines.linePos(findInSource(source, start, value, offset));
         return { file, line, column: col };
       };
-      renderProse(value, locate);
+      renderProse(value, locate, onFormula);
     },
   });
   return (doc.toJS() ?? {}) as Record<string, unknown>;

@@ -38,7 +38,23 @@ jobs:
         run: npm run lint -- --max-warnings 0
       - name: Type check (astro check)
         run: npm run check
-      - name: Tests (Vitest; builds the Fixture Course and its negative controls)
+      - name: Tests (Vitest; builds the Fixture Course, and runs the gate runner and its negative controls)
         run: npm test
       - name: Build the Fixture Course
         run: npm run build
+      # Every gate point through the one entry. Each writes a Gate report bound to this commit and
+      # exits red on a block, a crash, or a gate that covered nothing.
+      - name: Gates per job and per Module
+        run: |
+          for dir in ../fixture-course/modules/*/; do
+            module=$(basename "$dir")
+            npm run gates -- run --point job --module "$module"
+            npm run gates -- run --point module --module "$module"
+          done
+      - name: Gates per deploy
+        run: |
+          npm run gates -- run --point deploy
+          npm run gates -- verify --point deploy
+      # A negative control that passes means its gate can't see its defect: CI goes red.
+      - name: Negative controls
+        run: npm run gates -- controls

@@ -3,28 +3,30 @@
 import type { Element, ElementContent, Root, RootContent } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import type { VFile } from "vfile";
-import { renderTex } from "./katex";
+import { checkedTex, type OnFormula } from "./katex.ts";
 
-export default function rehypePaperMath() {
+export interface PaperMathOptions {
+  /** Collect instead of throwing (see `OnFormula`). */
+  onFormula?: OnFormula;
+}
+
+export default function rehypePaperMath({ onFormula }: PaperMathOptions = {}) {
   return (tree: Root, file: VFile) => {
-    replaceMath(tree, file);
+    replaceMath(tree, file, onFormula);
   };
 }
 
-function replaceMath(parent: Root | Element, file: VFile): void {
+function replaceMath(parent: Root | Element, file: VFile, onFormula: OnFormula | undefined): void {
   parent.children = parent.children.flatMap((child: RootContent): RootContent[] => {
     if (child.type !== "element") return [child];
     const math = mathOf(child);
     if (!math) {
-      replaceMath(child, file);
+      replaceMath(child, file, onFormula);
       return [child];
     }
     const start = (math.node.position ?? child.position)?.start;
-    const html = renderTex(textOf(math.node), math.display, {
-      file: (file.path || "<markdown>").replace(/\\/g, "/"),
-      line: start?.line ?? 0,
-      column: start?.column,
-    });
+    const at = { file: (file.path || "<markdown>").replace(/\\/g, "/"), line: start?.line ?? 0, column: start?.column };
+    const html = checkedTex(textOf(math.node), math.display, at, onFormula);
     return fromHtml(html, { fragment: true }).children as ElementContent[];
   });
 }

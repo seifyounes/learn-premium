@@ -1,0 +1,221 @@
+// The gate runner: every gate plugs in here, and every gate point (per job, per Module, per
+// deploy) runs through `runGates`. A gate has two outcomes on a finding, block or Checkpoint item;
+// there is no warning level. A gate that didn't run, crashed or saw nothing counts as failed.
+//
+// The run leaves a Gate report bound to the exact commit it checked. `verifyReport` is the only
+// way to call a report green: it re-derives the verdict rather than trusting the report's own.
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { z } from "astro/zod";
+
+export const GATE_POINTS = ["job", "module", "deploy"] as const;
+export type GatePoint = (typeof GATE_POINTS)[number];
+
+export const OUTCOMES = ["block", "checkpoint"] as const;
+/** `block`: the job that made the problem fixes it. `checkpoint`: only the Owner can settle it. */
+export type Outcome = (typeof OUTCOMES)[number];
+
+export interface Finding {
+  outcome: Outcome;
+  message: string;
+  /** Where it sits: `file:line[:column]` for content, a route for a rendered page. */
+  at?: string;
+}
+
+/** What a gate is given to check. */
+export interface GateInput {
+  /** The Course's content folder. */
+  contentDir: string;
+  /** The built site, for gates that check rendered pages. */
+  distDir?: string;
+  /** Scope the check to one Module (its folder name); the whole Course when absent. */
+  module?: string;
+}
+
+export interface GateRun {
+  /** What the gate looked at, by kind (files, pages, formulas…). All zero means it saw nothing. */
+  coverage: Record<string, number>;
+  findings: Finding[];
+}
+
+/** Deliberately broken input the gate must block: proof it can see what it claims to check. */
+export interface NegativeControl {
+  defect: string;
+  /** Builds the broken input from the good one, writing any files under `scratch`. */
+  plant(good: GateInput, scratch: string): GateInput | Promise<GateInput>;
+}
+
+export interface Gate {
+  id: string;
+  /** One line: what the gate checks. */
+  checks: string;
+  points: readonly GatePoint[];
+  run(input: GateInput): Promise<GateRun>;
+  controls: readonly NegativeControl[];
+}
+
+const STATUSES = ["pass", "checkpoint", "block", "failed"] as const;
+export type GateStatus = (typeof STATUSES)[number];
+const GREEN_STATUSES: readonly GateStatus[] = ["pass", "checkpoint"];
+
+const finding = z.strictObject({ outcome: z.enum(OUTCOMES), message: z.string(), at: z.string().optional() });
+
+const gateResult = z.strictObject({
+  id: z.string(),
+  checks: z.string(),
+  status: z.enum(STATUSES),
+  coverage: z.record(z.string(), z.number()),
+  findings: z.array(finding),
+  /** Why a `failed` gate didn't run. */
+  error: z.string().optional(),
+});
+export type GateResult = z.infer<typeof gateResult>;
+
+const gateReport = z.strictObject({
+  report: z.literal("learn-premium gate report v1"),
+  commit: z.string().min(1),
+  /** Taken on uncommitted changes: bound to no commit, so never green. */
+  dirty: z.boolean(),
+  point: z.enum(GATE_POINTS),
+  module: z.string().optional(),
+  ranAt: z.string(),
+  green: z.boolean(),
+  gates: z.array(gateResult),
+  /** Every Checkpoint item the gates raised, for the Owner's batched Checkpoint. */
+  checkpointItems: z.array(finding.extend({ gate: z.string() })),
+});
+export type GateReport = z.infer<typeof gateReport>;
+
+export interface RunOptions {
+  point: GatePoint;
+  commit: string;
+  dirty?: boolean;
+  input: GateInput;
+  gates: readonly Gate[];
+}
+
+export async function runGates({ point, commit, dirty = false, input, gates }: RunOptions): Promise<GateReport> {
+  const results: GateResult[] = [];
+  for (const gate of gatesAt(point, gates)) results.push(await runGate(gate, input));
+  return {
+    report: "learn-premium gate report v1",
+    commit,
+    dirty,
+    point,
+    ...(input.module === undefined ? {} : { module: input.module }),
+    ranAt: new Date().toISOString(),
+    green: !dirty && results.length > 0 && results.every((r) => GREEN_STATUSES.includes(r.status)),
+    gates: results,
+    checkpointItems: results.flatMap((r) =>
+      r.findings.filter((f) => f.outcome === "checkpoint").map((f) => ({ gate: r.id, ...f })),
+    ),
+  };
+}
+
+export const gatesAt = (point: GatePoint, gates: readonly Gate[]) => gates.filter((g) => g.points.includes(point));
+
+async function runGate(gate: Gate, input: GateInput): Promise<GateResult> {
+  const base = { id: gate.id, checks: gate.checks };
+  let run: GateRun;
+  try {
+    run = await gate.run(input);
+  } catch (error) {
+    return { ...base, status: "failed", coverage: {}, findings: [], error: messageOf(error) };
+  }
+  const findings = [...run.findings];
+  if (!Object.values(run.coverage).some((n) => n > 0)) {
+    findings.push({ outcome: "block", message: "the gate covered nothing, so it can't pass" });
+  }
+  return { ...base, status: statusOf(findings), coverage: run.coverage, findings };
+}
+
+function statusOf(findings: readonly Finding[]): GateStatus {
+  if (findings.some((f) => f.outcome === "block")) return "block";
+  if (findings.length > 0) return "checkpoint";
+  return "pass";
+}
+
+const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+export interface ExpectedReport {
+  commit: string;
+  point: GatePoint;
+  module?: string;
+  /** Every gate the point must have run; one missing from the report counts as failed. */
+  gates: readonly Gate[];
+}
+
+/** Whether `report` proves `expected.commit` green at the gate point. Never trusts the report's own verdict. */
+export function verifyReport(report: unknown, expected: ExpectedReport): { green: boolean; problems: string[] } {
+  const parsed = gateReport.safeParse(report);
+  if (!parsed.success) return { green: false, problems: [`not a Gate report: ${z.prettifyError(parsed.error)}`] };
+  const r = parsed.data;
+  const problems: string[] = [];
+  if (r.commit !== expected.commit) problems.push(`the report checked commit ${r.commit}, not ${expected.commit}`);
+  if (r.dirty) problems.push("the report was taken on uncommitted changes");
+  if (r.point !== expected.point) problems.push(`the report is for the ${r.point} point, not ${expected.point}`);
+  if (r.module !== expected.module) {
+    problems.push(`the report is for ${r.module ?? "the whole Course"}, not ${expected.module ?? "the whole Course"}`);
+  }
+  const expectedGates = gatesAt(expected.point, expected.gates);
+  if (expectedGates.length === 0) problems.push(`no gate runs at the ${expected.point} point`);
+  for (const gate of expectedGates) {
+    const result = r.gates.find((g) => g.id === gate.id);
+    if (!result) problems.push(`gate "${gate.id}" did not run: failed`);
+    else if (!GREEN_STATUSES.includes(result.status)) problems.push(`gate "${gate.id}": ${result.status}`);
+  }
+  return { green: problems.length === 0, problems };
+}
+
+export interface ControlResult {
+  defect: string;
+  status: GateStatus;
+  /** The gate blocked the planted defect. Anything else, a crash included, is a miss. */
+  caught: boolean;
+  error?: string;
+}
+
+export interface ControlsReport {
+  /** Every gate passed its positive fixture, has a negative control, and blocked every one. */
+  ok: boolean;
+  gates: { id: string; positive: GateStatus; controls: ControlResult[] }[];
+}
+
+/** Runs every gate on the good input (its positive fixture) and on each of its negative controls. */
+export async function runControls({
+  input,
+  gates,
+}: {
+  input: GateInput;
+  gates: readonly Gate[];
+}): Promise<ControlsReport> {
+  const report: ControlsReport = { ok: true, gates: [] };
+  for (const gate of gates) {
+    const positive = (await runGate(gate, input)).status;
+    const controls: ControlResult[] = [];
+    for (const control of gate.controls) controls.push(await runControl(gate, control, input));
+    const ok = positive === "pass" && controls.length > 0 && controls.every((c) => c.caught);
+    report.ok &&= ok;
+    report.gates.push({ id: gate.id, positive, controls });
+  }
+  return report;
+}
+
+async function runControl(gate: Gate, control: NegativeControl, good: GateInput): Promise<ControlResult> {
+  const scratch = mkdtempSync(join(tmpdir(), `lp-control-${gate.id}-`));
+  try {
+    const broken = await control.plant(good, scratch);
+    const result = await runGate(gate, broken);
+    return {
+      defect: control.defect,
+      status: result.status,
+      caught: result.status === "block",
+      ...(result.error === undefined ? {} : { error: result.error }),
+    };
+  } catch (error) {
+    return { defect: control.defect, status: "failed", caught: false, error: messageOf(error) };
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
