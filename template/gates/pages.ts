@@ -16,14 +16,14 @@ const RAW_TEX = /\\[A-Za-z]+|\\[()[\]]|\$[^$]*[\\^_{}][^$]*\$/;
 const classesOf = (node: Element) => (node.properties.className as string[] | undefined) ?? [];
 
 /** The built site the gate input names; a page gate can't run without one. */
-function siteOf({ distDir }: GateInput): string {
+export function siteOf({ distDir }: GateInput): string {
   if (distDir === undefined) throw new Error("no built site given to scan (distDir)");
   if (!existsSync(distDir)) throw new Error(`the built site ${distDir} does not exist`);
   return distDir;
 }
 
 /** The built pages in scope: a Module's own route, or every page. */
-function sitePages(input: GateInput) {
+export function sitePages(input: GateInput) {
   const inScope = (entry: string) => input.module === undefined || entry.startsWith(`${input.module}/`);
   return filesIn(siteOf(input), "**/*.html", inScope).map((page) => ({
     route: `/${page.entry.replace(/(^|\/)index\.html$/, "$1")}`,
@@ -71,12 +71,12 @@ export const renderedPageScan: Gate = {
     {
       defect: "a KaTeX error span on a page",
       plant: (good, scratch) =>
-        siteWith(good, scratch, '<span class="katex-error" title="ParseError: planted">x</span>'),
+        siteWith(good, scratch, inMain('<span class="katex-error" title="ParseError: planted">x</span>')),
     },
     {
       defect: "raw TeX left in a page's prose",
       plant: (good, scratch) =>
-        siteWith(good, scratch, "<p>Planted: the rate is $\\dot{Q} = \\frac{\\Delta T}{R}$.</p>"),
+        siteWith(good, scratch, inMain("<p>Planted: the rate is $\\dot{Q} = \\frac{\\Delta T}{R}$.</p>")),
     },
     {
       defect: "a KaTeX error inside an island's props, where a hidden answer waits",
@@ -84,7 +84,9 @@ export const renderedPageScan: Gate = {
         siteWith(
           good,
           scratch,
-          '<astro-island props="{&quot;modelHtml&quot;:[0,&quot;&lt;span class=\\&quot;katex-error\\&quot;&gt;x&lt;/span&gt;&quot;]}"></astro-island>',
+          inMain(
+            '<astro-island props="{&quot;modelHtml&quot;:[0,&quot;&lt;span class=\\&quot;katex-error\\&quot;&gt;x&lt;/span&gt;&quot;]}"></astro-island>',
+          ),
         ),
     },
   ],
@@ -94,7 +96,7 @@ export const renderedPageScan: Gate = {
  * Every string in an island's serialised props: what the island renders once it hydrates. A
  * Practice item's model answer reaches the page only this way, never in the page's own markup.
  */
-function islandStrings(island: Element, block: (message: string) => void): string[] {
+export function islandStrings(island: Element, block: (message: string) => void): string[] {
   const props = island.properties.props;
   if (typeof props !== "string") return [];
   let parsed: unknown;
@@ -122,8 +124,8 @@ function snippet(text: string, at: number): string {
     .trim()}${at + 40 < text.length ? "…" : ""}`;
 }
 
-/** A scratch copy of the built site's pages, with `html` planted at the end of the first page's `<main>`. */
-function siteWith(good: GateInput, scratch: string, html: string): GateInput {
+/** A scratch copy of the built site's pages, with the first page changed by `edit`. */
+export function siteWith(good: GateInput, scratch: string, edit: (page: string, route: string) => string): GateInput {
   const first = sitePages(good)[0];
   if (!first) throw new Error("no built page to plant a negative control in");
   const distDir = join(scratch, "site");
@@ -133,7 +135,11 @@ function siteWith(good: GateInput, scratch: string, html: string): GateInput {
   });
   const path = join(distDir, first.entry);
   const page = readFileSync(path, "utf8");
-  if (!page.includes("</main>")) throw new Error(`${first.route} has no <main> to plant a negative control in`);
-  writeFileSync(path, page.replace("</main>", `${html}</main>`));
+  const edited = edit(page, first.route);
+  if (edited === page) throw new Error(`${first.route} had nothing to plant a negative control in`);
+  writeFileSync(path, edited);
   return { ...good, distDir };
 }
+
+/** An edit that plants `html` at the end of the page's `<main>`, the sheet. */
+export const inMain = (html: string) => (page: string) => page.replace("</main>", `${html}</main>`);

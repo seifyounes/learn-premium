@@ -1,11 +1,8 @@
 import { defineCollection } from "astro:content";
-import { resolve } from "node:path";
-import { COLLECTIONS, type CollectionLayout } from "./content/layout";
+import { buildContentDir, COLLECTIONS, type CollectionLayout } from "./content/layout";
 import { markdownLoader, structuredLoader } from "./content/loaders";
 
-// The Course's content folder sits beside the template layer. In this repo that is the Fixture
-// Course; CONTENT_DIR points the build at any other Course's content.
-const CONTENT_DIR = resolve(process.cwd(), process.env.CONTENT_DIR ?? "../fixture-course");
+const CONTENT_DIR = buildContentDir();
 
 const loader = ({ pattern, format, generateId }: CollectionLayout) =>
   (format === "markdown" ? markdownLoader : structuredLoader)({ base: CONTENT_DIR, pattern, generateId });

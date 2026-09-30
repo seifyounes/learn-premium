@@ -1,8 +1,7 @@
 @import "tailwindcss";
-@import "./pads.css";
 
-/* DESIGN.md tokens, always emitted as CSS variables. Pad slots come from the Course's pad; the inks
-   are fixed on every Course.
+/* DESIGN.md tokens, always emitted as CSS variables. Pad slots read the `--pad-*` variables the
+   layout sets on <html> from the Course's pad (src/pads); the inks are fixed on every Course.
    Tailwind's default palette, fonts and radii are cleared so only the pad's tokens exist. */
 @theme static {
   --color-*: initial;

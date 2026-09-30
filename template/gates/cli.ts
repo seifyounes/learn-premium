@@ -150,6 +150,7 @@ function printReport(report: GateReport, path: string) {
     const error = gate.error ? `: ${gate.error}` : "";
     console.log(`  ${gate.status.padEnd(10)} ${gate.id}${covered ? ` (${covered})` : ""}${error}`);
     for (const f of gate.findings) console.log(`    ${f.outcome}: ${f.at ? `${f.at} ` : ""}${f.message}`);
+    for (const fix of gate.fixes ?? []) console.log(`    fixed: ${fix}`);
   }
   console.log(`${report.green ? "green" : "red"}: report written to ${path}`);
 }
