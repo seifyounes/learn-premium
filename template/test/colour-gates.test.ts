@@ -148,6 +148,9 @@ describe("the colour gates on the Fixture Course", () => {
     expect(red.status).toBe("block");
     const framed = siteWith(build.outDir, head("[data-framed-tool] .wire-hot{stroke:#E0301E}"));
     expect((await runOne(redHueRule, { ...input, distDir: framed })).findings).toEqual([]);
+    // A sheet selector listed beside a framed one still paints the sheet.
+    const listed = siteWith(build.outDir, head("[data-framed-tool] .wire-hot, .plot-line{stroke:#E0301E}"));
+    expect((await runOne(redHueRule, { ...input, distDir: listed })).status).toBe("block");
   });
 
   it("the Red Hue Rule blocks a page whose stylesheet it can't read", async () => {

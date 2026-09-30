@@ -41,7 +41,14 @@ const watchUrl = (id: string, at?: string) =>
   )}
   {youtube.map((card) => (
     <article class="video-card" data-video-card={card.id}>
-      <a class="video-card-frame" href={watchUrl(card.id)} target="_blank" rel="noopener" data-video-play>
+      <a
+        class="video-card-frame"
+        href={watchUrl(card.id)}
+        target="_blank"
+        rel="noopener"
+        data-video-play
+        data-framed-tool="youtube"
+      >
         <img
           src={`https://i.ytimg.com/vi/${card.id}/hqdefault.jpg`}
           alt=""
@@ -91,6 +98,7 @@ const watchUrl = (id: string, at?: string) =>
       event.preventDefault();
       const player = document.createElement("iframe");
       player.className = "video-card-player";
+      player.dataset.framedTool = "youtube";
       player.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&start=${start}`;
       player.title = card.querySelector(".video-card-title")?.textContent ?? "YouTube video";
       player.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";

@@ -2,7 +2,7 @@
 import { getCollection, getEntry, type CollectionEntry } from "astro:content";
 import { join } from "node:path";
 import { renderProse } from "../math/katex";
-import { mediaFolder, mediaUrl, missingMediaFiles, pngSize, type Media } from "../media/media";
+import { mediaFolder, mediaUrl, missingMediaFiles, notInMediaFolder, pngSize, type Media } from "../media/media";
 import { MODULE_ID } from "./contract";
 import { buildContentDir } from "./layout";
 
@@ -61,11 +61,8 @@ export async function getMedia(moduleId: string): Promise<ModuleMedia> {
   const m = entry.data;
   const contentDir = buildContentDir();
   const missing = missingMediaFiles(contentDir, moduleId, m);
-  if (missing.length > 0) {
-    throw new Error(
-      `modules/${moduleId}/media.yaml names media/${missing.join(", media/")}, which isn't in the Module's media/ folder`,
-    );
-  }
+  if (missing.length > 0)
+    throw new Error(`modules/${moduleId}/media.yaml ${notInMediaFolder(missing.join(", media/"))}`);
   const url = (file: string) => mediaUrl(moduleId, file);
   return {
     ...(m.video && {

@@ -580,7 +580,7 @@
     margin-block-end: 20px;
     margin-inline: -16px;
     padding-inline: 16px;
-    border-block-end: 1.5px solid var(--color-print);
+    border-block-end: 1.5px solid var(--color-pencil);
     background: var(--color-sheet);
   }
   .rail-heading,
@@ -615,7 +615,7 @@
     background: color-mix(in srgb, var(--color-print) 8%, transparent);
   }
   .rail-link[aria-current] {
-    border-color: var(--color-print);
+    border-color: var(--color-pencil);
     border-block-end-color: var(--color-sheet);
     background: var(--color-sheet);
     color: var(--color-graphite);
@@ -809,13 +809,12 @@
   }
   .video-card-play {
     position: absolute;
-    inset-block-start: 50%;
-    inset-inline-start: 50%;
+    inset: 0;
     display: grid;
     place-items: center;
     inline-size: 44px;
     block-size: 44px;
-    translate: -50% -50%;
+    margin: auto;
     border: 1.5px solid var(--color-print);
     background: var(--color-sheet);
     color: var(--color-print);
@@ -896,7 +895,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 6px 6px 6px 12px;
+    padding-block: 6px;
+    padding-inline: 12px 6px;
     border-block-end: 1.2px solid var(--color-pencil);
   }
   .zoom-scroll {
@@ -990,9 +990,14 @@
     justify-items: start;
     gap: 10px;
   }
-  .answer-form {
+  /* The answer field: a pencil-ruled box, its printed label inside. */
+  .answer-box {
     display: grid;
     gap: 6px;
+    inline-size: 100%;
+    padding: 8px 12px 10px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
   }
   .answer-line {
     display: flex;
