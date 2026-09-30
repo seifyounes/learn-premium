@@ -1,0 +1,12 @@
+kind: numeric
+question: >-
+  A plaster layer $0.02\ \text{m}$ thick, with $k = 0.5\ \text{W/(m·K)}$, covers a face of
+  $1\ \text{m}^2$. Find its thermal resistance.
+answer:
+  value: 0.04
+  unit: K/W
+  tolerance: 0.001
+model: '$R = \frac{L}{k A} = \frac{0.02}{0.5 \times 1} = 0.04\ \text{K/W}$'
+provenance:
+  stated: ['$L = 0.02\ \text{m}$', '$k = 0.5$', '$A = 1\ \text{m}^2$']
+  derived: ['$R = 0.04\ \text{K/W}$']

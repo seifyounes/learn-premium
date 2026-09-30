@@ -1,0 +1,51 @@
+---
+import type { ModuleMedia } from "../content/course";
+
+/**
+ * The Module infographic at the top of Summary, tap to zoom: it opens at full size in a sheet of
+ * its own, scrolling and pinch-zooming there. Without the script it is a link to the image.
+ */
+interface Props {
+  infographic: NonNullable<ModuleMedia["infographic"]>;
+}
+const { url, alt, width, height } = Astro.props.infographic;
+---
+
+<figure class="infographic" data-infographic>
+  <a href={url} class="infographic-link" data-zoom-open>
+    <img src={url} alt={alt} width={width} height={height} decoding="async" />
+  </a>
+  <figcaption class="media-head">
+    <span class="field-label">Infographic</span>
+    <span class="text-body-small text-muted">Tap to zoom</span>
+  </figcaption>
+  <dialog class="zoom-sheet" aria-label="Infographic, full size">
+    <div class="zoom-bar">
+      <span class="field-label">Infographic</span>
+      <button type="button" class="button-print label-action" data-zoom-close>
+        Close
+      </button>
+    </div>
+    <div class="zoom-scroll">
+      <img src={url} alt={alt} width={width} height={height} decoding="async" loading="lazy" />
+    </div>
+  </dialog>
+</figure>
+
+<script>
+  for (const figure of document.querySelectorAll<HTMLElement>("[data-infographic]")) {
+    const sheet = figure.querySelector("dialog");
+    const open = figure.querySelector<HTMLAnchorElement>("[data-zoom-open]");
+    if (!sheet || !open) continue;
+    open.addEventListener("click", (event) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      sheet.showModal();
+    });
+    figure.querySelector("[data-zoom-close]")?.addEventListener("click", () => sheet.close());
+    // A tap on the desk around the sheet closes it too.
+    sheet.addEventListener("click", (event) => {
+      if (event.target === sheet) sheet.close();
+    });
+  }
+</script>

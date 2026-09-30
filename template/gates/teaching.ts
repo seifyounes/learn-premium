@@ -1,13 +1,16 @@
 // The teaching-method gate, per job: a Worked example is solved the Professor's way. It declares
 // the artefact the Professor solves on and ships it (a kind this template renders, with values
 // left to work out), declares the order values are written in and fills every worked-out value
-// exactly once, and opens on the question figure as the question sets it.
+// exactly once, and opens on the question figure as the question sets it. A Module's Summary is
+// at most five beats of at most 90 words each.
 import { readFileSync } from "node:fs";
 import { ARTEFACT_KINDS, worked } from "../src/content/contract.ts";
-import { readStructured } from "../src/content/loaders.ts";
+import { moduleOf } from "../src/content/layout.ts";
+import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
+import { beatWords, MAX_BEAT_WORDS, MAX_BEATS } from "../src/content/summary.ts";
 import { cellAt, parseCell } from "../src/worked/cells.ts";
 import { handOrder, type Worked } from "../src/worked/sheet.ts";
-import { courseFiles, courseWith } from "./course-files.ts";
+import { courseFiles, courseWith, type CourseFile } from "./course-files.ts";
 import type { Finding, Gate } from "./runner.ts";
 
 const ignoreMath = () => {};
@@ -15,12 +18,15 @@ const ignoreMath = () => {};
 export const teachingMethod: Gate = {
   id: "teaching-method",
   checks:
-    "every Worked example declares and ships its artefact, declares its fill order and opens on its question figure",
+    "every Worked example declares and ships its artefact, declares its fill order and opens on its question figure; every Summary keeps its beat limits",
   points: ["job", "deploy"],
   async run(input) {
-    const files = courseFiles(input).filter((f) => f.collection === "worked");
-    const coverage = { examples: files.length, steps: 0 };
+    const all = courseFiles(input);
+    const files = all.filter((f) => f.collection === "worked");
+    const beats = all.filter((f) => f.collection === "beats");
+    const coverage = { examples: files.length, steps: 0, beats: beats.length };
     const findings: Finding[] = [];
+    findings.push(...summaryLimits(beats));
     for (const file of files) {
       const block = (message: string) => findings.push({ outcome: "block", at: file.entry, message });
       let raw: unknown;
@@ -70,8 +76,64 @@ export const teachingMethod: Gate = {
       defect: "a red-pen ring on a value before it is written",
       plant: (good, scratch) => plantExample(good, scratch, (e) => (stepsOf(e)[0].marks = ["B1"])),
     },
+    {
+      defect: "a Summary of more than five beats",
+      plant: (good, scratch) =>
+        courseWith(
+          good,
+          scratch,
+          Object.fromEntries(
+            Array.from({ length: MAX_BEATS }, (_, i) => [
+              `summary/90${i}.md`,
+              plantedBeat(`Planted beat ${i + 1}`, 12),
+            ]),
+          ),
+        ),
+    },
+    {
+      defect: "a Summary beat over 90 words",
+      plant: (good, scratch) =>
+        courseWith(good, scratch, { "summary/900.md": plantedBeat("A long beat", MAX_BEAT_WORDS + 1) }),
+    },
   ],
 };
+
+/** Beats over the limits: a Module with too many, and each beat that runs too long. */
+function summaryLimits(beats: CourseFile[]): Finding[] {
+  const findings: Finding[] = [];
+  const perModule = new Map<string, number>();
+  for (const file of beats) {
+    const module = moduleOf(file.entry) ?? "";
+    perModule.set(module, (perModule.get(module) ?? 0) + 1);
+    const words = beatWords(splitFrontmatter(readFileSync(file.path, "utf8")).body);
+    if (words > MAX_BEAT_WORDS) {
+      findings.push({
+        outcome: "block",
+        at: file.entry,
+        message: `the beat runs ${words} words; a beat is at most ${MAX_BEAT_WORDS} (a formula counts as one)`,
+      });
+    }
+  }
+  for (const [module, count] of perModule) {
+    if (count > MAX_BEATS) {
+      findings.unshift({
+        outcome: "block",
+        at: `modules/${module}/summary`,
+        message: `the Summary has ${count} beats; a Summary is at most ${MAX_BEATS} short beats, each around one figure`,
+      });
+    }
+  }
+  return findings;
+}
+
+/** A Summary beat of `words` words, with no value in it to tag. */
+const plantedBeat = (title: string, words: number) =>
+  `---
+title: ${title}
+---
+
+${Array.from({ length: words }, () => "word").join(" ")}
+`;
 
 /** What an example that fails the content contract still owes the method. */
 function declarations(raw: unknown): string[] {

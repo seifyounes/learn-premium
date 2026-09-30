@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, globSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GATES } from "../gates/index.ts";
 import { runControls, runGates, verifyReport, type GateInput, type GatePoint } from "../gates/runner.ts";
+import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
+import { splitProse } from "../src/math/katex.ts";
 import { buildCourse, FIXTURE_COURSE, fixtureWith } from "./build-course";
 
 const MODULE = "01-thermal-resistance";
@@ -23,6 +25,20 @@ function siteWith(distDir: string, route: string, html: string): string {
   return copy;
 }
 
+/** The formulas in a Module's `provenance.stated` lists. */
+function statedFormulas(contentDir: string, module: string): number {
+  return globSync(`modules/${module}/{worked,practice,summary}/*`, { cwd: contentDir }).reduce((total, entry) => {
+    const source = readFileSync(join(contentDir, entry), "utf8");
+    const structured = entry.endsWith(".md") ? (splitFrontmatter(source).frontmatter ?? "") : source;
+    const { provenance } = readStructured(structured, entry, () => {}) as { provenance?: { stated?: string[] } };
+    const segments = (provenance?.stated ?? []).flatMap((s) => {
+      const split = splitProse(s);
+      return Array.isArray(split) ? split : [];
+    });
+    return total + segments.filter((s) => s.kind === "math").length;
+  }, 0);
+}
+
 describe("the first gates on the Fixture Course", () => {
   const build = buildCourse(FIXTURE_COURSE);
   const input = { contentDir: FIXTURE_COURSE, distDir: build.outDir };
@@ -34,22 +50,23 @@ describe("the first gates on the Fixture Course", () => {
   it("pass at every gate point, each reporting what it covered", async () => {
     const job = await run("job", { ...input, module: MODULE });
     expect(job.green, JSON.stringify(job.gates, null, 2)).toBe(true);
-    expect(job.gates.map((g) => g.id)).toEqual(["content-contract", "katex", "teaching-method"]);
-    expect(gate(job, "content-contract")?.coverage).toEqual({ modules: 1, beats: 1, worked: 1, practice: 1 });
-    expect(gate(job, "katex")?.coverage.files).toBe(4);
+    expect(job.gates.map((g) => g.id)).toEqual(["content-contract", "katex", "teaching-method", "provenance"]);
+    expect(gate(job, "content-contract")?.coverage).toEqual({ modules: 1, media: 1, beats: 1, worked: 1, practice: 3 });
+    expect(gate(job, "katex")?.coverage.files).toBe(7);
     expect(gate(job, "katex")?.coverage.formulas).toBeGreaterThan(10);
 
     const module = await run("module", { ...input, module: MODULE });
     expect(module.green, JSON.stringify(module.gates, null, 2)).toBe(true);
     expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan", "pad", "red-hue-rule"]);
     expect(gate(module, "rendered-page-scan")?.coverage.pages).toBe(1);
-    // The scan sees every formula the Module's content holds, the ones only inside islands' props
+    // The scan sees every formula the Module's content shows, the ones only inside islands' props
     // included (a Practice item's hidden model answer, a Worked example's later steps). An island's
-    // first render repeats some of its props' formulas, so it can see more, never fewer.
+    // first render repeats some of its props' formulas, so it can see more, never fewer. Stated
+    // values are declarations the page never shows, so their formulas are the only ones it lacks.
     expect(gate(module, "rendered-page-scan")?.coverage.formulas).toBeGreaterThanOrEqual(
-      gate(job, "katex")?.coverage.formulas ?? Infinity,
+      (gate(job, "katex")?.coverage.formulas ?? Infinity) - statedFormulas(FIXTURE_COURSE, MODULE),
     );
-    expect(gate(module, "rendered-page-scan")?.coverage.islands).toBe(2);
+    expect(gate(module, "rendered-page-scan")?.coverage.islands).toBe(4);
 
     const deploy = await run("deploy", input);
     expect(deploy.green, JSON.stringify(deploy.gates, null, 2)).toBe(true);
@@ -57,6 +74,7 @@ describe("the first gates on the Fixture Course", () => {
       "content-contract",
       "katex",
       "teaching-method",
+      "provenance",
       "rendered-page-scan",
       "pad",
       "red-hue-rule",
@@ -119,8 +137,8 @@ describe("the content gates", () => {
     const katex = gate(await run("job", { contentDir: course, module: MODULE }), "katex");
     expect(katex?.status).toBe("block");
     expect(katex?.findings.map((f) => f.at)).toEqual([
-      expect.stringMatching(new RegExp(`^modules/${MODULE}/practice/1\\.yaml:3:\\d+$`)),
       expect.stringMatching(new RegExp(`^modules/${MODULE}/practice/1\\.yaml:4:\\d+$`)),
+      expect.stringMatching(new RegExp(`^modules/${MODULE}/practice/1\\.yaml:5:\\d+$`)),
     ]);
     expect(katex?.findings[0]?.message).toMatch(/Undefined control sequence: \\txet/);
   });
@@ -131,7 +149,7 @@ describe("the content gates", () => {
     );
     const katex = gate(await run("job", { contentDir: course, module: MODULE }), "katex");
     expect(katex?.status).toBe("block");
-    expect(katex?.findings[0]?.at).toMatch(new RegExp(`^modules/${MODULE}/summary/1\\.md:12:\\d+$`));
+    expect(katex?.findings[0]?.at).toMatch(new RegExp(`^modules/${MODULE}/summary/1\\.md:25:\\d+$`));
   });
 
   it("block content that breaks the content contract, naming the file and field", async () => {
@@ -159,7 +177,7 @@ describe("the content gates", () => {
 
   it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
-    expect(report.gates.map((g) => g.status)).toEqual(["failed", "failed", "failed"]);
+    expect(report.gates.map((g) => g.status)).toEqual(["failed", "failed", "failed", "failed"]);
   });
 });
 

@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
 export const FIXTURE_COURSE = resolve(TEMPLATE_DIR, "../fixture-course");
@@ -38,11 +38,15 @@ export function buildCourse(contentDir: string): BuildResult {
   };
 }
 
-/** A throwaway copy of the Fixture Course with one file replaced, for negative controls. */
-export function fixtureWith(file: string, edit: (source: string) => string): string {
+/**
+ * A throwaway copy of a Course (the Fixture Course by default) with one file edited, or added when
+ * it isn't there (`edit` then gets ""), for negative controls.
+ */
+export function fixtureWith(file: string, edit: (source: string) => string, from = FIXTURE_COURSE): string {
   const dir = mkdtempSync(join(tmpdir(), "lp-course-"));
-  cpSync(FIXTURE_COURSE, dir, { recursive: true });
+  cpSync(from, dir, { recursive: true });
   const path = join(dir, file);
-  writeFileSync(path, edit(readFileSync(path, "utf8")));
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, edit(existsSync(path) ? readFileSync(path, "utf8") : ""));
   return dir;
 }

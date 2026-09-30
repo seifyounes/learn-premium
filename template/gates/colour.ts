@@ -1,14 +1,17 @@
 // The colour gates, per Module and per deploy. The pad gate: the Course's pad meets every contrast
 // requirement once auto-fixed, and every built page wears it. The Red Hue Rule: nothing drawn onto
-// the sheet except the red pen sits within 60° of its hue; framed tools keep their own reds.
-import { readFileSync } from "node:fs";
+// the sheet except the red pen sits within 60° of its hue; framed tools keep their own reds. It
+// reads every colour a page can paint with: its markup, its islands, and its stylesheets (inline
+// in <head> or linked, component styles included).
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Element, Nodes } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { parse } from "culori";
 import { coursePad } from "../src/pads/course-pad.ts";
 import { fightsRedPen, gapFromRedPen, oklchOf, RED_PEN, sameColour } from "../src/pads/colour.ts";
 import { describeChange, padStyle } from "../src/pads/pad.ts";
-import { inMain, islandStrings, sitePages, siteWith } from "./pages.ts";
+import { inMain, islandStrings, sitePages, siteWith, stylesheetWith } from "./pages.ts";
 import type { Finding, Gate } from "./runner.ts";
 
 /** Every `property: value` in a style attribute or a stylesheet's rules, in order. */
@@ -88,7 +91,18 @@ function coloursIn(value: string): string[] {
 }
 
 /** Elements that draw nothing onto the sheet. */
-const NOT_DRAWN = new Set(["head", "script", "template", "noscript"]);
+const NOT_DRAWN = new Set(["script", "template", "noscript"]);
+
+/** A stylesheet's rules: each innermost block with the selector (or at-rule) in front of it. */
+function cssRules(css: string): { selector: string; body: string }[] {
+  return [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]*)\{([^{}]*)\}/g)].map((m) => ({
+    selector: (m[1] ?? "").trim(),
+    body: m[2] ?? "",
+  }));
+}
+
+/** A rule scoped inside a framed tool, which keeps its own meaning colours. */
+const inFramedTool = (selector: string) => /\[data-framed-tool\b/.test(selector);
 
 export const redHueRule: Gate = {
   id: "red-hue-rule",
@@ -96,26 +110,55 @@ export const redHueRule: Gate = {
   points: ["module", "deploy"],
   async run(input) {
     const pages = sitePages(input);
-    const coverage = { pages: pages.length, svgs: 0, islands: 0, colours: 0 };
+    const distDir = input.distDir ?? "";
+    const coverage = { pages: pages.length, svgs: 0, islands: 0, stylesheets: 0, colours: 0 };
     const findings: Finding[] = [];
+    // A stylesheet many pages link is judged once, and named in its finding.
+    const judgedSheets = new Set<string>();
     for (const { route, path } of pages) {
-      const block = (message: string) => findings.push({ outcome: "block", at: route, message });
-      const judge = (colour: string, where: string) => {
+      const findingAt = (at: string) => (message: string) => findings.push({ outcome: "block", at, message });
+      const block = findingAt(route);
+      const judge = (colour: string, where: string, report = block) => {
         coverage.colours += 1;
         if (sameColour(colour, RED_PEN)) return;
         const oklch = oklchOf(colour);
         if (!oklch || !fightsRedPen(oklch)) return;
-        block(
+        report(
           `${colour} (${where}) sits ${gapFromRedPen(oklch)?.toFixed(0)}° from the red pen's hue; the Red Hue Rule needs 60° or a grey`,
         );
       };
-      const judgeCss = (css: string, tag: string) => {
-        for (const [property, value] of declarations(css.replace(/\/\*[\s\S]*?\*\//g, ""))) {
-          if (PAINT_PROPERTY.test(property)) for (const c of coloursIn(value)) judge(c, `${property} in <${tag}>`);
+      const judgeCss = (css: string, where: string, report = block) => {
+        // A style attribute is one rule's declarations; a stylesheet is rules.
+        const rules = css.includes("{") ? cssRules(css) : [{ selector: "", body: css }];
+        for (const { selector, body } of rules) {
+          if (inFramedTool(selector)) continue;
+          for (const [property, value] of declarations(body)) {
+            if (PAINT_PROPERTY.test(property))
+              for (const c of coloursIn(value)) judge(c, `${property} in ${where}`, report);
+          }
         }
+      };
+      const judgeStylesheet = (href: string) => {
+        if (judgedSheets.has(href)) return;
+        judgedSheets.add(href);
+        coverage.stylesheets += 1;
+        const file = /^\/(?!\/)/.test(href) ? join(distDir, href.split(/[?#]/)[0] ?? "") : "";
+        if (!file || !existsSync(file)) {
+          block(
+            `the page links the stylesheet ${href}, which the built site doesn't hold, so its colours can't be read`,
+          );
+          return;
+        }
+        judgeCss(readFileSync(file, "utf8"), `stylesheet ${href}`, findingAt(href));
       };
       const visit = (node: Nodes): void => {
         if (node.type === "element") {
+          if (node.tagName === "link") {
+            const rel = node.properties.rel;
+            const href = node.properties.href;
+            if (Array.isArray(rel) && rel.includes("stylesheet") && typeof href === "string") judgeStylesheet(href);
+            return;
+          }
           // A framed tool keeps its own meaning colours, reds included, inside its frame.
           if (NOT_DRAWN.has(node.tagName) || node.properties.dataFramedTool !== undefined) return;
           if (node.tagName === "svg") coverage.svgs += 1;
@@ -126,9 +169,9 @@ export const redHueRule: Gate = {
           }
           // `<html>` carries the pad's slots, which the pad gate checks; nothing there is drawn.
           if (typeof node.properties.style === "string" && node.tagName !== "html")
-            judgeCss(node.properties.style, node.tagName);
+            judgeCss(node.properties.style, `<${node.tagName}>`);
           if (node.tagName === "style") {
-            judgeCss(node.children.map((child) => (child.type === "text" ? child.value : "")).join(""), "style");
+            judgeCss(node.children.map((child) => (child.type === "text" ? child.value : "")).join(""), "<style>");
             return;
           }
           if (node.tagName === "astro-island") {
@@ -147,6 +190,10 @@ export const redHueRule: Gate = {
       defect: "a sheet figure stroked in an orange within 60° of the red pen",
       plant: (good, scratch) =>
         siteWith(good, scratch, inMain('<svg viewBox="0 0 10 10"><path d="M0 0H10" stroke="#D9622B"/></svg>')),
+    },
+    {
+      defect: "a sheet figure coloured red through a component stylesheet",
+      plant: (good, scratch) => stylesheetWith(good, scratch, ".plot-line { stroke: #D9622B }"),
     },
     {
       defect: "a sheet figure filled red through its own <style>",

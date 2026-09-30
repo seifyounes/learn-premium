@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -17,12 +17,22 @@ async function runOne(gate: Gate, input: GateInput) {
   return result;
 }
 
-/** A copy of one built page with `edit` applied, as a site of its own. */
-function siteWith(distDir: string, edit: (page: string) => string): string {
+/** A copy of one built page with `edit` applied, and the stylesheets, as a site of its own. */
+function siteWith(distDir: string, edit: (page: string) => string, css?: (sheet: string) => string): string {
   const copy = mkdtempSync(join(tmpdir(), "lp-site-"));
   mkdirSync(join(copy, MODULE), { recursive: true });
   const page = readFileSync(join(distDir, MODULE, "index.html"), "utf8");
   writeFileSync(join(copy, MODULE, "index.html"), edit(page));
+  cpSync(join(distDir, "_astro"), join(copy, "_astro"), {
+    recursive: true,
+    filter: (src) => !/\.\w+$/.test(src) || src.endsWith(".css"),
+  });
+  if (css) {
+    for (const sheet of readdirSync(join(copy, "_astro")).filter((f) => f.endsWith(".css"))) {
+      const path = join(copy, "_astro", sheet);
+      writeFileSync(path, css(readFileSync(path, "utf8")));
+    }
+  }
   return copy;
 }
 const inMain = (html: string) => (page: string) => page.replace("</main>", `${html}</main>`);
@@ -61,7 +71,10 @@ describe("the colour gates on the Fixture Course", () => {
   it("the Red Hue Rule passes the Fixture Course, reporting what it looked at", async () => {
     const hue = await runOne(redHueRule, input);
     expect(hue.status).toBe("pass");
-    expect(hue.coverage).toEqual({ pages: 2, svgs: 8, islands: 2, colours: 0 });
+    expect(hue.coverage).toMatchObject({ pages: 2, islands: 4, stylesheets: 1 });
+    expect(hue.coverage.svgs).toBeGreaterThan(8);
+    // The stylesheet's inks: the red pen, graphite and pencil, and the black a hover mixes in.
+    expect(hue.coverage.colours).toBeGreaterThan(0);
   });
 
   it("the Red Hue Rule blocks a sheet figure within 60° of the red pen, naming the page and the colour", async () => {
@@ -104,7 +117,52 @@ describe("the colour gates on the Fixture Course", () => {
     const site = siteWith(build.outDir, inMain(allowed.join("")));
     const hue = await runOne(redHueRule, { ...input, distDir: site });
     expect(hue.findings).toEqual([]);
-    expect(hue.coverage.colours).toBe(5);
+    // The five planted colours, over what the page already paints with.
+    const baseline = (await runOne(redHueRule, input)).coverage.colours ?? 0;
+    expect((hue.coverage.colours ?? 0) - baseline).toBe(5);
+  });
+
+  it("the Red Hue Rule reads the page's stylesheets, naming the one a red comes through", async () => {
+    const site = siteWith(
+      build.outDir,
+      (page) => page,
+      (sheet) => `${sheet}
+.plot-line{stroke:#D9622B}`,
+    );
+    const hue = await runOne(redHueRule, { ...input, distDir: site });
+    expect(hue.status).toBe("block");
+    expect(hue.findings).toEqual([
+      {
+        outcome: "block",
+        at: expect.stringMatching(/^\/_astro\/.+\.css$/),
+        message: expect.stringMatching(
+          /^#D9622B \(stroke in stylesheet \/_astro\/.+\.css\) sits \d+° from the red pen's hue/,
+        ),
+      },
+    ]);
+  });
+
+  it("the Red Hue Rule reads a <style> in the head, and leaves a framed tool's own rules alone", async () => {
+    const head = (css: string) => (page: string) => page.replace("</head>", `<style>${css}</style></head>`);
+    const red = await runOne(redHueRule, { ...input, distDir: siteWith(build.outDir, head(".load{fill:#b5451b}")) });
+    expect(red.status).toBe("block");
+    const framed = siteWith(build.outDir, head("[data-framed-tool] .wire-hot{stroke:#E0301E}"));
+    expect((await runOne(redHueRule, { ...input, distDir: framed })).findings).toEqual([]);
+  });
+
+  it("the Red Hue Rule blocks a page whose stylesheet it can't read", async () => {
+    const site = siteWith(build.outDir, (page) =>
+      page.replace("</head>", '<link rel="stylesheet" href="/_astro/gone.css"></head>'),
+    );
+    const hue = await runOne(redHueRule, { ...input, distDir: site });
+    expect(hue.findings).toEqual([
+      {
+        outcome: "block",
+        at: `/${MODULE}/`,
+        message:
+          "the page links the stylesheet /_astro/gone.css, which the built site doesn't hold, so its colours can't be read",
+      },
+    ]);
   });
 
   it("the Red Hue Rule reads a figure an island renders", async () => {

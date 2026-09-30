@@ -1,14 +1,20 @@
 ---
 import { render } from "astro:content";
+import BeatFigure from "../components/BeatFigure";
 import Cell from "../components/Cell.astro";
 import GivenBox from "../components/GivenBox.astro";
 import HonestyCell from "../components/HonestyCell.astro";
+import Infographic from "../components/Infographic.astro";
+import SectionRail from "../components/SectionRail.astro";
 import TitleBlock from "../components/TitleBlock.astro";
-import { getModules, moduleEntries, prose, type ModuleRef } from "../content/course";
-import RevealAnswer from "../islands/RevealAnswer";
+import Watch from "../components/Watch.astro";
+import { getMedia, getModules, moduleEntries, prose, type ModuleRef } from "../content/course";
+import PracticeItem from "../islands/PracticeItem";
 import WorkedSheet from "../islands/WorkedSheet";
 import Sheet from "../layouts/Sheet.astro";
-import { toSheet } from "../worked/sheet";
+import type { PageShape, Section } from "../progress/progress";
+import { provenanceNotes } from "../provenance/notes";
+import { toFigure, toSheet } from "../worked/sheet";
 
 export async function getStaticPaths() {
   const modules = await getModules();
@@ -20,11 +26,31 @@ interface Props {
 }
 
 const { module } = Astro.props;
+const media = await getMedia(module.id);
 const beats = await Promise.all(
   (await moduleEntries("beats", module.id)).map(async (b) => ({ beat: b, Content: (await render(b)).Content })),
 );
 const worked = await moduleEntries("worked", module.id);
 const practice = await moduleEntries("practice", module.id);
+/** A Practice item's number in its Module: its file name. */
+const itemOf = (id: string) => id.split("/").pop() ?? id;
+
+// Watch → Summary → Worked examples → Practice; a section with nothing in it isn't on the page.
+const has: Record<Section, boolean> = {
+  watch: media.video !== undefined || media.audio !== undefined || media.youtube.length > 0,
+  summary: media.infographic !== undefined || beats.length > 0,
+  worked: worked.length > 0,
+  practice: practice.length > 0,
+};
+const SECTION_NAMES: { id: Section; label: string; short: string }[] = [
+  { id: "watch", label: "Watch", short: "Watch" },
+  { id: "summary", label: "Summary", short: "Summary" },
+  { id: "worked", label: "Worked examples", short: "Worked" },
+  { id: "practice", label: "Practice", short: "Practice" },
+];
+const sections = SECTION_NAMES.filter((s) => has[s.id]);
+const shape: PageShape = { worked: worked.map((w) => w.data.code), practice: practice.map((p) => itemOf(p.id)) };
+const notes = (p: Parameters<typeof provenanceNotes>[0]) => provenanceNotes(p, prose);
 ---
 
 <Sheet title={module.entry.data.title}>
@@ -54,47 +80,111 @@ const practice = await moduleEntries("practice", module.id);
     <HonestyCell />
   </TitleBlock>
 
-  <section aria-labelledby="summary">
-    <h2 id="summary" class="group-heading mbs-10 mbe-4">
-      Summary
-    </h2>
-    {beats.map(({ beat, Content }) => (
-      <article class="mbe-6 max-w-[68ch]">
-        <h3
-          class="mbe-2 font-print text-sheet-title font-semibold [font-variation-settings:'wdth'_87]"
-          set:html={prose(beat.data.title)}
-        />
-        <div class="space-y-3">
-          <Content />
-        </div>
-      </article>
-    ))}
-  </section>
+  <div class="module-page" data-module-page data-module={module.id} data-shape={JSON.stringify(shape)}>
+    <SectionRail sections={sections} />
 
-  <section aria-labelledby="worked">
-    <h2 id="worked" class="group-heading mbs-10 mbe-4">
-      Worked examples
-    </h2>
-    {worked.map(({ data: w }) => (
-      <article class="mbe-10" data-artefact={w.artefact.kind}>
-        <WorkedSheet client:visible sheet={toSheet(w, prose)} topicHtml={prose(module.entry.data.title)}>
-          <GivenBox statement={w.statement} given={w.given} />
-        </WorkedSheet>
-      </article>
-    ))}
-  </section>
+    <div class="module-sections">
+      {has.watch && (
+        <section id="watch" class="module-section" aria-labelledby="watch-heading">
+          <h2 id="watch-heading" class="group-heading mbe-4">
+            Watch
+          </h2>
+          <Watch media={media} />
+        </section>
+      )}
 
-  <section aria-labelledby="practice">
-    <h2 id="practice" class="group-heading mbs-10 mbe-4">
-      Practice
-    </h2>
-    {practice.map(({ data: p }, i) => (
-      <article class="mbe-6 max-w-[68ch] space-y-3">
-        <p>
-          <span class="font-quantity text-graphite">{i + 1}.</span> <Fragment set:html={prose(p.question)} />
-        </p>
-        <RevealAnswer client:visible modelHtml={prose(p.model)} answer={p.answer} unitHtml={prose(p.answer.unit)} />
-      </article>
-    ))}
-  </section>
+      {has.summary && (
+        <section id="summary" class="module-section" aria-labelledby="summary-heading">
+          <h2 id="summary-heading" class="group-heading mbe-4">
+            Summary
+          </h2>
+          {media.infographic && <Infographic infographic={media.infographic} />}
+          {beats.map(({ beat, Content }, i) => {
+            const { inputsHtml, outputsHtml } = notes(beat.data.provenance);
+            const figure = beat.data.figure && toFigure(beat.data.figure, prose);
+            return (
+              <article class="beat" data-has-figure={figure !== undefined}>
+                <div class="beat-text">
+                  <h3
+                    class="mbe-2 font-print text-sheet-title font-semibold [font-variation-settings:'wdth'_87]"
+                    set:html={prose(beat.data.title)}
+                  />
+                  <div class="space-y-3">
+                    <Content />
+                  </div>
+                  {inputsHtml && <div class="mbs-3" set:html={inputsHtml} />}
+                  {outputsHtml && <div class="mbs-3" set:html={outputsHtml} />}
+                </div>
+                {figure && (
+                  <div class="beat-figure">
+                    <BeatFigure figure={figure} captionId={`beat-${i + 1}-figure`} />
+                  </div>
+                )}
+              </article>
+            );
+          })}
+          <div data-summary-end />
+        </section>
+      )}
+
+      {has.worked && (
+        <section id="worked" class="module-section" aria-labelledby="worked-heading">
+          <h2 id="worked-heading" class="group-heading mbe-4">
+            Worked examples
+          </h2>
+          {worked.map(({ data: w }) => {
+            const { inputsHtml, outputsHtml } = notes(w.provenance);
+            return (
+              <article class="mbe-10" data-artefact={w.artefact.kind}>
+                <WorkedSheet
+                  client:visible
+                  sheet={toSheet(w, prose)}
+                  topicHtml={prose(module.entry.data.title)}
+                  module={module.id}
+                  outputsHtml={outputsHtml}
+                >
+                  <GivenBox statement={w.statement} given={w.given} inputsHtml={inputsHtml} />
+                </WorkedSheet>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {has.practice && (
+        <section id="practice" class="module-section" aria-labelledby="practice-heading">
+          <h2 id="practice-heading" class="group-heading mbe-4">
+            Practice
+          </h2>
+          {practice.map(({ id, data: p }, i) => {
+            const { inputsHtml, outputsHtml } = notes(p.provenance);
+            const common = { module: module.id, item: itemOf(id), modelHtml: prose(p.model), outputsHtml };
+            return (
+              <article class="practice-item" data-kind={p.kind}>
+                <p>
+                  <span class="font-quantity text-graphite">{i + 1}.</span> <Fragment set:html={prose(p.question)} />
+                </p>
+                {inputsHtml && <div set:html={inputsHtml} />}
+                {p.kind === "numeric" ? (
+                  <PracticeItem
+                    client:visible
+                    {...common}
+                    kind="numeric"
+                    answer={{ value: p.answer.value, tolerance: p.answer.tolerance }}
+                    {...(p.answer.unit === undefined ? {} : { unitHtml: prose(p.answer.unit) })}
+                  />
+                ) : (
+                  <PracticeItem client:visible {...common} kind="prose" earnsHtml={p.earns.map(prose)} />
+                )}
+              </article>
+            );
+          })}
+        </section>
+      )}
+    </div>
+  </div>
 </Sheet>
+
+<script>
+  import "../progress/module-page.ts";
+</script>

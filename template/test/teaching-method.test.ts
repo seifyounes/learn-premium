@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { plantedExample, teachingMethod } from "../gates/teaching.ts";
+import { beatWords } from "../src/content/summary.ts";
 import { FIXTURE_COURSE, fixtureWith } from "./build-course";
 
 const MODULE = "01-thermal-resistance";
@@ -24,7 +25,7 @@ describe("the teaching-method gate", () => {
   it("passes the Fixture Course's Worked example, reporting what it covered", async () => {
     const run = await teachingMethod.run({ contentDir: FIXTURE_COURSE, module: MODULE });
     expect(run.findings).toEqual([]);
-    expect(run.coverage).toEqual({ examples: 1, steps: 6 });
+    expect(run.coverage).toEqual({ examples: 1, steps: 6, beats: 1 });
   });
 
   it("passes its own planted example before a control breaks it", async () => {
@@ -114,5 +115,65 @@ describe("the teaching-method gate", () => {
       steps(e)[5].figure.add = ["t2", "t3", "profile", "t1"];
     });
     expect(messages(run)).toEqual(['step 6 draws "t1", which is already on the figure']);
+  });
+});
+
+describe("the teaching-method gate on Summary beats", () => {
+  const beat = (words: number) =>
+    `---\ntitle: A planted beat\n---\n\n${Array.from({ length: words }, (_, i) => (i % 9 === 4 ? "$R_i$" : "word")).join(" ")}\n`;
+  const withBeats = (beats: Record<string, string>) => {
+    let course = FIXTURE_COURSE;
+    for (const [file, text] of Object.entries(beats))
+      course = fixtureWith(`modules/${MODULE}/summary/${file}`, () => text, course);
+    return teachingMethod.run({ contentDir: course, module: MODULE });
+  };
+
+  it("counts the Module's beats", async () => {
+    const run = await teachingMethod.run({ contentDir: FIXTURE_COURSE, module: MODULE });
+    expect(run.coverage).toMatchObject({ beats: 1 });
+  });
+
+  it("passes five beats of 90 words, formulas counting one word each", async () => {
+    const run = await withBeats({ "2.md": beat(90), "3.md": beat(10), "4.md": beat(10), "5.md": beat(10) });
+    expect(run.findings).toEqual([]);
+    expect(run.coverage).toMatchObject({ beats: 5 });
+  });
+
+  it("blocks a sixth beat, naming the Module's Summary", async () => {
+    const run = await withBeats({
+      "2.md": beat(10),
+      "3.md": beat(10),
+      "4.md": beat(10),
+      "5.md": beat(10),
+      "6.md": beat(10),
+    });
+    expect(run.findings).toEqual([
+      {
+        outcome: "block",
+        at: `modules/${MODULE}/summary`,
+        message: "the Summary has 6 beats; a Summary is at most 5 short beats, each around one figure",
+      },
+    ]);
+  });
+
+  it("blocks a beat over 90 words, naming the file", async () => {
+    const run = await withBeats({ "2.md": beat(91) });
+    expect(run.findings).toEqual([
+      {
+        outcome: "block",
+        at: `modules/${MODULE}/summary/2.md`,
+        message: "the beat runs 91 words; a beat is at most 90 (a formula counts as one)",
+      },
+    ]);
+  });
+});
+
+describe("counting a beat's words", () => {
+  it("reads a formula as one word and leaves out Markdown's own marks", () => {
+    expect(beatWords("In steady conduction, the heat rate")).toBe(6);
+    expect(beatWords("A thicker wall (larger $L$) resists more.")).toBe(7);
+    expect(beatWords("$$\n\\dot{Q} = \\frac{\\Delta T}{R}\n$$\n")).toBe(1);
+    expect(beatWords("## Heading here\n\n1. First point\n- second [link](https://x.org/a b)\n> quoted")).toBe(7);
+    expect(beatWords("   \n\n")).toBe(0);
   });
 });

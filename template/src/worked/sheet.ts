@@ -44,6 +44,8 @@ export interface StepData {
 /** Everything the Worked sheet island renders, prose already turned into HTML with paper math. */
 export interface SheetData {
   titleHtml: string;
+  /** The example's code as written: its key in the student's progress. */
+  code: string;
   codeHtml: string;
   fillOrder: FillOrder;
   table: {
@@ -107,39 +109,62 @@ export function stateAt(sheet: SheetData, requested: number): StepState {
   };
 }
 
-/** The sheet for one Worked example, with every prose field rendered by `html`. */
-export function toSheet(example: Worked, html: (prose: string) => string): SheetData {
-  const withUnit = <T extends { label: string; unit?: string | undefined }>({ label, unit }: T) => ({
-    labelHtml: html(label),
-    ...(unit === undefined ? {} : { unitHtml: html(unit) }),
-  });
-  const label = (text: string | undefined) => (text === undefined ? {} : { labelHtml: html(text) });
-  const axis = (a: Plot["x"]): AxisData => ({ ...withUnit(a), min: a.min, max: a.max, step: a.step });
+const withUnit = <T extends { label: string; unit?: string | undefined }>(
+  { label, unit }: T,
+  html: (prose: string) => string,
+) => ({
+  labelHtml: html(label),
+  ...(unit === undefined ? {} : { unitHtml: html(unit) }),
+});
+
+/** A plotted figure, with every prose field rendered by `html`; `question` lists what it opens on. */
+export function toFigure(
+  figure: Omit<Plot, "question">,
+  html: (prose: string) => string,
+  question: string[] = figure.elements.map((e) => e.id),
+): FigureData {
+  const axis = (a: Plot["x"]): AxisData => ({ ...withUnit(a, html), min: a.min, max: a.max, step: a.step });
   const element = (e: PlotElement): ElementData => {
     const { label: text, ...rest } = e;
-    return { ...rest, ...label(text) };
+    return { ...rest, ...(text === undefined ? {} : { labelHtml: html(text) }) };
   };
+  return {
+    captionHtml: html(figure.caption),
+    x: axis(figure.x),
+    y: axis(figure.y),
+    elements: figure.elements.map(element),
+    question,
+  };
+}
+
+/** A figure at rest: every element drawn, nothing moving. How a Summary beat shows its figure. */
+export function atRest(figure: FigureData): StepState {
+  return {
+    index: 0,
+    written: new Set(),
+    fresh: [],
+    marks: [],
+    drawn: new Set(figure.elements.map((e) => e.id)),
+    added: [],
+    rings: [],
+    last: true,
+  };
+}
+
+/** The sheet for one Worked example, with every prose field rendered by `html`. */
+export function toSheet(example: Omit<Worked, "provenance">, html: (prose: string) => string): SheetData {
   const { artefact, figure } = example;
   return {
     titleHtml: html(example.title),
+    code: example.code,
     codeHtml: html(example.code),
     fillOrder: example.fillOrder,
     table: {
       captionHtml: html(artefact.caption),
-      columns: artefact.columns.map((c) => ({ ...withUnit(c), given: c.given })),
+      columns: artefact.columns.map((c) => ({ ...withUnit(c, html), given: c.given })),
       rows: artefact.rows.map((row) => row.map((cell) => (cell === "" ? "" : html(cell)))),
     },
-    ...(figure === undefined
-      ? {}
-      : {
-          figure: {
-            captionHtml: html(figure.caption),
-            x: axis(figure.x),
-            y: axis(figure.y),
-            elements: figure.elements.map(element),
-            question: figure.question,
-          },
-        }),
+    ...(figure === undefined ? {} : { figure: toFigure(figure, html, figure.question) }),
     steps: example.steps.map((s) => ({
       titleHtml: html(s.title),
       noteHtml: html(s.note),
