@@ -32,7 +32,7 @@ The first line is a summary for the Owner; the JSON after it is the full report.
 
 - **Exit 1 (something is missing):** show the Owner the summary line and each `missing` entry, and
   offer to run the installer named in `installer` (`powershell -ExecutionPolicy Bypass -File
-  <installer>`). Run it only on the Owner's yes, then check again. Don't continue the run on a
+<installer>`). Run it only on the Owner's yes, then check again. Don't continue the run on a
   broken install.
 - **`releases_behind` > 0:** tell the Owner the summary line as is ("N commits / M releases
   behind…"). Moving to a newer release is the Owner's call: never pull, check out or re-run the
@@ -44,9 +44,25 @@ Note `installed_release`: the Build ledger records it for each wave this run sta
 
 ### 2. Read the Build ledger and take the lock
 
-Not built yet (ticket #65).
+The Build ledger is read and written only through its commands (`scripts/ledger/README.md`); never
+edit `build-ledger.json` or the pages generated from it. Pick a holder id for this run (for example
+`run-<date>-<time>`) and use it on every write.
+
+```bash
+L="$HOME/.claude/skills/learn-premium/scripts/ledger.ts"
+node "$L" next --project <Course project>
+node "$L" lock claim --project <Course project> --holder <id>
+```
+
+- **Exit 3 on the claim:** another session drives this Course. Tell the Owner who holds it and
+  since when, and stop. Take it over (`--take-over "<reason>"`) only when the Owner says that
+  session is dead.
+- **Exit 2:** the ledger fails its schema. Show the Owner the error; don't repair the file by hand.
+- Release the lock (`lock release`) when the run ends.
 
 ### 3. Pick the path
 
-Intake, resume, an Upgrade wave offer or a hash diff. Not built yet (tickets #67, #68, #75).
-Until they land, stop after step 1 and tell the Owner which ticket the run is waiting on.
+`next` says which: `intake` (no ledger), `resume` (an unfinished wave), or `waves` (new Materials
+to map and the Module waves the hash diff implies). Intake, the Module wave and the Upgrade wave
+offer aren't built yet (tickets #67, #68, #75): until they land, report what `next` returned, tell
+the Owner which ticket the run is waiting on, and release the lock.
