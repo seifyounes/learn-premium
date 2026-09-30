@@ -73,6 +73,14 @@ to map and the Module waves the hash diff implies). Intake, the Module wave and 
 offer aren't built yet (tickets #67, #68, #75): until they land, report what `next` returned, tell
 the Owner which ticket the run is waiting on, and release the lock.
 
+## Media pass
+
+"Run media" is an explicit Owner command, separate from any Module wave and needing no ledger lock:
+it drains the one Media queue across every Course in the Course registry, within the NotebookLM
+quota. Its state commands are in `scripts/media/README.md`. Driving NotebookLM isn't built yet
+(ticket #77): until it lands, run `media.ts status` and report the queue, the demand against the
+remaining capacity, and any limit in force.
+
 ## Reading Materials
 
 Every Blind reader reads a PDF or .pptx through the Materials reader (`scripts/reader/README.md`),

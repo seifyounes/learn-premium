@@ -1,10 +1,11 @@
-// The ledger CLI as the skill runs it: a separate Node process per command.
+// The ledger and media CLIs as the skill runs them: a separate Node process per command.
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { jsonInput, tempDir, writeFiles } from "./helpers.ts";
 
 const ENTRY = fileURLToPath(new URL("../scripts/ledger.ts", import.meta.url));
+const MEDIA_ENTRY = fileURLToPath(new URL("../scripts/media.ts", import.meta.url));
 const START_TOGETHER = new URL("./start-together.ts", import.meta.url).href;
 
 function runSync(...args: string[]) {
@@ -63,6 +64,23 @@ describe("ledger CLI", () => {
 
   test("exits 2 with a JSON error on a bad command", () => {
     expect(runSync("frobnicate", "--project", tempDir("project"))).toMatchObject({ code: 2, out: { ok: false } });
+  });
+
+  test("the media commands run as their own process, in the same JSON shape and exit codes", () => {
+    const project = newCourse();
+    const state = tempDir("state");
+    const media = (...args: string[]) => {
+      const child = spawnSync(process.execPath, [MEDIA_ENTRY, ...args, "--state", state], { encoding: "utf8" });
+      return { code: child.status, out: JSON.parse(child.stdout), stderr: child.stderr };
+    };
+
+    const registered = media("register", "--project", project);
+    const gathered = media("gather");
+    const refused = media("downloaded", "--project", project, "--item", "module-01-video");
+
+    expect(registered).toMatchObject({ code: 0, out: { ok: true, course: "Statics", added: true }, stderr: "" });
+    expect(gathered).toMatchObject({ code: 0, out: { ok: true, queue: [], next: null } });
+    expect(refused).toMatchObject({ code: 2, out: { ok: false } });
   });
 
   test("when several sessions claim a free lock at the same moment, exactly one gets it", async () => {

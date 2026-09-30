@@ -2,6 +2,7 @@
 // every ledger write, so they never drift from it; nobody edits them by hand.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { MEDIA_PAGE } from "../media/model.ts";
 import { BUILD_RECORDS_DIR, current, GATE_GAP_REPO, LEDGER_FILE, sittingState, type Ledger } from "./model.ts";
 
 export const STATUS_PAGE = "status.md";
@@ -16,7 +17,7 @@ export function writePages(project: string, ledger: Ledger): void {
 
 const GENERATED = `Generated from \`${LEDGER_FILE}\` on every change to it. Don't edit.`;
 
-function table(header: string[], rows: (string | number)[][]): string {
+export function table(header: string[], rows: (string | number)[][]): string {
   if (rows.length === 0) return "None.\n";
   const line = (cells: (string | number)[]) =>
     `| ${cells.map((c) => String(c).replaceAll("|", "\\|").replaceAll("\n", " ")).join(" | ")} |`;
@@ -64,6 +65,10 @@ function statusPage(ledger: Ledger): string {
       ["Template file", "Gate gap"],
       current(ledger.template.overrides).map((o) => [o.path, `${GATE_GAP_REPO}#${o.gateGap}`]),
     ),
+    "## Module media",
+    "",
+    `The Media pass writes each item's state to \`${MEDIA_PAGE}\` beside this page.`,
+    "",
     "## Materials outside the Module map",
     "",
     table(

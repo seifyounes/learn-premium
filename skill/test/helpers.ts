@@ -1,9 +1,10 @@
-// Throwaway synthetic Course projects and Materials folders for the ledger tests.
+// Throwaway synthetic Course projects and Materials folders for the ledger and media tests.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach } from "vitest";
 import { run } from "../scripts/ledger/cli.ts";
+import { run as runMedia } from "../scripts/media/cli.ts";
 
 const made: string[] = [];
 
@@ -35,6 +36,12 @@ export interface Result {
 /** Runs one ledger command exactly as the CLI would, returning its exit code and JSON output. */
 export function ledger(...args: string[]): Result {
   const { code, stdout } = run(args);
+  return { code, out: JSON.parse(stdout) };
+}
+
+/** Runs one media command exactly as the CLI would, returning its exit code and JSON output. */
+export function media(...args: string[]): Result {
+  const { code, stdout } = runMedia(args);
   return { code, out: JSON.parse(stdout) };
 }
 
