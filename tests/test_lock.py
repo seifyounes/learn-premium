@@ -5,7 +5,8 @@ import tomllib
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parents[1] / "skill"
-SPEC_TOOLS = ["build123d", "faster-whisper", "control", "sympy", "coolprop", "awlsim", "python-pptx"]
+SPEC_TOOLS = ["build123d", "faster-whisper", "control", "sympy", "coolprop", "awlsim", "python-pptx",
+              "pypdfium2"]  # pypdfium2: the PDF renderer the Materials reader needs
 
 
 def test_the_lock_file_is_current_with_pyproject():
