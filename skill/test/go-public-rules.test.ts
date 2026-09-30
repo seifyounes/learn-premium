@@ -37,12 +37,15 @@ describe("evidence-shaped paths", () => {
     expect(evidenceShape(path)).toMatchObject({ rule });
   });
 
-  test.each(["src/components/Quote.astro", "public/licences.txt", "src/crop-marks.css", "skill/scripts/reader/pdf.py"])(
-    "%s is not",
-    (path) => {
-      expect(evidenceShape(path)).toBeNull();
-    },
-  );
+  test.each([
+    "src/components/Quote.astro",
+    "public/licences.txt",
+    "src/crop-marks.css",
+    "skill/scripts/reader/pdf.py",
+    "src/islands/transcript-panel.tsx",
+  ])("%s is not", (path) => {
+    expect(evidenceShape(path)).toBeNull();
+  });
 
   test("nothing the Site template or the Fixture Course carries is evidence-shaped", () => {
     const files = courseProjectFiles();
@@ -99,6 +102,9 @@ describe("secrets", () => {
     ["keys/id_ed25519", "ssh-key"],
     ["certs/site.pem", "key-file"],
     ["certs/site.p12", "key-file"],
+    ["certs/site.pfx", "key-file"],
+    ["android/release.jks", "key-file"],
+    ["android/release.keystore", "key-file"],
   ])("%s is a secret by its path (%s)", (path, rule) => {
     expect(secretPath(path)).toMatchObject({ rule });
   });

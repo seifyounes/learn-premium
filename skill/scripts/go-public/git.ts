@@ -5,16 +5,23 @@ import { createHash } from "node:crypto";
 
 export class GitError extends Error {}
 
-/** Never prompt for credentials: a remote that needs them fails instead of hanging the check. */
-const ENV = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+/**
+ * Never prompt for credentials: a remote that needs them fails instead of hanging the check. And
+ * read the objects themselves: a `refs/replace` substitute would hide what GitHub serves.
+ */
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_NO_REPLACE_OBJECTS: "1" };
 
 /** A binary blob has a NUL in its first bytes, as git itself decides. */
 const BINARY_PROBE = 8000;
 
+export function looksBinary(content: Buffer): boolean {
+  return content.subarray(0, BINARY_PROBE).includes(0);
+}
+
 export function git(repo: string, args: string[], input?: string): string {
   const child = spawnSync("git", ["-C", repo, ...args], {
     encoding: "utf8",
-    env: ENV,
+    env: GIT_ENV,
     maxBuffer: 1 << 30,
     ...(input === undefined ? {} : { input }),
   });
@@ -81,6 +88,43 @@ export function readHistory(repo: string, extraRevs: string[]): History {
   return { commits: commits.size, appearances: [...appearances.values()] };
 }
 
+/** A commit's message, or an annotated tag's. */
+export interface Message {
+  commit: string | null;
+  tag: string | null;
+  text: string;
+}
+
+/** The message of every commit `readHistory` walks, and of every annotated tag. */
+export function readMessages(repo: string, extraRevs: string[]): Message[] {
+  const commits = git(repo, [
+    "-c",
+    "log.showSignature=false",
+    "log",
+    "--all",
+    ...extraRevs,
+    "--no-color",
+    "-z",
+    "--format=%H%x01%B",
+    "--",
+  ])
+    .split("\0")
+    .filter(Boolean)
+    .map((entry) => {
+      const [commit = "", text = ""] = entry.split("\x01");
+      return { commit: commit.replace(/^\n/, ""), tag: null, text };
+    });
+  const tags = git(repo, ["for-each-ref", "--format=%(objecttype) %(refname)%01%(contents)%02", "refs/tags"])
+    .split("\x02")
+    .map((entry) => entry.replace(/^\n/, ""))
+    .filter((entry) => entry.startsWith("tag "))
+    .map((entry) => {
+      const [head = "", text = ""] = entry.split("\x01");
+      return { commit: null, tag: head.slice("tag ".length), text };
+    });
+  return [...commits, ...tags];
+}
+
 export interface BlobContent {
   blob: string;
   sha256: string;
@@ -91,7 +135,7 @@ export interface BlobContent {
 /** Streams each blob in `blobs` through `visit`, holding only one blob's text at a time. */
 export function forEachBlob(repo: string, blobs: string[], visit: (content: BlobContent) => void): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn("git", ["-C", repo, "cat-file", "--batch"], { env: ENV });
+    const child = spawn("git", ["-C", repo, "cat-file", "--batch"], { env: GIT_ENV });
     const reader = new BatchReader(visit);
     let stderr = "";
     let failed = false;
@@ -173,7 +217,7 @@ class BatchReader {
     current.hash.update(part);
     current.remaining -= part.length;
     if (current.binary) return;
-    if (current.seen < BINARY_PROBE && part.subarray(0, BINARY_PROBE - current.seen).includes(0)) {
+    if (current.seen < BINARY_PROBE && looksBinary(part.subarray(0, BINARY_PROBE - current.seen))) {
       current.binary = true;
       current.chunks = [];
       return;

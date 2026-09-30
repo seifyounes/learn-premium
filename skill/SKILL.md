@@ -95,11 +95,11 @@ Only when the Owner asks to make a Course project public. This step reports; fli
 repo's visibility is the Owner's, so never run `gh repo edit --visibility` or change it any other
 way, even on a clear report.
 
-1. Fetch everything the remote holds, pull request heads included, since each becomes public with
-   the repo:
+1. Check out the default branch, and fetch everything the remote holds, pull request refs
+   included, since each becomes public with the repo:
 
    ```bash
-   git -C <Course project> fetch origin --tags "+refs/heads/*:refs/remotes/origin/*" "+refs/pull/*/head:refs/remotes/origin/pull/*"
+   git -C <Course project> fetch origin --tags "+refs/heads/*:refs/remotes/origin/*" "+refs/pull/*:refs/remotes/origin/pull/*"
    ```
 
 2. Run the check (`scripts/go-public/README.md`), giving it the Private folder:

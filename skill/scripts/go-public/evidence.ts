@@ -1,7 +1,7 @@
 // Evidence-shaped paths: where Professor-derived Build evidence (transcriptions, quotes, crops,
 // the Materials reader's renders) or a copy of the Materials would sit if it reached a Course
-// project. It belongs in the Private folder, outside any repo. The pre-commit gate and the
-// Go-public check share these rules.
+// project. It belongs in the Private folder, outside any repo. The Go-public check uses these
+// rules; the pre-commit gate (#68) is meant to share them, and confirms or narrows them.
 
 export interface EvidenceMatch {
   rule: string;
@@ -37,7 +37,7 @@ const RULES: Rule[] = [
     reason: "a transcription",
     test: (folders, file) =>
       folders.some((folder) => /^transcri(pt|ption)s$/.test(folder)) ||
-      /(^|[-_.])transcri(pt|ption)s?([-_.]|$)/.test(file),
+      (/(^|[-_.])transcri(pt|ption)s?([-_.]|$)/.test(file) && !CODE.test(file)),
   },
   { rule: "crop", reason: "crops of the Materials", test: (folders) => folders.includes("crops") },
   { rule: "quote", reason: "quotes of the Professor", test: (folders) => folders.includes("quotes") },
@@ -53,12 +53,15 @@ const RULES: Rule[] = [
   },
   {
     rule: "evidence-folder",
-    reason: "an evidence folder (gate reports and recompute logs go in build-records/)",
+    reason: "a folder named evidence/ (gate reports and recompute logs go in build-records/)",
     test: (folders) => folders.includes("evidence"),
   },
 ];
 
 const READER_OUTPUT = new Set(["pages", "media", "transcripts"]);
+
+/** Site code: a `transcript-panel.tsx` component is not a transcription. */
+const CODE = /\.(astro|[cm]?[jt]sx?|css)$/;
 
 /** The first rule `path` ('/'-separated, relative to the repo root) matches, or null. */
 export function evidenceShape(path: string): EvidenceMatch | null {
