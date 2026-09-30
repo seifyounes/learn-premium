@@ -88,3 +88,32 @@ never through a PDF's text layer: it renders the pages and slides it looks at in
 folder (slides through PowerPoint, which the machine needs), fails loudly on a render with no
 pixels, and transcribes a deck's narration there. Give a Blind reader
 only the Private folder's path for what it writes.
+
+## Going public
+
+Only when the Owner asks to make a Course project public. This step reports; flipping the
+repo's visibility is the Owner's, so never run `gh repo edit --visibility` or change it any other
+way, even on a clear report.
+
+1. Fetch everything the remote holds, pull request heads included, since each becomes public with
+   the repo:
+
+   ```bash
+   git -C <Course project> fetch origin --tags "+refs/heads/*:refs/remotes/origin/*" "+refs/pull/*/head:refs/remotes/origin/pull/*"
+   ```
+
+2. Run the check (`scripts/go-public/README.md`), giving it the Private folder:
+
+   ```bash
+   node "$HOME/.claude/skills/learn-premium/scripts/go-public.ts" --project <Course project> --private <Private folder>
+   ```
+
+3. Report to the Owner:
+   - **`clear` (exit 0):** say so, with what it scanned. The Owner flips the visibility.
+   - **`blocked` (exit 1):** list each finding with its path and commits. A file in history stays
+     found until the history is rewritten; offer the rewrite, but run it (and the force-push it
+     needs) only on the Owner's word, then fetch and check again. A missing Licences file is
+     fixed by generating it, not by hand.
+   - **`review` (exit 1, only Checkpoint items):** show each one; the Owner decides whether it's a
+     secret.
+   - **Exit 2:** show the error; the check didn't run.
