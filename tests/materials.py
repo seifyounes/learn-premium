@@ -10,20 +10,28 @@ from pathlib import Path
 
 DRAWN = "0 0 0 rg 72 72 300 200 re f BT /F1 24 Tf 72 700 Td (Q = kA dT/dx) Tj ET"
 WHITE_ON_WHITE = "1 1 1 rg BT /F1 24 Tf 72 700 Td (invisible) Tj ET"
+# What Word and PowerPoint export for a blank page: a white background fill and nothing else.
+WHITE_BACKGROUND = "1 1 1 rg 0 0 612 792 re f"
+# A page carrying only a pen annotation (a red box drawn over the page in a PDF viewer).
+PEN_ONLY = (None, "<< /Type /Annot /Subtype /Square /Rect [100 100 300 300] /C [1 0 0] "
+                  "/BS << /W 4 >> >>")
 
 
 def pdf(pages):
-    """A PDF whose pages draw the given content streams (None: a page with no content at all)."""
+    """A PDF whose pages draw the given content streams (None: a page with no content at all). A
+    page may also be (content, annotation dictionary)."""
     objects = ["<< /Type /Catalog /Pages 2 0 R >>", None,
                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
     kids = []
     for content in pages:
+        content, annotation = content if isinstance(content, tuple) else (content, None)
+        annots = f" /Annots [{annotation}]" if annotation else ""
         page = len(objects) + 1
         kids.append(f"{page} 0 R")
         if content is None:
-            objects.append("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>")
+            objects.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]{annots} >>")
             continue
-        objects.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        objects.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]{annots} "
                        f"/Resources << /Font << /F1 3 0 R >> >> /Contents {page + 1} 0 R >>")
         objects.append(f"<< /Length {len(content)} >>\nstream\n{content}\nendstream")
     objects[1] = f"<< /Type /Pages /Kids [{' '.join(kids)}] /Count {len(kids)} >>"

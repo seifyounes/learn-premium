@@ -64,12 +64,12 @@ def check_private_folder(private: Path, materials: Path):
     writes (renders, the Professor's narration, deck videos) can be committed to a Course project
     or be taken for a Material by the next hash diff."""
     if is_within(private, materials):
-        raise Refused(f"the Private folder {_unprefixed(str(private))} is inside the Materials "
+        raise Refused(f"the Private folder {shown(private)} is inside the Materials "
                       "folder; it sits beside it")
     repo = _enclosing_repo(private)
     if repo is not None:
-        raise Refused(f"the Private folder {_unprefixed(str(private))} is inside the repo "
-                      f"{_unprefixed(str(repo))}; it sits outside any repo")
+        raise Refused(f"the Private folder {shown(private)} is inside the repo "
+                      f"{shown(repo)}; it sits outside any repo")
 
 
 def shown(path: Path) -> str:

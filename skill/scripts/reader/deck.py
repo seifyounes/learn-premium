@@ -1,6 +1,5 @@
 """.pptx Materials: each slide's text and notes, its audio (transcribed) and its embedded video."""
 
-import io
 import json
 import zipfile
 from pathlib import Path
@@ -25,93 +24,93 @@ MEDIA_RIDS = etree.XPath(
     " | .//p:pic[p:nvPicPr/p:cNvPr/@id=$spid]/p:nvPicPr/p:nvPr//@r:embed", namespaces=NS)
 
 
-def _texts(shapes):
+def _texts(shapes, skip_id=None):
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+
     for shape in shapes:
-        if shape.shape_type is not None and shape.shape_type == 6:  # MSO_SHAPE_TYPE.GROUP
+        if shape.shape_id == skip_id:
+            continue
+        if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
             yield from _texts(shape.shapes)
         elif shape.has_text_frame and shape.text_frame.text.strip():
             yield shape.text_frame.text
-        elif getattr(shape, "has_table", False) and shape.has_table:
+        elif shape.has_table:
             for row in shape.table.rows:
                 yield " | ".join(cell.text for cell in row.cells)
 
 
+def _media_key(relationship):
+    """One media file, however many relationships link it (a clip has an audio or video one and
+    a media one)."""
+    if relationship.is_external:
+        return relationship.target_ref
+    return relationship.target_part.partname
+
+
 def _media(slide):
-    """The slide's media, one entry per media file (a clip is linked by several relationships):
-    (key, kind, part or None, external target or None)."""
+    """The slide's media: (key, "audio" or "video", one relationship to it)."""
     found = {}
-    for rel in slide.part.rels.values():
-        if rel.reltype not in (AUDIO, VIDEO, MEDIA):
-            continue
-        key = rel.target_ref if rel.is_external else rel.target_part.partname
-        entry = found.setdefault(key, {"reltypes": set(), "rel": rel})
-        entry["reltypes"].add(rel.reltype)
-    for key, entry in found.items():
-        rel = entry["rel"]
-        if VIDEO in entry["reltypes"]:
+    for relationship in slide.part.rels.values():
+        if relationship.reltype in (AUDIO, VIDEO, MEDIA):
+            reltypes, _ = found.setdefault(_media_key(relationship), (set(), relationship))
+            reltypes.add(relationship.reltype)
+    for key, (reltypes, relationship) in found.items():
+        if VIDEO in reltypes:
             kind = "video"
-        elif AUDIO in entry["reltypes"]:
+        elif AUDIO in reltypes or relationship.is_external:
             kind = "audio"
         else:
-            kind = "video" if rel.target_part.content_type.startswith("video/") else "audio"
-        yield key, kind, rel
+            kind = "video" if relationship.target_part.content_type.startswith("video/") else "audio"
+        yield key, kind, relationship
 
 
 def _narrated(slide):
-    """Keys (as `_media` gives them) of the media PowerPoint recorded as narration."""
-    rels = slide.part.rels
-    keys = set()
-    for spid in NARRATED_SHAPES(slide._element):
-        for rid in MEDIA_RIDS(slide._element, spid=spid):
-            rel = rels.get(rid)
-            if rel is not None:
-                keys.add(rel.target_ref if rel.is_external else rel.target_part.partname)
-    return keys
+    """Keys (as `_media_key` gives them) of the media PowerPoint recorded as narration."""
+    relationships = slide.part.rels
+    return {_media_key(relationships[rid])
+            for spid in NARRATED_SHAPES(slide._element)
+            for rid in MEDIA_RIDS(slide._element, spid=spid) if rid in relationships}
 
 
-def read_deck(data: bytes, out: Path, private: Path, transcriber) -> dict:
+def _read_slide(number, slide, out, transcriber):
+    title = slide.shapes.title
+    notes = slide.notes_slide.notes_text_frame.text if slide.has_notes_slide else ""
+    entry = {"number": number, "title": title.text if title is not None else "",
+             "text": "\n".join(_texts(slide.shapes, title.shape_id if title is not None else None)),
+             "notes": notes, "audio": [], "video": []}
+    narrated = _narrated(slide)
+    for key, kind, relationship in _media(slide):
+        name = f"slide-{number:02d}-{kind}-{len(entry[kind]) + 1}"
+        item = {}
+        if relationship.is_external:
+            item["linked"] = relationship.target_ref
+        else:
+            (out / "media").mkdir(exist_ok=True)
+            item["file"] = out / "media" / f"{name}.{relationship.target_part.partname.ext}"
+            item["file"].write_bytes(relationship.target_part.blob)
+        if kind == "audio":
+            item["narration"] = key in narrated
+            if "file" in item:
+                (out / "transcripts").mkdir(exist_ok=True)
+                item["transcript"] = out / "transcripts" / f"{name}.json"
+                item["transcript"].write_text(
+                    json.dumps(transcriber(item["file"]), indent=2, ensure_ascii=False),
+                    encoding="utf-8")
+        else:
+            # Deck-embedded video is source only: never re-hosted, never copied into a Course project.
+            item["sourceOnly"] = True
+        entry[kind].append(item)
+    return entry
+
+
+def read_deck(material: Path, out: Path, transcriber) -> dict:
     from pptx import Presentation
 
-    def rel(path):
-        return path.relative_to(private).as_posix()
-
-    try:
-        presentation = Presentation(io.BytesIO(data))
-    except (zipfile.BadZipFile, KeyError, ValueError) as e:
-        raise BadInput(f"not a .pptx deck ({e})") from None
-    slides = []
-    for number, slide in enumerate(presentation.slides, start=1):
-        title = slide.shapes.title.text if slide.shapes.title is not None else ""
-        body = [t for t in _texts(slide.shapes) if t != title]
-        notes = (slide.notes_slide.notes_text_frame.text
-                 if slide.has_notes_slide and slide.notes_slide.notes_text_frame else "")
-        entry = {"number": number, "title": title, "text": "\n".join(body), "notes": notes,
-                 "audio": [], "video": []}
-        narrated = _narrated(slide)
-        for key, kind, rel_ in _media(slide):
-            index = len(entry[kind]) + 1
-            item = {}
-            if rel_.is_external:
-                item["linked"] = rel_.target_ref
-            else:
-                media_dir = out / "media"
-                media_dir.mkdir(parents=True, exist_ok=True)
-                path = media_dir / f"slide-{number:02d}-{kind}-{index}.{rel_.target_part.partname.ext}"
-                path.write_bytes(rel_.target_part.blob)
-                item["file"] = rel(path)
-            if kind == "audio":
-                item["narration"] = key in narrated
-                if "file" in item:
-                    transcripts = out / "transcripts"
-                    transcripts.mkdir(exist_ok=True)
-                    transcript = transcripts / f"slide-{number:02d}-audio-{index}.json"
-                    heard = transcriber(private / item["file"])
-                    transcript.write_text(json.dumps(heard, indent=2, ensure_ascii=False),
-                                          encoding="utf-8")
-                    item["transcript"] = rel(transcript)
-            else:
-                # Deck-embedded video is source only: never re-hosted, never copied into a Course project.
-                item["sourceOnly"] = True
-            entry[kind].append(item)
-        slides.append(entry)
+    with open(material, "rb") as f:
+        try:
+            presentation = Presentation(f)
+        except (zipfile.BadZipFile, KeyError, ValueError) as e:
+            raise BadInput(f"not a .pptx deck ({e})") from None
+        slides = [_read_slide(number, slide, out, transcriber)
+                  for number, slide in enumerate(presentation.slides, start=1)]
     return {"kind": "deck", "slides": slides}
