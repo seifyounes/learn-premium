@@ -22,9 +22,11 @@ or a colour written `#RRGGBB`, from which a custom pad is built on the catalogue
 slots as `--pad-*` variables on `<html>`, so changing the value rebuilds every page in the new
 colours. The inks (graphite, pencil, the red pen #C0341D) are fixed and are never pad slots.
 
-Every build checks the pad against DESIGN.md's contrast requirements (`src/pads/pad.ts`). A failing
-pair doesn't block: the auto-fix moves the pad slot in the pair (never an ink) until it passes. The
-build log and the `pad` gate's entry in the Gate report list every value it changed.
+Every build checks the pad against DESIGN.md's contrast requirements (`src/pads/pad.ts`), and holds
+the Red Hue Rule on every slot drawn onto the sheet (print, muted and both grids), so a custom pad
+near the red gets a grey print and grid rather than a reddish one. A failing requirement doesn't
+block: the auto-fix moves the pad slot in it (never an ink) until it passes. The build log and the
+`pad` gate's entry in the Gate report list every value it changed.
 
 A tool with its own meaning colours (a simulator's voltage reds, CPK oxygen) sits inside an element
 marked `data-framed-tool`; the Red Hue Rule doesn't look inside it. Everything else on the sheet

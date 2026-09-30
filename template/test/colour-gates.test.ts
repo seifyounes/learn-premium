@@ -38,7 +38,7 @@ describe("the colour gates on the Fixture Course", () => {
   it("the pad gate passes a catalogue pad that every page wears, with nothing to fix", async () => {
     const pad = await runOne(padGate, input);
     expect(pad.status).toBe("pass");
-    expect(pad.coverage).toEqual({ pads: 1, requirements: 15, pages: 2 });
+    expect(pad.coverage).toEqual({ pads: 1, requirements: 18, pages: 2 });
     expect(pad.fixes).toEqual([]);
   });
 

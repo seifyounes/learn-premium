@@ -34,11 +34,13 @@ export const padGate: Gate = {
       }));
     const wanted = declarations(padStyle(pad.slots));
     const pages = sitePages(input);
+    if (pages.length === 0) throw new Error("no built page in scope to check the pad on");
     for (const { route, path } of pages) {
       const style = htmlElement(readFileSync(path, "utf8"))?.properties.style;
       const worn = new Map(declarations(typeof style === "string" ? style : ""));
       for (const [variable, value] of wanted) {
-        if (worn.get(variable)?.toUpperCase() === value) continue;
+        const current = worn.get(variable);
+        if (current !== undefined && (current === value || sameColour(current, value))) continue;
         const wears = worn.has(variable) ? `${variable}: ${worn.get(variable)}` : `no ${variable}`;
         findings.push({
           outcome: "block",

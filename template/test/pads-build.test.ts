@@ -18,6 +18,7 @@ describe("every catalogue pad renders the Fixture Course", () => {
       expect(html).toContain(`style="${padStyle(resolvePad(key).slots)}"`);
     }
     expect(build.output).toContain(`pad ${key} (${resolvePad(key).label}): meets every contrast requirement`);
+    expect(build.css(), "the red pen is fixed on every pad").toContain("--color-red-pen:#c0341d");
   });
 });
 

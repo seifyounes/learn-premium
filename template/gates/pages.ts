@@ -16,7 +16,7 @@ const RAW_TEX = /\\[A-Za-z]+|\\[()[\]]|\$[^$]*[\\^_{}][^$]*\$/;
 const classesOf = (node: Element) => (node.properties.className as string[] | undefined) ?? [];
 
 /** The built site the gate input names; a page gate can't run without one. */
-export function siteOf({ distDir }: GateInput): string {
+function siteOf({ distDir }: GateInput): string {
   if (distDir === undefined) throw new Error("no built site given to scan (distDir)");
   if (!existsSync(distDir)) throw new Error(`the built site ${distDir} does not exist`);
   return distDir;
@@ -125,7 +125,7 @@ function snippet(text: string, at: number): string {
 }
 
 /** A scratch copy of the built site's pages, with the first page changed by `edit`. */
-export function siteWith(good: GateInput, scratch: string, edit: (page: string, route: string) => string): GateInput {
+export function siteWith(good: GateInput, scratch: string, edit: (page: string) => string): GateInput {
   const first = sitePages(good)[0];
   if (!first) throw new Error("no built page to plant a negative control in");
   const distDir = join(scratch, "site");
@@ -135,7 +135,7 @@ export function siteWith(good: GateInput, scratch: string, edit: (page: string, 
   });
   const path = join(distDir, first.entry);
   const page = readFileSync(path, "utf8");
-  const edited = edit(page, first.route);
+  const edited = edit(page);
   if (edited === page) throw new Error(`${first.route} had nothing to plant a negative control in`);
   writeFileSync(path, edited);
   return { ...good, distDir };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { course } from "../src/content/contract.ts";
 import { CATALOGUE, INKS, PAD_KEYS, slotsOf } from "../src/pads/catalogue.ts";
-import { contrast, oklchOf, RED_PEN } from "../src/pads/colour.ts";
+import { contrast, fightsRedPen, oklchOf, RED_PEN, type Oklch } from "../src/pads/colour.ts";
 import { buildPad, checkPad, fixPad, padStyle, resolvePad } from "../src/pads/pad.ts";
 
 const HEX = /^#[0-9A-F]{6}$/;
@@ -15,7 +15,7 @@ describe("the pad catalogue", () => {
   it.each(PAD_KEYS)("%s passes every contrast requirement as approved, so the auto-fix leaves it alone", (key) => {
     const pad = resolvePad(key);
     expect(pad.checks.filter((c) => !c.pass)).toEqual([]);
-    expect(pad.checks).toHaveLength(15);
+    expect(pad.checks).toHaveLength(18);
     expect(pad.changes).toEqual([]);
     expect(pad.slots).toEqual(slotsOf(CATALOGUE[key]));
   });
@@ -42,20 +42,27 @@ describe("a custom pad", () => {
     expect(pad.checks.every((c) => c.pass)).toBe(true);
   });
 
-  it("near the red pen's hue gets its print greyed, and the change is listed with its reason", () => {
+  it("near the red pen's hue gets its print and grid greyed, and each change is listed with its reason", () => {
     const built = buildPad("#D2691E");
     const pad = resolvePad("#D2691E");
+    const redHue = (slot: string) =>
+      expect.stringMatching(new RegExp(`^${slot} at least 60° of hue from the red pen, or near-grey: was \\d+°$`));
     expect(pad.changes).toEqual([
-      {
-        slot: "print",
-        from: built.print,
-        to: pad.slots.print,
-        because: [expect.stringMatching(/^print at least 60° of hue from the red pen, or near-grey: was \d+°$/)],
-      },
+      { slot: "grid-major", from: built.gridMajor, to: pad.slots.gridMajor, because: [redHue("grid-major")] },
+      { slot: "print", from: built.print, to: pad.slots.print, because: [redHue("print")] },
     ]);
-    expect(oklchOf(pad.slots.print)?.c).toBeLessThan(0.035);
     expect(pad.checks.every((c) => c.pass)).toBe(true);
   });
+
+  it.each(["#C0341D", "#D2691E", "#8B4513"])(
+    "from %s draws nothing on the sheet the red pen could be taken for",
+    (colour) => {
+      const { slots } = resolvePad(colour);
+      for (const slot of ["print", "muted", "gridFine", "gridMajor"] as const) {
+        expect(fightsRedPen(oklchOf(slots[slot]) as Oklch), `${slot} ${slots[slot]}`).toBe(false);
+      }
+    },
+  );
 
   it("is only a catalogue key or a #RRGGBB colour", () => {
     expect(() => resolvePad("orange")).toThrow(/neither a catalogue pad nor a colour/);
