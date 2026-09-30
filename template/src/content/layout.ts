@@ -1,6 +1,13 @@
 // Where each kind of content sits in a Course's content folder, and the contract it keeps. The
 // build's content collections and the content gates both read it, so they see the same files.
+import { resolve } from "node:path";
 import * as contract from "./contract.ts";
+
+/**
+ * The Course's content folder, which sits beside the template layer. In this repo that is the
+ * Fixture Course; CONTENT_DIR points the build at any other Course's content.
+ */
+export const buildContentDir = () => resolve(process.cwd(), process.env.CONTENT_DIR ?? "../fixture-course");
 
 export interface CollectionLayout {
   /** Glob, relative to the content folder. */

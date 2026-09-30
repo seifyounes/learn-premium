@@ -37,6 +37,11 @@ export interface GateRun {
   /** What the gate looked at, by kind (files, pages, formulas…). All zero means it saw nothing. */
   coverage: Record<string, number>;
   findings: Finding[];
+  /**
+   * What the gate fixed on its own (the pad's contrast auto-fix), one line each. Never a finding:
+   * listed so the Owner sees every change the build made.
+   */
+  fixes?: string[];
 }
 
 /** Deliberately broken input the gate must block: proof it can see what it claims to check. */
@@ -67,6 +72,7 @@ const gateResult = z.strictObject({
   status: z.enum(STATUSES),
   coverage: z.record(z.string(), z.number()),
   findings: z.array(finding),
+  fixes: z.array(z.string()).optional(),
   /** Why a `failed` gate didn't run. */
   error: z.string().optional(),
 });

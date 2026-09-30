@@ -38,9 +38,8 @@ describe("the Fixture Course", () => {
   });
 
   it("styles the sheet from the course's pad tokens", () => {
-    expect(build.page("")).toContain('<html lang="en" dir="ltr" data-pad="green">');
+    expect(build.page("")).toMatch(/<html lang="en" dir="ltr" data-pad="green" style="[^"]*--pad-print: #2E5A38;/);
     const css = build.css();
-    expect(css).toMatch(/\[data-pad=green\]\{[^}]*--pad-print:#2e5a38/);
     // The colour tokens are CSS variables whether a page uses them or not, and utilities go through them.
     for (const token of [
       "--color-print:var(--pad-print)",

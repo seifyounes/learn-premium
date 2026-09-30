@@ -1,13 +1,17 @@
 // Content contract v0: the shape of everything a Course's writers produce. A change here is a
 // major Template release, because every Course's content is checked against it.
 import { z } from "astro/zod";
+import { isPadKey, PAD_COLOUR, PAD_KEYS } from "../pads/catalogue.ts";
 
-export const PADS = ["green"] as const;
+/** The Course's pad: a catalogue key, or a colour to build a custom pad from. */
+const pad = z.string().refine((value) => isPadKey(value) || PAD_COLOUR.test(value), {
+  message: `a catalogue pad (${PAD_KEYS.join(", ")}) or a colour written #RRGGBB`,
+});
 
 export const course = z.strictObject({
   name: z.string().min(1),
   code: z.string().min(1),
-  pad: z.enum(PADS),
+  pad,
   /** A synthetic Course (the Fixture Course) says so in the title block of every page. */
   synthetic: z.boolean().default(false),
   credit: z.strictObject({

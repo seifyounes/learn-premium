@@ -41,7 +41,7 @@ describe("the first gates on the Fixture Course", () => {
 
     const module = await run("module", { ...input, module: MODULE });
     expect(module.green, JSON.stringify(module.gates, null, 2)).toBe(true);
-    expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan"]);
+    expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan", "pad", "red-hue-rule"]);
     expect(gate(module, "rendered-page-scan")?.coverage.pages).toBe(1);
     // The scan sees every formula the Module's content holds, the ones inside islands (a Practice
     // item's hidden model answer) included.
@@ -50,7 +50,13 @@ describe("the first gates on the Fixture Course", () => {
 
     const deploy = await run("deploy", input);
     expect(deploy.green, JSON.stringify(deploy.gates, null, 2)).toBe(true);
-    expect(deploy.gates.map((g) => g.id)).toEqual(["content-contract", "katex", "rendered-page-scan"]);
+    expect(deploy.gates.map((g) => g.id)).toEqual([
+      "content-contract",
+      "katex",
+      "rendered-page-scan",
+      "pad",
+      "red-hue-rule",
+    ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
     expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(2);
   });

@@ -13,6 +13,23 @@ the page templates place the components.
 Every file is read by `src/content/loaders.ts`. Bad LaTeX anywhere, or content that breaks the
 contract, fails the build and names the file (and, for LaTeX, the line).
 
+## Pads
+
+A Course's pad is one value in `course.yaml`: a catalogue key (`green`, `bluegrey`, `teal`,
+`violet`, `steel`, `graphite`, `indigo`; DESIGN.md's starting catalogue, in `src/pads/catalogue.ts`)
+or a colour written `#RRGGBB`, from which a custom pad is built on the catalogue's OKLCH geometry
+(its hue, and its chroma capped at the catalogue's strongest print). The layout sets the pad's
+slots as `--pad-*` variables on `<html>`, so changing the value rebuilds every page in the new
+colours. The inks (graphite, pencil, the red pen #C0341D) are fixed and are never pad slots.
+
+Every build checks the pad against DESIGN.md's contrast requirements (`src/pads/pad.ts`). A failing
+pair doesn't block: the auto-fix moves the pad slot in the pair (never an ink) until it passes. The
+build log and the `pad` gate's entry in the Gate report list every value it changed.
+
+A tool with its own meaning colours (a simulator's voltage reds, CPK oxygen) sits inside an element
+marked `data-framed-tool`; the Red Hue Rule doesn't look inside it. Everything else on the sheet
+keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.035).
+
 ## Gates
 
 `gates/` is the gate runner: one entry (`npm run gates -- <command>`) for every gate point.
@@ -29,11 +46,13 @@ Every finding either blocks or raises a Checkpoint item; there is no warning lev
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
 A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
-| Gate                 | Points         | Checks                                                                |
-| -------------------- | -------------- | --------------------------------------------------------------------- |
-| `content-contract`   | job, deploy    | every content file against the Zod schemas                            |
-| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                       |
-| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included |
+| Gate                 | Points         | Checks                                                                           |
+| -------------------- | -------------- | -------------------------------------------------------------------------------- |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas                                       |
+| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                  |
+| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included            |
+| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it    |
+| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside |
 
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).
