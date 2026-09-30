@@ -1,21 +1,130 @@
 {
   "code": "W01.1",
   "title": "Heat loss through a composite wall",
-  "statement": "A wall of area $A = 1\\ \\text{m}^2$ is plaster, brick and insulation in series. The inside face is at $20\\ ^\\circ\\text{C}$ and the outside face at $-5\\ ^\\circ\\text{C}$. Find the heat loss $\\dot{Q}$.",
-  "table": {
+  "statement": "A wall is plaster, brick and insulation in series. Its inside face is held at $T_1$ and its outside face at $T_4$. Find the heat loss $\\dot{Q}$ through the wall.",
+  "given": [
+    "$A = 1\\ \\text{m}^2$",
+    "$T_1 = 20\\ ^\\circ\\text{C}$ (inside face)",
+    "$T_4 = -5\\ ^\\circ\\text{C}$ (outside face)"
+  ],
+  "artefact": {
+    "kind": "table",
     "caption": "Layer resistances, $R = \\frac{L}{kA}$",
     "columns": [
-      { "label": "Layer" },
-      { "label": "$L$", "unit": "m" },
-      { "label": "$k$", "unit": "W/(m·K)" },
-      { "label": "$R$", "unit": "K/W" }
+      { "label": "Layer", "given": true },
+      { "label": "$L$", "unit": "m", "given": true },
+      { "label": "$k$", "unit": "W/(m·K)", "given": true },
+      { "label": "$R$", "unit": "K/W" },
+      { "label": "$\\Delta T$", "unit": "K" }
     ],
     "rows": [
-      ["Plaster", "0.02", "0.5", "0.04"],
-      ["Brick", "0.20", "0.8", "0.25"],
-      ["Insulation", "0.05", "0.04", "1.25"],
-      ["Total", "", "", "1.54"]
+      ["Plaster", "0.02", "0.5", "0.04", "0.65"],
+      ["Brick", "0.20", "0.8", "0.25", "4.06"],
+      ["Insulation", "0.05", "0.04", "1.25", "20.29"],
+      ["Total", "", "", "1.54", "25.00"]
     ]
   },
+  "fillOrder": "columns",
+  "figure": {
+    "kind": "plot",
+    "caption": "The wall: plaster to $0.02\\ \\text{m}$, brick to $0.22\\ \\text{m}$, insulation to $0.27\\ \\text{m}$",
+    "x": {
+      "label": "$x$",
+      "unit": "m",
+      "min": -0.05,
+      "max": 0.3,
+      "step": 0.05
+    },
+    "y": { "label": "$T$", "unit": "°C", "min": -10, "max": 25, "step": 5 },
+    "elements": [
+      { "id": "inside-face", "kind": "guide", "x": 0 },
+      { "id": "plaster-brick", "kind": "guide", "x": 0.02 },
+      { "id": "brick-insulation", "kind": "guide", "x": 0.22 },
+      { "id": "outside-face", "kind": "guide", "x": 0.27 },
+      {
+        "id": "t1",
+        "kind": "point",
+        "at": [0, 20],
+        "label": "$T_1$",
+        "side": "start"
+      },
+      {
+        "id": "t2",
+        "kind": "point",
+        "at": [0.02, 19.35],
+        "label": "$T_2$",
+        "side": "below"
+      },
+      {
+        "id": "t3",
+        "kind": "point",
+        "at": [0.22, 15.29],
+        "label": "$T_3$",
+        "side": "end"
+      },
+      {
+        "id": "t4",
+        "kind": "point",
+        "at": [0.27, -5],
+        "label": "$T_4$",
+        "side": "end"
+      },
+      {
+        "id": "profile",
+        "kind": "line",
+        "through": [
+          [0, 20],
+          [0.02, 19.35],
+          [0.22, 15.29],
+          [0.27, -5]
+        ]
+      }
+    ],
+    "question": [
+      "inside-face",
+      "plaster-brick",
+      "brick-insulation",
+      "outside-face",
+      "t1",
+      "t4"
+    ]
+  },
+  "steps": [
+    {
+      "title": "Read the wall",
+      "note": "Three layers in series between two faces at known temperatures. The table gives each layer's $L$ and $k$; the $R$ and $\\Delta T$ columns are ours to fill."
+    },
+    {
+      "title": "Plaster's resistance",
+      "note": "$R = \\frac{L}{kA} = \\frac{0.02}{0.5 \\times 1} = 0.04\\ \\text{K/W}$",
+      "fill": ["D1"]
+    },
+    {
+      "title": "The other two layers",
+      "note": "The same rule for each: brick $\\frac{0.20}{0.8 \\times 1} = 0.25\\ \\text{K/W}$, insulation $\\frac{0.05}{0.04 \\times 1} = 1.25\\ \\text{K/W}$.",
+      "fill": ["D2", "D3"]
+    },
+    {
+      "title": "Add them in series",
+      "note": "Layers in series add like resistors: $R_\\text{total} = 0.04 + 0.25 + 1.25 = 1.54\\ \\text{K/W}$. The insulation carries most of it.",
+      "fill": ["D4"],
+      "marks": ["D4"]
+    },
+    {
+      "title": "Heat loss",
+      "note": "The whole temperature difference drives the heat through the total resistance: $\\dot{Q} = \\frac{T_1 - T_4}{R_\\text{total}} = \\frac{20 - (-5)}{1.54} = 16.2\\ \\text{W}$."
+    },
+    {
+      "title": "Check the temperature drops",
+      "note": "Each layer drops $\\Delta T = \\dot{Q} R$. The drops add back to the full $25\\ \\text{K}$, so the profile lands on $T_4$: the answer checks.",
+      "fill": ["E1", "E2", "E3", "E4"],
+      "marks": ["E4"],
+      "figure": {
+        "add": ["t2", "t3", "profile"],
+        "ring": ["t4"],
+        "caption": "The profile falls steepest through the insulation"
+      }
+    }
+  ],
   "answer": "$\\dot{Q} = \\frac{\\Delta T}{R_\\text{total}} = \\frac{25\\ \\text{K}}{1.54\\ \\text{K/W}} \\approx 16.2\\ \\text{W}$"
 }

@@ -34,7 +34,7 @@ describe("the first gates on the Fixture Course", () => {
   it("pass at every gate point, each reporting what it covered", async () => {
     const job = await run("job", { ...input, module: MODULE });
     expect(job.green, JSON.stringify(job.gates, null, 2)).toBe(true);
-    expect(job.gates.map((g) => g.id)).toEqual(["content-contract", "katex"]);
+    expect(job.gates.map((g) => g.id)).toEqual(["content-contract", "katex", "teaching-method"]);
     expect(gate(job, "content-contract")?.coverage).toEqual({ modules: 1, beats: 1, worked: 1, practice: 1 });
     expect(gate(job, "katex")?.coverage.files).toBe(4);
     expect(gate(job, "katex")?.coverage.formulas).toBeGreaterThan(10);
@@ -43,16 +43,20 @@ describe("the first gates on the Fixture Course", () => {
     expect(module.green, JSON.stringify(module.gates, null, 2)).toBe(true);
     expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan", "pad", "red-hue-rule"]);
     expect(gate(module, "rendered-page-scan")?.coverage.pages).toBe(1);
-    // The scan sees every formula the Module's content holds, the ones inside islands (a Practice
-    // item's hidden model answer) included.
-    expect(gate(module, "rendered-page-scan")?.coverage.formulas).toBe(gate(job, "katex")?.coverage.formulas);
-    expect(gate(module, "rendered-page-scan")?.coverage.islands).toBe(1);
+    // The scan sees every formula the Module's content holds, the ones only inside islands' props
+    // included (a Practice item's hidden model answer, a Worked example's later steps). An island's
+    // first render repeats some of its props' formulas, so it can see more, never fewer.
+    expect(gate(module, "rendered-page-scan")?.coverage.formulas).toBeGreaterThanOrEqual(
+      gate(job, "katex")?.coverage.formulas ?? Infinity,
+    );
+    expect(gate(module, "rendered-page-scan")?.coverage.islands).toBe(2);
 
     const deploy = await run("deploy", input);
     expect(deploy.green, JSON.stringify(deploy.gates, null, 2)).toBe(true);
     expect(deploy.gates.map((g) => g.id)).toEqual([
       "content-contract",
       "katex",
+      "teaching-method",
       "rendered-page-scan",
       "pad",
       "red-hue-rule",
@@ -132,7 +136,7 @@ describe("the content gates", () => {
 
   it("block content that breaks the content contract, naming the file and field", async () => {
     const course = fixtureWith(`modules/${MODULE}/worked/1.json`, (s) =>
-      s.replace('["Brick", "0.20", "0.8", "0.25"]', '["Brick", "0.20", "0.25"]'),
+      s.replace('["Brick", "0.20", "0.8", "0.25", "4.06"]', '["Brick", "0.20", "0.25", "4.06"]'),
     );
     const contract = gate(await run("job", { contentDir: course, module: MODULE }), "content-contract");
     expect(contract?.status).toBe("block");
@@ -140,7 +144,7 @@ describe("the content gates", () => {
       {
         outcome: "block",
         at: `modules/${MODULE}/worked/1.json`,
-        message: "table.rows.1: row has 3 cells; the table has 4 columns",
+        message: "artefact.rows.1: row has 4 cells; the table has 5 columns",
       },
     ]);
   });
@@ -155,7 +159,7 @@ describe("the content gates", () => {
 
   it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
-    expect(report.gates.map((g) => g.status)).toEqual(["failed", "failed"]);
+    expect(report.gates.map((g) => g.status)).toEqual(["failed", "failed", "failed"]);
   });
 });
 

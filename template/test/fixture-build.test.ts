@@ -37,6 +37,23 @@ describe("the Fixture Course", () => {
     expect(existsSync(join(build.outDir, island?.[1] ?? "missing"))).toBe(true);
   });
 
+  it("renders a Worked example as a solved sheet that opens on its question", () => {
+    const page = build.page("01-thermal-resistance");
+    const island =
+      /<astro-island[^>]*component-url="\/_astro\/WorkedSheet\.[^"]+\.js"[^>]*client="visible"[^>]*>([\s\S]*?)<\/astro-island>/.exec(
+        page,
+      )?.[1] ?? "";
+    expect(island, "the Worked example's island").not.toBe("");
+    expect(island).toMatch(/>1<span class="text-pencil"> \/ (?:<!-- -->)?6<\/span>/);
+    // The Given box is the page's own markup, passed into the island.
+    expect(island).toContain('<details class="given-box">');
+    // Step 1: the given columns are printed, nothing worked out is on the sheet yet…
+    expect(island).toMatch(/data-cell="B1"[^>]*><span[^>]*>0\.02<\/span>/);
+    expect(island).toMatch(/data-cell="D1"[^>]*><\/td>/);
+    // …and the figure is the question's: two of its four points.
+    expect(island.match(/class="plot-point"/g)).toHaveLength(2);
+  });
+
   it("styles the sheet from the course's pad tokens", () => {
     expect(build.page("")).toMatch(/<html lang="en" dir="ltr" data-pad="green" style="[^"]*--pad-print: #2E5A38;/);
     const css = build.css();
@@ -85,18 +102,18 @@ describe("bad LaTeX fails the build with its file and line", () => {
     );
     const build = buildCourse(course);
     expect(build.ok).toBe(false);
-    expect(build.output).toMatch(/modules\/01-thermal-resistance\/worked\/1\.json:20:\d+ bad LaTeX/);
+    expect(build.output).toMatch(/modules\/01-thermal-resistance\/worked\/1\.json:129:\d+ bad LaTeX/);
   });
 });
 
 describe("content that breaks the content contract fails the build", () => {
   it("names the file and the broken field", () => {
     const course = fixtureWith("modules/01-thermal-resistance/worked/1.json", (s) =>
-      s.replace('["Brick", "0.20", "0.8", "0.25"]', '["Brick", "0.20", "0.25"]'),
+      s.replace('["Brick", "0.20", "0.8", "0.25", "4.06"]', '["Brick", "0.20", "0.25", "4.06"]'),
     );
     const build = buildCourse(course);
     expect(build.ok).toBe(false);
     expect(build.output).toContain("modules/01-thermal-resistance/worked/1.json");
-    expect(build.output).toContain("row has 3 cells; the table has 4 columns");
+    expect(build.output).toContain("row has 4 cells; the table has 5 columns");
   });
 });

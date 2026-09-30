@@ -1,12 +1,14 @@
 ---
 import { render } from "astro:content";
 import Cell from "../components/Cell.astro";
+import GivenBox from "../components/GivenBox.astro";
 import HonestyCell from "../components/HonestyCell.astro";
-import SolvingTable from "../components/SolvingTable.astro";
 import TitleBlock from "../components/TitleBlock.astro";
 import { getModules, moduleEntries, prose, type ModuleRef } from "../content/course";
 import RevealAnswer from "../islands/RevealAnswer";
+import WorkedSheet from "../islands/WorkedSheet";
 import Sheet from "../layouts/Sheet.astro";
+import { toSheet } from "../worked/sheet";
 
 export async function getStaticPaths() {
   const modules = await getModules();
@@ -74,27 +76,10 @@ const practice = await moduleEntries("practice", module.id);
       Worked examples
     </h2>
     {worked.map(({ data: w }) => (
-      <article class="mbe-8 space-y-4">
-        <TitleBlock class="grid-cols-[1fr_auto]">
-          <Cell label="Title">
-            <h3
-              class="font-print text-sheet-title-phone font-semibold text-graphite [font-variation-settings:'wdth'_87] pad:text-sheet-title"
-              set:html={prose(w.title)}
-            />
-          </Cell>
-          <Cell label="Example">
-            <span class="font-quantity text-quantity text-graphite" set:html={prose(w.code)} />
-          </Cell>
-        </TitleBlock>
-        <div class="max-w-[68ch] border-[1.2px] border-pencil bg-sheet px-4 pbs-3 pbe-3">
-          <span class="field-label block mbe-1">Given</span>
-          <p set:html={prose(w.statement)} />
-        </div>
-        <SolvingTable table={w.table} />
-        <div class="answer-frame m-1 inline-block bg-sheet px-3.5 pbs-[7px] pbe-[9px]">
-          <span class="field-label block mbe-1">Answer</span>
-          <p class="font-semibold text-graphite" set:html={prose(w.answer)} />
-        </div>
+      <article class="mbe-10" data-artefact={w.artefact.kind}>
+        <WorkedSheet client:visible sheet={toSheet(w, prose)}>
+          <GivenBox statement={w.statement} given={w.given} />
+        </WorkedSheet>
       </article>
     ))}
   </section>

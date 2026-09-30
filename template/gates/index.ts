@@ -4,5 +4,13 @@ import { padGate, redHueRule } from "./colour.ts";
 import { contentContract, katexGate } from "./content.ts";
 import { renderedPageScan } from "./pages.ts";
 import type { Gate } from "./runner.ts";
+import { teachingMethod } from "./teaching.ts";
 
-export const GATES: readonly Gate[] = [contentContract, katexGate, renderedPageScan, padGate, redHueRule];
+export const GATES: readonly Gate[] = [
+  contentContract,
+  katexGate,
+  teachingMethod,
+  renderedPageScan,
+  padGate,
+  redHueRule,
+];

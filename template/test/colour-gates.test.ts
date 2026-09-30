@@ -61,7 +61,7 @@ describe("the colour gates on the Fixture Course", () => {
   it("the Red Hue Rule passes the Fixture Course, reporting what it looked at", async () => {
     const hue = await runOne(redHueRule, input);
     expect(hue.status).toBe("pass");
-    expect(hue.coverage).toEqual({ pages: 2, svgs: 2, islands: 1, colours: 0 });
+    expect(hue.coverage).toEqual({ pages: 2, svgs: 8, islands: 2, colours: 0 });
   });
 
   it("the Red Hue Rule blocks a sheet figure within 60° of the red pen, naming the page and the colour", async () => {

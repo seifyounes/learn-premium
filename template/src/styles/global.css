@@ -172,6 +172,360 @@
   }
 }
 
+/* The Worked example sheet (DESIGN.md, "Worked, the solved sheet"). Three columns from 900px:
+   steps margin | table with the step note below | the figure, pinned. Under 900px the margin
+   becomes a step strip and the table and figure share one region behind Table | Plot tabs. */
+@layer components {
+  .worked-title-block {
+    grid-template-columns: repeat(3, auto);
+  }
+  .worked-title {
+    order: 1;
+    grid-column: 1 / -1;
+  }
+  @media (width >= 900px) {
+    .worked-title-block {
+      grid-template-columns: 2.9fr repeat(3, auto);
+    }
+    .worked-title {
+      order: 0;
+      grid-column: auto;
+    }
+  }
+
+  /* The Given box: collapsible on phones, always open from 900px. */
+  .given-box {
+    margin-block-start: 12px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .given-box > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-block-size: 44px;
+    padding-inline: 12px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .given-box > summary::-webkit-details-marker {
+    display: none;
+  }
+  .given-chevron {
+    transition: rotate 200ms ease-out;
+  }
+  .given-box[open] .given-chevron {
+    rotate: 180deg;
+  }
+  .given-body {
+    padding: 0 16px 12px;
+  }
+  .given-body > .field-label {
+    display: none;
+  }
+  @media (width >= 900px) {
+    .given-box > summary {
+      display: none;
+    }
+    .given-box::details-content {
+      content-visibility: visible;
+    }
+    .given-body {
+      padding: 10px 16px 12px;
+    }
+    .given-body > .field-label {
+      display: block;
+    }
+  }
+
+  .worked-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-block-start: 16px;
+  }
+  /* Steps margin: a step box and its short title per line. */
+  .step-link {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    inline-size: 100%;
+    padding-block: 3px;
+    text-align: start;
+    font-size: var(--text-body-small);
+    line-height: 1.3;
+    color: var(--color-muted);
+    transition: background-color 150ms ease-out;
+  }
+  .step-link:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-print) 8%, transparent);
+  }
+  .step-link[aria-current="step"] {
+    color: var(--color-graphite);
+    font-weight: 600;
+  }
+  .step-link-title {
+    padding-block-start: 2px;
+  }
+
+  /* Step box: 24px square in pencil; graphite when current; ticked once done. */
+  .step-box {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: 24px;
+    block-size: 24px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+    font-family: var(--font-quantity);
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--color-pencil);
+  }
+  .step-box[data-state="current"] {
+    border-color: var(--color-graphite);
+    background: var(--color-graphite);
+    color: var(--color-sheet);
+    font-weight: 700;
+  }
+  .done-tick {
+    position: absolute;
+    inset-block-start: -7px;
+    inset-inline-end: -8px;
+    inline-size: 16px;
+    block-size: 16px;
+    overflow: visible;
+  }
+
+  /* Phone step strip: icon-only Prev and Next either side of the step boxes. */
+  .worked-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .worked-strip ol {
+    padding-block: 8px;
+  }
+  .strip-button {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: 44px;
+    block-size: 40px;
+    padding-inline: 10px;
+    border: 1.5px solid var(--color-print);
+    background: var(--color-sheet);
+    color: var(--color-print);
+  }
+  .strip-next {
+    background: var(--color-print);
+    color: var(--color-sheet);
+  }
+  .strip-box {
+    display: block;
+    inline-size: 100%;
+    max-inline-size: 32px;
+    margin-inline: auto;
+  }
+  .strip-box .step-box {
+    inline-size: 100%;
+    block-size: 34px;
+  }
+
+  /* Phone Table | Plot tabs: printed tabs on a pencil baseline. */
+  .worked-tabs {
+    display: flex;
+    border-block-end: 1.5px solid var(--color-pencil);
+  }
+  .artefact-tab {
+    min-block-size: 40px;
+    padding-inline: 16px;
+    margin-block-end: -1.5px;
+    border: 1.5px solid transparent;
+  }
+  .artefact-tab[aria-selected="true"] {
+    border-color: var(--color-pencil);
+    border-block-end-color: var(--color-sheet);
+    background: var(--color-sheet);
+    color: var(--color-graphite);
+  }
+
+  /* Step note: numbered square, title, Prev / Next (desktop), the note and the answer. */
+  .note-number {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    inline-size: 26px;
+    block-size: 26px;
+    border: 1.5px solid var(--color-graphite);
+    background: var(--color-sheet);
+    font-family: var(--font-quantity);
+    font-size: 15px;
+    color: var(--color-graphite);
+  }
+  .note-controls {
+    display: flex;
+    flex: none;
+    gap: 8px;
+  }
+  .note-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-block-size: 38px;
+    padding-inline: 12px;
+  }
+  .button-print-next {
+    border: 1.5px solid var(--color-print);
+    background: var(--color-print);
+    color: var(--color-sheet);
+    transition: background-color 150ms ease-out;
+  }
+  .button-print-next:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-print) 82%, black);
+  }
+  .worked-sheet button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .worked-sheet .button-print:disabled:hover {
+    background: var(--color-sheet);
+  }
+
+  /* Try first: a printed check box, and a dashed pencil space where a value is yours to write. */
+  .try-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-block-size: 28px;
+  }
+  .try-box {
+    position: relative;
+    display: inline-block;
+    inline-size: 18px;
+    block-size: 18px;
+    border: 1.5px solid var(--color-print);
+    background: var(--color-sheet);
+  }
+  .try-box .done-tick {
+    inset-block-start: -1px;
+    inset-inline-end: -3px;
+  }
+  .try-blank {
+    display: inline-block;
+    inline-size: 3.2em;
+    block-size: 18px;
+    vertical-align: middle;
+    border: 1px dashed var(--color-pencil);
+  }
+
+  /* The plotted figure: the pad's grid, pencil axes and mono ticks, graphite marks. */
+  .plot-grid {
+    stroke: var(--color-grid-fine);
+    stroke-width: 1;
+  }
+  .plot-grid[data-major="true"] {
+    stroke: var(--color-grid-major);
+  }
+  .plot-axis {
+    fill: none;
+    stroke: var(--color-pencil);
+    stroke-width: 1.2;
+  }
+  .plot-tick {
+    font-family: var(--font-quantity);
+    font-size: 12px;
+    fill: var(--color-pencil);
+  }
+  .plot-guide {
+    fill: none;
+    stroke: var(--color-pencil);
+    stroke-width: 1;
+    stroke-dasharray: 4 3;
+  }
+  .plot-line {
+    fill: none;
+    stroke: var(--color-graphite);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .plot-point {
+    fill: var(--color-graphite);
+  }
+  .plot-label {
+    position: absolute;
+    padding: 1px 3px;
+    background: var(--color-sheet);
+    font-size: 15px;
+    line-height: 1.1;
+    white-space: nowrap;
+    color: var(--color-graphite);
+  }
+
+  /* The layout switch, last so it overrides the phone-first rules above. */
+  @media (width >= 900px) {
+    .worked-grid {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr) 320px;
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "margin table figure"
+        "margin note figure";
+      gap: 16px 24px;
+    }
+    .worked-grid:not(:has(.worked-figure)) {
+      grid-template-columns: 150px minmax(0, 1fr);
+      grid-template-areas:
+        "margin table"
+        "margin note";
+    }
+    .worked-margin {
+      grid-area: margin;
+      border-inline-end: 1px solid var(--color-print);
+      padding-inline-end: 12px;
+    }
+    .worked-table {
+      grid-area: table;
+    }
+    .worked-note {
+      grid-area: note;
+    }
+    .worked-figure {
+      grid-area: figure;
+      position: sticky;
+      inset-block-start: 16px;
+      align-self: start;
+    }
+    .worked-strip,
+    .worked-tabs {
+      display: none;
+    }
+  }
+  @media (width >= 1100px) {
+    .worked-grid {
+      grid-template-columns: 172px minmax(0, 1fr) 376px;
+    }
+    .worked-grid:not(:has(.worked-figure)) {
+      grid-template-columns: 172px minmax(0, 1fr);
+    }
+  }
+  @media (width < 900px) {
+    .worked-margin,
+    .note-controls {
+      display: none;
+    }
+    .worked-grid[data-tab="table"] .worked-figure,
+    .worked-grid[data-tab="figure"] .worked-table {
+      display: none;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
