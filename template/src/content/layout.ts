@@ -10,7 +10,7 @@ export interface CollectionLayout {
   generateId: (entry: string) => string;
 }
 
-export const withoutExtension = (entry: string) => entry.replace(/\.(md|json|ya?ml)$/, "");
+const withoutExtension = (entry: string) => entry.replace(/\.(md|json|ya?ml)$/, "");
 
 /** `modules/01-slug/worked/1.json` → `01-slug/worked/1` */
 const moduleEntryId = (entry: string) => withoutExtension(entry).replace(/^modules\//, "");

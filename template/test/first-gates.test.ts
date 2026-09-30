@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -147,9 +147,9 @@ describe("the content gates", () => {
     expect(contract?.findings).toContainEqual(expect.objectContaining({ at: "modules/Thermal/module.yaml" }));
   });
 
-  it("cover nothing, and so block, for a Module that doesn't exist", async () => {
+  it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
-    expect(report.gates.map((g) => g.status)).toEqual(["block", "block"]);
+    expect(report.gates.map((g) => g.status)).toEqual(["failed", "failed"]);
   });
 });
 
@@ -191,6 +191,31 @@ describe("the gates entry point", () => {
     );
     expect(verified.status).toBe(1);
     expect(verified.stdout + verified.stderr).toMatch(/not f{40}/);
+  });
+
+  it("accepts a committed report for the commit it checked, until the Course changes after it", () => {
+    const repo = mkdtempSync(join(tmpdir(), "lp-course-repo-"));
+    cpSync(FIXTURE_COURSE, repo, { recursive: true });
+    const git = (...args: string[]) =>
+      spawnSync("git", ["-C", repo, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test", ...args], {
+        encoding: "utf8",
+      });
+    git("init", "-q");
+    git("add", "-A");
+    git("commit", "-qm", "course");
+    expect(gates("run", "--point", "job", "--content", repo).status).toBe(0);
+    // Committing the report moves HEAD, but only within the build records.
+    git("add", "-A");
+    git("commit", "-qm", "gate report");
+    const committed = gates("verify", "--point", "job", "--content", repo);
+    expect(committed.stdout).toMatch(/^green/);
+    expect(committed.status).toBe(0);
+
+    writeFileSync(join(repo, "modules", MODULE, "module.yaml"), "title: Changed\nsummary: After the report.\n");
+    git("commit", "-qam", "content after the report");
+    const changed = gates("verify", "--point", "job", "--content", repo);
+    expect(changed.status).toBe(1);
+    expect(changed.stdout).toMatch(/the report checked commit [0-9a-f]{40}, not [0-9a-f]{40}/);
   });
 
   it("rejects an unknown gate point", () => {

@@ -49,7 +49,9 @@ jobs:
           for dir in ../fixture-course/modules/*/; do
             module=$(basename "$dir")
             npm run gates -- run --point job --module "$module"
+            npm run gates -- verify --point job --module "$module"
             npm run gates -- run --point module --module "$module"
+            npm run gates -- verify --point module --module "$module"
           done
       - name: Gates per deploy
         run: |

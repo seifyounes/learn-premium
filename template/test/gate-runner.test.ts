@@ -81,12 +81,15 @@ describe("a gate run", () => {
     expect(report.gates[0]).toMatchObject({ id: "a", status: "failed", error: "no built site given" });
   });
 
-  it("blocks a gate that saw nothing, so it can't pass", async () => {
+  it("records a gate that saw nothing as failed, so it can't pass", async () => {
     const empty: GateRun = { coverage: { pages: 0 }, findings: [] };
     const report = await runGates({ point: "module", commit: COMMIT, input, gates: [stubGate("a", empty)] });
     expect(report.green).toBe(false);
-    expect(report.gates[0]?.status).toBe("block");
-    expect(report.gates[0]?.findings[0]?.message).toMatch(/covered nothing/);
+    expect(report.gates[0]).toMatchObject({
+      status: "failed",
+      coverage: { pages: 0 },
+      error: expect.stringMatching(/covered nothing/),
+    });
   });
 
   it("runs only the gates that belong to its gate point", async () => {

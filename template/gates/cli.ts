@@ -51,37 +51,38 @@ async function main(argv: string[]): Promise<number> {
     return given;
   };
   // Reports sit in the Course's build records (committed, never deployed), one per point and Module.
-  const reportPath = (p: GatePoint) =>
+  const reportPath = (gatePoint: GatePoint) =>
     resolve(
       values.report ??
-        join(contentDir, "build-records", "gate-reports", `${[p, values.module].filter(Boolean).join("-")}.json`),
+        join(
+          contentDir,
+          "build-records",
+          "gate-reports",
+          `${[gatePoint, values.module].filter(Boolean).join("-")}.json`,
+        ),
     );
 
   switch (command) {
     case "run": {
-      const p = point();
+      const gatePoint = point();
       const { commit, dirty } = gitState(contentDir);
-      const report = await runGates({ point: p, commit, dirty, input, gates: GATES });
-      const path = reportPath(p);
+      const report = await runGates({ point: gatePoint, commit, dirty, input, gates: GATES });
+      const path = reportPath(gatePoint);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`);
       printReport(report, path);
       return report.green ? 0 : 1;
     }
     case "verify": {
-      const p = point();
-      const path = reportPath(p);
+      const gatePoint = point();
+      const path = reportPath(gatePoint);
       if (!existsSync(path)) {
         console.log(`red: no Gate report at ${path}; a gate that didn't run counts as failed`);
         return 1;
       }
-      const commit = values.commit ?? gitState(contentDir).commit;
-      const verdict = verifyReport(JSON.parse(readFileSync(path, "utf8")), {
-        commit,
-        point: p,
-        gates: GATES,
-        ...scope,
-      });
+      const report: unknown = JSON.parse(readFileSync(path, "utf8"));
+      const commit = values.commit ?? commitToProve(contentDir, report);
+      const verdict = verifyReport(report, { commit, point: gatePoint, gates: GATES, ...scope });
       console.log(
         verdict.green ? `green: ${path} proves ${commit}` : `red: ${path}\n  ${verdict.problems.join("\n  ")}`,
       );
@@ -109,12 +110,33 @@ async function main(argv: string[]): Promise<number> {
  * report taken on changes is bound to no commit, so it is never green.
  */
 function gitState(contentDir: string): { commit: string; dirty: boolean } {
-  const git = (...args: string[]) => spawnSync("git", ["-C", contentDir, ...args], { encoding: "utf8" });
-  const head = git("rev-parse", "HEAD");
-  if (head.status !== 0) throw new Error(`${contentDir} is not in a git repository: ${head.stderr.trim()}`);
-  const status = git("status", "--porcelain", "--", ":(top)", ":(top,exclude,glob)**/build-records/**");
+  const status = git(contentDir, "status", "--porcelain", "--", ...OUTSIDE_BUILD_RECORDS);
   if (status.status !== 0) throw new Error(`git status failed: ${status.stderr.trim()}`);
-  return { commit: head.stdout.trim(), dirty: status.stdout.trim() !== "" };
+  return { commit: head(contentDir), dirty: status.stdout.trim() !== "" };
+}
+
+/**
+ * The commit a report must prove: HEAD, or the commit the report checked when HEAD only adds build
+ * records on top of it. Committing a Gate report moves HEAD, and must not unbind the report.
+ */
+function commitToProve(contentDir: string, report: unknown): string {
+  const current = head(contentDir);
+  const checked = (report as { commit?: unknown } | null)?.commit;
+  if (typeof checked !== "string" || checked === current) return current;
+  const isAncestor = git(contentDir, "merge-base", "--is-ancestor", checked, current).status === 0;
+  const sameCourse = git(contentDir, "diff", "--quiet", checked, current, "--", ...OUTSIDE_BUILD_RECORDS).status === 0;
+  return isAncestor && sameCourse ? checked : current;
+}
+
+/** Pathspecs for the whole repo except the build records, which a gate run writes. */
+const OUTSIDE_BUILD_RECORDS = [":(top)", ":(top,exclude,glob)**/build-records/**"];
+
+const git = (cwd: string, ...args: string[]) => spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8" });
+
+function head(contentDir: string): string {
+  const result = git(contentDir, "rev-parse", "HEAD");
+  if (result.status !== 0) throw new Error(`${contentDir} is not in a git repository: ${result.stderr.trim()}`);
+  return result.stdout.trim();
 }
 
 function printReport(report: GateReport, path: string) {

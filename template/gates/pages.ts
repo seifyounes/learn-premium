@@ -1,9 +1,10 @@
 // The rendered-page scan, per Module and per deploy: reads the built pages the way a student gets
 // them and blocks any KaTeX error span or raw TeX that reached the page.
-import { cpSync, existsSync, globSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Element, Nodes } from "hast";
 import { fromHtml } from "hast-util-from-html";
+import { filesIn } from "./course-files.ts";
 import type { Finding, Gate, GateInput } from "./runner.ts";
 
 /** Elements whose text is not prose: KaTeX's own copy of each formula's source, scripts, styles. */
@@ -14,14 +15,20 @@ const RAW_TEX = /\\[A-Za-z]+|\\[()[\]]|\$[^$]*[\\^_{}][^$]*\$/;
 
 const classesOf = (node: Element) => (node.properties.className as string[] | undefined) ?? [];
 
-function sitePages({ distDir, module }: GateInput): { route: string; entry: string; path: string }[] {
+/** The built site the gate input names; a page gate can't run without one. */
+function siteOf({ distDir }: GateInput): string {
   if (distDir === undefined) throw new Error("no built site given to scan (distDir)");
   if (!existsSync(distDir)) throw new Error(`the built site ${distDir} does not exist`);
-  return globSync("**/*.html", { cwd: distDir })
-    .map((entry) => entry.replace(/\\/g, "/"))
-    .filter((entry) => module === undefined || entry.startsWith(`${module}/`))
-    .sort()
-    .map((entry) => ({ route: `/${entry.replace(/(^|\/)index\.html$/, "$1")}`, entry, path: join(distDir, entry) }));
+  return distDir;
+}
+
+/** The built pages in scope: a Module's own route, or every page. */
+function sitePages(input: GateInput) {
+  const inScope = (entry: string) => input.module === undefined || entry.startsWith(`${input.module}/`);
+  return filesIn(siteOf(input), "**/*.html", inScope).map((page) => ({
+    route: `/${page.entry.replace(/(^|\/)index\.html$/, "$1")}`,
+    ...page,
+  }));
 }
 
 export const renderedPageScan: Gate = {
@@ -120,7 +127,7 @@ function siteWith(good: GateInput, scratch: string, html: string): GateInput {
   const first = sitePages(good)[0];
   if (!first) throw new Error("no built page to plant a negative control in");
   const distDir = join(scratch, "site");
-  cpSync(good.distDir ?? "", distDir, {
+  cpSync(siteOf(good), distDir, {
     recursive: true,
     filter: (src) => src.endsWith(".html") || statSync(src).isDirectory(),
   });

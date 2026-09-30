@@ -47,7 +47,7 @@ erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).
 | `npm run check`        | `astro check` (TypeScript strictest, `.astro` files included) |
 | `npm run lint`         | ESLint                                                        |
 | `npm run format:check` | Prettier                                                      |
-| `npm test`             | Vitest: builds the Fixture Course and its negative controls   |
+| `npm test`             | Vitest: the Fixture Course build, the gate runner, the gates  |
 | `npm run gates -- …`   | The gate runner (see Gates)                                   |
 
 Dependencies are pinned to exact versions (`.npmrc` has `save-exact`); commit the lockfile with

@@ -4,11 +4,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { MODULE_ID } from "../src/content/contract.ts";
-import { COLLECTIONS } from "../src/content/layout.ts";
+import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
 import { where, type MathError } from "../src/math/katex.ts";
 import { paperMathProcessor } from "../src/math/markdown.ts";
-import { courseFiles, courseWith, type CourseFile } from "./course-files.ts";
+import { courseFiles, courseWith, slashes, type CourseFile } from "./course-files.ts";
 import type { Finding, Gate, GateRun } from "./runner.ts";
 
 const ignoreMath = () => {};
@@ -39,7 +39,7 @@ export const contentContract: Gate = {
     }
     for (const file of files) {
       coverage[file.collection] = (coverage[file.collection] ?? 0) + 1;
-      const folder = /^modules\/([^/]+)\//.exec(file.entry)?.[1];
+      const folder = moduleOf(file.entry);
       if (folder !== undefined && !MODULE_ID.test(folder)) {
         findings.push({
           outcome: "block",
@@ -97,7 +97,7 @@ export const katexGate: Gate = {
     const onFormula = (error: MathError | undefined) => {
       formulas += 1;
       if (error) {
-        const at = { ...error.at, file: relative(input.contentDir, error.at.file).replace(/\\/g, "/") };
+        const at = { ...error.at, file: slashes(relative(input.contentDir, error.at.file)) };
         findings.push({ outcome: "block", at: where(at), message: `bad LaTeX: ${error.reason}; in: ${error.tex}` });
       }
     };
