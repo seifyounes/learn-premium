@@ -1,4 +1,4 @@
-// Fixture Course projects and Materials folders for the ledger tests. Synthetic files only.
+// Throwaway synthetic Course projects and Materials folders for the ledger tests.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";

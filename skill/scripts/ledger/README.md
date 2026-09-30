@@ -23,9 +23,9 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 
 | Command | Returns |
 | --- | --- |
-| `next` | `{action: "intake"}` with no ledger; `{action: "resume", waves}` while a wave is unfinished; else `{action: "waves", newMaterials, waves}`: files to put in the Module map, and the Module waves to run, each with its `reasons` (`planned`, `failed`, `materials-changed`, `materials-deleted`). A new Course gets Module 1 alone until it is live. |
+| `next` | `{action: "intake"}` with no ledger; `{action: "resume", waves}` while a wave is unfinished; else `{action: "waves", newMaterials, waves}`: files to put in the Module map, and the Module waves to run, each with its `reasons` (`planned`, `failed`, `materials-added` for a file mapped into a live Module, `materials-changed`, `materials-deleted`), in Module order. A new Course gets Module 01 alone until its wave merges. |
 | `diff` | The Materials hash diff: `new` (path, kind), `changed` and `deleted` (path, kind, the Module they feed). |
-| `status` | Course, Materials path, template (release, file hashes, current overrides), lock, Modules with their Materials, current waves, jobs and Checkpoint answers, and every `superseded` row. |
+| `status` | Course, Materials path, template (release, file hashes, current overrides), lock, Modules with their Materials, Exam sittings with their state (`open`, `building`, `live`, from their Sitting waves), current waves, jobs and Checkpoint answers, and every `superseded` row. |
 | `checkpoint --key K` | The Owner's current answer to Checkpoint item `K`, or `null`. Look here before asking. |
 | `integrity` | The template layer against its pinned hashes: `modified`, `added`, `missing`. Exit 1 if any. |
 
@@ -44,7 +44,7 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 | `record job --holder H --wave W --job NAME --result passed\|blocked\|fell-back\|checkpoint [--started-at ISO] [--detail TEXT]` | A job's result. `--started-at` is when the main agent launched it, so the report's times are measured, not self-reported. Recording the same job again supersedes the old row. |
 | `record checkpoint --holder H --wave W --key K --question Q --answer A [--ruling slip\|divergence]` | The Owner's answer to a Checkpoint item. Keys are stable across runs (`01/sheet2-q3`). |
 | `record override --holder H --path P --gate-gap N` | A Course override of template file `P` (a path under `template/`), with its gate-gap issue on learn-premium. |
-| `supersede --holder H --row material\|module\|wave\|job\|checkpoint\|override --id ID --reason R` | Marks a row superseded; it stays as history. A superseded Module's Materials come back as new. A running wave is ended, not superseded. |
+| `supersede --holder H --row material\|module\|wave\|job\|checkpoint\|override --id ID --reason R` | Marks a row superseded; it stays as history. A superseded Module's Materials come back as new. A running wave, or a Module with one, is refused: end the wave first. |
 
 ## Generated pages
 

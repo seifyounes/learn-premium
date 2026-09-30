@@ -45,6 +45,11 @@ export const MATERIAL_KINDS = ["pdf", "slides", "document", "image", "audio", "v
 /** Why a row stopped being current. Superseded rows stay in the ledger as its history. */
 const superseded = nullable(obj({ at: isoTime, reason: nonEmpty }));
 
+/** The rows still in force: everything not superseded. */
+export function current<T extends { superseded: unknown }>(rows: T[]): T[] {
+  return rows.filter((row) => row.superseded === null);
+}
+
 /** One Materials file as last built from. `module` is null for a file the Module map leaves out. */
 const material = obj({
   path: nonEmpty,
@@ -69,10 +74,12 @@ const moduleRow = obj({
 });
 
 /** A git commit id (sha1 or sha256 object format). */
-const commitSha: Schema<string> = (v, p) =>
+export const commitSha: Schema<string> = (v, p) =>
   typeof v === "string" && /^([0-9a-f]{40}|[0-9a-f]{64})$/.test(v) ? v : fail(p, "a full git commit SHA", v);
 
 export const WAVE_KINDS = ["module", "sitting"] as const;
+/** How a running wave can end. */
+export const WAVE_RESULTS = ["merged", "failed"] as const;
 
 /** One run of a Module or Sitting wave, with the release it built at and the commit it merged. */
 const wave = obj({
@@ -82,7 +89,7 @@ const wave = obj({
   target: nonEmpty,
   branch: nonEmpty,
   release: nonEmpty,
-  state: oneOf("running", "merged", "failed"),
+  state: oneOf("running", ...WAVE_RESULTS),
   startedAt: isoTime,
   endedAt: nullable(isoTime),
   commit: nullable(commitSha),
@@ -132,9 +139,8 @@ export const moduleMapSchema = obj({
 export const GATE_GAP_REPO = "seifyounes/learn-premium";
 
 /** An issue number on learn-premium's tracker. */
-const issueNumber: Schema<number> = (v, p) =>
+export const issueNumber: Schema<number> = (v, p) =>
   Number.isInteger(v) && (v as number) > 0 ? (v as number) : fail(p, "an issue number", v);
-export const issueNumberSchema = issueNumber;
 
 export const ledgerSchema = obj({
   schema: (v, p) => (v === SCHEMA_VERSION ? SCHEMA_VERSION : failVersion(p, v)),
@@ -167,10 +173,16 @@ export type MaterialKind = Material["kind"];
 export type ModuleRow = Infer<typeof moduleRow>;
 export type Wave = Infer<typeof wave>;
 export type WaveKind = Wave["kind"];
+export type WaveResult = (typeof WAVE_RESULTS)[number];
 export type Job = Infer<typeof job>;
 export type JobResult = Job["result"];
 export type Checkpoint = Infer<typeof checkpoint>;
 export type Ruling = NonNullable<Checkpoint["ruling"]>;
-export const commitSchema = commitSha;
-export const timeSchema = isoTime;
 export type ModuleMap = Infer<typeof moduleMapSchema>;
+
+/** An Exam sitting's state, from its Sitting waves: open until one runs, live once one merges. */
+export function sittingState(ledger: Ledger, id: string): "open" | "building" | "live" {
+  const waves = current(ledger.waves).filter((w) => w.kind === "sitting" && w.target === id);
+  if (waves.some((w) => w.state === "running")) return "building";
+  return waves.some((w) => w.state === "merged") ? "live" : "open";
+}

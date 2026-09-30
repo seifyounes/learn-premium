@@ -830,6 +830,95 @@ describe("schema check", () => {
   });
 });
 
+describe("edge cases", () => {
+  test("a new Course builds Module 01 first even when the map lists another Module first", () => {
+    const { project } = newCourse({ "L01.pdf": "l1", "L02.pdf": "l2" });
+    ledger(
+      "map",
+      "--project",
+      project,
+      "--holder",
+      "session-a",
+      "--input",
+      jsonInput({
+        modules: [
+          { id: "02", slug: "convection", title: "Convection", materials: ["L02.pdf"] },
+          { id: "01", slug: "conduction", title: "Conduction", materials: ["L01.pdf"] },
+        ],
+        unmapped: [],
+      }),
+    );
+
+    expect(ledger("next", "--project", project).out.waves).toEqual([
+      { kind: "module", target: "01", reasons: ["planned"] },
+    ]);
+  });
+
+  test("refuses to supersede a Module while its wave is running", () => {
+    const { project } = mappedCourse();
+    ledger(
+      "wave",
+      "start",
+      "--project",
+      project,
+      "--holder",
+      "session-a",
+      "--kind",
+      "module",
+      "--target",
+      "02",
+      "--branch",
+      "b",
+    );
+
+    const { code } = ledger(
+      "supersede",
+      "--project",
+      project,
+      "--holder",
+      "session-a",
+      "--row",
+      "module",
+      "--id",
+      "02",
+      "--reason",
+      "r",
+    );
+
+    expect(code).toBe(3);
+  });
+
+  test("a new file mapped into a live Module sends it back for a fresh wave", () => {
+    const { project, materials } = liveCourse();
+    writeFiles(materials, { "L01b.pdf": "l1b" });
+
+    ledger(
+      "map",
+      "--project",
+      project,
+      "--holder",
+      "session-a",
+      "--input",
+      jsonInput({
+        modules: [{ id: "01", slug: "conduction", title: "Conduction", materials: ["L01b.pdf"] }],
+        unmapped: [],
+      }),
+    );
+
+    expect(ledger("next", "--project", project).out.waves).toEqual([
+      { kind: "module", target: "01", reasons: ["materials-added"] },
+    ]);
+  });
+
+  test("status reports each Exam sitting with its state", () => {
+    const { project } = mappedCourse();
+
+    expect(ledger("status", "--project", project).out.sittings).toEqual([
+      { id: "midterm", name: "Midterm", date: "2026-11-10", state: "open" },
+    ]);
+  });
+});
+
 /** The mapped Course with both Modules built and merged. */
 function liveCourse() {
   const course = mappedCourse();
