@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { hashTree } from "./hash.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
 import {
+  current,
   SCHEMA_VERSION,
+  sittingState,
   TEMPLATE_DIR,
   type Checkpoint,
   type Intake,
@@ -15,6 +17,7 @@ import {
   type Ruling,
   type Wave,
   type WaveKind,
+  type WaveResult,
 } from "./model.ts";
 import { LedgerError, readLedger, updateLedger } from "./store.ts";
 
@@ -22,16 +25,20 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function noLedger(project: string): LedgerError {
+  return new LedgerError("refused", `no Build ledger in ${project}: run intake first`);
+}
+
 function requireLedger(project: string): Ledger {
   const ledger = readLedger(project);
-  if (ledger === null) throw new LedgerError("refused", `no Build ledger in ${project}: run intake first`);
+  if (ledger === null) throw noLedger(project);
   return ledger;
 }
 
 /** Applies `change` to the ledger for the session holding its lock; anyone else is refused. */
 function mutate<T = void>(project: string, holder: string, change: (ledger: Ledger) => T): T {
   return updateLedger(project, (ledger) => {
-    if (ledger === null) throw new LedgerError("refused", `no Build ledger in ${project}: run intake first`);
+    if (ledger === null) throw noLedger(project);
     if (ledger.lock?.holder !== holder) {
       const held =
         ledger.lock === null ? "nobody holds it" : `${ledger.lock.holder} holds it since ${ledger.lock.since}`;
@@ -41,44 +48,37 @@ function mutate<T = void>(project: string, holder: string, change: (ledger: Ledg
   });
 }
 
-/** Every kind of row that can be superseded, with how its id is written on the command line. */
-const TABLES = {
-  material: { rows: (l: Ledger) => l.materials, id: (r: Ledger["materials"][number]) => r.path },
-  module: { rows: (l: Ledger) => l.modules, id: (r: Ledger["modules"][number]) => r.id },
-  wave: { rows: (l: Ledger) => l.waves, id: (r: Ledger["waves"][number]) => r.id },
-  job: { rows: (l: Ledger) => l.jobs, id: (r: Ledger["jobs"][number]) => `${r.wave}/${r.job}` },
-  checkpoint: { rows: (l: Ledger) => l.checkpoints, id: (r: Ledger["checkpoints"][number]) => r.key },
-  override: { rows: (l: Ledger) => l.template.overrides, id: (r: Ledger["template"]["overrides"][number]) => r.path },
-} as const;
+export const ROW_KINDS = ["material", "module", "wave", "job", "checkpoint", "override"] as const;
+export type RowKind = (typeof ROW_KINDS)[number];
 
-export type RowKind = keyof typeof TABLES;
-export const ROW_KINDS = Object.keys(TABLES) as RowKind[];
-
-interface SupersededRow {
-  row: RowKind;
+/** A row of any kind, with the id it goes by on the command line. */
+interface Entry {
   id: string;
-  at: string;
-  reason: string;
+  row: { superseded: { at: string; reason: string } | null };
 }
 
-function supersededRows(ledger: Ledger): SupersededRow[] {
-  return ROW_KINDS.flatMap((row) => {
-    const table = TABLES[row] as {
-      rows: (l: Ledger) => { superseded: { at: string; reason: string } | null }[];
-      id: (r: never) => string;
-    };
-    return table
-      .rows(ledger)
-      .flatMap((r) => (r.superseded === null ? [] : [{ row, id: table.id(r as never), ...r.superseded }]));
-  });
-}
+/** Every row of one kind that can be superseded, keyed by its command-line id. */
+const ENTRIES: Record<RowKind, (ledger: Ledger) => Entry[]> = {
+  material: (l) => l.materials.map((row) => ({ id: row.path, row })),
+  module: (l) => l.modules.map((row) => ({ id: row.id, row })),
+  wave: (l) => l.waves.map((row) => ({ id: row.id, row })),
+  job: (l) => l.jobs.map((row) => ({ id: `${row.wave}/${row.job}`, row })),
+  checkpoint: (l) => l.checkpoints.map((row) => ({ id: row.key, row })),
+  override: (l) => l.template.overrides.map((row) => ({ id: row.path, row })),
+};
 
-const current = <T extends { superseded: unknown }>(rows: T[]): T[] => rows.filter((row) => row.superseded === null);
+function supersededRows(ledger: Ledger) {
+  return ROW_KINDS.flatMap((kind) =>
+    ENTRIES[kind](ledger).flatMap(({ id, row }) =>
+      row.superseded === null ? [] : [{ row: kind, id, ...row.superseded }],
+    ),
+  );
+}
 
 export interface PlannedWave {
   kind: "module";
   target: string;
-  reasons: ("planned" | "failed" | "materials-changed" | "materials-deleted")[];
+  reasons: ("planned" | "failed" | "materials-added" | "materials-changed" | "materials-deleted")[];
 }
 
 export type NextAction =
@@ -98,16 +98,28 @@ export function nextAction(project: string): NextAction {
   }
   const diff = diffMaterials(ledger);
   const waves: PlannedWave[] = [];
-  for (const module of current(ledger.modules)) {
+  const modules = current(ledger.modules).sort((a, b) => a.id.localeCompare(b.id));
+  for (const module of modules) {
     const reasons: PlannedWave["reasons"] = [];
     if (module.state === "planned" || module.state === "failed") reasons.push(module.state);
+    if (module.state === "live" && mappedSinceLastWave(ledger, module.id)) reasons.push("materials-added");
     if (diff.changed.some((file) => file.module === module.id)) reasons.push("materials-changed");
     if (diff.deleted.some((file) => file.module === module.id)) reasons.push("materials-deleted");
     if (reasons.length > 0) waves.push({ kind: "module", target: module.id, reasons });
   }
-  // Module 1 runs alone first on a new Course: it writes the Course style sheet every other Module follows.
-  const firstBuilt = ledger.modules.some((module) => module.state === "live");
+  // Module 1 runs alone first on a new Course: it writes the Course style sheet every other Module
+  // follows. Once any Module wave has merged the style sheet exists, even if that Module was superseded later.
+  const firstBuilt = ledger.waves.some((wave) => wave.kind === "module" && wave.state === "merged");
   return { action: "waves", newMaterials: diff.new, waves: firstBuilt ? waves : waves.slice(0, 1) };
+}
+
+/** Whether files were mapped into a live Module after its last merged wave took in its Materials. */
+function mappedSinceLastWave(ledger: Ledger, module: string): boolean {
+  const lastMerged = current(ledger.waves)
+    .filter((w) => w.kind === "module" && w.target === module && w.state === "merged")
+    .at(-1);
+  if (lastMerged === undefined) return false;
+  return current(ledger.materials).some((m) => m.module === module && m.recordedAt > lastMerged.startedAt);
 }
 
 export function diff(project: string): MaterialsDiff {
@@ -167,7 +179,7 @@ export function map(project: string, holder: string, moduleMap: ModuleMap): void
  */
 export function claimLock(project: string, holder: string, takeOver: string | null): void {
   updateLedger(project, (ledger) => {
-    if (ledger === null) throw new LedgerError("refused", `no Build ledger in ${project}: run intake first`);
+    if (ledger === null) throw noLedger(project);
     const held = ledger.lock;
     if (held?.holder === holder) return { ledger, result: undefined };
     let tookOverFrom = null;
@@ -201,6 +213,7 @@ export function startWave(project: string, holder: string, kind: WaveKind, targe
     if (running !== undefined)
       throw new LedgerError("refused", `wave ${running.id} is already running on ${kind} ${target}`);
     const id = `${kind}-${target}-${ledger.waves.filter((w) => w.kind === kind && w.target === target).length + 1}`;
+    const at = now();
     ledger.waves.push({
       id,
       kind,
@@ -208,27 +221,21 @@ export function startWave(project: string, holder: string, kind: WaveKind, targe
       branch,
       release: ledger.template.release,
       state: "running",
-      startedAt: now(),
+      startedAt: at,
       endedAt: null,
       commit: null,
       superseded: null,
     });
     if (kind === "module") {
       setModuleState(ledger, target, "building");
-      takeInMaterials(ledger, target);
+      takeInMaterials(ledger, target, at);
     }
     return id;
   });
 }
 
 /** Ends a running wave: merged (with the commit that merged it) or failed. */
-export function endWave(
-  project: string,
-  holder: string,
-  id: string,
-  result: "merged" | "failed",
-  commit: string | null,
-): void {
+export function endWave(project: string, holder: string, id: string, result: WaveResult, commit: string | null): void {
   mutate(project, holder, (ledger) => {
     const wave = current(ledger.waves).find((w) => w.id === id);
     if (wave === undefined) throw new LedgerError("invalid", `no current wave ${id}`);
@@ -242,9 +249,8 @@ export function endWave(
 }
 
 /** A Module wave builds from its Materials as they are now: changed files get a fresh row, deleted ones leave. */
-function takeInMaterials(ledger: Ledger, module: string): void {
+function takeInMaterials(ledger: Ledger, module: string, at: string): void {
   const onDisk = hashTree(ledger.intake.materialsPath);
-  const at = now();
   for (const row of current(ledger.materials).filter((m) => m.module === module)) {
     const hash = onDisk[row.path];
     if (hash === row.hash) continue;
@@ -328,14 +334,17 @@ export function recordOverride(project: string, holder: string, path: string, ga
  */
 export function supersede(project: string, holder: string, row: RowKind, id: string, reason: string): void {
   mutate(project, holder, (ledger) => {
-    const table = TABLES[row] as { rows: (l: Ledger) => { superseded: unknown }[]; id: (r: never) => string };
-    const target = current(table.rows(ledger)).find((r) => table.id(r as never) === id);
+    const target = ENTRIES[row](ledger).find((entry) => entry.id === id && entry.row.superseded === null);
     if (target === undefined) throw new LedgerError("invalid", `no current ${row} ${id}`);
-    if (row === "wave" && (target as Wave).state === "running") {
-      throw new LedgerError("refused", `wave ${id} is still running: end it first`);
-    }
+    // A running wave (or the Module it is building) is ended first, so nothing is left running on a dead row.
+    const running = current(ledger.waves).find(
+      (w) =>
+        w.state === "running" &&
+        (row === "wave" ? w.id === id : row === "module" && w.kind === "module" && w.target === id),
+    );
+    if (running !== undefined) throw new LedgerError("refused", `wave ${running.id} is still running: end it first`);
     const at = now();
-    target.superseded = { at, reason };
+    target.row.superseded = { at, reason };
     if (row === "module") {
       for (const material of current(ledger.materials).filter((m) => m.module === id)) {
         material.superseded = { at, reason: "its Module was superseded" };
@@ -374,6 +383,7 @@ export function status(project: string) {
       state,
       materials: materials.filter((m) => m.module === id).map((m) => m.path),
     })),
+    sittings: ledger.intake.sittings.map((sitting) => ({ ...sitting, state: sittingState(ledger, sitting.id) })),
     waves: current(ledger.waves),
     jobs: current(ledger.jobs),
     checkpoints: current(ledger.checkpoints),

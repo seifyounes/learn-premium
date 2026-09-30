@@ -1,6 +1,7 @@
 // The Build ledger's command interface: argv in, exit code and one JSON document out.
 //
-// Exit codes: 0 done; 1 a check found problems (integrity); 2 bad arguments, input or ledger file; 3 refused (the lock, or the ledger's state).
+// Exit codes: 0 done; 1 a check found problems (integrity); 2 bad arguments, input or ledger file;
+// 3 refused (the lock, or the ledger's state). The entry point (../ledger.ts) adds 4 for internal errors.
 import { readFileSync } from "node:fs";
 import {
   checkpointAnswer,
@@ -21,16 +22,16 @@ import {
   verifyIntegrity,
 } from "./ledger.ts";
 import {
-  commitSchema,
+  commitSha,
   intakeSchema,
-  issueNumberSchema,
+  issueNumber,
   JOB_RESULTS,
   moduleMapSchema,
   RULINGS,
-  timeSchema,
   WAVE_KINDS,
+  WAVE_RESULTS,
 } from "./model.ts";
-import { oneOf, SchemaError } from "./schema.ts";
+import { isoTime, oneOf, SchemaError } from "./schema.ts";
 import { LedgerError } from "./store.ts";
 
 export interface RunResult {
@@ -121,7 +122,7 @@ function record(args: Args, project: string): Output {
         wave: args.required("--wave"),
         job: args.required("--job"),
         result: oneOf(...JOB_RESULTS)(args.required("--result"), "--result"),
-        startedAt: startedAt === undefined ? null : timeSchema(startedAt, "--started-at"),
+        startedAt: startedAt === undefined ? null : isoTime(startedAt, "--started-at"),
         detail: args.optional("--detail") ?? null,
       });
       return {};
@@ -143,7 +144,7 @@ function record(args: Args, project: string): Output {
         project,
         holder,
         args.required("--path"),
-        issueNumberSchema(/^\d+$/.test(gap) ? Number(gap) : gap, "--gate-gap"),
+        issueNumber(/^\d+$/.test(gap) ? Number(gap) : gap, "--gate-gap"),
       );
       return {};
     }
@@ -160,14 +161,14 @@ function wave(args: Args, project: string): Output {
       return { wave: startWave(project, holder, kind, args.required("--target"), args.required("--branch")) };
     }
     case "end": {
-      const result = oneOf("merged", "failed")(args.required("--result"), "--result");
+      const result = oneOf(...WAVE_RESULTS)(args.required("--result"), "--result");
       const commit = args.optional("--commit");
       endWave(
         project,
         holder,
         args.required("--wave"),
         result,
-        commit === undefined ? null : commitSchema(commit, "--commit"),
+        commit === undefined ? null : commitSha(commit, "--commit"),
       );
       return {};
     }

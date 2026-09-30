@@ -12,14 +12,10 @@ export function fail(path: string, expected: string, value: unknown): never {
   throw new SchemaError(`${path}: expected ${expected}, got ${JSON.stringify(value) ?? String(value)}`);
 }
 
-export const str: Schema<string> = (v, p) => (typeof v === "string" ? v : fail(p, "a string", v));
-
 export const nonEmpty: Schema<string> = (v, p) =>
   typeof v === "string" && v.trim() !== "" ? v : fail(p, "a non-empty string", v);
 
 export const bool: Schema<boolean> = (v, p) => (typeof v === "boolean" ? v : fail(p, "true or false", v));
-
-export const int: Schema<number> = (v, p) => (Number.isInteger(v) ? (v as number) : fail(p, "an integer", v));
 
 export const sha256: Schema<string> = (v, p) =>
   typeof v === "string" && /^[0-9a-f]{64}$/.test(v) ? v : fail(p, "a sha256 hex digest", v);

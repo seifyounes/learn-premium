@@ -40,5 +40,5 @@ jobs:
         run: npm run lint -- --max-warnings 0
       - name: Type check
         run: npm run typecheck
-      - name: Tests (Vitest, seam 2)
+      - name: Tests (Vitest; every ledger command through its CLI, on synthetic Materials)
         run: npm test

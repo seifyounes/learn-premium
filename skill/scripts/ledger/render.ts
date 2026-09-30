@@ -2,7 +2,7 @@
 // every ledger write, so they never drift from it; nobody edits them by hand.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { BUILD_RECORDS_DIR, GATE_GAP_REPO, LEDGER_FILE, type Ledger } from "./model.ts";
+import { BUILD_RECORDS_DIR, current, GATE_GAP_REPO, LEDGER_FILE, sittingState, type Ledger } from "./model.ts";
 
 export const STATUS_PAGE = "status.md";
 export const BUILD_REPORT = "build-report.md";
@@ -16,8 +16,6 @@ export function writePages(project: string, ledger: Ledger): void {
 
 const GENERATED = `Generated from \`${LEDGER_FILE}\` on every change to it. Don't edit.`;
 
-const current = <T extends { superseded: unknown }>(rows: T[]): T[] => rows.filter((row) => row.superseded === null);
-
 function table(header: string[], rows: (string | number)[][]): string {
   if (rows.length === 0) return "None.\n";
   const line = (cells: (string | number)[]) =>
@@ -28,11 +26,6 @@ function table(header: string[], rows: (string | number)[][]): string {
 function statusPage(ledger: Ledger): string {
   const materials = current(ledger.materials);
   const waves = current(ledger.waves);
-  const sittingState = (id: string) => {
-    const latest = waves.filter((w) => w.kind === "sitting" && w.target === id).at(-1);
-    if (latest?.state === "running") return "building";
-    return waves.some((w) => w.kind === "sitting" && w.target === id && w.state === "merged") ? "live" : "open";
-  };
   const lock = ledger.lock === null ? "free" : `held by ${ledger.lock.holder} since ${ledger.lock.since}`;
   return [
     `# ${ledger.intake.courseName}: build status`,
@@ -51,7 +44,7 @@ function statusPage(ledger: Ledger): string {
     "",
     table(
       ["Sitting", "Name", "Date", "State"],
-      ledger.intake.sittings.map((s) => [s.id, s.name, s.date ?? "not known", sittingState(s.id)]),
+      ledger.intake.sittings.map((s) => [s.id, s.name, s.date ?? "not known", sittingState(ledger, s.id)]),
     ),
     "## Waves running",
     "",

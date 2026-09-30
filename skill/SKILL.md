@@ -32,7 +32,7 @@ The first line is a summary for the Owner; the JSON after it is the full report.
 
 - **Exit 1 (something is missing):** show the Owner the summary line and each `missing` entry, and
   offer to run the installer named in `installer` (`powershell -ExecutionPolicy Bypass -File
-<installer>`). Run it only on the Owner's yes, then check again. Don't continue the run on a
+  <installer>`). Run it only on the Owner's yes, then check again. Don't continue the run on a
   broken install.
 - **`releases_behind` > 0:** tell the Owner the summary line as is ("N commits / M releases
   behind…"). Moving to a newer release is the Owner's call: never pull, check out or re-run the
@@ -51,6 +51,12 @@ edit `build-ledger.json` or the pages generated from it. Pick a holder id for th
 ```bash
 L="$HOME/.claude/skills/learn-premium/scripts/ledger.ts"
 node "$L" next --project <Course project>
+```
+
+If `next` says `intake`, there is no ledger yet and nothing to lock: intake's `init` creates the
+ledger with this run holding the lock. Otherwise claim it before anything else:
+
+```bash
 node "$L" lock claim --project <Course project> --holder <id>
 ```
 
