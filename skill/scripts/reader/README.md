@@ -6,7 +6,8 @@ through it, never by opening a PDF's text layer or unzipping a deck by hand.
 ```bash
 "$HOME/.claude/learn-premium/venv/Scripts/python.exe" \
   "$HOME/.claude/skills/learn-premium/scripts/materials_reader.py" \
-  read --materials <Materials folder> --private <Private folder> <file> [--whisper-model small]
+  read --materials <Materials folder> --private <Private folder> <file> \
+  [--whisper-model large-v3-turbo] [--language ar]
 ```
 
 `<file>` is relative to the Materials folder (as the Build ledger's inventory spells it). The
@@ -46,9 +47,12 @@ from the deck in PowerPoint until one is added.
 
 ## Narration
 
-Audio is transcribed locally by faster-whisper (CPU, int8; the model downloads into the Hugging
-Face cache on first use). Transcripts are Material, kept in the Private folder only; the audio is
-never published. A deck with no audio never loads the model.
+Audio is transcribed locally by faster-whisper with `large-v3-turbo` (CPU, int8): multilingual,
+and it holds up on Arabic narration where `small` doesn't. On CPU it takes about as long as the
+audio plays. The model (about 1.6 GB) downloads into the Hugging Face cache on the first read that
+has audio; a deck with no audio never loads it. The language is detected per clip; pass
+`--language ar` when short clips full of English terms get detected as English. Transcripts are
+Material, kept in the Private folder only; the audio is never published.
 
 ## Long paths
 

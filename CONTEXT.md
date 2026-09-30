@@ -217,6 +217,12 @@ One of two agents that transcribe the same Materials independently, never seeing
 output, so their numbers can be compared.
 _Avoid_: extractor, OCR agent
 
+**Materials reader**:
+The tool every Blind reader reads Materials through: it renders PDF pages and looks at each render,
+reads a .pptx deck's slides, narration and embedded video, and transcribes the narration locally,
+writing all of it into the Private folder.
+_Avoid_: parser, extractor, PDF text layer (as a way to read Materials)
+
 **Checkpoint**:
 The Owner's batched confirmation of one Module's open items (sheet-vs-recompute conflicts,
 scaled dimensions, new Disciplines) before it merges.

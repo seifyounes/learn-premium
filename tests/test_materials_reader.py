@@ -275,7 +275,8 @@ def test_real_narration_is_transcribed_by_faster_whisper(folders, tmp_path):
     deck(materials / "Lecture 6.pptx", [{"title": "Conduction", "narration": speech.read_bytes()}])
 
     code, report = reader_command("read", "--materials", str(materials), "--private",
-                                  str(private), "--whisper-model", "tiny", "Lecture 6.pptx")
+                                  str(private), "--whisper-model", "tiny", "--language", "en",
+                                  "Lecture 6.pptx")
 
     assert code == 0, report
     manifest = json.loads((private / report["manifest"]).read_text(encoding="utf-8"))
