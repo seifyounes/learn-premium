@@ -1,27 +1,39 @@
-// A Course's content files as the content gates see them: the same globs the build's content
-// collections load (`src/content/layout.ts`), scoped to one Module when the gate input names one.
+// The files a gate checks: a Course's content files (the same globs the build's content
+// collections load, from `src/content/layout.ts`) or a built site's pages, scoped to one Module
+// when the gate input names one.
 import { cpSync, globSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
 import { MODULE_ID } from "../src/content/contract.ts";
+import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
 import type { GateInput } from "./runner.ts";
 
-export type CollectionName = keyof typeof COLLECTIONS;
+export const slashes = (path: string) => path.replace(/\\/g, "/");
 
-export interface CourseFile {
-  collection: CollectionName;
-  /** Path relative to the content folder, forward slashes: how findings name the file. */
+export interface CheckedFile {
+  /** Path relative to the folder checked, forward slashes: how findings name the file. */
   entry: string;
   path: string;
 }
 
+/** The files under `dir` matching `pattern` that `keep` accepts, in a stable order. */
+export function filesIn(dir: string, pattern: string, keep: (entry: string) => boolean): CheckedFile[] {
+  return globSync(pattern, { cwd: dir })
+    .map(slashes)
+    .filter(keep)
+    .sort()
+    .map((entry) => ({ entry, path: join(dir, entry) }));
+}
+
+export type CollectionName = keyof typeof COLLECTIONS;
+
+export interface CourseFile extends CheckedFile {
+  collection: CollectionName;
+}
+
 export function courseFiles({ contentDir, module }: GateInput): CourseFile[] {
+  const inScope = (entry: string) => module === undefined || moduleOf(entry) === module;
   return (Object.keys(COLLECTIONS) as CollectionName[]).flatMap((collection) =>
-    globSync(COLLECTIONS[collection].pattern, { cwd: contentDir })
-      .map((entry) => entry.replace(/\\/g, "/"))
-      .filter((entry) => module === undefined || moduleOf(entry) === module)
-      .sort()
-      .map((entry) => ({ collection, entry, path: join(contentDir, entry) })),
+    filesIn(contentDir, COLLECTIONS[collection].pattern, inScope).map((file) => ({ collection, ...file })),
   );
 }
 

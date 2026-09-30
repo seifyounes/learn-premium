@@ -12,7 +12,7 @@ import { z } from "astro/zod";
 export const GATE_POINTS = ["job", "module", "deploy"] as const;
 export type GatePoint = (typeof GATE_POINTS)[number];
 
-export const OUTCOMES = ["block", "checkpoint"] as const;
+const OUTCOMES = ["block", "checkpoint"] as const;
 /** `block`: the job that made the problem fixes it. `checkpoint`: only the Owner can settle it. */
 export type Outcome = (typeof OUTCOMES)[number];
 
@@ -43,7 +43,7 @@ export interface GateRun {
 export interface NegativeControl {
   defect: string;
   /** Builds the broken input from the good one, writing any files under `scratch`. */
-  plant(good: GateInput, scratch: string): GateInput | Promise<GateInput>;
+  plant(good: GateInput, scratch: string): GateInput;
 }
 
 export interface Gate {
@@ -113,7 +113,7 @@ export async function runGates({ point, commit, dirty = false, input, gates }: R
   };
 }
 
-export const gatesAt = (point: GatePoint, gates: readonly Gate[]) => gates.filter((g) => g.points.includes(point));
+const gatesAt = (point: GatePoint, gates: readonly Gate[]) => gates.filter((g) => g.points.includes(point));
 
 async function runGate(gate: Gate, input: GateInput): Promise<GateResult> {
   const base = { id: gate.id, checks: gate.checks };
@@ -123,11 +123,10 @@ async function runGate(gate: Gate, input: GateInput): Promise<GateResult> {
   } catch (error) {
     return { ...base, status: "failed", coverage: {}, findings: [], error: messageOf(error) };
   }
-  const findings = [...run.findings];
   if (!Object.values(run.coverage).some((n) => n > 0)) {
-    findings.push({ outcome: "block", message: "the gate covered nothing, so it can't pass" });
+    return { ...base, status: "failed", ...run, error: "the gate covered nothing, so it can't pass" };
   }
-  return { ...base, status: statusOf(findings), coverage: run.coverage, findings };
+  return { ...base, status: statusOf(run.findings), ...run };
 }
 
 function statusOf(findings: readonly Finding[]): GateStatus {
@@ -150,18 +149,22 @@ export interface ExpectedReport {
 export function verifyReport(report: unknown, expected: ExpectedReport): { green: boolean; problems: string[] } {
   const parsed = gateReport.safeParse(report);
   if (!parsed.success) return { green: false, problems: [`not a Gate report: ${z.prettifyError(parsed.error)}`] };
-  const r = parsed.data;
+  const checked = parsed.data;
   const problems: string[] = [];
-  if (r.commit !== expected.commit) problems.push(`the report checked commit ${r.commit}, not ${expected.commit}`);
-  if (r.dirty) problems.push("the report was taken on uncommitted changes");
-  if (r.point !== expected.point) problems.push(`the report is for the ${r.point} point, not ${expected.point}`);
-  if (r.module !== expected.module) {
-    problems.push(`the report is for ${r.module ?? "the whole Course"}, not ${expected.module ?? "the whole Course"}`);
+  if (checked.commit !== expected.commit)
+    problems.push(`the report checked commit ${checked.commit}, not ${expected.commit}`);
+  if (checked.dirty) problems.push("the report was taken on uncommitted changes");
+  if (checked.point !== expected.point)
+    problems.push(`the report is for the ${checked.point} point, not ${expected.point}`);
+  if (checked.module !== expected.module) {
+    problems.push(
+      `the report is for ${checked.module ?? "the whole Course"}, not ${expected.module ?? "the whole Course"}`,
+    );
   }
   const expectedGates = gatesAt(expected.point, expected.gates);
   if (expectedGates.length === 0) problems.push(`no gate runs at the ${expected.point} point`);
   for (const gate of expectedGates) {
-    const result = r.gates.find((g) => g.id === gate.id);
+    const result = checked.gates.find((g) => g.id === gate.id);
     if (!result) problems.push(`gate "${gate.id}" did not run: failed`);
     else if (!GREEN_STATUSES.includes(result.status)) problems.push(`gate "${gate.id}": ${result.status}`);
   }
@@ -176,7 +179,7 @@ export interface ControlResult {
   error?: string;
 }
 
-export interface ControlsReport {
+export interface ControlsResult {
   /** Every gate passed its positive fixture, has a negative control, and blocked every one. */
   ok: boolean;
   gates: { id: string; positive: GateStatus; controls: ControlResult[] }[];
@@ -189,23 +192,23 @@ export async function runControls({
 }: {
   input: GateInput;
   gates: readonly Gate[];
-}): Promise<ControlsReport> {
-  const report: ControlsReport = { ok: true, gates: [] };
+}): Promise<ControlsResult> {
+  const result: ControlsResult = { ok: true, gates: [] };
   for (const gate of gates) {
     const positive = (await runGate(gate, input)).status;
     const controls: ControlResult[] = [];
     for (const control of gate.controls) controls.push(await runControl(gate, control, input));
     const ok = positive === "pass" && controls.length > 0 && controls.every((c) => c.caught);
-    report.ok &&= ok;
-    report.gates.push({ id: gate.id, positive, controls });
+    result.ok &&= ok;
+    result.gates.push({ id: gate.id, positive, controls });
   }
-  return report;
+  return result;
 }
 
 async function runControl(gate: Gate, control: NegativeControl, good: GateInput): Promise<ControlResult> {
   const scratch = mkdtempSync(join(tmpdir(), `lp-control-${gate.id}-`));
   try {
-    const broken = await control.plant(good, scratch);
+    const broken = control.plant(good, scratch);
     const result = await runGate(gate, broken);
     return {
       defect: control.defect,
