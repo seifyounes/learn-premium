@@ -32,16 +32,16 @@ type Output = { code?: number } & Record<string, unknown>;
 
 function dispatch(args: Args): Output {
   const command = args.command();
-  const state = args.optional("--state") ?? DEFAULT_STATE_DIR;
+  const stateDir = args.optional("--state") ?? DEFAULT_STATE_DIR;
   switch (command) {
     case "register":
-      return register(state, args.required("--project"));
+      return register(stateDir, args.required("--project"));
     case "gather":
-      return { ...survey(state, true) };
+      return { ...survey(stateDir, true) };
     case "status":
-      return { ...survey(state, false) };
+      return { ...survey(stateDir, false) };
     case "start": {
-      const result = start(state, args.required("--project"), args.required("--item"));
+      const result = start(stateDir, args.required("--project"), args.required("--item"));
       if (result.started) return { attempt: result.attempt };
       const { limit: which, until } = result.stopped;
       const lifts = until === null ? "never: the item costs more than the whole limit" : `at ${until}`;
@@ -53,14 +53,14 @@ function dispatch(args: Args): Output {
     }
     case "downloaded":
     case "checked":
-      advance(state, args.required("--project"), args.required("--item"), command);
+      advance(stateDir, args.required("--project"), args.required("--item"), command);
       return {};
     case "placed":
-      place(state, args.required("--project"), args.required("--item"), args.required("--file"));
+      place(stateDir, args.required("--project"), args.required("--item"), args.required("--file"));
       return {};
     case "fail":
       return fail(
-        state,
+        stateDir,
         args.required("--project"),
         args.required("--item"),
         args.required("--reason"),
@@ -74,14 +74,14 @@ function dispatch(args: Args): Output {
         throw new LedgerError("invalid", "--project and --item go together: the generation NotebookLM refused");
       }
       return limit(
-        state,
+        stateDir,
         oneOf(...LIMITS)(args.required("--kind"), "--kind"),
         until === undefined ? null : new Date(isoTime(until, "--until")).toISOString(),
         project === undefined || item === undefined ? null : { project, item },
       );
     }
     case "quota":
-      return setQuota(state, quotaFlags(args));
+      return setQuota(stateDir, quotaFlags(args));
     default:
       throw new LedgerError("invalid", `unknown command: ${command}`);
   }

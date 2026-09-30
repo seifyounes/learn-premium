@@ -43,9 +43,9 @@ A Module gets a `video`, an `audio` and an `infographic` once it is `live`; an E
 | `downloaded --project P --item I` | `generating → downloaded`. |
 | `checked --project P --item I` | `downloaded → checked`: the fact check passed. |
 | `placed --project P --item I --file F` | `checked → placed`. `F` is the published copy, a path inside the Course project that must already exist. |
-| `fail --project P --item I --reason R [--final]` | A failed generation, download, fact check or re-encode, from any of `generating`, `downloaded`, `checked`. The first failure queues it to be made again (`regenerations` 1); the second drops it. `--final` drops it at once, for a failure a regeneration can't fix. Returns `{state, regenerations}`. |
-| `limit --kind 5-hour\|weekly [--until ISO] [--project P --item I]` | NotebookLM said a limit is reached: no generation starts until `--until` (default: 5 hours, or 7 days, from now). With the item it refused, that item goes back to `queued` and its generation is voided, so it is never counted. |
-| `quota [--limit-5-hour N] [--limit-weekly N] [--cost-video N] [--cost-audio N] [--cost-infographic N] [--cost-sitting-audio N]` | Records the Owner's measured numbers from NotebookLM's Settings → Usage, in the unit it shows. Flags left out keep their value. Returns `{limits, costs}`. |
+| `fail --project P --item I --reason R [--final]` | A failed generation, download, fact check or re-encode, from any of `generating`, `downloaded`, `checked`. The first failure queues it to be made again (`regenerations` 1); the second drops it. `--final` drops it at once, for a failure a regeneration can't fix (a file still over 100 MB after the harder re-encode). Returns `{state, regenerations}`. |
+| `limit --kind 5-hour\|weekly [--until ISO] [--project P --item I]` | NotebookLM said a limit is reached: no generation starts until `--until` (default: 5 hours, or 7 days, from now). With the item it refused, that item goes back to `queued` first and its generation is then voided, so it is never counted (after a crash in between, its next `start` reuses the spend, and NotebookLM's next refusal voids it). |
+| `quota [--limit-5-hour N] [--limit-weekly N] [--cost-video N] [--cost-audio N] [--cost-infographic N] [--cost-sitting-audio N]` | Records the Owner's measured numbers from NotebookLM's Settings → Usage, in the unit it shows. Flags left out keep their value; a cost over a limit is refused, since that item could never start. Returns `{limits, costs}`. |
 
 ## The report (`gather` and `status`)
 
@@ -60,6 +60,9 @@ A Module gets a `video`, an `audio` and an `infographic` once it is `live`; an E
   null only when the item costs more than the whole limit.
 - `demand`: queued items by kind, and `units`, their cost (null until every kind in it is measured).
 - `capacity`: for the `5-hour` window and the `weekly` cap, `{limit, used, remaining, generations}`.
+  Both are counted as rolling windows (the last 5 hours, the last 7 days), an assumption until the
+  first real media run shows how NotebookLM resets them; a reset time NotebookLM shows goes in `limit
+  --until`.
   `used` and `remaining` are null until the numbers are measured; `generations` is always counted.
 - `skipped`: registered Courses that couldn't be read, with the reason.
 

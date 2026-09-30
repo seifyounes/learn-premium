@@ -20,19 +20,27 @@ import {
 } from "./model.ts";
 import { capacity, price, stopFor, type Stop } from "./quota.ts";
 import { writeMediaPage } from "./render.ts";
-import { readMediaFile, readRegistry, readUsage, updateMediaFile, updateRegistry, updateUsage } from "./store.ts";
+import {
+  noMediaFile,
+  readMediaFile,
+  readRegistry,
+  readUsage,
+  updateMediaFile,
+  updateRegistry,
+  updateUsage,
+} from "./store.ts";
 
 function iso(ms: number): string {
   return new Date(ms).toISOString();
 }
 
 /** Adds a Course to the machine's Course registry (at intake), so every Media pass gathers it. */
-export function register(state: string, project: string): { course: string; added: boolean } {
+export function register(stateDir: string, project: string): { course: string; added: boolean } {
   const path = resolve(project);
   const ledger = readLedger(path);
   if (ledger === null) throw new LedgerError("refused", `no Build ledger in ${path}: run intake first`);
   const course = ledger.intake.courseName;
-  return updateRegistry(state, (registry) => {
+  return updateRegistry(stateDir, (registry) => {
     if (registry.courses.some((c) => c.project === path)) return { course, added: false };
     registry.courses.push({ project: path, course, addedAt: iso(Date.now()) });
     return { course, added: true };
@@ -127,13 +135,13 @@ const inFlight = (state: ItemState) => (IN_FLIGHT as readonly string[]).includes
  * sitting first, then by Course, then in Module order. A gather (`persist`) writes the new items into
  * each Course's media file; a status report only reads.
  */
-export function survey(state: string, persist: boolean): Report {
+export function survey(stateDir: string, persist: boolean): Report {
   const at = Date.now();
   const today = iso(at).slice(0, 10);
-  const usage = readUsage(state);
+  const usage = readUsage(stateDir);
   const ranked: { entry: QueueEntry; order: number }[] = [];
   const skipped: Report["skipped"] = [];
-  for (const { project, course: registered } of readRegistry(state).courses) {
+  for (const { project, course: registered } of readRegistry(stateDir).courses) {
     try {
       const ledger = readLedger(project);
       if (ledger === null) throw new LedgerError("refused", `no Build ledger in ${project}`);
@@ -212,7 +220,7 @@ function findItem(file: MediaFile, id: string): MediaItem {
 
 function requireMediaFile(project: string): MediaFile {
   const file = readMediaFile(project);
-  if (file === null) throw new LedgerError("invalid", `no media file in ${project}: gather the Media queue first`);
+  if (file === null) throw noMediaFile(project);
   return file;
 }
 
@@ -229,11 +237,11 @@ export type StartResult = { started: true; attempt: number } | { started: false;
  * queued → generating: logs the generation in the usage log, then moves the item. Refused while a limit
  * stops new generations. Safe to repeat after a crash between the two writes: the spend is counted once.
  */
-export function start(state: string, project: string, id: string): StartResult {
+export function start(stateDir: string, project: string, id: string): StartResult {
   const path = resolve(project);
   const at = Date.now();
   return updateUsage(
-    state,
+    stateDir,
     (usage): StartResult => {
       const item = findItem(requireMediaFile(path), id);
       const spent = spendOf(usage, path, item);
@@ -248,13 +256,13 @@ export function start(state: string, project: string, id: string): StartResult {
       return { started: true, attempt };
     },
     (result) => {
-      if (result.started) move(state, path, id, ["queued", "generating"], (item) => (item.state = "generating"));
+      if (result.started) move(stateDir, path, id, ["queued", "generating"], (item) => (item.state = "generating"));
     },
   );
 }
 
 /** Moves one item under its media file's mutex, if it is in one of the `from` states. */
-function move<T>(state: string, project: string, id: string, from: ItemState[], change: (item: MediaItem) => T): T {
+function move<T>(stateDir: string, project: string, id: string, from: ItemState[], change: (item: MediaItem) => T): T {
   const at = Date.now();
   return updateMediaFile(
     project,
@@ -267,24 +275,24 @@ function move<T>(state: string, project: string, id: string, from: ItemState[], 
       item.updatedAt = iso(at);
       return result;
     },
-    (file) => writeMediaPage(project, file, readUsage(state), at),
+    (file) => writeMediaPage(project, file, readUsage(stateDir), at),
   );
 }
 
 /** generating → downloaded, or downloaded → checked (the fact check passed). */
-export function advance(state: string, project: string, id: string, to: "downloaded" | "checked"): void {
+export function advance(stateDir: string, project: string, id: string, to: "downloaded" | "checked"): void {
   const from = to === "downloaded" ? "generating" : "downloaded";
-  move(state, resolve(project), id, [from], (item) => (item.state = to));
+  move(stateDir, resolve(project), id, [from], (item) => (item.state = to));
 }
 
 /** checked → placed: `file` is the published copy, already in the Course project. */
-export function place(state: string, project: string, id: string, file: string): void {
+export function place(stateDir: string, project: string, id: string, file: string): void {
   const root = resolve(project);
   const inside = relative(root, resolve(root, file));
   if (isAbsolute(file) || inside.startsWith("..") || !existsSync(resolve(root, file))) {
     throw new LedgerError("invalid", `${file} isn't a file in the Course project`);
   }
-  move(state, root, id, ["checked"], (item) => {
+  move(stateDir, root, id, ["checked"], (item) => {
     item.state = "placed";
     item.file = file;
   });
@@ -295,13 +303,13 @@ export function place(state: string, project: string, id: string, file: string):
  * then dropped; `final` drops it at once, for a failure a regeneration can't fix.
  */
 export function fail(
-  state: string,
+  stateDir: string,
   project: string,
   id: string,
   reason: string,
   final: boolean,
 ): { state: ItemState; regenerations: number } {
-  return move(state, resolve(project), id, [...IN_FLIGHT], (item) => {
+  return move(stateDir, resolve(project), id, [...IN_FLIGHT], (item) => {
     item.failures.push({ at: iso(Date.now()), state: item.state as (typeof IN_FLIGHT)[number], reason });
     if (!final && item.regenerations < MAX_REGENERATIONS) {
       item.regenerations += 1;
@@ -316,7 +324,7 @@ export function fail(
  * With `item`, the generation it refused goes back to the queue and its spend is voided.
  */
 export function limit(
-  state: string,
+  stateDir: string,
   which: Limit,
   until: string | null,
   refused: { project: string; item: string } | null,
@@ -325,39 +333,41 @@ export function limit(
   const lifts = until ?? iso(at + WINDOW_MS[which]);
   if (Date.parse(lifts) <= at) throw new LedgerError("invalid", `--until ${lifts} has already passed`);
   const path = refused === null ? null : resolve(refused.project);
-  return updateUsage(
-    state,
-    (usage) => {
-      if (refused !== null && path !== null) {
-        const item = findItem(requireMediaFile(path), refused.item);
-        if (item.state !== "generating" && item.state !== "queued") {
-          throw new LedgerError(
-            "refused",
-            `${refused.item} is ${item.state}; only a generation NotebookLM refused goes back`,
-          );
-        }
-        const spent = spendOf(usage, path, item);
-        if (spent !== undefined) spent.voided = { at: iso(at), reason: `NotebookLM refused it at its ${which} limit` };
-      }
-      usage.stops.push({ at: iso(at), limit: which, until: lifts });
-      return { until: lifts };
-    },
-    () => {
-      if (refused !== null && path !== null) {
-        move(state, path, refused.item, ["generating", "queued"], (item) => (item.state = "queued"));
-      }
-    },
-  );
+  // The refused item goes back to the queue before the usage log voids its spend. A crash in between
+  // leaves it queued with its spend still counted: its next start reuses that spend, and NotebookLM's
+  // next refusal voids it. Never the other way round, which would leave it generating with nothing made.
+  return updateUsage(stateDir, (usage) => {
+    if (refused !== null && path !== null) {
+      const item = move(stateDir, path, refused.item, ["generating", "queued"], (moved) => {
+        moved.state = "queued";
+        return moved;
+      });
+      const spent = spendOf(usage, path, item);
+      if (spent !== undefined) spent.voided = { at: iso(at), reason: `NotebookLM refused it at its ${which} limit` };
+    }
+    usage.stops.push({ at: iso(at), limit: which, until: lifts });
+    return { until: lifts };
+  });
 }
 
-/** Records the Owner's measured numbers from NotebookLM's Settings → Usage. Flags left out keep their value. */
+/**
+ * Records the Owner's measured numbers from NotebookLM's Settings → Usage. Flags left out keep their
+ * value. A cost over a limit is refused: that item could never start, and would stall the queue.
+ */
 export function setQuota(
-  state: string,
+  stateDir: string,
   numbers: { limits: Partial<Usage["limits"]>; costs: Partial<Usage["costs"]> },
 ): Pick<Usage, "limits" | "costs"> {
-  return updateUsage(state, (usage) => {
+  return updateUsage(stateDir, (usage) => {
     Object.assign(usage.limits, numbers.limits);
     Object.assign(usage.costs, numbers.costs);
+    for (const [kind, cost] of Object.entries(usage.costs)) {
+      for (const [which, max] of Object.entries(usage.limits)) {
+        if (cost !== null && max !== null && cost > max) {
+          throw new LedgerError("invalid", `a ${kind} costs ${cost}, more than the whole ${which} limit of ${max}`);
+        }
+      }
+    }
     return { limits: usage.limits, costs: usage.costs };
   });
 }
