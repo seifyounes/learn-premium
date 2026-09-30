@@ -1,4 +1,6 @@
 node_modules/
+# The dev venv the Python tests sync from uv.lock (docs/install.md, Tests).
+.venv/
 package-lock.json
 # Prose is wrapped by hand.
 *.md

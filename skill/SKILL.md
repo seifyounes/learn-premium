@@ -72,3 +72,10 @@ node "$L" lock claim --project <Course project> --holder <id>
 to map and the Module waves the hash diff implies). Intake, the Module wave and the Upgrade wave
 offer aren't built yet (tickets #67, #68, #75): until they land, report what `next` returned, tell
 the Owner which ticket the run is waiting on, and release the lock.
+
+## Reading Materials
+
+Every Blind reader reads a PDF or .pptx through the Materials reader (`scripts/reader/README.md`),
+never through a PDF's text layer: it renders the pages it looks at into the Private folder, fails
+loudly on a render with no pixels, and transcribes a deck's narration there. Give a Blind reader
+only the Private folder's path for what it writes.

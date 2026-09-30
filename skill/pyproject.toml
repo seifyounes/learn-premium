@@ -13,4 +13,6 @@ dependencies = [
     "CoolProp",       # heat transfer property tables
     "awlsim",         # STL oracle for the S7 core
     "python-pptx",    # the .pptx Materials reader
+    "pypdfium2",      # renders PDF Materials pages (Apache-2.0/BSD-3 PDFium; PyMuPDF is AGPL)
+    "pillow",         # saves rendered pages as PNG
 ]

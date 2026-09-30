@@ -33,7 +33,7 @@ cd template && npm ci && npm run build
 
 Install learn-premium (needs a Template release tag):
 `powershell -ExecutionPolicy Bypass -File install.ps1`. Then type `/learn-premium <Materials path>`
-in Claude Code. Installer tests: `uv run --no-project --with pytest pytest tests`.
+in Claude Code. Python tests (installer, Materials reader): `uv run --project skill --with pytest pytest tests`.
 
 The skill's Node scripts (the Build ledger) have their own checks:
 

@@ -63,11 +63,12 @@ reaches the machine with the next Template release and the installer run after i
 ## Tests
 
 ```bash
-uv run --no-project --with pytest pytest tests
+uv run --project skill --with pytest pytest tests
 ```
 
-They build a synthetic tagged repo, a throwaway Claude folder and a fake `npx`, and never touch
-`~/.claude` or download browsers.
+They run in a venv synced from the same lock file (`skill/.venv`, git-ignored), so the Materials
+reader's tests use the machine venv's packages. The installer tests build a synthetic tagged repo,
+a throwaway Claude folder and a fake `npx`, and never touch `~/.claude` or download browsers.
 
 ## For the Owner: the claude-skills pointer step
 
