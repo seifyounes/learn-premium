@@ -16,20 +16,23 @@ and exits:
 | Exit | Meaning |
 | --- | --- |
 | 0 | read; `manifest` is its path inside the Private folder |
-| 1 | a page with content rendered to one flat colour: the render can't be trusted, nothing is kept |
+| 1 | a page with content rendered to one flat colour: the render can't be trusted, nothing is written |
 | 2 | bad flags, a file outside the Materials folder, a kind it doesn't read, or a file it can't open |
 | 3 | refused: the Private folder is inside the Materials folder or inside a repo; nothing written |
 | 4 | internal error (a bug; the stack is on stderr) |
 
 ## What it writes
 
-Everything goes under `<Private folder>/reader/<file>/`, replacing an earlier read of the same file.
-Nothing is written anywhere else: the Private folder must sit beside the Materials and outside any
-repo, so no render, narration or deck video can reach a Course project or the next hash diff.
+Everything goes under `<Private folder>/reader/<file>/`, replacing an earlier read of the same file
+only when the new read succeeds (a failed read leaves the last good one). Nothing is written
+anywhere else: the Private folder must sit beside the Materials and outside any repo, so no
+render, narration or deck video can reach a Course project or the next hash diff.
 
 - **PDF** (`kind: "pdf"`): `pages/page-001.png`… at 200 dpi, and the manifest's `pages`
-  (`number`, `image`, `empty`). Every render is looked at: a page with content that renders to one
-  flat colour fails the whole read (exit 1). A page with nothing on it at all is `empty: true`.
+  (`number`, `image`, `empty`). Every render is looked at: a page with text, an image or an
+  annotation that renders to one flat colour fails the whole read (exit 1). A page that renders
+  flat with none of those (nothing at all, or the lone white fill Word and PowerPoint export for a
+  blank page) is `empty: true`.
 - **.pptx deck** (`kind: "deck"`): the manifest's `slides`, each with `title`, `text` (the other
   text boxes and tables, in shape order), `notes`, and:
   - `audio`: each clip's `file` (in `media/`), `narration` (PowerPoint recorded it as narration)

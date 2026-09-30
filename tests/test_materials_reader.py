@@ -8,13 +8,14 @@ from pathlib import Path
 
 import pytest
 from conftest import SCRIPTS
-from materials import DRAWN, VIDEO, WHITE_ON_WHITE, deck, pdf, tone
+from materials import (DRAWN, PEN_ONLY, VIDEO, WHITE_BACKGROUND, WHITE_ON_WHITE, deck, pdf,
+                       tone)
 from PIL import Image
 from reader.cli import run
 
 
 @pytest.fixture
-def course(tmp_path):
+def folders(tmp_path):
     """A Materials folder and its Private folder beside it, outside any repo."""
     materials = tmp_path / "Heat Transfer"
     materials.mkdir()
@@ -25,8 +26,8 @@ def read(materials, private, rel, **kwargs):
     return run(["read", "--materials", str(materials), "--private", str(private), rel], **kwargs)
 
 
-def test_pdf_pages_are_rendered_into_the_private_folder(course):
-    materials, private = course
+def test_pdf_pages_are_rendered_into_the_private_folder(folders):
+    materials, private = folders
     (materials / "Lecture 1.pdf").write_bytes(pdf([DRAWN, DRAWN]))
 
     code, report = read(materials, private, "Lecture 1.pdf")
@@ -40,9 +41,9 @@ def test_pdf_pages_are_rendered_into_the_private_folder(course):
         assert image.getextrema() != ((255, 255), (255, 255), (255, 255))
 
 
-def test_a_page_with_content_that_renders_blank_fails_loudly(course):
+def test_a_page_with_content_that_renders_blank_fails_loudly(folders):
     # Negative control: text drawn white on white is on the page but gives a render with no pixels.
-    materials, private = course
+    materials, private = folders
     (materials / "Sheet 2.pdf").write_bytes(pdf([DRAWN, WHITE_ON_WHITE]))
 
     code, report = read(materials, private, "Sheet 2.pdf")
@@ -53,15 +54,29 @@ def test_a_page_with_content_that_renders_blank_fails_loudly(course):
     assert not (private / "reader" / "Sheet 2.pdf").exists()
 
 
-def test_a_page_with_nothing_on_it_is_read_as_empty(course):
-    materials, private = course
-    (materials / "Exam 2024.pdf").write_bytes(pdf([DRAWN, None]))
+def test_blank_pages_are_read_as_empty_and_a_pen_annotation_is_content(folders):
+    materials, private = folders
+    (materials / "Exam 2024.pdf").write_bytes(pdf([DRAWN, None, WHITE_BACKGROUND, PEN_ONLY]))
 
     code, report = read(materials, private, "Exam 2024.pdf")
 
     assert code == 0, report
     manifest = json.loads((private / report["manifest"]).read_text(encoding="utf-8"))
-    assert [p["empty"] for p in manifest["pages"]] == [False, True]
+    assert [p["empty"] for p in manifest["pages"]] == [False, True, True, False]
+
+
+def test_a_failed_read_keeps_the_earlier_read_of_the_file(folders):
+    materials, private = folders
+    (materials / "Sheet 3.pdf").write_bytes(pdf([DRAWN]))
+    code, first = read(materials, private, "Sheet 3.pdf")
+    assert code == 0, first
+    (materials / "Sheet 3.pdf").write_bytes(pdf([WHITE_ON_WHITE]))
+
+    code, report = read(materials, private, "Sheet 3.pdf")
+
+    assert code == 1, report
+    assert (private / first["manifest"]).is_file()
+    assert sorted(p.name for p in (private / "reader").iterdir()) == ["Sheet 3.pdf"]
 
 
 @pytest.mark.parametrize("where", ["inside the Materials", "inside a repo"])
@@ -109,8 +124,8 @@ def files_under(folder):
     return {p for p in folder.rglob("*") if p.is_file()}
 
 
-def test_a_narrated_deck_yields_slides_with_their_audio_video_and_transcripts(course):
-    materials, private = course
+def test_a_narrated_deck_yields_slides_with_their_audio_video_and_transcripts(folders):
+    materials, private = folders
     deck(materials / "Week 2" / "Lecture 2.pptx", NARRATED_DECK)
     whisper = FakeWhisper()
 
@@ -135,8 +150,8 @@ def test_a_narrated_deck_yields_slides_with_their_audio_video_and_transcripts(co
         assert transcript["text"] == said
 
 
-def test_everything_read_from_a_deck_lands_in_the_private_folder_only(course):
-    materials, private = course
+def test_everything_read_from_a_deck_lands_in_the_private_folder_only(folders):
+    materials, private = folders
     deck(materials / "Lecture 2.pptx", NARRATED_DECK)
     root = materials.parent
     before = files_under(root)
@@ -152,20 +167,21 @@ def test_everything_read_from_a_deck_lands_in_the_private_folder_only(course):
     assert copies and all(p.is_relative_to(private) for p in copies)
 
 
-def test_a_deck_with_no_media_is_read_without_loading_whisper(course):
-    materials, private = course
-    deck(materials / "Lecture 3.pptx", [{"title": "Radiation", "body": "Stefan-Boltzmann"}])
+def test_a_deck_with_no_media_is_read_without_loading_whisper(folders):
+    materials, private = folders
+    deck(materials / "Lecture 3.pptx", [{"title": "Radiation", "body": "Stefan-Boltzmann"},
+                                        {"title": "Emissivity", "body": "Emissivity"}])
 
     code, report = read(materials, private, "Lecture 3.pptx")
 
     assert code == 0, report
     manifest = json.loads((private / report["manifest"]).read_text(encoding="utf-8"))
-    assert manifest["slides"][0]["text"] == "Stefan-Boltzmann"
+    assert [s["text"] for s in manifest["slides"]] == ["Stefan-Boltzmann", "Emissivity"]
 
 
 @pytest.mark.parametrize("name", ["Lecture 4.pdf", "Lecture 4.pptx"])
-def test_a_file_that_is_not_what_its_name_says_is_bad_input(course, name):
-    materials, private = course
+def test_a_file_that_is_not_what_its_name_says_is_bad_input(folders, name):
+    materials, private = folders
     (materials / name).write_bytes(b"not really a " + name.encode())
 
     code, report = read(materials, private, name)
@@ -233,8 +249,8 @@ def reader_command(*args):
     return result.returncode, json.loads(result.stdout)
 
 
-def test_the_entry_script_prints_one_json_report_and_exits_with_its_code(course):
-    materials, private = course
+def test_the_entry_script_prints_one_json_report_and_exits_with_its_code(folders):
+    materials, private = folders
     (materials / "محاضرة 1.pdf").write_bytes(pdf([DRAWN]))
 
     ok = reader_command("read", "--materials", str(materials), "--private", str(private),
@@ -247,8 +263,8 @@ def test_the_entry_script_prints_one_json_report_and_exits_with_its_code(course)
 
 @pytest.mark.skipif(os.environ.get("LEARN_PREMIUM_WHISPER") != "1" or os.name != "nt",
                     reason="real faster-whisper (downloads a model): set LEARN_PREMIUM_WHISPER=1")
-def test_real_narration_is_transcribed_by_faster_whisper(course, tmp_path):
-    materials, private = course
+def test_real_narration_is_transcribed_by_faster_whisper(folders, tmp_path):
+    materials, private = folders
     speech = tmp_path / "speech.wav"
     subprocess.run(["powershell", "-NoProfile", "-Command",
                     "Add-Type -AssemblyName System.Speech; "
