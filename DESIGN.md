@@ -210,6 +210,7 @@ The build checks every pad, catalogue or custom, against these, measured WCAG 2.
 - `grid-fine` and `grid-major` no more than about 1.5:1 on `sheet`.
 - `sheet` lighter than `desk`.
 - `red-pen` distinguishable from `print` by hue, not only lightness: red must still read as the correcting pen on that pad. Measured as an OKLCH hue gap of at least 60° from the red (hue 32°), or a near-grey print (chroma under 0.035).
+- The same hue test on every other slot drawn onto the sheet: `muted`, `grid-fine` and `grid-major` (the Red Hue Rule, below). The auto-fix greys a failing slot and keeps its lightness, so a custom pad near the red prints a grey grid, never a reddish one (ticket #42).
 
 ### Named Rules
 
@@ -219,7 +220,7 @@ The build checks every pad, catalogue or custom, against these, measured WCAG 2.
 
 **The Palette Slot Rule.** A Course changes slot values, never roles, never the count of colours. No Course adds a second accent, a gradient, or a dark variant.
 
-**The Red Hue Rule.** Nothing drawn onto the sheet except the red pen sits within 60° of its OKLCH hue (32°). Framed tools keep their own meaning reds inside their frame; sheet figures, structures and plots do not. The build fails on a violation (ticket #25).
+**The Red Hue Rule.** Nothing drawn onto the sheet except the red pen sits within 60° of its OKLCH hue (32°). Framed tools keep their own meaning reds inside their frame; sheet figures, structures and plots do not. The build fails on a violation (ticket #25). The pad's own drawn slots (print, muted, both grids) are held to the rule by the contrast auto-fix rather than failing the build (ticket #42).
 
 ## Typography
 

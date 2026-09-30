@@ -22,7 +22,8 @@
         "sheet on print: >= 4.5:1",
         "grid-fine and grid-major: <= ~1.5:1 on sheet",
         "sheet lighter than desk (~1.2:1)",
-        "red-pen distinct from print by hue: OKLCH hue gap >= 60 deg from red (32 deg), or print chroma < 0.035"
+        "red-pen distinct from print by hue: OKLCH hue gap >= 60 deg from red (32 deg), or print chroma < 0.035",
+        "the same hue test on muted, grid-fine and grid-major; the auto-fix greys a failing slot (ticket #42)"
       ],
       "catalogue": {
         "green": { "label": "Green", "discipline": "Machine learning", "desk": "#CFDCC2", "sheet": "#E6EFDC", "grid-fine": "#CADBBB", "grid-major": "#B9CEA7", "print": "#2E5A38", "muted": "#4F5B4B", "red-pen": "#C0341D", "shadowTint": "30 45 28", "measured": { "red-pen/sheet": 4.73, "muted/sheet": 6.06, "print/sheet": 6.73, "red-pen/grid-major": 3.32 } },
