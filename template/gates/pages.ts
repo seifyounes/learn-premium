@@ -26,22 +26,18 @@ function sitePages({ distDir, module }: GateInput): { route: string; entry: stri
 
 export const renderedPageScan: Gate = {
   id: "rendered-page-scan",
-  checks: "no built page carries a KaTeX error or raw TeX",
+  checks: "no built page carries a KaTeX error or raw TeX, islands' props included",
   points: ["module", "deploy"],
   async run(input) {
     const pages = sitePages(input);
+    const coverage = { pages: pages.length, formulas: 0, islands: 0 };
     const findings: Finding[] = [];
-    let formulas = 0;
     for (const { route, path } of pages) {
+      const block = (message: string) => findings.push({ outcome: "block", at: route, message });
       const visit = (node: Nodes): void => {
         if (node.type === "text") {
           const raw = RAW_TEX.exec(node.value);
-          if (raw)
-            findings.push({
-              outcome: "block",
-              at: route,
-              message: `raw TeX on the page: "${snippet(node.value, raw.index)}"`,
-            });
+          if (raw) block(`raw TeX on the page: "${snippet(node.value, raw.index)}"`);
           return;
         }
         if (node.type !== "element" && node.type !== "root") return;
@@ -50,15 +46,19 @@ export const renderedPageScan: Gate = {
           const classes = classesOf(node);
           if (classes.includes("katex-error")) {
             const title = typeof node.properties.title === "string" ? `: ${node.properties.title}` : "";
-            findings.push({ outcome: "block", at: route, message: `a KaTeX error rendered on the page${title}` });
+            block(`a KaTeX error rendered on the page${title}`);
           }
-          if (classes.includes("katex")) formulas += 1;
+          if (classes.includes("katex")) coverage.formulas += 1;
+          if (node.tagName === "astro-island") {
+            coverage.islands += 1;
+            for (const text of islandStrings(node, block)) visit(fromHtml(text, { fragment: true }));
+          }
         }
         node.children.forEach(visit);
       };
       visit(fromHtml(readFileSync(path, "utf8")));
     }
-    return { coverage: { pages: pages.length, formulas }, findings };
+    return { coverage, findings };
   },
   controls: [
     {
@@ -71,8 +71,41 @@ export const renderedPageScan: Gate = {
       plant: (good, scratch) =>
         siteWith(good, scratch, "<p>Planted: the rate is $\\dot{Q} = \\frac{\\Delta T}{R}$.</p>"),
     },
+    {
+      defect: "a KaTeX error inside an island's props, where a hidden answer waits",
+      plant: (good, scratch) =>
+        siteWith(
+          good,
+          scratch,
+          '<astro-island props="{&quot;modelHtml&quot;:[0,&quot;&lt;span class=\\&quot;katex-error\\&quot;&gt;x&lt;/span&gt;&quot;]}"></astro-island>',
+        ),
+    },
   ],
 };
+
+/**
+ * Every string in an island's serialised props: what the island renders once it hydrates. A
+ * Practice item's model answer reaches the page only this way, never in the page's own markup.
+ */
+function islandStrings(island: Element, block: (message: string) => void): string[] {
+  const props = island.properties.props;
+  if (typeof props !== "string") return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(props);
+  } catch {
+    block("an island's props can't be read, so what it renders can't be scanned");
+    return [];
+  }
+  const strings: string[] = [];
+  const walk = (value: unknown): void => {
+    if (typeof value === "string") strings.push(value);
+    else if (Array.isArray(value)) value.forEach(walk);
+    else if (value && typeof value === "object") Object.values(value).forEach(walk);
+  };
+  walk(parsed);
+  return strings;
+}
 
 function snippet(text: string, at: number): string {
   const start = Math.max(0, at - 20);
