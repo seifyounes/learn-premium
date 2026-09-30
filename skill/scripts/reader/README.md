@@ -21,7 +21,7 @@ and exits:
 | 2 | bad flags, a file outside the Materials folder, a kind it doesn't read, a file it can't open, or a Private folder too deep for PowerPoint |
 | 3 | refused: the Private folder is inside the Materials folder or inside a repo; nothing written |
 | 4 | internal error (a bug; the stack is on stderr) |
-| 5 | PowerPoint is not installed, won't start, failed on the deck or ran out of time; the error names which, nothing is written |
+| 5 | PowerPoint (or Windows PowerShell, which drives it) is not installed, won't start, failed on the deck or ran out of time; the error names which, nothing is written |
 
 ## What it writes
 
@@ -59,10 +59,12 @@ says so; it never skips the renders.
   so decks past 260 characters render and nothing (not even PowerPoint's lock file) is written beside
   the Materials; the copy is deleted after the read. PowerPoint takes no long-path prefix and
   expands 8.3 names, so a Private folder deeper than about 210 characters is refused (exit 2).
-- PowerPoint is quit after each read, even a failed one, and a PowerPoint the read started that is
-  still running 15 s later is ended. A PowerPoint that was already running is left running, and so
-  is one holding another presentation (the Owner opened PowerPoint during the read); only the deck
-  is closed.
+- PowerPoint is quit after each read, even a failed one, and if the process the read started is
+  still running 15 s later, it is ended. Only that process: never a PowerPoint the Owner opens
+  meanwhile. A PowerPoint that was already running is left running, and so is one holding another
+  presentation (the Owner opened PowerPoint during the read and got the read's instance); only the
+  deck is closed. The one exception: a read that runs out of time ends its PowerPoint even if the
+  Owner opened a presentation in it during the read.
 - PowerPoint is one process per machine, so reads take turns with it (a lock in `%TEMP%`), even
   across Courses. A read that runs past 10 minutes, or waits that long for its turn, fails (exit 5).
 

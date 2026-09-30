@@ -2,10 +2,8 @@
 
 from pathlib import Path
 
-from reader.errors import BadInput, BlankRender
-
-# Enough for subscripts and hand-written annotations in a crop.
-DPI = 200
+from reader.errors import BadInput
+from reader.renders import DPI, blank_render, is_flat
 
 
 def _has_ink(page, pdfium):
@@ -36,7 +34,7 @@ def read_pdf(material: Path, out: Path) -> dict:
             pages, blank = [], []
             for number, page in enumerate(document, start=1):
                 image = page.render(scale=DPI / 72).to_pil()
-                flat = all(low == high for low, high in image.getextrema())
+                flat = is_flat(image)
                 inked = _has_ink(page, pdfium)
                 if flat and inked:
                     blank.append(number)
@@ -46,6 +44,5 @@ def read_pdf(material: Path, out: Path) -> dict:
         finally:
             document.close()
     if blank:
-        raise BlankRender(f"page(s) {', '.join(map(str, blank))} have content but rendered to "
-                          "one flat colour; look at the PDF before trusting any render of it")
+        raise blank_render("page", blank, "the PDF")
     return {"kind": "pdf", "pages": pages}
