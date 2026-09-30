@@ -25,6 +25,8 @@ def _parser():
     read.add_argument("--private", required=True, help="the Course's Private folder")
     read.add_argument("--whisper-model", default=DEFAULT_MODEL,
                       help=f"faster-whisper model for narration (default {DEFAULT_MODEL})")
+    read.add_argument("--language", default=None,
+                      help="narration language code, e.g. ar (default: detected per clip)")
     read.add_argument("file", help="the Materials file, relative to --materials")
     return parser
 
@@ -36,8 +38,8 @@ def _read(args, transcriber):
         raise BadInput(f"{args.file} is not inside the Materials folder {shown(materials)}")
     if not material.is_file():
         raise BadInput(f"no file {shown(material)}")
-    readers = {".pdf": read_pdf,
-               ".pptx": partial(read_deck, transcriber=transcriber or Whisper(args.whisper_model))}
+    transcriber = transcriber or Whisper(args.whisper_model, args.language)
+    readers = {".pdf": read_pdf, ".pptx": partial(read_deck, transcriber=transcriber)}
     reader = readers.get(material.suffix.lower())
     if reader is None:
         raise BadInput(f"{args.file}: the reader reads {', '.join(readers)}; look at other "
