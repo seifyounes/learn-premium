@@ -181,6 +181,9 @@
    steps margin | table with the step note below | the figure, pinned. Under 900px the margin
    becomes a step strip and the table and figure share one region behind Table | Plot tabs. */
 @layer components {
+  .worked-sheet {
+    container: worked-sheet / inline-size;
+  }
   .worked-title-block {
     grid-template-columns: repeat(3, auto);
   }
@@ -535,7 +538,9 @@
       display: none;
     }
   }
-  @media (width >= 1100px) {
+  /* The wider margin and figure need the room, which the sheet's own width decides: the Module
+     page's section rail takes some of it on a laptop. */
+  @container worked-sheet (width >= 972px) {
     .worked-grid {
       grid-template-columns: 172px minmax(0, 1fr) 376px;
     }
@@ -552,6 +557,530 @@
     .worked-grid[data-tab="figure"] .worked-table {
       display: none;
     }
+  }
+}
+
+/* The Module page (DESIGN.md; ticket #44): one scroll, Watch → Summary → Worked examples →
+   Practice, with a sticky section rail. From 1200px the rail is a margin of numbered boxes beside
+   the sections, ruled off like the steps margin; below it, a row of printed tabs pinned above them. */
+@layer components {
+  .module-page {
+    margin-block-start: 24px;
+  }
+  .module-section {
+    margin-block-end: 44px;
+    /* Clear the pinned tabs when the rail jumps here. */
+    scroll-margin-block-start: 60px;
+  }
+
+  .section-rail {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 10;
+    margin-block-end: 20px;
+    margin-inline: -16px;
+    padding-inline: 16px;
+    border-block-end: 1.5px solid var(--color-print);
+    background: var(--color-sheet);
+  }
+  .rail-heading,
+  .rail-box {
+    display: none;
+  }
+  .rail-list {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .rail-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-block-size: 44px;
+    margin-block-end: -1.5px;
+    padding-inline: 10px;
+    border: 1.5px solid transparent;
+    white-space: nowrap;
+    font-family: var(--font-print);
+    font-size: var(--text-label-action);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variation-settings: "wdth" 80;
+    color: var(--color-print);
+    transition: background-color 150ms ease-out;
+  }
+  .rail-link:hover {
+    background: color-mix(in srgb, var(--color-print) 8%, transparent);
+  }
+  .rail-link[aria-current] {
+    border-color: var(--color-print);
+    border-block-end-color: var(--color-sheet);
+    background: var(--color-sheet);
+    color: var(--color-graphite);
+  }
+  /* On a phone the short name shows; the long one is still what assistive tech reads. */
+  .rail-long {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .rail-done-text {
+    display: none;
+  }
+  .rail-link[data-done] .rail-done-text {
+    display: inline;
+  }
+  /* A done section: a graphite tick over the tab's corner, drawn when it happens while reading. */
+  .rail-tick {
+    position: absolute;
+    inset-block-start: 2px;
+    inset-inline-end: -1px;
+    display: none;
+    inline-size: 14px;
+    block-size: 14px;
+    overflow: visible;
+  }
+  .rail-link[data-done] .rail-tick {
+    display: block;
+  }
+  .rail-link[data-draw] .rail-tick path {
+    stroke-dasharray: 1;
+    animation: pen-draw 300ms ease-out both;
+  }
+  @keyframes pen-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @media (width >= 760px) {
+    .section-rail {
+      margin-inline: -40px;
+      padding-inline: 40px;
+    }
+  }
+  @media (width >= 1200px) {
+    .module-page {
+      display: grid;
+      grid-template-columns: 148px minmax(0, 1fr);
+      column-gap: 28px;
+      align-items: start;
+    }
+    .module-section {
+      scroll-margin-block-start: 24px;
+    }
+    .section-rail {
+      inset-block-start: 24px;
+      margin: 0;
+      padding: 0;
+      padding-inline-end: 12px;
+      border-block-end: 0;
+      border-inline-end: 1px solid var(--color-print);
+      background: none;
+    }
+    .rail-heading {
+      display: block;
+      margin-block-end: 12px;
+    }
+    .rail-list {
+      flex-direction: column;
+      gap: 8px;
+      overflow: visible;
+    }
+    .rail-link {
+      align-items: flex-start;
+      gap: 10px;
+      min-block-size: 0;
+      margin: 0;
+      padding-block: 3px;
+      padding-inline: 0;
+      border: 0;
+      white-space: normal;
+      font-family: var(--font-prose);
+      font-size: var(--text-body-small);
+      font-weight: 400;
+      line-height: 1.3;
+      letter-spacing: normal;
+      text-transform: none;
+      font-variation-settings: normal;
+      color: var(--color-muted);
+    }
+    .rail-link[aria-current] {
+      background: none;
+      color: var(--color-graphite);
+      font-weight: 600;
+    }
+    .rail-link[aria-current] .rail-box {
+      border-color: var(--color-graphite);
+      background: var(--color-graphite);
+      color: var(--color-sheet);
+      font-weight: 700;
+    }
+    .rail-box {
+      display: inline-flex;
+    }
+    .rail-short {
+      display: none;
+    }
+    .rail-long {
+      position: static;
+      inline-size: auto;
+      block-size: auto;
+      overflow: visible;
+      clip-path: none;
+      white-space: normal;
+    }
+    .rail-title {
+      padding-block-start: 2px;
+    }
+    /* Over the numbered box's corner, as a done step's tick. */
+    .rail-tick {
+      inset-block-start: -4px;
+      inset-inline-start: 16px;
+      inset-inline-end: auto;
+      inline-size: 16px;
+      block-size: 16px;
+    }
+  }
+
+  /* Watch: the Explainer video, the Deep Dive audio, then the YouTube cards, each a pencil-ruled
+     box with its printed label and its length. */
+  .watch {
+    display: grid;
+    gap: 20px;
+    max-inline-size: 760px;
+  }
+  .media-slot {
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .media-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 12px 6px;
+  }
+  .media-duration {
+    font-family: var(--font-quantity);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-pencil);
+  }
+  .media-video {
+    display: block;
+    inline-size: 100%;
+    aspect-ratio: 16 / 9;
+    background: var(--color-graphite);
+  }
+  .media-audio {
+    display: block;
+    inline-size: calc(100% - 24px);
+    margin: 0 12px 12px;
+  }
+  .video-card {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .video-card-frame,
+  .video-card-player {
+    position: relative;
+    display: block;
+    inline-size: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 0;
+    background: var(--color-graphite);
+  }
+  .video-card-frame img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+  }
+  .video-card-play {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    display: grid;
+    place-items: center;
+    inline-size: 44px;
+    block-size: 44px;
+    translate: -50% -50%;
+    border: 1.5px solid var(--color-print);
+    background: var(--color-sheet);
+    color: var(--color-print);
+  }
+  .video-card-title {
+    font-family: var(--font-print);
+    font-size: var(--text-sheet-title-phone);
+    font-weight: 650;
+    line-height: 1.2;
+    font-variation-settings: "wdth" 87;
+    color: var(--color-graphite);
+  }
+  .video-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-block: 4px 6px;
+    font-size: var(--text-body-small);
+    color: var(--color-muted);
+  }
+  .video-card-why,
+  .video-card-moments {
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+  }
+  .video-card-moments {
+    margin-block-start: 6px;
+  }
+  .video-card-moments a {
+    display: inline-block;
+    padding-block: 2px;
+    color: var(--color-graphite);
+    text-decoration: underline;
+    text-decoration-color: var(--color-print);
+    text-underline-offset: 3px;
+  }
+  @media (width >= 600px) {
+    .video-card {
+      grid-template-columns: 240px minmax(0, 1fr);
+    }
+    /* Once played, the player takes the card's whole width. */
+    .video-card:has(.video-card-player) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* Summary: the infographic first (tap to zoom), then each beat beside its figure. */
+  .infographic {
+    max-inline-size: 420px;
+    margin-block-end: 28px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .infographic-link {
+    display: block;
+    cursor: zoom-in;
+  }
+  .infographic-link img {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+  }
+  .zoom-sheet {
+    max-inline-size: calc(100vw - 16px);
+    max-block-size: calc(100dvh - 16px);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1.5px solid var(--color-print);
+    background: var(--color-sheet);
+    color: var(--color-graphite);
+  }
+  .zoom-sheet::backdrop {
+    background: rgb(var(--pad-shadow) / 0.55);
+  }
+  .zoom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 6px 6px 12px;
+    border-block-end: 1.2px solid var(--color-pencil);
+  }
+  .zoom-scroll {
+    max-block-size: calc(100dvh - 16px - 58px);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .zoom-scroll img {
+    display: block;
+    max-inline-size: none;
+  }
+  .beat {
+    margin-block-end: 32px;
+  }
+  .beat-text {
+    max-inline-size: 68ch;
+  }
+  .beat-figure {
+    margin-block-start: 16px;
+  }
+  @media (width >= 900px) {
+    .beat[data-has-figure="true"] {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 376px;
+      gap: 24px;
+      align-items: start;
+    }
+    .beat-figure {
+      margin-block-start: 0;
+    }
+  }
+
+  /* Provenance notes: a pencil-ruled box, one row per kind, each named by its printed label. */
+  .provenance-notes {
+    max-inline-size: 68ch;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+    color: var(--color-graphite);
+  }
+  .provenance-row {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 12px;
+    padding: 7px 12px 8px;
+  }
+  .provenance-row + .provenance-row {
+    border-block-start: 1px solid var(--color-pencil);
+  }
+  .provenance-row dt {
+    padding-block-start: 3px;
+  }
+  .provenance-gloss {
+    color: var(--color-muted);
+  }
+  .provenance-sep {
+    color: var(--color-pencil);
+  }
+  .correction-lead {
+    font-weight: 700;
+    color: var(--color-red-pen);
+  }
+  /* The sheet's wrong value, struck through by hand in red pen: a stroke, never a fill. */
+  .pen-strike {
+    position: relative;
+    display: inline-block;
+    text-decoration: none;
+    color: var(--color-pencil);
+  }
+  .pen-strike::after {
+    content: "";
+    position: absolute;
+    inset-inline: -3px;
+    inset-block-start: 52%;
+    border-block-start: 2px solid var(--color-red-pen);
+    rotate: -4deg;
+    pointer-events: none;
+  }
+
+  /* Practice, written first: a number is checked and marked in red pen; prose is marked by the
+     student against the model answer and what earns the mark. */
+  .practice-item {
+    display: grid;
+    gap: 12px;
+    max-inline-size: 68ch;
+    margin-block-end: 36px;
+  }
+  .practice-work {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+  }
+  .answer-form {
+    display: grid;
+    gap: 6px;
+  }
+  .answer-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .answer-input,
+  .answer-text {
+    border: 1.5px solid var(--color-pencil);
+    border-radius: 0;
+    background: var(--color-sheet);
+    color: var(--color-graphite);
+  }
+  .answer-input {
+    inline-size: 11ch;
+    min-block-size: 42px;
+    padding-inline: 10px;
+    font-family: var(--font-quantity);
+    font-size: var(--text-quantity);
+    font-variant-numeric: tabular-nums;
+  }
+  .answer-unit {
+    color: var(--color-pencil);
+  }
+  .answer-text {
+    inline-size: 100%;
+    padding: 8px 10px;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    resize: vertical;
+  }
+  .check-result {
+    min-block-size: 1.5em;
+  }
+  .check-verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-muted);
+  }
+  .check-verdict[data-result="right"],
+  .check-verdict[data-result="wrong"] {
+    color: var(--color-red-pen);
+  }
+  .pen-verdict {
+    flex: none;
+    inline-size: 20px;
+    block-size: 20px;
+    overflow: visible;
+  }
+  .model-answer,
+  .earns {
+    inline-size: 100%;
+    padding: 8px 16px 12px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .earns legend {
+    padding-inline: 4px;
+  }
+  .earns ul {
+    display: grid;
+    gap: 4px;
+  }
+  .earns-point {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    inline-size: 100%;
+    padding-block: 4px;
+    text-align: start;
+  }
+  .earns-point .try-box {
+    flex: none;
+    margin-block-start: 3px;
+  }
+  .earns-tally {
+    margin-block-start: 8px;
+    font-weight: 600;
+    color: var(--color-graphite);
+  }
+  .practice-work button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .practice-work .button-print:disabled:hover {
+    background: var(--color-sheet);
   }
 }
 

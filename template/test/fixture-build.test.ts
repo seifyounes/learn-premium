@@ -30,7 +30,7 @@ describe("the Fixture Course", () => {
 
   it("ships no JavaScript on a static page, and React islands where a page places one", () => {
     expect(build.page("").includes("<script"), "a script on the home page").toBe(false);
-    const island = /<astro-island[^>]*component-url="(\/_astro\/RevealAnswer\.[^"]+\.js)"[^>]*client="visible"/.exec(
+    const island = /<astro-island[^>]*component-url="(\/_astro\/PracticeItem\.[^"]+\.js)"[^>]*client="visible"/.exec(
       build.page("01-thermal-resistance"),
     );
     expect(island?.[1], "the practice item's island").toBeDefined();
@@ -82,7 +82,7 @@ describe("bad LaTeX fails the build with its file and line", () => {
     );
     const build = buildCourse(course);
     expect(build.ok).toBe(false);
-    expect(build.output).toMatch(/modules\/01-thermal-resistance\/summary\/1\.md:12:\d+ bad LaTeX/);
+    expect(build.output).toMatch(/modules\/01-thermal-resistance\/summary\/1\.md:25:\d+ bad LaTeX/);
   });
 
   it("in a Practice item (YAML)", () => {
@@ -92,7 +92,7 @@ describe("bad LaTeX fails the build with its file and line", () => {
     const build = buildCourse(course);
     expect(build.ok).toBe(false);
     expect(build.output).toMatch(
-      /modules\/01-thermal-resistance\/practice\/1\.yaml:3:\d+ bad LaTeX: Undefined control sequence: \\txet/,
+      /modules\/01-thermal-resistance\/practice\/1\.yaml:4:\d+ bad LaTeX: Undefined control sequence: \\txet/,
     );
   });
 

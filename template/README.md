@@ -13,6 +13,44 @@ the page templates place the components.
 Every file is read by `src/content/loaders.ts`. Bad LaTeX anywhere, or content that breaks the
 contract, fails the build and names the file (and, for LaTeX, the line).
 
+## Module page
+
+A Module's page (`src/pages/[module].astro`) is one scroll: Watch, Summary, Worked examples,
+Practice, in that order. A section with nothing in it isn't on the page, and neither is its rail
+tab. The section rail (`SectionRail.astro`) is a margin of numbered boxes from 1200px and a row of
+printed tabs pinned above the sections below it. Each tab jumps to its section, the one being read
+is filled, and a done section is ticked.
+
+- **Watch** (`Watch.astro`): the NotebookLM Explainer video, then the Deep Dive audio, then the
+  YouTube cards. A card loads YouTube only when it is played; until then it is a link.
+- **Summary**: the infographic at the top (`Infographic.astro`, tap to zoom), then each beat beside
+  its one figure (a plot drawn at build, with no island).
+- **Worked examples**: the Worked example sheet (below).
+- **Practice** (`src/islands/PracticeItem.tsx`), written first. A `numeric` item checks the
+  student's number within its tolerance (`src/practice/check.ts`) and marks it in red pen. A `prose`
+  item is marked by the student against the model answer and its `earns` points. The model answer
+  shows only once the student has had a go.
+
+A Module's media is named in its `media.yaml` and sits in its `media/` folder
+(`src/media/integration.ts` publishes only the named files at `/<module>/media/`). A named file
+that isn't there fails the build.
+
+Progress is kept per browser (`src/progress/`): what was watched and read, how far each Worked
+example got, and each Practice item's result. The rail marks a section done from it:
+
+- **Watch:** a video or audio played to its end, or a card played.
+- **Summary:** read to its last beat.
+- **Worked examples:** every example stepped to its last step.
+- **Practice:** every item checked or self-marked.
+
+Every number, formula, dimension and sim constant carries a Provenance tag: an entry's
+`provenance` block lists its values as `stated`, `derived`, `scaled` or `assumed`, plus any `slips`
+and `divergences` the Owner ruled on (`src/provenance/`). The page says so where it matters:
+
+- scaled and assumed values are shown with the question;
+- derived values, a Slip (both values, the sheet's struck through in red pen) and a Divergence (the
+  Professor's value as the exam answer, with its note) are shown with the answer.
+
 ## Worked example sheet
 
 A Worked example renders as one solved sheet (`src/islands/WorkedSheet.tsx`, a React island):
@@ -60,14 +98,15 @@ Every finding either blocks or raises a Checkpoint item; there is no warning lev
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
 A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
-| Gate                 | Points         | Checks                                                                            |
-| -------------------- | -------------- | --------------------------------------------------------------------------------- |
-| `content-contract`   | job, deploy    | every content file against the Zod schemas                                        |
-| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                   |
-| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first |
-| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included             |
-| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it     |
-| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside  |
+| Gate                 | Points         | Checks                                                                                                                                    |
+| -------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there                                                |
+| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                           |
+| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words         |
+| `provenance`         | job, deploy    | every number an entry shows carries a Provenance tag                                                                                      |
+| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included                                                                     |
+| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                             |
+| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked) |
 
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).

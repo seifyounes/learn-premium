@@ -30,6 +30,12 @@ export const COLLECTIONS = {
     generateId: (entry: string) => entry.split("/")[1] ?? entry,
     schema: contract.module,
   },
+  media: {
+    pattern: "modules/*/media.yaml",
+    format: "structured",
+    generateId: (entry: string) => entry.split("/")[1] ?? entry,
+    schema: contract.media,
+  },
   beats: { pattern: "modules/*/summary/*.md", format: "markdown", generateId: moduleEntryId, schema: contract.beat },
   worked: {
     pattern: "modules/*/worked/*.{json,yaml,yml}",

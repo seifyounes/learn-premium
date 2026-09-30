@@ -126,5 +126,26 @@
       }
     }
   ],
-  "answer": "$\\dot{Q} = \\frac{\\Delta T}{R_\\text{total}} = \\frac{25\\ \\text{K}}{1.54\\ \\text{K/W}} \\approx 16.2\\ \\text{W}$"
+  "answer": "$\\dot{Q} = \\frac{\\Delta T}{R_\\text{total}} = \\frac{25\\ \\text{K}}{1.54\\ \\text{K/W}} \\approx 16.2\\ \\text{W}$",
+  "provenance": {
+    "stated": [
+      "$A = 1\\ \\text{m}^2$",
+      "$T_1 = 20\\ ^\\circ\\text{C}$",
+      "$T_4 = -5\\ ^\\circ\\text{C}$",
+      "plaster: $0.02$, $0.5$, $0.04$, $0.65$",
+      "brick: $0.20$, $0.8$, $0.25$, $4.06$",
+      "insulation: $0.05$, $0.04$, $1.25$, $20.29$",
+      "total: $1.54$, $25.00$",
+      "the faces at $x = 0$, $0.02$, $0.22$ and $0.27\\ \\text{m}$",
+      "$T_2 = 19.35$, $T_3 = 15.29$",
+      "$\\dot{Q} = 16.2\\ \\text{W}$"
+    ],
+    "slips": [
+      {
+        "value": "$R_\\text{total} = 1.54\\ \\text{K/W}$",
+        "sheet": "$1.45\\ \\text{K/W}$",
+        "note": "The sheet's total row swaps two digits: its own layers add to $1.54$, and its heat loss uses $1.54$."
+      }
+    ]
+  }
 }

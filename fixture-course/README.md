@@ -8,9 +8,25 @@ Layout (content contract v0):
 
 - `course.yaml`: the course config (name, pad, Credit line).
 - `modules/<NN>-<slug>/module.yaml`: one Module; the folder name is its route.
-- `modules/<NN>-<slug>/summary/<n>.md`: one Summary beat each, plain Markdown.
+- `modules/<NN>-<slug>/media.yaml` (optional): the Module's media. `video`, `audio` and
+  `infographic` name files in the Module's `media/` folder, and `youtube` lists cards (9/10 match
+  or better). Every slot is optional; an empty one renders nothing. The Fixture Course's media are
+  synthetic, made by `tools/make-media.py`.
+- `modules/<NN>-<slug>/summary/<n>.md`: one Summary beat each, plain Markdown of at most 90 words,
+  with an optional `figure` (a plot) in its frontmatter. A Module has at most five beats.
 - `modules/<NN>-<slug>/worked/<n>.json`: one Worked example each (JSON or YAML).
-- `modules/<NN>-<slug>/practice/<n>.yaml`: one Practice item each (JSON or YAML).
+- `modules/<NN>-<slug>/practice/<n>.yaml`: one Practice item each (JSON or YAML). A `numeric`
+  item has an `answer` (`value`, `unit`, `tolerance`) the site checks; a `prose` item lists what
+  `earns` the mark, one point per mark, for the student to mark themselves against.
+
+Every Worked example, Practice item and Summary beat tags each number it shows in a `provenance`
+block: `stated` (in the Materials), `derived` (worked out, no official key), `scaled` (measured
+off a drawing) or `assumed` (supplied here). A value can be written bare (`0.25`) or in context
+(`$L = 0.25\ \text{m}$`), and every number in it counts as tagged. `slips` (`value`, `sheet`,
+`note`) and `divergences` (`value`, `note`) record the Owner's rulings. The provenance gate
+blocks a number no list tags. In this synthetic Course, "the sheet" and "the Professor" are
+invented too: the Slip on the Worked example and the Divergence on Practice item 1 are there to
+exercise the page.
 
 A Worked example is solved the Professor's way, step by step:
 

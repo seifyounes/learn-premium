@@ -1,12 +1,17 @@
 ---
 import { prose } from "../content/course";
 
-/** A Worked example's pencil-ruled Given box: the statement and the given data. Collapses on phones. */
+/**
+ * A Worked example's pencil-ruled Given box: the statement, the given data, and which of them were
+ * scaled off a drawing or assumed. Collapses on phones.
+ */
 interface Props {
   statement: string;
   given: string[];
+  /** The provenance notes for scaled and assumed values, rendered at build. */
+  inputsHtml: string;
 }
-const { statement, given } = Astro.props;
+const { statement, given, inputsHtml } = Astro.props;
 ---
 
 <details class="given-box">
@@ -33,5 +38,6 @@ const { statement, given } = Astro.props;
         ))}
       </ul>
     )}
+    {inputsHtml && <div class="mbs-3" set:html={inputsHtml} />}
   </div>
 </details>

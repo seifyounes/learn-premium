@@ -1,0 +1,13 @@
+# Synthetic media, made by tools/make-media.py (no NotebookLM, no Professor's material).
+video:
+  file: explainer.mp4
+  duration: '0:04'
+  captions: explainer.vtt
+audio:
+  file: deep-dive.mp3
+  duration: '0:04'
+infographic:
+  file: infographic.png
+  alt: >-
+    Thermal resistance on one page: a wall resists heat, R = L/(kA); layers add in series; the
+    temperature drop drives the heat through the total resistance.

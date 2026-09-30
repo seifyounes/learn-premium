@@ -1,0 +1,14 @@
+kind: prose
+question: >-
+  The sheet's drawing of the composite wall shows the insulation layer about
+  $0.05\ \text{m}$ thick. Explain why that thin layer sets most of the wall's heat loss.
+model: >-
+  Layers in series add their resistances, and each layer's is $R = \frac{L}{kA}$. The insulation's
+  $k$ is so small that its resistance outweighs the others, so it takes most of the temperature
+  drop and sets $\dot{Q} = \frac{\Delta T}{R_\text{total}}$.
+earns:
+  - 'Resistances in series add: $R_\text{total} = \sum R_i$.'
+  - 'A small $k$ gives a large $R = \frac{L}{kA}$, even for a thin layer.'
+  - 'The largest resistance takes most of the drop and so sets $\dot{Q}$.'
+provenance:
+  scaled: ['$L = 0.05\ \text{m}$ (insulation, off the drawing)']

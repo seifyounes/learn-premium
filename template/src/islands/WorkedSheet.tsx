@@ -4,6 +4,8 @@
 // default; try-first hides each step's values until the student asks to see them.
 import { MotionConfig, useReducedMotion } from "motion/react";
 import { useEffect, useId, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { recordStep } from "../progress/progress.ts";
+import { updateProgress } from "../progress/store.ts";
 import type { SheetData } from "../worked/sheet.ts";
 import { shownAt, startStepping, stepping, type SteppingAction } from "../worked/stepping.ts";
 import { Arrow, DoneTick } from "./worked/pen.tsx";
@@ -14,13 +16,17 @@ interface Props {
   sheet: SheetData;
   /** The Module's title, for the title block's topic cell (hidden on phones). */
   topicHtml: string;
+  /** Where the student's progress through the example is kept. */
+  module: string;
+  /** Derived values, Slips and Divergences, rendered at build: shown with the answer. */
+  outputsHtml: string;
   /** The Given box, rendered at build. */
   children?: ReactNode;
 }
 
 const WIDE = "(width >= 900px)";
 
-export default function WorkedSheet({ sheet, topicHtml, children }: Props) {
+export default function WorkedSheet({ sheet, topicHtml, module, outputsHtml, children }: Props) {
   const reduced = useReducedMotion() ?? false;
   const [ready, setReady] = useState(false);
   const [s, dispatch] = useReducer(
@@ -45,6 +51,10 @@ export default function WorkedSheet({ sheet, topicHtml, children }: Props) {
   }, []);
 
   const count = sheet.steps.length;
+  const { code } = sheet;
+  useEffect(() => {
+    if (ready) updateProgress((p) => recordStep(p, module, code, s.step, count));
+  }, [ready, module, code, s.step, count]);
   const shown = shownAt(sheet, s, reduced);
   const { state, hidden } = shown;
   const step = sheet.steps[s.step];
@@ -239,6 +249,9 @@ export default function WorkedSheet({ sheet, topicHtml, children }: Props) {
                 <span className="field-label block mbe-1">Answer</span>
                 <p className="font-semibold text-graphite" dangerouslySetInnerHTML={{ __html: sheet.answerHtml }} />
               </div>
+            )}
+            {state.last && !hidden && outputsHtml && (
+              <div className="mbs-3 max-w-[68ch]" dangerouslySetInnerHTML={{ __html: outputsHtml }} />
             )}
           </div>
         </div>

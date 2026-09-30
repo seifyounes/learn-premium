@@ -1,0 +1,46 @@
+---
+import type { Section } from "../progress/progress";
+
+/**
+ * The Module page's sticky section rail: a margin of numbered boxes beside the sections on a
+ * laptop, a row of printed tabs above them on a phone. Each jumps to its section; a done section
+ * is ticked, the one being read is filled (the page's script keeps both up to date).
+ */
+interface Props {
+  sections: { id: Section; label: string; short: string }[];
+}
+const { sections } = Astro.props;
+---
+
+<nav class="section-rail" aria-label="Sections">
+  <span class="field-label rail-heading">Sections</span>
+  <ol class="rail-list">
+    {sections.map((s, i) => (
+      <li>
+        <a href={`#${s.id}`} class="rail-link" data-rail-link data-section={s.id}>
+          <span class="step-box rail-box" aria-hidden="true">
+            {i + 1}
+          </span>
+          <svg viewBox="0 0 16 16" class="rail-tick" aria-hidden="true">
+            <path
+              d="M 3 8.5 L 6.5 12 L 13 3.5"
+              fill="none"
+              stroke="var(--color-graphite)"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              pathLength="1"
+            />
+          </svg>
+          <span class="rail-title">
+            <span class="rail-long">{s.label}</span>
+            <span class="rail-short" aria-hidden="true">
+              {s.short}
+            </span>
+          </span>
+          <span class="rail-done-text sr-only">(done)</span>
+        </a>
+      </li>
+    ))}
+  </ol>
+</nav>

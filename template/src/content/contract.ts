@@ -27,9 +27,29 @@ export const module = z.strictObject({
   summary: z.string().min(1),
 });
 
-export const beat = z.strictObject({
-  title: z.string().min(1),
+/**
+ * Where an entry's values come from (CONTEXT.md, Provenance tag). Each list names values the way
+ * the writer likes (`0.25`, `$L = 0.25\ \text{m}$`); a number counts as tagged when a list holds
+ * the same number. The provenance gate blocks a value no list tags. Scaled and assumed values are
+ * shown with the question, derived ones with the answer.
+ */
+export const provenance = z.strictObject({
+  /** In the Materials. */
+  stated: z.array(z.string().min(1)).default([]),
+  /** Worked out here: no official key gives it. */
+  derived: z.array(z.string().min(1)).default([]),
+  /** Measured off a drawing. */
+  scaled: z.array(z.string().min(1)).default([]),
+  /** Supplied here: the Materials don't give it. */
+  assumed: z.array(z.string().min(1)).default([]),
+  /** The Owner ruled the Professor's result a mistake: the site ships `value`, and shows `sheet` too. */
+  slips: z
+    .array(z.strictObject({ value: z.string().min(1), sheet: z.string().min(1), note: z.string().min(1).optional() }))
+    .default([]),
+  /** The Owner ruled the Professor's result the exam's truth: `value` ships, `note` says what the recompute or the real system gives. */
+  divergences: z.array(z.strictObject({ value: z.string().min(1), note: z.string().min(1) })).default([]),
 });
+const tagged = { provenance: provenance.prefault({}) };
 
 const column = z.strictObject({
   label: z.string().min(1),
@@ -151,6 +171,7 @@ export const worked = z
     figure: plotFigure.optional(),
     steps: z.array(step).min(1),
     answer: z.string().min(1),
+    ...tagged,
   })
   .superRefine((example, ctx) => {
     const { columns, rows } = example.artefact;
@@ -186,14 +207,78 @@ export const worked = z
     });
   });
 
-export const practice = z.strictObject({
+/** A Summary beat's frontmatter; its body is plain Markdown of at most 90 words. */
+export const beat = z.strictObject({
+  title: z.string().min(1),
+  /** The one figure the beat is written around, plotted on the sheet. */
+  figure: plotFigure.omit({ question: true }).optional(),
+  ...tagged,
+});
+
+/** A Practice item the site checks: the student's number, within `tolerance` of `value`. */
+const numericPractice = z.strictObject({
+  kind: z.literal("numeric"),
   question: z.string().min(1),
   answer: z.strictObject({
     value: z.number(),
-    unit: z.string().min(1),
+    /** Absent for a dimensionless answer. */
+    unit: z.string().min(1).optional(),
+    /** Either side of `value`, in its unit. */
     tolerance: z.number().nonnegative(),
   }),
   model: z.string().min(1),
+  ...tagged,
+});
+
+/** A prose or derivation item the student marks themselves against the model answer. */
+const prosePractice = z.strictObject({
+  kind: z.literal("prose"),
+  question: z.string().min(1),
+  model: z.string().min(1),
+  /** What earns the mark: one point per mark. */
+  earns: z.array(z.string().min(1)).min(1),
+  ...tagged,
+});
+
+export const practice = z.discriminatedUnion("kind", [numericPractice, prosePractice]);
+
+const duration = z.string().regex(/^(?:\d+:[0-5]\d|\d{1,2}):[0-5]\d$/, "a duration is written m:ss or h:mm:ss");
+/** A file in the Module's `media/` folder, named with no folder. */
+const mediaFile = (...extensions: string[]) =>
+  z
+    .string()
+    .regex(
+      new RegExp(String.raw`^[\w-][\w.-]*\.(?:${extensions.join("|")})$`),
+      `a file in the Module's media/ folder: ${extensions.map((e) => `.${e}`).join(", ")}`,
+    );
+
+/** A YouTube video that follows the Professor's method closely enough to ship: 9/10 or better. */
+const youtubeCard = z.strictObject({
+  id: z.string().regex(/^[\w-]{11}$/, "a YouTube video id is 11 letters, digits, - or _"),
+  title: z.string().min(1),
+  channel: z.string().min(1),
+  duration,
+  /** How closely it follows the Professor's method, out of 10. Below 9 there is no card. */
+  match: z.number().int().min(9).max(10),
+  /** One line: what it explains the Professor's way. */
+  why: z.string().min(1),
+  /** The moments it cites, each a jump into the video. */
+  moments: z.array(z.strictObject({ at: duration, label: z.string().min(1) })).default([]),
+});
+
+/**
+ * A Module's media (CONTEXT.md, Module media), in `media.yaml` beside `module.yaml`; the files sit
+ * in the Module's `media/` folder. Every slot is optional, and an empty one renders nothing.
+ */
+export const media = z.strictObject({
+  /** The NotebookLM Explainer video, first in Watch. */
+  video: z.strictObject({ file: mediaFile("mp4"), duration, captions: mediaFile("vtt").optional() }).optional(),
+  /** The NotebookLM Deep Dive audio, after the video. */
+  audio: z.strictObject({ file: mediaFile("mp3", "m4a"), duration }).optional(),
+  /** The NotebookLM infographic, at the top of Summary. */
+  infographic: z.strictObject({ file: mediaFile("png"), alt: z.string().min(1) }).optional(),
+  /** YouTube cards, after the NotebookLM media. */
+  youtube: z.array(youtubeCard).default([]),
 });
 
 /** A Module's folder name is its route: a two-digit number and a slug, e.g. `01-thermal-resistance`. */

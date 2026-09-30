@@ -124,20 +124,43 @@ function snippet(text: string, at: number): string {
     .trim()}${at + 40 < text.length ? "…" : ""}`;
 }
 
-/** A scratch copy of the built site's pages, with the first page changed by `edit`. */
-export function siteWith(good: GateInput, scratch: string, edit: (page: string) => string): GateInput {
-  const first = sitePages(good)[0];
-  if (!first) throw new Error("no built page to plant a negative control in");
+/** A scratch copy of the built site's pages and stylesheets. */
+function copySite(good: GateInput, scratch: string): string {
   const distDir = join(scratch, "site");
   cpSync(siteOf(good), distDir, {
     recursive: true,
-    filter: (src) => src.endsWith(".html") || statSync(src).isDirectory(),
+    filter: (src) => /\.(?:html|css)$/.test(src) || statSync(src).isDirectory(),
   });
+  return distDir;
+}
+
+/** A scratch copy of the built site, with the first page changed by `edit`. */
+export function siteWith(good: GateInput, scratch: string, edit: (page: string) => string): GateInput {
+  const first = sitePages(good)[0];
+  if (!first) throw new Error("no built page to plant a negative control in");
+  const distDir = copySite(good, scratch);
   const path = join(distDir, first.entry);
   const page = readFileSync(path, "utf8");
   const edited = edit(page);
   if (edited === page) throw new Error(`${first.route} had nothing to plant a negative control in`);
   writeFileSync(path, edited);
+  return { ...good, distDir };
+}
+
+/** A scratch copy of the built site with `css` added to the stylesheet the first page links. */
+export function stylesheetWith(good: GateInput, scratch: string, css: string): GateInput {
+  const first = sitePages(good)[0];
+  if (!first) throw new Error("no built page to plant a negative control in");
+  const href = /<link rel="stylesheet" href="(\/[^"]+)"/.exec(readFileSync(first.path, "utf8"))?.[1];
+  if (!href) throw new Error(`${first.route} links no stylesheet to plant a negative control in`);
+  const distDir = copySite(good, scratch);
+  const path = join(distDir, href);
+  writeFileSync(
+    path,
+    `${readFileSync(path, "utf8")}
+${css}
+`,
+  );
   return { ...good, distDir };
 }
 

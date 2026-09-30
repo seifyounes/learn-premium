@@ -1,0 +1,107 @@
+---
+import type { ModuleMedia } from "../content/course";
+import { prose } from "../content/course";
+
+/**
+ * Watch: the NotebookLM Explainer video, then the Deep Dive audio, then the YouTube cards. Each
+ * slot renders only when it holds something; the page leaves Watch out when all are empty.
+ */
+interface Props {
+  media: ModuleMedia;
+}
+const { media } = Astro.props;
+const { video, audio, youtube } = media;
+
+/** `m:ss` or `h:mm:ss` → seconds, for a card's jump into its video. */
+const seconds = (at: string) => at.split(":").reduce((total, part) => total * 60 + Number(part), 0);
+const watchUrl = (id: string, at?: string) =>
+  `https://www.youtube.com/watch?v=${id}${at === undefined ? "" : `&t=${seconds(at)}s`}`;
+---
+
+<div class="watch">
+  {video && (
+    <figure class="media-slot">
+      <figcaption class="media-head">
+        <span class="field-label">Explainer video</span>
+        <span class="media-duration">{video.duration}</span>
+      </figcaption>
+      <video class="media-video" controls playsinline preload="metadata" src={video.url}>
+        {video.captionsUrl && <track kind="captions" src={video.captionsUrl} srclang="en" label="English" default />}
+      </video>
+    </figure>
+  )}
+  {audio && (
+    <figure class="media-slot">
+      <figcaption class="media-head">
+        <span class="field-label">Deep Dive audio</span>
+        <span class="media-duration">{audio.duration}</span>
+      </figcaption>
+      <audio class="media-audio" controls preload="none" src={audio.url} />
+    </figure>
+  )}
+  {youtube.map((card) => (
+    <article class="video-card" data-video-card={card.id}>
+      <a class="video-card-frame" href={watchUrl(card.id)} target="_blank" rel="noopener" data-video-play>
+        <img
+          src={`https://i.ytimg.com/vi/${card.id}/hqdefault.jpg`}
+          alt=""
+          width="480"
+          height="360"
+          loading="lazy"
+          decoding="async"
+        />
+        <span class="video-card-play" aria-hidden="true">
+          <svg viewBox="0 0 16 16" class="size-5">
+            <path d="M5 3.5v9l7.5-4.5z" fill="currentColor" />
+          </svg>
+        </span>
+        <span class="sr-only">Play “{card.title}”</span>
+      </a>
+      <div class="video-card-body">
+        <h3 class="video-card-title" set:html={prose(card.title)} />
+        <p class="video-card-meta">
+          <span set:html={prose(card.channel)} />
+          <span class="media-duration">{card.duration}</span>
+        </p>
+        <p class="video-card-why" set:html={prose(card.why)} />
+        {card.moments.length > 0 && (
+          <ul class="video-card-moments">
+            {card.moments.map((m) => (
+              <li>
+                <a href={watchUrl(card.id, m.at)} target="_blank" rel="noopener" data-video-at={seconds(m.at)}>
+                  <span class="media-duration">{m.at}</span> <span set:html={prose(m.label)} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </article>
+  ))}
+</div>
+
+<script>
+  // A YouTube card loads YouTube only when played: the card is a link until then, and a click
+  // (on the frame or on one of its moments) swaps in the player at that moment.
+  for (const card of document.querySelectorAll<HTMLElement>("[data-video-card]")) {
+    const id = card.dataset.videoCard ?? "";
+    const frame = card.querySelector<HTMLAnchorElement>("[data-video-play]");
+    const play = (start: number) => (event: MouseEvent) => {
+      if (!frame || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      const player = document.createElement("iframe");
+      player.className = "video-card-player";
+      player.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&start=${start}`;
+      player.title = card.querySelector(".video-card-title")?.textContent ?? "YouTube video";
+      player.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+      player.allowFullscreen = true;
+      const current = card.querySelector(".video-card-player") ?? frame;
+      current.replaceWith(player);
+      card.dispatchEvent(new CustomEvent("learn-premium:video-card-played", { bubbles: true }));
+    };
+    frame?.addEventListener("click", play(0));
+    for (const moment of card.querySelectorAll<HTMLAnchorElement>("[data-video-at]")) {
+      moment.addEventListener("click", play(Number(moment.dataset.videoAt)));
+    }
+  }
+</script>

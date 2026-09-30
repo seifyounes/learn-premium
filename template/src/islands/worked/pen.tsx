@@ -79,3 +79,26 @@ export function Arrow({ back = false }: { back?: boolean }) {
     </svg>
   );
 }
+
+/** The red pen's verdict on a checked answer: a tick for right, a cross for wrong. */
+export function PenVerdict({ correct, draw }: { correct: boolean; draw: boolean }) {
+  const strokes = correct ? ["M 3 9.5 L 7 13.5 L 15 3.5"] : ["M 4 4 L 14 14", "M 14 4 L 4 14"];
+  return (
+    <svg viewBox="0 0 18 18" aria-hidden="true" className="pen-verdict">
+      {strokes.map((d, i) => (
+        <motion.path
+          key={d}
+          d={d}
+          fill="none"
+          stroke="var(--color-red-pen)"
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={draw ? { pathLength: 0 } : false}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: TICK_DRAW, ease: IN_OUT_SINE, delay: i * TICK_DRAW }}
+        />
+      ))}
+    </svg>
+  );
+}
