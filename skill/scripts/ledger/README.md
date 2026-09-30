@@ -25,7 +25,7 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 | --- | --- |
 | `next` | `{action: "intake"}` with no ledger; `{action: "resume", waves}` while a wave is unfinished; else `{action: "waves", newMaterials, waves}`: files to put in the Module map, and the Module waves to run, each with its `reasons` (`planned`, `failed`, `materials-added` for a file mapped into a live Module, `materials-changed`, `materials-deleted`), in Module order. A new Course gets Module 01 alone until its wave merges. |
 | `diff` | The Materials hash diff: `new` (path, kind), `changed` and `deleted` (path, kind, the Module they feed). |
-| `status` | Course, Materials path, template (release, file hashes, current overrides), lock, Modules with their Materials, Exam sittings with their state (`open`, `building`, `live`, from their Sitting waves), current waves, jobs and Checkpoint answers, and every `superseded` row. |
+| `status` | Course, Materials path, template (release, file hashes, current overrides), lock, Modules with their Materials, Exam sittings with their state (`open`, `building`, `live`, from their Sitting waves), current waves, jobs and Checkpoint answers, every `superseded` row, and `media`: the media items as the Media pass last wrote them (read only; see `../media/README.md`). |
 | `checkpoint --key K` | The Owner's current answer to Checkpoint item `K`, or `null`. Look here before asking. |
 | `integrity` | The template layer against its pinned hashes: `modified`, `added`, `missing`. Exit 1 if any. |
 
@@ -55,6 +55,7 @@ release, commit and measured times, and its jobs). Commit them with the ledger; 
 ## Layout it assumes in a Course project
 
 - `build-ledger.json`: the ledger.
+- `build-media.json`: its media file, written only by the Media pass (`../media/README.md`).
 - `template/`: the template layer, read-only; its hashes are pinned at `init`.
 - `build-records/`: committed, never deployed.
 

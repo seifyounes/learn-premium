@@ -1,4 +1,4 @@
-# Checks the skill's Node scripts (the Build ledger commands) on every change to them. Windows too:
+# Checks the skill's Node scripts (the Build ledger and Media pass commands) on every change to them. Windows too:
 # the Owner's machine builds, and file locking and renames differ there.
 name: Skill CI
 
@@ -40,5 +40,5 @@ jobs:
         run: npm run lint -- --max-warnings 0
       - name: Type check
         run: npm run typecheck
-      - name: Tests (Vitest; every ledger command through its CLI, on synthetic Materials)
+      - name: Tests (Vitest; every ledger and media command through its CLI, on synthetic Materials)
         run: npm test

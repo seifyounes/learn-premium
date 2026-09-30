@@ -1,6 +1,7 @@
 // The Build ledger commands. Callers (the skill and its subagents) use only these, through the CLI;
 // nothing else reads or writes the ledger file.
 import { join } from "node:path";
+import { readMediaFile } from "../media/store.ts";
 import { hashTree } from "./hash.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
 import {
@@ -388,5 +389,7 @@ export function status(project: string) {
     jobs: current(ledger.jobs),
     checkpoints: current(ledger.checkpoints),
     superseded: supersededRows(ledger),
+    /** The media items as the Media pass last wrote them. Read only: the driving session never writes the media file. */
+    media: readMediaFile(project)?.items ?? [],
   };
 }
