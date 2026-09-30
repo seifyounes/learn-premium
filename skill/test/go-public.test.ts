@@ -176,6 +176,32 @@ describe("Go-public check", () => {
     expect(out.materials.privateFolder).toBe(privateFolder);
   });
 
+  test("an empty Material matches nothing, not every empty file in history", async () => {
+    const { project, materials } = course();
+    writeFiles(materials, { "notes/empty.txt": "" });
+    commit(project, "chore: keep the folder", { "src/.gitkeep": "" });
+
+    const { code, out } = await check("--project", project);
+
+    expect(findings(out, "materials")).toEqual([]);
+    expect(code).toBe(0);
+  });
+
+  test("a Private-folder file other than the reader's output is a Checkpoint item, as a media master may be", async () => {
+    const { project } = course();
+    const privateFolder = tempDir("private");
+    writeFiles(privateFolder, { "media/01/infographic.png": "the master infographic" });
+    commit(project, "feat: media", { "public/media/01/infographic.png": "the master infographic" });
+
+    const { code, out } = await check("--project", project, "--private", privateFolder);
+
+    expect(code).toBe(1);
+    expect(out.verdict).toBe("review");
+    expect(findings(out, "materials")).toEqual([
+      expect.objectContaining({ severity: "checkpoint", material: "media/01/infographic.png" }),
+    ]);
+  });
+
   test("matches a text Material committed with its line endings normalised", async () => {
     const { project, materials } = course();
     writeFiles(materials, { "lab/solver.py": "def solve():\r\n    return 42\r\n" });
@@ -231,6 +257,21 @@ describe("Go-public check", () => {
       }),
     ]);
     expect(JSON.stringify(out)).not.toContain(ANTHROPIC_KEY.slice(10));
+  });
+
+  test("finds a secret in a commit message and in an annotated tag's message", async () => {
+    const { project } = course();
+    const planted = commit(project, `chore: deploy with ${GITHUB_TOKEN}`, { "a.md": "a\n" });
+    git(project, "tag", "-a", "v1", "-m", `release\n\nkey ${ANTHROPIC_KEY}`);
+
+    const { out } = await check("--project", project);
+
+    expect(findings(out, "secret")).toEqual([
+      expect.objectContaining({ severity: "block", tag: "refs/tags/v1", rule: "anthropic-api-key", lines: [3] }),
+      expect.objectContaining({ severity: "block", commits: [planted], rule: "github-token" }),
+    ]);
+    expect(out.scanned.messages).toBe(3);
+    expect(JSON.stringify(out)).not.toContain(GITHUB_TOKEN.slice(8));
   });
 
   test("finds a committed .env file and a token in a file that isn't code", async () => {
@@ -311,6 +352,28 @@ describe("Go-public check", () => {
     expect(findings(after.out, "materials")).toEqual([expect.objectContaining({ path: "draft/l1.pdf" })]);
   });
 
+  test("a remote that can't be reached blocks: its refs weren't checked", async () => {
+    const { project } = course();
+    git(project, "remote", "add", "origin", join(tempDir("gone"), "no-such-repo"));
+
+    const { code, out } = await check("--project", project);
+
+    expect(code).toBe(1);
+    expect(findings(out, "remote-unreachable")).toEqual([
+      expect.objectContaining({ severity: "block", remote: "origin" }),
+    ]);
+  });
+
+  test("refuses a shallow clone, whose history is cut off", async () => {
+    const { project } = course();
+    commit(project, "chore: stray", { "a/l1.pdf": LECTURE_1 });
+    commit(project, "chore: drop it", {}, ["a/l1.pdf"]);
+    const shallow = tempDir("shallow");
+    git(shallow, "clone", "-q", "--depth", "1", `file://${project.replaceAll("\\", "/")}`, ".");
+
+    expect(await check("--project", shallow)).toMatchObject({ code: 2, out: { ok: false } });
+  });
+
   test("never changes the repo or its visibility", async () => {
     const { project } = course();
     commit(project, "chore: stray", { "a/l1.pdf": LECTURE_1 });
@@ -338,13 +401,15 @@ describe("Go-public check", () => {
     expect(snapshot()).toEqual(before);
   });
 
-  test("refuses a folder with no Build ledger, a folder that isn't a repo, and bad flags", async () => {
+  test("refuses no Build ledger, a folder that isn't a repo's root, an empty repo and bad flags", async () => {
     const bare = newRepo();
-    commit(bare, "init", { "README.md": "x\n" });
+    commit(bare, "init", { "README.md": "x\n", "sub/file.md": "y\n" });
 
     expect(await check("--project", bare)).toMatchObject({ code: 2, out: { ok: false } });
     expect(await check("--project", tempDir("plain"))).toMatchObject({ code: 2, out: { ok: false } });
     expect(await check("--projct", bare)).toMatchObject({ code: 2, out: { ok: false } });
+    expect(await check("--project", join(bare, "sub"))).toMatchObject({ code: 2, out: { ok: false } });
+    expect(await check("--project", newRepo("empty"))).toMatchObject({ code: 2, out: { ok: false } });
     expect(await check("--project", course().project, "--private", join(tempDir("x"), "gone"))).toMatchObject({
       code: 2,
       out: { ok: false },
