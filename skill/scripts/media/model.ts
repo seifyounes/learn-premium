@@ -53,11 +53,11 @@ function version(value: unknown, path: string): typeof SCHEMA_VERSION {
 }
 
 const count =
-  (max: number): Schema<number> =>
+  (min: number, max: number): Schema<number> =>
   (v, p) =>
-    Number.isInteger(v) && (v as number) >= 0 && (v as number) <= max
+    Number.isInteger(v) && (v as number) >= min && (v as number) <= max
       ? (v as number)
-      : fail(p, `a whole number 0–${max}`, v);
+      : fail(p, `a whole number ${min}–${max}`, v);
 
 /** An amount of NotebookLM usage, in whatever unit Settings → Usage shows. */
 export const units: Schema<number> = (v, p) =>
@@ -71,7 +71,7 @@ const itemShape = obj({
   sitting: nullable(nonEmpty),
   kind: oneOf(...MEDIA_KINDS),
   state: oneOf(...ITEM_STATES),
-  regenerations: count(MAX_REGENERATIONS),
+  regenerations: count(0, MAX_REGENERATIONS),
   /** The date of the nearest Exam sitting it serves, refreshed at every gather; null when none is dated ahead. */
   nearestSitting: nullable(isoDate),
   /** Where the placed file sits in the Course project. */
@@ -126,10 +126,7 @@ export const usageSchema = obj({
       project: nonEmpty,
       item: nonEmpty,
       kind: oneOf(...MEDIA_KINDS),
-      attempt: (v, p) =>
-        Number.isInteger(v) && (v as number) >= 1 && (v as number) <= MAX_REGENERATIONS + 1
-          ? (v as number)
-          : fail(p, `a whole number 1–${MAX_REGENERATIONS + 1}`, v),
+      attempt: count(1, MAX_REGENERATIONS + 1),
       voided: nullable(obj({ at: isoTime, reason: nonEmpty })),
     }),
   ),

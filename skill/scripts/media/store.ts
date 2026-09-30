@@ -15,6 +15,7 @@ import {
   type Registry,
   type Usage,
 } from "./model.ts";
+import type { Schema } from "../ledger/schema.ts";
 
 export function mediaPath(project: string): string {
   return join(project, MEDIA_FILE);
@@ -23,6 +24,10 @@ export function mediaPath(project: string): string {
 /** A Course's media file, or null before its first gather. The driving session reads it through here too. */
 export function readMediaFile(project: string): MediaFile | null {
   return readChecked(mediaPath(project), mediaFileSchema, "media");
+}
+
+export function noMediaFile(project: string): LedgerError {
+  return new LedgerError("invalid", `no media file in ${project}: gather the Media queue first`);
 }
 
 /**
@@ -38,7 +43,7 @@ export function updateMediaFile<T>(
   return withMutex(mediaPath(project), () => {
     const file =
       readMediaFile(project) ?? (course === undefined ? null : { schema: SCHEMA_VERSION, course, items: [] });
-    if (file === null) throw new LedgerError("invalid", `no media file in ${project}: gather the Media queue first`);
+    if (file === null) throw noMediaFile(project);
     const result = change(file);
     writeChecked(mediaPath(project), mediaFileSchema, "media", file);
     after(file);
@@ -46,19 +51,14 @@ export function updateMediaFile<T>(
   });
 }
 
-export function readRegistry(state: string): Registry {
-  return readChecked(join(state, REGISTRY_FILE), registrySchema, "registry") ?? { schema: SCHEMA_VERSION, courses: [] };
+export function readRegistry(stateDir: string): Registry {
+  return (
+    readChecked(join(stateDir, REGISTRY_FILE), registrySchema, "registry") ?? { schema: SCHEMA_VERSION, courses: [] }
+  );
 }
 
-export function updateRegistry<T>(state: string, change: (registry: Registry) => T): T {
-  mkdirSync(state, { recursive: true });
-  const path = join(state, REGISTRY_FILE);
-  return withMutex(path, () => {
-    const registry = readRegistry(state);
-    const result = change(registry);
-    writeChecked(path, registrySchema, "registry", registry);
-    return result;
-  });
+export function updateRegistry<T>(stateDir: string, change: (registry: Registry) => T): T {
+  return updateStateFile(stateDir, REGISTRY_FILE, registrySchema, readRegistry, change, () => {});
 }
 
 const EMPTY_USAGE: Usage = {
@@ -69,21 +69,37 @@ const EMPTY_USAGE: Usage = {
   stops: [],
 };
 
-export function readUsage(state: string): Usage {
-  return readChecked(join(state, USAGE_FILE), usageSchema, "usage") ?? structuredClone(EMPTY_USAGE);
+export function readUsage(stateDir: string): Usage {
+  return readChecked(join(stateDir, USAGE_FILE), usageSchema, "usage") ?? structuredClone(EMPTY_USAGE);
 }
 
 /**
  * Applies `change` to the usage log under its mutex, then `after` while still holding it. A command
- * that also moves a media item does so in `after`, once the usage write is safely on disk.
+ * that also moves a media item takes this mutex first, then the media file's.
  */
-export function updateUsage<T>(state: string, change: (usage: Usage) => T, after: (result: T) => void = () => {}): T {
-  mkdirSync(state, { recursive: true });
-  const path = join(state, USAGE_FILE);
+export function updateUsage<T>(
+  stateDir: string,
+  change: (usage: Usage) => T,
+  after: (result: T) => void = () => {},
+): T {
+  return updateStateFile(stateDir, USAGE_FILE, usageSchema, readUsage, change, after);
+}
+
+/** A read-modify-write of one file in the machine state folder, which the first write creates. */
+function updateStateFile<D, T>(
+  stateDir: string,
+  name: string,
+  schema: Schema<D>,
+  read: (stateDir: string) => D,
+  change: (data: D) => T,
+  after: (result: T) => void,
+): T {
+  mkdirSync(stateDir, { recursive: true });
+  const path = join(stateDir, name);
   return withMutex(path, () => {
-    const usage = readUsage(state);
-    const result = change(usage);
-    writeChecked(path, usageSchema, "usage", usage);
+    const data = read(stateDir);
+    const result = change(data);
+    writeChecked(path, schema, name, data);
     after(result);
     return result;
   });

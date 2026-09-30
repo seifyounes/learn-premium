@@ -18,11 +18,18 @@ export interface WindowCapacity {
   generations: number;
 }
 
-/** The generations still counting against `limit` at `at`, oldest first. A voided one never counted. */
+/** The generations still counting against `limit` at `at`, oldest first, and their summed cost (null while unmeasured). A voided one never counted. */
 function inWindow(usage: Usage, limit: Limit, at: number) {
-  return usage.spends
+  const spends = usage.spends
     .filter((s) => s.voided === null && Date.parse(s.at) > at - WINDOW_MS[limit])
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  return {
+    spends,
+    used: price(
+      usage,
+      spends.map((s) => s.kind),
+    ),
+  };
 }
 
 /** The summed cost of these kinds, or null while any of them is unmeasured. */
@@ -38,11 +45,7 @@ export function price(usage: Usage, kinds: MediaKind[]): number | null {
 
 export function capacity(usage: Usage, at: number): Record<Limit, WindowCapacity> {
   const one = (limit: Limit): WindowCapacity => {
-    const spends = inWindow(usage, limit, at);
-    const used = price(
-      usage,
-      spends.map((s) => s.kind),
-    );
+    const { spends, used } = inWindow(usage, limit, at);
     const max = usage.limits[limit];
     return {
       limit: max,
@@ -66,11 +69,7 @@ export function stopFor(usage: Usage, kind: MediaKind, at: number): Stop | null 
   const cost = usage.costs[kind];
   for (const limit of LIMITS) {
     const max = usage.limits[limit];
-    const spends = inWindow(usage, limit, at);
-    const used = price(
-      usage,
-      spends.map((s) => s.kind),
-    );
+    const { spends, used } = inWindow(usage, limit, at);
     if (cost === null || max === null || used === null || used + cost <= max) continue;
     stops.push({
       limit,

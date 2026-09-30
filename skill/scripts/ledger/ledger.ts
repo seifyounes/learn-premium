@@ -1,6 +1,7 @@
 // The Build ledger commands. Callers (the skill and its subagents) use only these, through the CLI;
 // nothing else reads or writes the ledger file.
 import { join } from "node:path";
+import type { MediaItem } from "../media/model.ts";
 import { readMediaFile } from "../media/store.ts";
 import { hashTree } from "./hash.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
@@ -389,7 +390,19 @@ export function status(project: string) {
     jobs: current(ledger.jobs),
     checkpoints: current(ledger.checkpoints),
     superseded: supersededRows(ledger),
-    /** The media items as the Media pass last wrote them. Read only: the driving session never writes the media file. */
-    media: readMediaFile(project)?.items ?? [],
+    ...mediaItems(project),
   };
+}
+
+/**
+ * The media items as the Media pass last wrote them. Read only: the driving session never writes the
+ * media file, and a media file that fails its schema is reported, never a reason for status to fail.
+ */
+function mediaItems(project: string): { media: MediaItem[]; mediaError: string | null } {
+  try {
+    return { media: readMediaFile(project)?.items ?? [], mediaError: null };
+  } catch (error) {
+    if (!(error instanceof LedgerError)) throw error;
+    return { media: [], mediaError: error.message };
+  }
 }

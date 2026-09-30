@@ -1,5 +1,5 @@
-// Reading and writing the Build ledger file. Every read is schema-checked; every write replaces the
-// file atomically, inside a short-lived mutex so two processes can't interleave a read-modify-write.
+// Reading and writing the Build ledger file, through the schema-checked, atomic, mutex-guarded
+// helpers in file.ts; every write also regenerates the pages generated from it.
 import { join } from "node:path";
 import { readChecked, withMutex, writeChecked } from "./file.ts";
 import { LEDGER_FILE, ledgerSchema, type Ledger } from "./model.ts";

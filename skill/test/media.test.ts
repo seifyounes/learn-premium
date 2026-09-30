@@ -383,8 +383,34 @@ describe("quota", () => {
     expect(must(media("status", "--state", state)).capacity["5-hour"].generations).toBe(1);
   });
 
+  test("a crash while taking back a refused generation leaves the item queued, and its next start counts it once", () => {
+    const { state, project } = oneCourse();
+    const at = ["--state", state, "--project", project, "--item", "module-01-video"];
+    must(media("start", ...at));
+    const usageBefore = readFileSync(join(state, "media-usage.json"), "utf8");
+    must(media("limit", "--state", state, "--kind", "5-hour", "--project", project, "--item", "module-01-video"));
+    writeFileSync(join(state, "media-usage.json"), usageBefore); // the usage log write never happened
+
+    expect(must(media("gather", "--state", state)).next).toMatchObject({ item: "module-01-video", state: "queued" });
+    must(media("start", ...at));
+
+    expect(itemsOf(project)["module-01-video"]?.state).toBe("generating");
+    expect(must(media("status", "--state", state)).capacity["5-hour"].generations).toBe(1);
+  });
+
   test("measured numbers must be positive", () => {
     expect(media("quota", "--state", tempDir("state"), "--cost-video", "-3").code).toBe(2);
+  });
+
+  test("a cost over a limit is refused, since that item could never start", () => {
+    const state = tempDir("state");
+    must(media("quota", "--state", state, "--limit-5-hour", "6"));
+
+    const refused = media("quota", "--state", state, "--cost-video", "7");
+
+    expect(refused.code).toBe(2);
+    expect(refused.out.error).toMatch(/video costs 7, more than the whole 5-hour limit of 6/);
+    expect(must(media("status", "--state", state)).capacity["5-hour"].limit).toBe(6);
   });
 });
 
@@ -414,7 +440,7 @@ describe("the driving session and the Media pass", () => {
     expect(readFileSync(join(project, "build-media.json"), "utf8")).toBe(mediaBefore);
   });
 
-  test("a hand-edited media file is refused, naming the field, and its Course is skipped", () => {
+  test("a hand-edited media file is refused, naming the field; its Course is skipped, and the driving session still gets its status", () => {
     const { state, project } = oneCourse();
     const file = join(project, "build-media.json");
     writeFileSync(file, readFileSync(file, "utf8").replace('"queued"', '"halfway"'));
@@ -427,6 +453,10 @@ describe("the driving session and the Media pass", () => {
     expect(skipped).toEqual([
       { project, course: "Heat Transfer", error: expect.stringMatching(/media\.items\[0\]\.state/) },
     ]);
+    expect(ledger("status", "--project", project)).toMatchObject({
+      code: 0,
+      out: { media: [], mediaError: expect.stringMatching(/media\.items\[0\]\.state/) },
+    });
   });
 
   test("the Course's media page is generated beside its status page", () => {
