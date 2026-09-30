@@ -1,0 +1,53 @@
+# Closes the tickets a merged PR names with a closing keyword ("Closes #41"), without relying on
+# GitHub's own keyword linking. That linking silently stopped for every PR opened here from
+# 2026-09-30 (PRs #83-#86: no link, no close), with the repo setting on and the PR on `main`.
+# When GitHub's link does fire, the ticket is already closed and this is a no-op.
+name: Close tickets on merge
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+  # To start the blocked-label sync: a close made with GITHUB_TOKEN fires no `issues` event.
+  actions: write
+
+jobs:
+  close:
+    if: github.event.pull_request.merged && github.event.pull_request.base.ref == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      BASE: ${{ github.event.pull_request.base.ref }}
+      # Passed through the environment, never interpolated into the script.
+      BODY: ${{ github.event.pull_request.body }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+      - name: Close the tickets the PR names
+        run: |
+          set -euo pipefail
+          closed=0
+          for n in $(printf '%s' "${BODY:-}" | .github/scripts/closing-refs.sh); do
+            # Issues and PRs share one number space; only an open issue is closed.
+            state=$(gh api "repos/$REPO/issues/$n" --jq 'if .pull_request then "pr" else .state end' 2>/dev/null) ||
+              state=missing
+            case "$state" in
+              open)
+                gh issue close "$n" -R "$REPO" --comment "Closed by the merge of #$PR into \`$BASE\` (its description closes #$n)."
+                echo "#$n: closed"
+                closed=$((closed + 1))
+                ;;
+              closed) echo "#$n: already closed" ;;
+              *) echo "#$n: not an issue in this repo ($state), skipped" ;;
+            esac
+          done
+          if [ "$closed" -gt 0 ]; then
+            gh workflow run blocked-label-sync.yml -R "$REPO" --ref "$BASE"
+            echo "started the blocked-label sync"
+          fi
