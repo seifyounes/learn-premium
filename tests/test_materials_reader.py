@@ -4,7 +4,10 @@ import json
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from conftest import SCRIPTS
@@ -12,6 +15,7 @@ from materials import (DRAWN, PEN_ONLY, VIDEO, WHITE_BACKGROUND, WHITE_ON_WHITE,
                        tone)
 from PIL import Image
 from reader.cli import run
+from reader.slides import LOCK, PowerPoint, powerpoint_processes
 
 
 @pytest.fixture
@@ -24,6 +28,27 @@ def folders(tmp_path):
 
 def read(materials, private, rel, **kwargs):
     return run(["read", "--materials", str(materials), "--private", str(private), rel], **kwargs)
+
+
+def _powerpoint_installed():
+    import winreg
+
+    try:
+        winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "PowerPoint.Application"))
+        return True
+    except OSError:
+        return False
+
+
+@pytest.fixture
+def powerpoint():
+    """A deck's slides render through the real PowerPoint. Afterwards, no POWERPNT.EXE the read
+    started is left running."""
+    if os.name != "nt" or not _powerpoint_installed():
+        pytest.skip("slides render through PowerPoint, which isn't installed here")
+    running = SimpleNamespace(before=powerpoint_processes())
+    yield running
+    assert powerpoint_processes() <= running.before, "the read left PowerPoint running"
 
 
 def test_pdf_pages_are_rendered_into_the_private_folder(folders):
@@ -124,7 +149,7 @@ def files_under(folder):
     return {p for p in folder.rglob("*") if p.is_file()}
 
 
-def test_a_narrated_deck_yields_slides_with_their_audio_video_and_transcripts(folders):
+def test_a_narrated_deck_yields_slides_with_their_audio_video_and_transcripts(folders, powerpoint):
     materials, private = folders
     deck(materials / "Week 2" / "Lecture 2.pptx", NARRATED_DECK)
     whisper = FakeWhisper()
@@ -150,7 +175,7 @@ def test_a_narrated_deck_yields_slides_with_their_audio_video_and_transcripts(fo
         assert transcript["text"] == said
 
 
-def test_everything_read_from_a_deck_lands_in_the_private_folder_only(folders):
+def test_everything_read_from_a_deck_lands_in_the_private_folder_only(folders, powerpoint):
     materials, private = folders
     deck(materials / "Lecture 2.pptx", NARRATED_DECK)
     root = materials.parent
@@ -167,7 +192,7 @@ def test_everything_read_from_a_deck_lands_in_the_private_folder_only(folders):
     assert copies and all(p.is_relative_to(private) for p in copies)
 
 
-def test_a_deck_with_no_media_is_read_without_loading_whisper(folders):
+def test_a_deck_with_no_media_is_read_without_loading_whisper(folders, powerpoint):
     materials, private = folders
     deck(materials / "Lecture 3.pptx", [{"title": "Radiation", "body": "Stefan-Boltzmann"},
                                         {"title": "Emissivity", "body": "Emissivity"}])
@@ -190,6 +215,145 @@ def test_a_file_that_is_not_what_its_name_says_is_bad_input(folders, name):
     assert name in report["error"]
 
 
+SLIDES = [{"title": "Conduction", "body": "Fourier's law"}, {"title": ""},
+          {"title": "Fins", "body": "Fin efficiency"}]
+
+
+def test_every_slide_is_rendered_through_powerpoint_into_the_private_folder(folders, powerpoint):
+    materials, private = folders
+    deck(materials / "Lecture 7.pptx", SLIDES)
+
+    code, report = read(materials, private, "Lecture 7.pptx")
+
+    assert code == 0, report
+    manifest = json.loads((private / report["manifest"]).read_text(encoding="utf-8"))
+    slides = manifest["slides"]
+    # The empty title and body placeholders of slide 2 don't render: the slide is empty.
+    assert [s["empty"] for s in slides] == [False, True, False]
+    for slide in slides:
+        image = Image.open(private / slide["image"])
+        assert image.size == (2000, 1500)  # the default 4:3 slide at 200 dpi
+        flat = all(low == high for low, high in image.convert("RGB").getextrema())
+        assert flat == slide["empty"]
+    # PowerPoint rendered a copy in the Private folder; the copy is gone.
+    assert sorted(p.name for p in (private / "reader").iterdir()) == ["Lecture 7.pptx"]
+
+
+def test_a_slide_with_content_that_renders_blank_fails_loudly(folders, powerpoint):
+    # Negative control: a title drawn white on the white background is on the slide, but its
+    # render has no pixels.
+    materials, private = folders
+    deck(materials / "Lecture 8.pptx", [SLIDES[0], {"title": "Hidden", "white": True}])
+
+    code, report = read(materials, private, "Lecture 8.pptx")
+
+    assert code == 1, report
+    assert "slide(s) 2" in report["error"]
+    assert list((private / "reader").iterdir()) == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="PowerPoint's COM server is Windows'")
+def test_a_deck_read_without_powerpoint_names_the_missing_piece(folders):
+    materials, private = folders
+    deck(materials / "Lecture 9.pptx", SLIDES)
+
+    code, report = read(materials, private, "Lecture 9.pptx",
+                        powerpoint=partial(PowerPoint, prog_id="LearnPremium.NotInstalled"))
+
+    assert code == 5, report
+    assert "PowerPoint is not installed" in report["error"]
+    assert list((private / "reader").iterdir()) == []
+
+
+def test_powerpoint_is_closed_when_a_read_runs_out_of_time(folders, powerpoint):
+    # 300 slides take PowerPoint about 15 s here, so 4 s stops the read mid-render.
+    materials, private = folders
+    deck(materials / "Lecture 10.pptx", [{"title": f"Slide {n}", "body": "Fourier's law"}
+                                         for n in range(1, 301)])
+
+    code, report = read(materials, private, "Lecture 10.pptx",
+                        powerpoint=partial(PowerPoint, timeout=4))
+
+    assert code == 5, report
+    assert "PowerPoint" in report["error"] and "4 s" in report["error"]
+    assert list((private / "reader").iterdir()) == []
+
+
+def test_a_read_waits_its_turn_for_powerpoint(folders, powerpoint):
+    # Both Blind readers may read decks at the same moment, and PowerPoint is one process: without
+    # turns, the first read to finish can quit it under the second.
+    import msvcrt
+
+    materials, private = folders
+    deck(materials / "Lecture 12.pptx", SLIDES)
+    with open(LOCK, "a+b") as other_read:
+        msvcrt.locking(other_read.fileno(), msvcrt.LK_NBLCK, 1)
+        try:
+            code, report = read(materials, private, "Lecture 12.pptx",
+                                powerpoint=partial(PowerPoint, timeout=2))
+        finally:
+            other_read.seek(0)
+            msvcrt.locking(other_read.fileno(), msvcrt.LK_UNLCK, 1)
+
+    assert code == 5, report
+    assert "another read kept PowerPoint busy" in report["error"]
+    assert list((private / "reader").iterdir()) == []
+
+
+def test_reads_at_once_all_render(folders, powerpoint):
+    materials, private = folders
+    names = [f"Lecture {n}.pptx" for n in (12, 13, 14)]
+    for name in names:
+        deck(materials / name, SLIDES)
+
+    with ThreadPoolExecutor(len(names)) as pool:
+        results = list(pool.map(lambda name: read(materials, private, name), names))
+
+    assert [code for code, _ in results] == [0] * len(names), results
+
+
+HOLD_POWERPOINT = """
+$app = New-Object -ComObject PowerPoint.Application
+$presentation = $app.Presentations.Add(0)
+[Console]::Out.WriteLine('ready')
+Start-Sleep 300
+"""
+
+
+def test_a_powerpoint_the_owner_has_open_stays_open(folders, powerpoint):
+    materials, private = folders
+    deck(materials / "Lecture 15.pptx", SLIDES)
+    owner = subprocess.Popen(["powershell", "-NoProfile", "-Command", HOLD_POWERPOINT],
+                             stdout=subprocess.PIPE, text=True)
+    try:
+        assert owner.stdout.readline().strip() == "ready"
+        owners = powerpoint_processes()
+
+        code, report = read(materials, private, "Lecture 15.pptx")
+
+        assert code == 0, report
+        assert owners <= powerpoint_processes(), "the read closed the Owner's PowerPoint"
+    finally:
+        owner.kill()
+        for pid in powerpoint_processes() - powerpoint.before:
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, check=False)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="PowerPoint's path limit")
+def test_a_private_folder_too_deep_for_powerpoint_is_a_clear_error(tmp_path):
+    materials = tmp_path / "Heat Transfer"
+    materials.mkdir()
+    deck(materials / "Lecture 11.pptx", SLIDES)
+    private = tmp_path.joinpath(*[" ".join(["Heat Transfer private"] * 3)] * 4)
+    assert len(str(private)) > 255, len(str(private))
+
+    code, report = read(materials, private, "Lecture 11.pptx")
+
+    assert code == 2, report
+    assert "too deep for PowerPoint" in report["error"]
+    assert list(Path("\\\\?\\" + str(private / "reader")).iterdir()) == []
+
+
 def _short_form(path):
     """`path` with 8.3 short names, as %TEMP% often spells the user folder."""
     import ctypes
@@ -200,7 +364,7 @@ def _short_form(path):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows' 260-character path limit")
-def test_materials_past_260_characters_under_the_user_folder_read(tmp_path):
+def test_materials_past_260_characters_under_the_user_folder_read(tmp_path, powerpoint):
     assert tmp_path.is_relative_to(Path.home()), "the fixture must sit under the user folder"
     materials, private = tmp_path / "Heat Transfer", tmp_path / "Heat Transfer private"
     deep = materials / "Week 05 extracted archive" / " ".join(["Lecture materials"] * 4)
@@ -224,6 +388,8 @@ def test_materials_past_260_characters_under_the_user_folder_read(tmp_path):
         assert code == 0, report
         manifest = json.loads(prefixed(private / report["manifest"]).read_text(encoding="utf-8"))
         assert manifest["material"] == material.relative_to(materials).as_posix()
+        renders = [p["image"] for p in manifest.get("pages", manifest.get("slides"))]
+        assert renders and all(prefixed(private / image).is_file() for image in renders)
     assert len(whisper.heard) == 2
 
 
@@ -263,7 +429,7 @@ def test_the_entry_script_prints_one_json_report_and_exits_with_its_code(folders
 
 @pytest.mark.skipif(os.environ.get("LEARN_PREMIUM_WHISPER") != "1" or os.name != "nt",
                     reason="real faster-whisper (downloads a model): set LEARN_PREMIUM_WHISPER=1")
-def test_real_narration_is_transcribed_by_faster_whisper(folders, tmp_path):
+def test_real_narration_is_transcribed_by_faster_whisper(folders, powerpoint, tmp_path):
     materials, private = folders
     speech = tmp_path / "speech.wav"
     subprocess.run(["powershell", "-NoProfile", "-Command",

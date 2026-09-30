@@ -112,23 +112,30 @@ def _add_narration(slide, audio, shape_id):
     <a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
 </p:pic>""")
     slide.shapes._spTree.append(pic)
-    timing = etree.fromstring(f"""
+    # A slide has one timing tree, which an embedded video already started; PowerPoint won't open
+    # a slide with two.
+    p = {"p": "http://schemas.openxmlformats.org/presentationml/2006/main"}
+    if slide._element.find("p:timing", p) is None:
+        slide._element.append(etree.fromstring(f"""
 <p:timing {ns}><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">
-  <p:childTnLst>
-    <p:audio isNarration="1"><p:cMediaNode vol="80000" showWhenStopped="0">
-      <p:cTn id="2" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>
-      </p:cTn>
-      <p:tgtEl><p:spTgt spid="{shape_id}"/></p:tgtEl>
-    </p:cMediaNode></p:audio>
-  </p:childTnLst>
-</p:cTn></p:par></p:tnLst></p:timing>""")
-    slide._element.append(timing)
+  <p:childTnLst/>
+</p:cTn></p:par></p:tnLst></p:timing>"""))
+    next_id = 1 + max(map(int, slide._element.xpath("p:timing//p:cTn/@id")))
+    slide._element.find("p:timing/p:tnLst/p:par/p:cTn/p:childTnLst", p).append(
+        etree.fromstring(f"""
+<p:audio {ns} isNarration="1"><p:cMediaNode vol="80000" showWhenStopped="0">
+  <p:cTn id="{next_id}" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>
+  </p:cTn>
+  <p:tgtEl><p:spTgt spid="{shape_id}"/></p:tgtEl>
+</p:cMediaNode></p:audio>"""))
 
 
 def deck(path: Path, slides):
-    """Write a .pptx. Each slide is a dict: `title`, optional `body`, `notes`, `narration` (WAV
-    bytes) and `video` (MP4 bytes)."""
+    """Write a .pptx on the default white background. Each slide is a dict: `title`, optional
+    `body`, `notes`, `narration` (WAV bytes), `video` (MP4 bytes) and `white` (the title drawn
+    white on white: on the slide, but nothing renders)."""
     from pptx import Presentation
+    from pptx.dml.color import RGBColor
     from pptx.util import Inches
 
     prs = Presentation()
@@ -136,6 +143,9 @@ def deck(path: Path, slides):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = spec["title"]
         slide.placeholders[1].text = spec.get("body", "")
+        if spec.get("white"):
+            for run in slide.shapes.title.text_frame.paragraphs[0].runs:
+                run.font.color.rgb = RGBColor(255, 255, 255)
         if "notes" in spec:
             slide.notes_slide.notes_text_frame.text = spec["notes"]
         if "video" in spec:

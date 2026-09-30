@@ -6,9 +6,10 @@ import shutil
 from functools import partial
 
 from reader.deck import read_deck
-from reader.errors import BadInput, BlankRender, Refused
+from reader.errors import BadInput, BlankRender, Refused, ToolFailed
 from reader.paths import check_private_folder, is_within, long_path, shown
 from reader.pdf import read_pdf
+from reader.slides import PowerPoint
 from reader.transcribe import DEFAULT_MODEL, Whisper
 
 
@@ -31,7 +32,7 @@ def _parser():
     return parser
 
 
-def _read(args, transcriber):
+def _read(args, transcriber, powerpoint):
     materials, private = long_path(args.materials), long_path(args.private)
     material = long_path(materials / args.file)
     if not is_within(material, materials) or material == materials:
@@ -39,7 +40,9 @@ def _read(args, transcriber):
     if not material.is_file():
         raise BadInput(f"no file {shown(material)}")
     transcriber = transcriber or Whisper(args.whisper_model, args.language)
-    readers = {".pdf": read_pdf, ".pptx": partial(read_deck, transcriber=transcriber)}
+    readers = {".pdf": read_pdf,
+               ".pptx": partial(read_deck, transcriber=transcriber,
+                                render_slides=powerpoint(private / "reader"))}
     reader = readers.get(material.suffix.lower())
     if reader is None:
         raise BadInput(f"{args.file}: the reader reads {', '.join(readers)}; look at other "
@@ -65,7 +68,7 @@ def _read(args, transcriber):
             encoding="utf-8")
     except BaseException as e:
         shutil.rmtree(staging)
-        if isinstance(e, (BadInput, BlankRender)):
+        if isinstance(e, (BadInput, BlankRender, ToolFailed)):
             raise type(e)(f"{args.file}: {e}") from None
         raise
     if final.exists():
@@ -74,14 +77,17 @@ def _read(args, transcriber):
     return {"manifest": published(staging / "manifest.json"), "kind": manifest["kind"]}
 
 
-def run(argv, transcriber=None):
-    """Run one command; returns (exit code, the JSON report)."""
+def run(argv, transcriber=None, powerpoint=PowerPoint):
+    """Run one command; returns (exit code, the JSON report). `powerpoint(work_root)` makes the
+    slide renderer."""
     try:
         args = _parser().parse_args(argv)
-        return 0, {"ok": True, **_read(args, transcriber)}
+        return 0, {"ok": True, **_read(args, transcriber, powerpoint)}
     except BadInput as e:
         return 2, {"ok": False, "error": str(e)}
     except BlankRender as e:
         return 1, {"ok": False, "error": str(e)}
     except Refused as e:
         return 3, {"ok": False, "error": str(e)}
+    except ToolFailed as e:
+        return 5, {"ok": False, "error": str(e)}

@@ -2,7 +2,8 @@
 
 
 class BlankRender(Exception):
-    """A page with content rendered to one flat colour: the render can't be trusted. (Exit 1.)"""
+    """A page or slide with content rendered to one flat colour: the render can't be trusted.
+    (Exit 1.)"""
 
 
 class BadInput(Exception):
@@ -11,3 +12,8 @@ class BadInput(Exception):
 
 class Refused(Exception):
     """The reader won't do this: nothing was read or written. (Exit 3.)"""
+
+
+class ToolFailed(Exception):
+    """A program the reader drives (PowerPoint) is missing, won't start or failed: nothing is
+    written. (Exit 5.)"""

@@ -1,11 +1,13 @@
-""".pptx Materials: each slide's text and notes, its audio (transcribed) and its embedded video."""
+""".pptx Materials: each slide rendered and looked at, its text and notes, its audio (transcribed)
+and its embedded video."""
 
 import json
 import zipfile
 from pathlib import Path
 
 from lxml import etree
-from reader.errors import BadInput
+from PIL import Image
+from reader.errors import BadInput, BlankRender
 
 AUDIO = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio"
 VIDEO = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/video"
@@ -22,6 +24,23 @@ NARRATED_SHAPES = etree.XPath(
 MEDIA_RIDS = etree.XPath(
     ".//p:pic[p:nvPicPr/p:cNvPr/@id=$spid]/p:nvPicPr/p:nvPr//@r:link"
     " | .//p:pic[p:nvPicPr/p:cNvPr/@id=$spid]/p:nvPicPr/p:nvPr//@r:embed", namespaces=NS)
+
+
+def _has_ink(shapes):
+    """Whether the slide's own shapes draw anything: a picture, table, chart, connector, drawn
+    shape, ink or equation (Office Math is wrapped in AlternateContent), or a placeholder with
+    text. An empty placeholder doesn't render."""
+    for shape in shapes:
+        tag = etree.QName(shape).localname
+        if tag == "grpSp":
+            if _has_ink(shape.iterchildren()):
+                return True
+        elif tag == "sp" and shape.find("p:nvSpPr/p:nvPr/p:ph", NS) is not None:
+            if "".join(shape.itertext()).strip():
+                return True
+        elif tag in ("sp", "pic", "graphicFrame", "cxnSp", "contentPart", "AlternateContent"):
+            return True
+    return False
 
 
 def _texts(shapes, skip_id=None):
@@ -103,7 +122,8 @@ def _read_slide(number, slide, out, transcriber):
     return entry
 
 
-def read_deck(material: Path, out: Path, transcriber) -> dict:
+def read_deck(material: Path, out: Path, transcriber, render_slides) -> dict:
+    """`render_slides(deck, folder)` renders every slide into `folder` and returns the PNGs."""
     from pptx import Presentation
 
     with open(material, "rb") as f:
@@ -111,6 +131,24 @@ def read_deck(material: Path, out: Path, transcriber) -> dict:
             presentation = Presentation(f)
         except (zipfile.BadZipFile, KeyError, ValueError) as e:
             raise BadInput(f"not a .pptx deck ({e})") from None
-        slides = [_read_slide(number, slide, out, transcriber)
-                  for number, slide in enumerate(presentation.slides, start=1)]
+    # Rendered and looked at before any narration is transcribed, so a bad render fails fast.
+    images = render_slides(material, out / "slides")
+    if len(images) != len(presentation.slides):
+        raise RuntimeError(f"PowerPoint rendered {len(images)} slides of "
+                           f"{len(presentation.slides)}")
+    empty, blank = [], []
+    for number, (slide, image) in enumerate(zip(presentation.slides, images), start=1):
+        with Image.open(image) as render:
+            flat = all(low == high for low, high in render.convert("RGB").getextrema())
+        inked = _has_ink(slide.shapes._spTree.iterchildren())
+        if flat and inked:
+            blank.append(number)
+        empty.append(flat and not inked)
+    if blank:
+        raise BlankRender(f"slide(s) {', '.join(map(str, blank))} have content but rendered to "
+                          "one flat colour; look at the deck in PowerPoint before trusting any "
+                          "render of it")
+    slides = [{**_read_slide(number, slide, out, transcriber), "image": image, "empty": is_empty}
+              for number, (slide, image, is_empty)
+              in enumerate(zip(presentation.slides, images, empty), start=1)]
     return {"kind": "deck", "slides": slides}
