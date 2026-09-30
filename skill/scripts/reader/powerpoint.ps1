@@ -1,8 +1,9 @@
 # Renders every slide of <Folder>\deck.pptx to <Folder>\slide-001.png... through PowerPoint's own
 # export. Run by slides.py (keep this file ASCII: Windows PowerShell reads it in the ANSI code page).
 # Exits 10 when PowerPoint isn't installed and 11 when it won't start, with the message on stderr.
-# Otherwise prints {"slides": <count or null>, "leftRunning": <bool>} and exits 0, or 12 (message on
-# stderr) when PowerPoint failed on the deck. PowerPoint is quit before exiting, unless -LeaveRunning
+# Otherwise prints {"pid": <PowerPoint's process id>} as soon as PowerPoint is up, then
+# {"slides": <count or null>, "leftRunning": <bool>}, and exits 0, or 12 (message on stderr) when
+# PowerPoint failed on the deck. PowerPoint is quit before exiting, unless -LeaveRunning
 # (it was running before the read) or it holds another presentation (the Owner opened PowerPoint
 # during the read, and got this instance): then only the deck is closed.
 param(
@@ -28,6 +29,14 @@ try {
 } catch {
     Fail 11 "PowerPoint is installed but failed to start: $($_.Exception.GetBaseException().Message)"
 }
+
+# The process behind the COM object, so slides.py ends this PowerPoint and no other.
+Add-Type -Namespace LearnPremium -Name Window -MemberDefinition `
+    '[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);'
+$powerpointId = [uint32]0
+try { [void][LearnPremium.Window]::GetWindowThreadProcessId([IntPtr][long]$app.HWND, [ref]$powerpointId) } catch {}
+[Console]::Out.WriteLine("{`"pid`": $powerpointId}")
+[Console]::Out.Flush()
 
 $code = 0
 $count = "null"

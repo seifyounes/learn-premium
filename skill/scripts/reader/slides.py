@@ -12,7 +12,7 @@ from pathlib import Path
 
 from reader.errors import BadInput, ToolFailed
 from reader.paths import shown
-from reader.pdf import DPI
+from reader.renders import DPI
 
 PROG_ID = "PowerPoint.Application"
 SCRIPT = Path(__file__).with_name("powerpoint.ps1")
@@ -22,8 +22,8 @@ TIMEOUT = 600
 # takes no long-path prefix.
 MAX_PATH = 255
 LONGEST_NAME = "slide-000.png"
-# How long a PowerPoint the read started gets to exit on its own after being quit (or after its
-# PowerShell was killed mid-start) before it is ended.
+# How long the PowerPoint a read started gets to exit on its own after being quit (or after its
+# PowerShell was killed) before it is ended.
 EXIT_GRACE = 15
 # Machine-wide, like PowerPoint itself.
 LOCK = Path(tempfile.gettempdir()) / "learn-premium-powerpoint.lock"
@@ -41,16 +41,13 @@ def powerpoint_processes() -> set:
             if row.upper().startswith('"POWERPNT.EXE"')}
 
 
-def _close_started(running: set):
-    """End every PowerPoint that wasn't running before the read, once it has had EXIT_GRACE
-    seconds to exit on its own. A PowerPoint the Owner already had open is never touched."""
+def _end(which):
+    """End the PowerPoint processes `which()` names, once they have had EXIT_GRACE seconds to exit
+    on their own."""
     deadline = time.monotonic() + EXIT_GRACE
-    while True:
-        started = powerpoint_processes() - running
-        if not started:
-            return
+    while pids := which():
         if time.monotonic() > deadline:
-            for pid in started:
+            for pid in pids:
                 subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True,
                                check=False)
             return
@@ -103,7 +100,8 @@ def _remove(folder: Path):
             return
         except PermissionError:
             time.sleep(0.25)
-    shutil.rmtree(folder)
+    # Still held: leave it (it is inside the Private folder) rather than hide why the read ended.
+    shutil.rmtree(folder, ignore_errors=True)
 
 
 class PowerPoint:
@@ -144,20 +142,36 @@ class PowerPoint:
         command = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                    "-File", str(SCRIPT), "-Folder", folder, "-Dpi", str(DPI),
                    "-ProgId", self.prog_id, *(["-LeaveRunning"] if running else [])]
-        left_running = False
+        timed_out = False
         try:
             result = subprocess.run(command, capture_output=True, encoding="utf-8",
                                     errors="replace", timeout=self.timeout, check=False)
-            # {"slides", "leftRunning"}, or nothing when PowerPoint didn't start.
-            report = json.loads(result.stdout) if result.stdout.strip() else {}
-            left_running = report.get("leftRunning", False)
-        except subprocess.TimeoutExpired:
+            output = result.stdout
+        except FileNotFoundError:
+            raise ToolFailed("Windows PowerShell (powershell.exe), which drives PowerPoint, is not "
+                             "on the PATH") from None
+        except subprocess.TimeoutExpired as e:
+            timed_out, output = True, e.stdout or ""
+            if isinstance(output, bytes):
+                output = output.decode("utf-8", "replace")
+        # {"pid"} once PowerPoint is up, then {"slides", "leftRunning"}.
+        report = {}
+        for line in output.splitlines():
+            if line.startswith("{"):
+                report.update(json.loads(line))
+        pid = report.get("pid")
+        if report.get("leftRunning"):
+            pass  # it holds someone else's presentation: never end it
+        elif pid:
+            if pid not in running:
+                _end(lambda: powerpoint_processes() & {pid})
+        else:
+            # PowerPoint didn't say which process it is (stopped while starting): end any that
+            # started during the read.
+            _end(lambda: powerpoint_processes() - running)
+        if timed_out:
             raise ToolFailed(f"PowerPoint didn't finish rendering the slides within "
-                             f"{self.timeout} s; the read was stopped") from None
-        finally:
-            # A PowerPoint left running holds someone else's presentation: never end it.
-            if not left_running:
-                _close_started(running)
+                             f"{self.timeout} s; the read was stopped")
         if result.returncode != 0:
             raise ToolFailed(result.stderr.strip()
                              or f"PowerPoint's slide export failed (exit {result.returncode})")

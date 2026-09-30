@@ -13,6 +13,9 @@ from reader.slides import PowerPoint
 from reader.transcribe import DEFAULT_MODEL, Whisper
 
 
+EXIT_CODES = {BlankRender: 1, BadInput: 2, Refused: 3, ToolFailed: 5}
+
+
 class _Parser(argparse.ArgumentParser):
     def error(self, message):
         raise BadInput(message)
@@ -68,7 +71,7 @@ def _read(args, transcriber, powerpoint):
             encoding="utf-8")
     except BaseException as e:
         shutil.rmtree(staging)
-        if isinstance(e, (BadInput, BlankRender, ToolFailed)):
+        if type(e) in EXIT_CODES:
             raise type(e)(f"{args.file}: {e}") from None
         raise
     if final.exists():
@@ -83,11 +86,5 @@ def run(argv, transcriber=None, powerpoint=PowerPoint):
     try:
         args = _parser().parse_args(argv)
         return 0, {"ok": True, **_read(args, transcriber, powerpoint)}
-    except BadInput as e:
-        return 2, {"ok": False, "error": str(e)}
-    except BlankRender as e:
-        return 1, {"ok": False, "error": str(e)}
-    except Refused as e:
-        return 3, {"ok": False, "error": str(e)}
-    except ToolFailed as e:
-        return 5, {"ok": False, "error": str(e)}
+    except tuple(EXIT_CODES) as e:
+        return EXIT_CODES[type(e)], {"ok": False, "error": str(e)}

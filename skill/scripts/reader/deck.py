@@ -7,7 +7,8 @@ from pathlib import Path
 
 from lxml import etree
 from PIL import Image
-from reader.errors import BadInput, BlankRender
+from reader.errors import BadInput, ToolFailed
+from reader.renders import blank_render, is_flat
 
 AUDIO = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio"
 VIDEO = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/video"
@@ -26,19 +27,25 @@ MEDIA_RIDS = etree.XPath(
     " | .//p:pic[p:nvPicPr/p:cNvPr/@id=$spid]/p:nvPicPr/p:nvPr//@r:embed", namespaces=NS)
 
 
+# A shape's own fill or outline, or a theme style (which gives drawn shapes theirs).
+PAINTED = etree.XPath(
+    "p:style | p:spPr/*[self::a:solidFill or self::a:gradFill or self::a:pattFill"
+    " or self::a:blipFill] | p:spPr/a:ln[not(a:noFill)]", namespaces=NS)
+
+
 def _has_ink(shapes):
-    """Whether the slide's own shapes draw anything: a picture, table, chart, connector, drawn
-    shape, ink or equation (Office Math is wrapped in AlternateContent), or a placeholder with
-    text. An empty placeholder doesn't render."""
+    """Whether the slide's own shapes draw anything: a picture, table, chart, connector, ink or
+    equation (Office Math is wrapped in AlternateContent), or a shape or placeholder with text, a
+    fill, an outline or a theme style. An empty text box or placeholder doesn't render."""
     for shape in shapes:
         tag = etree.QName(shape).localname
         if tag == "grpSp":
             if _has_ink(shape.iterchildren()):
                 return True
-        elif tag == "sp" and shape.find("p:nvSpPr/p:nvPr/p:ph", NS) is not None:
-            if "".join(shape.itertext()).strip():
+        elif tag == "sp":
+            if "".join(shape.itertext()).strip() or PAINTED(shape):
                 return True
-        elif tag in ("sp", "pic", "graphicFrame", "cxnSp", "contentPart", "AlternateContent"):
+        elif tag in ("pic", "graphicFrame", "cxnSp", "contentPart", "AlternateContent"):
             return True
     return False
 
@@ -134,21 +141,18 @@ def read_deck(material: Path, out: Path, transcriber, render_slides) -> dict:
     # Rendered and looked at before any narration is transcribed, so a bad render fails fast.
     images = render_slides(material, out / "slides")
     if len(images) != len(presentation.slides):
-        raise RuntimeError(f"PowerPoint rendered {len(images)} slides of "
-                           f"{len(presentation.slides)}")
-    empty, blank = [], []
-    for number, (slide, image) in enumerate(zip(presentation.slides, images), start=1):
+        raise ToolFailed(f"PowerPoint rendered {len(images)} slides of the deck's "
+                         f"{len(presentation.slides)}")
+    looked_at = []  # (slide, its render, flat, inked)
+    for slide, image in zip(presentation.slides, images):
         with Image.open(image) as render:
-            flat = all(low == high for low, high in render.convert("RGB").getextrema())
-        inked = _has_ink(slide.shapes._spTree.iterchildren())
-        if flat and inked:
-            blank.append(number)
-        empty.append(flat and not inked)
+            flat = is_flat(render)
+        looked_at.append((slide, image, flat, _has_ink(slide.shapes._spTree.iterchildren())))
+    blank = [number for number, (_, _, flat, inked) in enumerate(looked_at, start=1)
+             if flat and inked]
     if blank:
-        raise BlankRender(f"slide(s) {', '.join(map(str, blank))} have content but rendered to "
-                          "one flat colour; look at the deck in PowerPoint before trusting any "
-                          "render of it")
-    slides = [{**_read_slide(number, slide, out, transcriber), "image": image, "empty": is_empty}
-              for number, (slide, image, is_empty)
-              in enumerate(zip(presentation.slides, images, empty), start=1)]
+        raise blank_render("slide", blank, "the deck in PowerPoint")
+    slides = [{**_read_slide(number, slide, out, transcriber), "image": image,
+               "empty": flat and not inked}
+              for number, (slide, image, flat, inked) in enumerate(looked_at, start=1)]
     return {"kind": "deck", "slides": slides}

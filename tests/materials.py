@@ -124,7 +124,8 @@ def _add_narration(slide, audio, shape_id):
     slide._element.find("p:timing/p:tnLst/p:par/p:cTn/p:childTnLst", p).append(
         etree.fromstring(f"""
 <p:audio {ns} isNarration="1"><p:cMediaNode vol="80000" showWhenStopped="0">
-  <p:cTn id="{next_id}" fill="hold" display="0"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>
+  <p:cTn id="{next_id}" fill="hold" display="0">
+    <p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>
   </p:cTn>
   <p:tgtEl><p:spTgt spid="{shape_id}"/></p:tgtEl>
 </p:cMediaNode></p:audio>"""))
@@ -132,8 +133,8 @@ def _add_narration(slide, audio, shape_id):
 
 def deck(path: Path, slides):
     """Write a .pptx on the default white background. Each slide is a dict: `title`, optional
-    `body`, `notes`, `narration` (WAV bytes), `video` (MP4 bytes) and `white` (the title drawn
-    white on white: on the slide, but nothing renders)."""
+    `body`, `notes`, `narration` (WAV bytes), `video` (MP4 bytes), `white` (the title drawn
+    white on white: on the slide, but nothing renders) and `box` (a text box with that text)."""
     from pptx import Presentation
     from pptx.dml.color import RGBColor
     from pptx.util import Inches
@@ -143,6 +144,8 @@ def deck(path: Path, slides):
         slide = prs.slides.add_slide(prs.slide_layouts[1])
         slide.shapes.title.text = spec["title"]
         slide.placeholders[1].text = spec.get("body", "")
+        if "box" in spec:
+            slide.shapes.add_textbox(Inches(1), Inches(5), Inches(4), Inches(1)).text = spec["box"]
         if spec.get("white"):
             for run in slide.shapes.title.text_frame.paragraphs[0].runs:
                 run.font.color.rgb = RGBColor(255, 255, 255)
