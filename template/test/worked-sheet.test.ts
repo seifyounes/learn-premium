@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cellAt, handOrder, stateAt, toSheet, type SheetData } from "../src/worked/sheet.ts";
+import { cellAt } from "../src/worked/cells.ts";
+import { handOrder, stateAt, toSheet, type SheetData } from "../src/worked/sheet.ts";
 
 // A 3-row table: column A given, B and C worked out; a plot with a question point and two added marks.
 const sheet: SheetData = toSheet(

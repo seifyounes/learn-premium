@@ -3,42 +3,30 @@
 // pen rings its marks once they have landed.
 import { motion } from "motion/react";
 import { useEffect, useRef } from "react";
-import { cellAt, type SheetData, type StepState } from "../../worked/sheet.ts";
+import { cellAt } from "../../worked/cells.ts";
+import type { SheetData } from "../../worked/sheet.ts";
+import type { Shown } from "../../worked/stepping.ts";
 import { PenRing } from "./pen.tsx";
-
-/** Stagger between values landing: tighter when a step writes many. */
-export const staggerFor = (count: number) => (count > 14 ? 0.024 : 0.034);
-const LAND = 0.26;
-
-export interface Shown {
-  state: StepState;
-  /** Values this step writes are still hidden: try-first, before the student has had a go. */
-  hidden: boolean;
-  /** Draw this step's changes (forward, motion allowed); otherwise render the state at once. */
-  animate: boolean;
-  /** Changes whenever the sheet must redraw without motion (going back, a jump). */
-  epoch: number;
-}
-
-/** When this step's red-pen marks start: after the last value has landed. */
-export const marksDelay = ({ state, animate }: Shown) =>
-  animate && state.fresh.length > 0 ? state.fresh.length * staggerFor(state.fresh.length) + LAND : 0.1;
+import { MARK_STAGGER, tableMarksDelay, VALUE_LAND, valueStagger } from "./timing.ts";
 
 export function SheetTable({ table, shown }: { table: SheetData["table"]; shown: Shown }) {
   const { state, hidden, animate, epoch } = shown;
-  const per = staggerFor(state.fresh.length);
+  const per = valueStagger(state.fresh.length);
   const marks = hidden ? [] : state.marks;
   const scroller = useRef<HTMLDivElement>(null);
-  // A table wider than its box scrolls inside it; bring the cells this step writes into view.
+  // A table bigger than its box scrolls inside it; bring the cells this step writes into view.
   const lastFresh = state.fresh.at(-1);
   useEffect(() => {
     const box = scroller.current;
     const cell = lastFresh && box?.querySelector(`[data-cell="${lastFresh}"]`);
     if (!box || !cell) return;
     const inView = box.getBoundingClientRect();
+    const header = box.querySelector("thead")?.getBoundingClientRect().height ?? 0;
     const at = cell.getBoundingClientRect();
     if (at.right > inView.right) box.scrollLeft += at.right - inView.right;
     else if (at.left < inView.left) box.scrollLeft -= inView.left - at.left;
+    if (at.bottom > inView.bottom) box.scrollTop += at.bottom - inView.bottom;
+    else if (at.top < inView.top + header) box.scrollTop -= inView.top + header - at.top;
   }, [lastFresh, state.index]);
   return (
     <figure className="min-w-0">
@@ -46,7 +34,7 @@ export function SheetTable({ table, shown }: { table: SheetData["table"]; shown:
         className="mbe-2 font-print text-caption font-bold text-graphite [font-variation-settings:'wdth'_80]"
         dangerouslySetInnerHTML={{ __html: table.captionHtml }}
       />
-      <div ref={scroller} className="overflow-x-auto pbe-1">
+      <div ref={scroller} className="table-box pbe-1">
         <table className="border-collapse bg-sheet font-quantity text-quantity-phone tabular-nums pad:text-quantity">
           <thead>
             <tr>
@@ -89,7 +77,7 @@ export function SheetTable({ table, shown }: { table: SheetData["table"]; shown:
                           className="inline-block"
                           initial={animate && order !== -1 ? { opacity: 0, y: -2 } : false}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: LAND, ease: "easeOut", delay: Math.max(order, 0) * per }}
+                          transition={{ duration: VALUE_LAND, ease: "easeOut", delay: Math.max(order, 0) * per }}
                           dangerouslySetInnerHTML={{ __html: html }}
                         />
                       )}
@@ -97,7 +85,7 @@ export function SheetTable({ table, shown }: { table: SheetData["table"]; shown:
                         <PenRing
                           key={`${state.index}:${epoch}`}
                           draw={animate}
-                          delay={marksDelay(shown) + markAt * 0.09}
+                          delay={tableMarksDelay(shown) + markAt * MARK_STAGGER}
                           className="absolute inset-s-[-2px] inset-bs-[-2px] size-[calc(100%+4px)]"
                         />
                       )}

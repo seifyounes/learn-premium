@@ -5,7 +5,8 @@
 import { readFileSync } from "node:fs";
 import { ARTEFACT_KINDS, worked } from "../src/content/contract.ts";
 import { readStructured } from "../src/content/loaders.ts";
-import { cellAt, handOrder, type Worked } from "../src/worked/sheet.ts";
+import { cellAt, parseCell } from "../src/worked/cells.ts";
+import { handOrder, type Worked } from "../src/worked/sheet.ts";
 import { courseFiles, courseWith } from "./course-files.ts";
 import type { Finding, Gate } from "./runner.ts";
 
@@ -57,6 +58,18 @@ export const teachingMethod: Gate = {
       defect: "a first step that draws the answer onto the question figure, so the question figure isn't first",
       plant: (good, scratch) => plantExample(good, scratch, (e) => (stepsOf(e)[0].figure = { add: ["answer"] })),
     },
+    {
+      defect: "an artefact of a kind this template doesn't ship",
+      plant: (good, scratch) => plantExample(good, scratch, (e) => ((e.artefact as { kind: string }).kind = "tree")),
+    },
+    {
+      defect: "a value written twice, the second time over a given cell",
+      plant: (good, scratch) => plantExample(good, scratch, (e) => (stepsOf(e)[0].fill = ["A1", "B1"])),
+    },
+    {
+      defect: "a red-pen ring on a value before it is written",
+      plant: (good, scratch) => plantExample(good, scratch, (e) => (stepsOf(e)[0].marks = ["B1"])),
+    },
   ],
 };
 
@@ -83,8 +96,12 @@ function declarations(raw: unknown): string[] {
 function method(example: Worked): string[] {
   const problems: string[] = [];
   const { columns, rows } = example.artefact;
-  const given = (ref: string) => columns[ref.charCodeAt(0) - 65]?.given === true;
-  const value = (ref: string) => rows[Number(ref.slice(1)) - 1]?.[ref.charCodeAt(0) - 65] ?? "";
+  const given = (ref: string) => columns[parseCell(ref).col]?.given === true;
+  const value = (ref: string) => {
+    const { row, col } = parseCell(ref);
+    return rows[row]?.[col] ?? "";
+  };
+  // Every worked-out value, listed column by column so the findings read in a stable order.
   const toFill = handOrder(
     rows.flatMap((row, r) => row.flatMap((cell, c) => (cell !== "" && !columns[c]?.given ? [cellAt(r, c)] : []))),
     "columns",
@@ -133,7 +150,7 @@ function method(example: Worked): string[] {
   return problems;
 }
 
-type PlantedStep = { title: string; note: string; fill: string[]; figure?: { add: string[] } };
+type PlantedStep = { title: string; note: string; fill: string[]; marks?: string[]; figure?: { add: string[] } };
 const stepsOf = (example: Record<string, unknown>) => example.steps as [PlantedStep, PlantedStep];
 
 /** A small Worked example that keeps the method; each negative control breaks one rule of it. */

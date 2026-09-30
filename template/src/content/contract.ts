@@ -2,6 +2,7 @@
 // major Template release, because every Course's content is checked against it.
 import { z } from "astro/zod";
 import { isPadKey, PAD_COLOUR, PAD_KEYS } from "../pads/catalogue.ts";
+import { CELL_REF, parseCell } from "../worked/cells.ts";
 
 /** The Course's pad: a catalogue key, or a colour to build a custom pad from. */
 const pad = z.string().refine((value) => isPadKey(value) || PAD_COLOUR.test(value), {
@@ -37,8 +38,6 @@ const column = z.strictObject({
   given: z.boolean().default(false),
 });
 
-/** A table cell, named the spreadsheet way: its column letter and its row number (1 = first row under the header). */
-export const CELL_REF = /^([A-Z])([1-9]\d*)$/;
 const cellRef = z.string().regex(CELL_REF, "a cell is named by its column letter and row number, e.g. D2");
 
 /** The Professor's solving table: the artefact most Worked examples are solved on. */
@@ -156,8 +155,9 @@ export const worked = z
   .superRefine((example, ctx) => {
     const { columns, rows } = example.artefact;
     const cellExists = (ref: string) => {
-      const [, letter = "", row = ""] = CELL_REF.exec(ref) ?? [];
-      return letter.charCodeAt(0) - 65 < columns.length && Number(row) <= rows.length;
+      if (!CELL_REF.test(ref)) return true; // a malformed name is reported by `cellRef` itself
+      const { row, col } = parseCell(ref);
+      return col < columns.length && row < rows.length;
     };
     const ids = new Set<string>();
     example.figure?.elements.forEach((e, i) => {
