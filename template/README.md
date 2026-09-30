@@ -29,11 +29,11 @@ Every finding either blocks or raises a Checkpoint item; there is no warning lev
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
 A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
-| Gate                 | Points         | Checks                                           |
-| -------------------- | -------------- | ------------------------------------------------ |
-| `content-contract`   | job, deploy    | every content file against the Zod schemas       |
-| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`  |
-| `rendered-page-scan` | module, deploy | no `.katex-error` and no raw TeX on a built page |
+| Gate                 | Points         | Checks                                                                |
+| -------------------- | -------------- | --------------------------------------------------------------------- |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas                            |
+| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                       |
+| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included |
 
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).

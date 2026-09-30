@@ -43,7 +43,10 @@ describe("the first gates on the Fixture Course", () => {
     expect(module.green, JSON.stringify(module.gates, null, 2)).toBe(true);
     expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan"]);
     expect(gate(module, "rendered-page-scan")?.coverage.pages).toBe(1);
-    expect(gate(module, "rendered-page-scan")?.coverage.formulas).toBeGreaterThan(10);
+    // The scan sees every formula the Module's content holds, the ones inside islands (a Practice
+    // item's hidden model answer) included.
+    expect(gate(module, "rendered-page-scan")?.coverage.formulas).toBe(gate(job, "katex")?.coverage.formulas);
+    expect(gate(module, "rendered-page-scan")?.coverage.islands).toBe(1);
 
     const deploy = await run("deploy", input);
     expect(deploy.green, JSON.stringify(deploy.gates, null, 2)).toBe(true);
@@ -71,6 +74,24 @@ describe("the first gates on the Fixture Course", () => {
     const rawScan = gate(await run("module", { contentDir: FIXTURE_COURSE, distDir: raw }), "rendered-page-scan");
     expect(rawScan?.status).toBe("block");
     expect(rawScan?.findings[0]?.message).toMatch(/raw TeX.*\\frac\{L\}\{k A\}/);
+  });
+
+  it("the rendered-page scan looks inside an island's props, where hidden answers wait", async () => {
+    const page = readFileSync(join(build.outDir, MODULE, "index.html"), "utf8");
+    const broken = page.replace(
+      /(props="[^"]*?)&lt;span class=\\&quot;katex\\&quot;&gt;/,
+      (_, before: string) =>
+        `${before}&lt;span class=\\&quot;katex-error\\&quot;&gt;\\\\frac{L&lt;/span&gt;&lt;span class=\\&quot;katex\\&quot;&gt;`,
+    );
+    expect(broken).not.toBe(page);
+    const site = siteWith(build.outDir, MODULE, "");
+    writeFileSync(join(site, MODULE, "index.html"), broken);
+    const scan = gate(await run("module", { contentDir: FIXTURE_COURSE, distDir: site }), "rendered-page-scan");
+    expect(scan?.status).toBe("block");
+    expect(scan?.findings.map((f) => f.message)).toEqual([
+      expect.stringMatching(/a KaTeX error rendered on the page/),
+      expect.stringMatching(/raw TeX on the page: "\\frac\{L"/),
+    ]);
   });
 
   it("the rendered-page scan fails when there is no built site to scan", async () => {
