@@ -25,7 +25,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Keep in step with @playwright/test in the Site template: browsers are per Playwright version.
+# Keep in step with playwright in the Site template: browsers are per Playwright version.
 PLAYWRIGHT_VERSION = "1.63.0"
 RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 

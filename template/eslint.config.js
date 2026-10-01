@@ -12,5 +12,7 @@ export default defineConfig(
   tseslint.configs.strict,
   astro.configs.recommended,
   { languageOptions: { globals: { ...globals.node } } },
+  // The browser gates' in-page script runs in the page, not in Node.
+  { files: ["gates/browser/in-page.js"], languageOptions: { globals: { ...globals.browser } } },
   prettier,
 );

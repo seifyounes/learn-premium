@@ -15,14 +15,17 @@ export interface BuildResult {
   css(): string;
 }
 
-/** Builds a Course's content with the Site template, the way `npm run build` does. */
-export function buildCourse(contentDir: string): BuildResult {
+/**
+ * Builds a Course's content with the Site template, the way `npm run build` does. `env` adds to the
+ * build's environment (`VERCEL_ENV: "production"` builds as Vercel's production deploy does).
+ */
+export function buildCourse(contentDir: string, env: Record<string, string> = {}): BuildResult {
   // Astro moves its output with rename(), so the output must sit on the template's own drive.
   mkdirSync(join(TEMPLATE_DIR, ".test-out"), { recursive: true });
   const outDir = mkdtempSync(join(TEMPLATE_DIR, ".test-out", "dist-"));
   const run = spawnSync(process.execPath, ["node_modules/astro/bin/astro.mjs", "build", "--outDir", outDir], {
     cwd: TEMPLATE_DIR,
-    env: { ...process.env, CONTENT_DIR: contentDir, FORCE_COLOR: "0", NO_COLOR: "1" },
+    env: { ...process.env, ...env, CONTENT_DIR: contentDir, FORCE_COLOR: "0", NO_COLOR: "1" },
     encoding: "utf8",
   });
   return {

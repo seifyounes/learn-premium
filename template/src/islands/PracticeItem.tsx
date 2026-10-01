@@ -101,6 +101,7 @@ function Numeric({
             inputMode="decimal"
             autoComplete="off"
             spellCheck={false}
+            disabled={!ready}
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
           />
@@ -170,6 +171,7 @@ function Prose({
           id={id}
           className="answer-text"
           rows={4}
+          disabled={!ready}
           value={written}
           readOnly={shown}
           onChange={(e) => setWritten(e.target.value)}

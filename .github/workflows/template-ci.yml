@@ -32,9 +32,10 @@ jobs:
           cache: npm
           cache-dependency-path: template/package-lock.json
       - run: npm ci
-      # The sims' browser tests drive Chromium through Playwright.
-      - name: Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      # The sims' browser tests drive Chromium; the browser gates run Chromium and WebKit (WebKit
+      # stands in for iPhone Safari).
+      - name: Playwright Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
       - name: Format
         run: npm run format:check
       - name: Lint

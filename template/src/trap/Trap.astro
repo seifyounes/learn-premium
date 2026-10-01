@@ -1,0 +1,48 @@
+---
+// The Trap page (see route.ts). Every seeded defect sits in an element marked `data-trap`, which
+// the browser gates name in their findings; the run is void unless each sweep finds every one.
+import Sheet from "../layouts/Sheet.astro";
+---
+
+<Sheet title="Trap page">
+  <h1 class="font-print text-title font-bold text-graphite">Trap page</h1>
+  <p class="mbs-2 max-w-[68ch]">
+    Seeded defects for the browser gates, in preview builds only. A browser run that misses any of them is void.
+  </p>
+
+  <details data-trap="tiny-font-figure" class="mbs-6">
+    <summary class="label-action">Folded figure</summary>
+    <figure>
+      <svg viewBox="0 0 240 60" width="240" height="60" role="img" aria-label="A labelled line">
+        <path d="M10 44H230" fill="none" stroke="var(--color-graphite)" stroke-width="1.5"></path>
+        <text x="10" y="30" font-size="8" fill="var(--color-graphite)">
+          Label drawn at 8px
+        </text>
+      </svg>
+    </figure>
+  </details>
+
+  <p data-trap="katex-error" class="mbs-6">
+    A formula KaTeX couldn't read:
+    <span
+      class="katex-error"
+      title="ParseError: KaTeX parse error: Expected '}', got 'EOF' at end of input"
+    >{String.raw`\frac{L`}</span>
+  </p>
+
+  <figure data-trap="overlap" class="relative mbs-6 inline-block">
+    <svg viewBox="0 0 240 80" width="240" height="80" role="img" aria-label="A level line">
+      <path d="M10 40H230" fill="none" stroke="var(--color-graphite)" stroke-width="1.5"></path>
+    </svg>
+    <span class="font-quantity absolute text-graphite" style="inset-block-start: 28px; inset-inline-start: 72px">
+      9.6 kW
+    </span>
+  </figure>
+
+  <p data-trap="wrong-number" class="mbs-6">
+    Heat loss through three equal layers: <output class="font-quantity" data-trap-output></output> kW
+  </p>
+  <script is:inline>
+    document.querySelector("[data-trap-output]").textContent = String(0.1 * 3);
+  </script>
+</Sheet>

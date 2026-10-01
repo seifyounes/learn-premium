@@ -162,9 +162,10 @@ keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.
 
 `gates/` is the gate runner: one entry (`npm run gates -- <command>`) for every gate point.
 
-- `run --point job|module|deploy [--module NN-slug]` runs the point's gates and writes a Gate report
-  to the Course's `build-records/gate-reports/`, bound to the commit it checked. It exits 1 unless
-  the report is green.
+- `run --point job|module|deploy [--module NN-slug] [--url URL]` runs the point's gates and writes a
+  Gate report to the Course's `build-records/gate-reports/`, bound to the commit it checked. It
+  exits 1 unless the report is green. The browser gates serve `dist/` themselves, or open the same
+  build at `--url` (its Vercel preview).
 - `verify --point … [--module …] [--commit SHA]` accepts a report only if it is green for that
   commit (HEAD by default). A report for another commit, or taken on uncommitted changes, is red.
 - `controls` runs every gate on its positive fixture (the Course as it is) and on each of its
@@ -176,18 +177,52 @@ Every finding either blocks or raises a Checkpoint item; there is no warning lev
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
 A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
-| Gate                 | Points         | Checks                                                                                                                                                                 |
-| -------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists                                       |
-| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                                                        |
-| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words                                      |
-| `provenance`         | job, deploy    | every number an entry shows (Master Rules included), and every constant a sim is built from, carries a Provenance tag                                                  |
-| `master-rules`       | job, deploy    | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name`, `use` and the printed provenance notes, inside their math); no emoji |
-| `sim-numbers`        | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                                         |
-| `tools`              | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless                                     |
-| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included                                                                                                  |
-| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                                          |
-| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)                              |
+| Gate                 | Points         | Checks                                                                                                                                                                                                      |
+| -------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists                                                                            |
+| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                                                                                             |
+| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words                                                                           |
+| `provenance`         | job, deploy    | every number an entry shows (Master Rules included), and every constant a sim is built from, carries a Provenance tag                                                                                       |
+| `master-rules`       | job, deploy    | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name`, `use` and the printed provenance notes, inside their math); no emoji                                      |
+| `sim-numbers`        | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                                                                              |
+| `tools`              | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless                                                                          |
+| `rendered-page-scan` | module, deploy | no `.katex-error`, raw TeX, prose set as a fraction or hollow copy (`0/0`, NaN) on a built page, islands' props included; the content's braces render literally                                             |
+| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                                                                               |
+| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)                                                                   |
+| `layout-sweep`       | module, deploy | browser: at 320/375/390/430/768/1024/1280/1440, every collapsible open, no sideways scroll, nothing over a figure, nothing above the page, no colliding text, no height-locked overflow, no text under 12px |
+| `live-page-scan`     | module, deploy | browser: the live page has no KaTeX error, raw TeX, hollow copy, NaN or floating-point noise, and no uncaught error                                                                                         |
+| `hydration`          | module, deploy | browser: island controls are disabled in the server's HTML, and on once the island hydrates                                                                                                                 |
+| `touch`              | module, deploy | browser: with phone touch at 375 and 390px (4× slower CPU on Chromium), every control answers a tap                                                                                                         |
+| `initial-load`       | module, deploy | browser: three.js, Pyodide and Plotly are absent from every page's initial load                                                                                                                             |
+| `trap-page`          | module, deploy | browser: every sweep found every seeded defect on the Trap page                                                                                                                                             |
+
+### Browser gates
+
+The browser gates (`gates/browser.ts`) are slices of one run of headless Playwright on Chromium and
+WebKit (WebKit stands in for iPhone Safari), made once per gate input (`gates/browser/run.ts`). For
+each browser, it opens every page in scope:
+
+- it records what the initial load fetches, before anything is scrolled;
+- it scrolls each island into view, waits for it to hydrate, and checks it turned its controls on;
+- it sweeps the page at each of the eight widths, asserting the viewport width first. Each sweep
+  opens every collapsible and visits every tab of each tab list, then measures the page in it
+  (`gates/browser/in-page.js`);
+- it taps every control with emulated phone touch at 375 and 390px, typing into fields first, and
+  sweeps the state that leaves.
+
+Each check exists because v1 shipped its defect. A figure is covered when something positioned
+over it lies on its ink: an SVG's strokes, fills and text, sampled, never its blank ground. An
+element marked `data-backdrop` is ground (the sheet's grid), and one marked `data-allow-overlap`
+is a deliberate overlay (the red pen's rings).
+
+**The Trap page** (`/trap/`, `src/trap/`) is a hidden page of seeded defects in every build except
+Vercel's production deploy: a figure labelled under 12px inside a collapsed section, a KaTeX error,
+a value chip over a figure, and a wrong number the page computes as it loads. Every sweep of it
+must find all four. A run that misses one is void: `trap-page` blocks, and every other browser gate
+fails rather than pass on a run that couldn't see. The page gates never read the Trap page.
+
+The browsers come from `npx playwright install chromium webkit` (the installer does it on the
+Owner's machine), at the Playwright version `package.json` pins.
 
 The sim gates in detail (`gates/sims.ts`):
 

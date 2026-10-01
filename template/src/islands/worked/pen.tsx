@@ -22,6 +22,7 @@ export function PenRing({ draw, delay = 0, className = "", style }: RingProps) {
       viewBox="0 0 100 40"
       preserveAspectRatio="none"
       aria-hidden="true"
+      data-allow-overlap
       className={`pointer-events-none overflow-visible ${className}`}
       style={style}
     >

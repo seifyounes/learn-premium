@@ -1,7 +1,9 @@
 // The one entry for every gate point: `npm run gates -- <command> …` from the template folder.
 //
-//   run      --point job|module|deploy [--module NN-slug] [--content DIR] [--dist DIR] [--report FILE]
+//   run      --point job|module|deploy [--module NN-slug] [--content DIR] [--dist DIR] [--url URL] [--report FILE]
 //            Runs the point's gates and writes the Gate report, bound to the Course's HEAD commit.
+//            The browser gates serve the built site themselves, or open it at --url (a Vercel
+//            preview of the same build).
 //   verify   --point job|module|deploy [--module NN-slug] [--content DIR] [--report FILE] [--commit SHA]
 //            Accepts the report only if it is green for that commit (HEAD by default).
 //   controls [--content DIR] [--dist DIR]
@@ -36,6 +38,7 @@ async function main(argv: string[]): Promise<number> {
       module: { type: "string" },
       content: { type: "string" },
       dist: { type: "string" },
+      url: { type: "string" },
       report: { type: "string" },
       commit: { type: "string" },
     },
@@ -43,7 +46,12 @@ async function main(argv: string[]): Promise<number> {
   const [command] = positionals;
   const contentDir = resolve(values.content ?? process.env.CONTENT_DIR ?? join(TEMPLATE_DIR, "../fixture-course"));
   const scope = values.module === undefined ? {} : { module: values.module };
-  const input: GateInput = { contentDir, distDir: resolve(values.dist ?? join(TEMPLATE_DIR, "dist")), ...scope };
+  const input: GateInput = {
+    contentDir,
+    distDir: resolve(values.dist ?? join(TEMPLATE_DIR, "dist")),
+    ...(values.url === undefined ? {} : { siteUrl: values.url }),
+    ...scope,
+  };
 
   const point = (): GatePoint => {
     const given = GATE_POINTS.find((p) => p === values.point);

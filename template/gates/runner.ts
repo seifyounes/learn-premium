@@ -29,6 +29,11 @@ export interface GateInput {
   contentDir: string;
   /** The built site, for gates that check rendered pages. */
   distDir?: string;
+  /**
+   * Where the same build is served (a Vercel preview), for the browser gates; they serve `distDir`
+   * themselves when absent. The pages to open are still listed from `distDir`.
+   */
+  siteUrl?: string;
   /** Scope the check to one Module (its folder name); the whole Course when absent. */
   module?: string;
 }
