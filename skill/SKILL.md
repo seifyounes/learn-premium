@@ -77,9 +77,11 @@ the Owner which ticket the run is waiting on, and release the lock.
 
 "Run media" is an explicit Owner command, separate from any Module wave and needing no ledger lock:
 it drains the one Media queue across every Course in the Course registry, within the NotebookLM
-quota. Its state commands are in `scripts/media/README.md`. Driving NotebookLM isn't built yet
-(ticket #77): until it lands, run `media.ts status` and report the queue, the demand against the
-remaining capacity, and any limit in force.
+quota. Its state commands are in `scripts/media/README.md`; NotebookLM is driven as `notebooklm.md`
+says, through Claude in Chrome in the dedicated Chrome profile, falling back to the Notebook recipe
+the Owner follows by hand. Start by reporting `media.ts status`: the queue, the demand against the
+remaining capacity, and any limit in force. The fact check, re-encode and placement steps aren't
+built yet (ticket #78): carry an item as far as `downloaded`, and tell the Owner the rest waits on it.
 
 ## Reading Materials
 

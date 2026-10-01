@@ -13,6 +13,7 @@ import {
   obj,
   oneOf,
   SchemaError,
+  sha256,
   type Infer,
   type Schema,
 } from "../ledger/schema.ts";
@@ -24,6 +25,10 @@ export const MEDIA_PAGE = "media.md";
 /** In the machine state folder: the Course registry and the quota/usage log. */
 export const REGISTRY_FILE = "courses.json";
 export const USAGE_FILE = "media-usage.json";
+/** In the machine state folder: the dedicated Chrome profile the Media pass drives NotebookLM in. */
+export const CHROME_FILE = "chrome.json";
+/** In a Course project: where downloaded and hand-made media wait for `ingest`. It ignores itself in git. */
+export const INBOX_DIR = "media-inbox";
 
 /** Where the installer puts the machine state folder (machine_install.py's `Layout.state`). */
 export const DEFAULT_STATE_DIR = join(homedir(), ".claude", "learn-premium", "state");
@@ -96,11 +101,27 @@ const item: Schema<Infer<typeof itemShape>> = (v, p) => {
   return row;
 };
 
+/** A NotebookLM notebook address. */
+export const notebookUrl: Schema<string> = (v, p) =>
+  typeof v === "string" && /^https:\/\/(notebook|notebooklm)\.google\.com\/notebook\/[\w-]+$/.test(v)
+    ? v
+    : fail(p, "a NotebookLM notebook address (https://notebook.google.com/notebook/<id>)", v);
+
+/** The Course notebook: where it is, and each Material uploaded to it at the hash its Module was built from. */
+const notebookShape = obj({
+  url: notebookUrl,
+  sources: arr(obj({ material: nonEmpty, hash: sha256, title: nonEmpty, addedAt: isoTime })),
+});
+
 export const mediaFileSchema = obj({
   schema: version,
   course: nonEmpty,
+  /** Null until the Course notebook is made. */
+  notebook: nullable(notebookShape),
   items: arr(item),
 });
+
+export const chromeSchema = obj({ schema: version, profile: nonEmpty });
 
 export const registrySchema = obj({
   schema: version,
@@ -138,6 +159,7 @@ export type MediaFile = Infer<typeof mediaFileSchema>;
 export type MediaItem = MediaFile["items"][number];
 export type MediaKind = MediaItem["kind"];
 export type ItemState = MediaItem["state"];
+export type Notebook = Infer<typeof notebookShape>;
 export type Registry = Infer<typeof registrySchema>;
 export type Usage = Infer<typeof usageSchema>;
 export type Limit = (typeof LIMITS)[number];

@@ -28,6 +28,10 @@ function mediaPage(file: MediaFile, usage: Usage, at: number): string {
     "",
     `${demand} · Left across all Courses: 5-hour window ${remaining(left["5-hour"])} · week ${remaining(left.weekly)}`,
     "",
+    file.notebook === null
+      ? "Course notebook: not made yet"
+      : `Course notebook: ${file.notebook.url} (${file.notebook.sources.length} sources)`,
+    "",
     table(
       ["Item", "For", "Kind", "State", "Regenerations", "Nearest sitting", "File"],
       file.items.map((item) => [
