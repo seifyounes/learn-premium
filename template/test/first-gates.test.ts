@@ -3,17 +3,20 @@ import { cpSync, globSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { BROWSER_GATES } from "../gates/browser.ts";
 import { GATES } from "../gates/index.ts";
 import { runControls, runGates, verifyReport, type GateInput, type GatePoint } from "../gates/runner.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
-import { splitProse } from "../src/math/katex.ts";
+import { renderTex, splitProse } from "../src/math/katex.ts";
 import { buildCourse, FIXTURE_COURSE, fixtureWith } from "./build-course";
 
 const MODULE = "01-thermal-resistance";
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
 
-const run = (point: GatePoint, input: GateInput) => runGates({ point, commit: COMMIT, input, gates: GATES });
+/** The gates that read files; the browser gates have their own tests (browser-gates.test.ts). */
+const STATIC_GATES = GATES.filter((g) => !BROWSER_GATES.includes(g));
+const run = (point: GatePoint, input: GateInput) => runGates({ point, commit: COMMIT, input, gates: STATIC_GATES });
 const gate = (report: Awaited<ReturnType<typeof run>>, id: string) => report.gates.find((g) => g.id === id);
 
 /** A copy of the built site with `html` put into one page's `<main>`. */
@@ -105,7 +108,7 @@ describe("the first gates on the Fixture Course", () => {
   });
 
   it("each ship a negative control that they catch, and pass their positive fixture", async () => {
-    const result = await runControls({ input, gates: GATES });
+    const result = await runControls({ input, gates: STATIC_GATES });
     expect(result.ok, JSON.stringify(result, null, 2)).toBe(true);
     for (const g of result.gates) {
       expect(g.positive).toBe("pass");
@@ -140,6 +143,68 @@ describe("the first gates on the Fixture Course", () => {
     expect(scan?.findings.map((f) => f.message)).toEqual([
       expect.stringMatching(/a KaTeX error rendered on the page/),
       expect.stringMatching(/raw TeX on the page: "\\frac\{L"/),
+    ]);
+  });
+
+  it("the rendered-page scan blocks prose set as a fraction, and passes paper math", async () => {
+    const tex = (source: string) => renderTex(source, false, { file: "planted", line: 1 });
+    const prose = siteWith(build.outDir, MODULE, `<p>${tex(String.raw`\frac{Player 1}{Player 2}`)}</p>`);
+    const scan = gate(await run("module", { contentDir: FIXTURE_COURSE, distDir: prose }), "rendered-page-scan");
+    expect(scan?.status).toBe("block");
+    expect(scan?.findings.map((f) => f.message)).toEqual([
+      expect.stringMatching(/prose set as a fraction: "Player" in \\frac\{Player 1\}\{Player 2\}/),
+    ]);
+
+    const paper = siteWith(
+      build.outDir,
+      MODULE,
+      `<p>${tex(String.raw`\frac{\rho V A c}{k}`)} ${tex(String.raw`\frac{\text{heat in}}{\text{area}}`)} ${tex(String.raw`\frac{mgh}{t}`)}</p>`,
+    );
+    expect(
+      gate(await run("module", { contentDir: FIXTURE_COURSE, distDir: paper }), "rendered-page-scan")?.status,
+    ).toBe("pass");
+  });
+
+  it("the rendered-page scan blocks copy that assumes a content shape, and wrong numbers", async () => {
+    const hollow = siteWith(
+      build.outDir,
+      MODULE,
+      "<p>Score: 0/0</p><p>Heat loss: NaN kW</p><p>Drop: 0.30000000000000004 K</p><p>{{MODULE_TITLE}}</p>",
+    );
+    const scan = gate(await run("module", { contentDir: FIXTURE_COURSE, distDir: hollow }), "rendered-page-scan");
+    expect(scan?.findings.map((f) => f.message)).toEqual([
+      expect.stringMatching(/a hollow 0\/0 on the page: "Score: 0\/0"/),
+      expect.stringMatching(/a wrong number \(NaN\) on the page: "Heat loss: NaN kW"/),
+      expect.stringMatching(/a wrong number \(floating-point noise\) on the page: "Drop: 0\.30000000000000004 K"/),
+      expect.stringMatching(/an unrendered \{\{placeholder\}\} on the page: "\{\{MODULE_TITLE\}\}"/),
+    ]);
+  });
+
+  it("the rendered-page scan holds the content's literal braces to the page", async () => {
+    const course = fixtureWith(`modules/${MODULE}/practice/2.yaml`, (s) =>
+      s.replace("Find its thermal resistance.", "Find its thermal resistance, one of the pair {hot face, cold face}."),
+    );
+    const braced = buildCourse(course);
+    expect(braced.ok, braced.output).toBe(true);
+    const rendered = gate(
+      await run("module", { contentDir: course, distDir: braced.outDir, module: MODULE }),
+      "rendered-page-scan",
+    );
+    expect(rendered?.status).toBe("pass");
+    expect(rendered?.coverage.braces).toBe(1);
+
+    // The same content against a page that lost them.
+    const lost = gate(
+      await run("module", { contentDir: course, distDir: build.outDir, module: MODULE }),
+      "rendered-page-scan",
+    );
+    expect(lost?.status).toBe("block");
+    expect(lost?.findings).toEqual([
+      {
+        outcome: "block",
+        at: `/${MODULE}/`,
+        message: `"{hot face, cold face}" in modules/${MODULE}/practice/2.yaml doesn't render literally on the page`,
+      },
     ]);
   });
 

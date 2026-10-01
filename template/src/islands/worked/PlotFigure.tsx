@@ -93,7 +93,7 @@ export function PlotFigure({ figure, shown, captionId }: { figure: FigureData; s
       <div ref={box} className="overflow-x-auto">
         <div dir="ltr" className="relative overflow-hidden" style={{ inlineSize: width, blockSize: height }}>
           <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={captionId}>
-            <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-sheet)" />
+            <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--color-sheet)" data-backdrop />
             {fine(figure.x).map((v, i) => (
               <line
                 key={`fx${i}`}
@@ -102,6 +102,7 @@ export function PlotFigure({ figure, shown, captionId }: { figure: FigureData; s
                 y1={y0}
                 y2={y1}
                 className="plot-grid"
+                data-backdrop
                 data-major={i % 2 === 0}
               />
             ))}
@@ -113,6 +114,7 @@ export function PlotFigure({ figure, shown, captionId }: { figure: FigureData; s
                 y1={sy(v)}
                 y2={sy(v)}
                 className="plot-grid"
+                data-backdrop
                 data-major={i % 2 === 0}
               />
             ))}
