@@ -1,6 +1,6 @@
 // Driving NotebookLM's side of the Media pass through its command interface (seam 2): the Course
 // notebook record, the Notebook recipe, the media inbox and the Chrome profile. NotebookLM is faked.
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { FakeNotebookLM, must, placedPath } from "./fake-notebooklm.ts";
@@ -30,6 +30,25 @@ describe("the Course notebook record", () => {
     expect(source.hash).toMatch(/^[0-9a-f]{64}$/);
     const { notebook } = must(media("notebook", "--project", project));
     expect(notebook).toEqual({ url: URL, sources: [source] });
+  });
+
+  test("an address copied with the account or a fragment on it is kept without them", () => {
+    const { project } = course();
+
+    const { notebook } = must(media("notebook", "--project", project, "--url", `${URL}?authuser=1#sources`));
+
+    expect(notebook.url).toBe(URL);
+  });
+
+  test("a media file written before the Course notebook was recorded still reads, with none", () => {
+    const { state, project } = course();
+    const path = join(project, "build-media.json");
+    const older = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    delete older["notebook"];
+    writeFileSync(path, JSON.stringify(older));
+
+    expect(must(media("notebook", "--project", project)).notebook).toBeNull();
+    expect(must(media("status", "--state", state)).queue).toHaveLength(3);
   });
 
   test("an address that isn't a NotebookLM notebook is refused", () => {
@@ -189,6 +208,16 @@ describe("the Notebook recipe", () => {
     expect(out.error).toMatch(/sitting/);
   });
 
+  test("a Module with no source NotebookLM can take has no recipe", () => {
+    const project = fixtureCourse("Heat Transfer", { live: ["01"], materials: { "01": { "demo.mp4": "video" } } });
+    registeredAndGathered(project);
+
+    const { code, out } = media("recipe", "--project", project, "--item", "module-01-video");
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/no source/);
+  });
+
   test("an unknown item is refused", () => {
     const { project } = course();
 
@@ -281,6 +310,17 @@ describe("the media inbox", () => {
 
     expect(result).toMatchObject({ ingested: [], cleared: ["module-01-video.mp4"], ignored: [] });
     expect(inbox(project)).toEqual([]);
+  });
+
+  test("a folder inside the Course project named like a parent is still inside it", () => {
+    const { state, project } = course();
+    const priv = join(project, "..private");
+    mkdirSync(priv);
+
+    const { code, out } = media("ingest", "--state", state, "--project", project, "--private", priv);
+
+    expect(code).toBe(2);
+    expect(out.error).toMatch(/Private folder/);
   });
 
   test("a Private folder inside the Course project is refused", () => {

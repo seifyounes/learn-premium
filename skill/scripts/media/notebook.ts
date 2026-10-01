@@ -2,14 +2,22 @@
 // item (what the Chrome driver does, or what the Owner does by hand when Chrome fails), and the media
 // inbox, where both paths leave the downloaded file for `ingest` to move into the state machine.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, extname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { hashFile } from "../ledger/hash.ts";
 import { current, type Ledger, type Material } from "../ledger/model.ts";
-import { LedgerError, readLedger } from "../ledger/store.ts";
-import { advance, start } from "./media.ts";
-import { INBOX_DIR, notebookUrl, type MediaFile, type MediaItem, type MediaKind, type Notebook } from "./model.ts";
+import { LedgerError } from "../ledger/file.ts";
+import { requireLedger } from "../ledger/ledger.ts";
+import { advance, iso, requireMediaFile, start } from "./media.ts";
+import {
+  INBOX_DIR,
+  notebookUrl,
+  type CourseNotebook,
+  type MediaFile,
+  type MediaItem,
+  type MediaKind,
+} from "./model.ts";
 import { customStyle } from "./pads.ts";
-import { noMediaFile, readMediaFile, readUsage, updateMediaFile } from "./store.ts";
+import { readUsage, updateMediaFile } from "./store.ts";
 import { writeMediaPage } from "./render.ts";
 
 /** Claude in Chrome uploads at most this much at once; a larger Material goes through Google Drive. */
@@ -29,32 +37,23 @@ const NOT_A_SOURCE: Partial<Record<Material["kind"], string>> = {
   other: "NotebookLM can't take this kind of file as a source",
 };
 
-function iso(ms: number): string {
-  return new Date(ms).toISOString();
-}
-
-function requireLedger(project: string): Ledger {
-  const ledger = readLedger(project);
-  if (ledger === null) throw new LedgerError("refused", `no Build ledger in ${project}`);
-  return ledger;
-}
-
-function requireMediaFile(project: string): MediaFile {
-  const file = readMediaFile(project);
-  if (file === null) throw noMediaFile(project);
-  return file;
-}
-
 /** Changes the media file under its mutex, regenerating the media page. */
 function changeMediaFile<T>(stateDir: string, project: string, change: (file: MediaFile) => T): T {
   return updateMediaFile(project, change, (file) => writeMediaPage(project, file, readUsage(stateDir), Date.now()));
 }
 
-/** The Course notebook as recorded, or (with `url`) records where it is. A different notebook starts with no sources. */
-export function notebook(stateDir: string, project: string, url: string | null): { notebook: Notebook | null } {
+/**
+ * The Course notebook as recorded, or (with `url`) records where it is, without the account or fragment a
+ * copied address carries. A different notebook starts with no sources.
+ */
+export function courseNotebook(
+  stateDir: string,
+  project: string,
+  url: string | null,
+): { notebook: CourseNotebook | null } {
   const path = resolve(project);
   if (url === null) return { notebook: requireMediaFile(path).notebook };
-  const checked = notebookUrl(url, "--url");
+  const checked = notebookUrl(url.replace(/[?#].*$/, ""), "--url");
   return changeMediaFile(stateDir, path, (file) => {
     if (file.notebook?.url !== checked) file.notebook = { url: checked, sources: [] };
     return { notebook: file.notebook };
@@ -79,7 +78,7 @@ export function addSource(
   project: string,
   material: string,
   title: string,
-): { source: Notebook["sources"][number] } {
+): { source: CourseNotebook["sources"][number] } {
   const path = resolve(project);
   const row = builtMaterial(requireLedger(path), material);
   return changeMediaFile(stateDir, path, (file) => {
@@ -146,6 +145,9 @@ export function recipe(project: string, id: string): Recipe {
   const module = current(ledger.modules).find((m) => m.id === item.module);
   if (module === undefined) throw new LedgerError("invalid", `Module ${item.module} isn't in the Module map`);
   const { sources, skipped } = sourcesFor(ledger, file.notebook, module.id);
+  if (sources.length === 0) {
+    throw new LedgerError("refused", `Module ${module.id} has no source NotebookLM can take: nothing to select`);
+  }
   const kind = item.kind;
   const output = {
     ...OUTPUTS[kind],
@@ -175,7 +177,7 @@ export function recipe(project: string, id: string): Recipe {
 
 function sourcesFor(
   ledger: Ledger,
-  notebook: Notebook | null,
+  notebook: CourseNotebook | null,
   module: string,
 ): { sources: RecipeSource[]; skipped: Recipe["skipped"] } {
   const rows = current(ledger.materials)
@@ -215,7 +217,7 @@ function steps(
 ): string[] {
   const upload = (s: RecipeSource) =>
     s.viaDrive
-      ? `upload ${s.path} to Google Drive (it is over 10 MB), then add it to the notebook from Drive`
+      ? `upload ${s.path} to Google Drive (it is over Claude in Chrome's ${UPLOAD_LIMIT_BYTES / 1_000_000} MB upload limit), then add it to the notebook from Drive`
       : `add ${s.path} as a source (upload)`;
   const settings = Object.entries(output.settings).map(([k, v]) => `${k}: ${v}`);
   if (output.style !== null) settings.push(`Custom style: "${output.style}"`);
@@ -265,7 +267,7 @@ export function ingest(stateDir: string, project: string, privateFolder: string)
   const root = resolve(project);
   const priv = resolve(privateFolder);
   const inside = relative(root, priv);
-  if (inside === "" || (!inside.startsWith("..") && !isAbsolute(inside))) {
+  if (inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside)) {
     throw new LedgerError("invalid", `the Private folder ${priv} is inside the Course project; it must sit outside it`);
   }
   if (!existsSync(priv)) throw new LedgerError("invalid", `no Private folder at ${priv}`);

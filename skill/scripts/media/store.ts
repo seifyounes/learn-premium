@@ -108,20 +108,22 @@ function updateStateFile<D, T>(
   });
 }
 
-/** The dedicated Chrome profile's name, as Claude in Chrome lists the browser; null until the Owner sets it. */
-export function readChromeProfile(stateDir: string): string | null {
-  return readChecked(join(stateDir, CHROME_FILE), chromeSchema, "chrome")?.profile ?? null;
-}
+const readChrome = (stateDir: string) => readChecked(join(stateDir, CHROME_FILE), chromeSchema, "chrome");
 
-export function writeChromeProfile(stateDir: string, profile: string): void {
-  updateStateFile(
-    stateDir,
-    CHROME_FILE,
-    chromeSchema,
-    (dir) => readChecked(join(dir, CHROME_FILE), chromeSchema, "chrome") ?? { schema: SCHEMA_VERSION, profile },
-    (data) => {
-      data.profile = profile;
-    },
-    () => {},
-  );
+/**
+ * The dedicated Chrome profile's name, as Claude in Chrome lists the browser (null until the Owner sets
+ * it), after recording `profile` when given.
+ */
+export function chromeProfile(stateDir: string, profile: string | null): { profile: string | null } {
+  if (profile !== null) {
+    updateStateFile(
+      stateDir,
+      CHROME_FILE,
+      chromeSchema,
+      (dir) => readChrome(dir) ?? { schema: SCHEMA_VERSION, profile },
+      (data) => (data.profile = profile),
+      () => {},
+    );
+  }
+  return { profile: readChrome(stateDir)?.profile ?? null };
 }

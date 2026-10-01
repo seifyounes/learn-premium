@@ -175,9 +175,15 @@ master copies stay in the Private folder.
 _Avoid_: videos, assets
 
 **Notebook recipe**:
-The step-by-step instructions the skill prints for the Owner to make Module media by hand when
-driving NotebookLM fails.
+What to do in NotebookLM to make one media item: the sources to add and select, the output's
+settings and Custom style, and where to save the download. The Chrome driver follows it, and the
+skill prints it for the Owner to make Module media by hand when driving NotebookLM fails.
 _Avoid_: manual mode
+
+**Media inbox**:
+The folder in a Course project, ignored by git, where a downloaded media item waits, whether the
+Chrome driver or the Owner saved it, until the Media pass takes its master into the Private folder.
+_Avoid_: drop folder, downloads
 
 ### The build
 
