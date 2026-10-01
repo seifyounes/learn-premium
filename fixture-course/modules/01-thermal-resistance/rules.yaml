@@ -1,0 +1,10 @@
+rules:
+  - name: Heat rate through a wall
+    formula: '$\dot{Q} = \frac{\Delta T}{R}$'
+    use: First, once the wall's resistance is known.
+  - name: Resistance of a plane wall
+    formula: '$R = \frac{L}{k A}$'
+    use: For each layer, from its thickness, conductivity and face.
+  - name: Layers in series
+    formula: '$R_\text{total} = \sum R_i$'
+    use: When layers are stacked and the same heat passes through each.

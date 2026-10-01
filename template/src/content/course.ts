@@ -3,6 +3,7 @@ import { getCollection, getEntry, type CollectionEntry } from "astro:content";
 import { join } from "node:path";
 import { renderProse } from "../math/katex";
 import { mediaFolder, mediaUrl, missingMediaFiles, notInMediaFolder, pngSize, type Media } from "../media/media";
+import type { MasteryShape } from "../progress/progress";
 import { MODULE_ID } from "./contract";
 import { buildContentDir } from "./layout";
 
@@ -28,6 +29,45 @@ export async function getModules(): Promise<ModuleRef[]> {
     })
     .sort((a, b) => a.id.localeCompare(b.id));
 }
+
+/**
+ * The Course's Exam sittings, in course.yaml's order. A sitting covering a Module the Course has
+ * no folder for fails the build.
+ */
+export async function getSittings() {
+  const [course, modules] = await Promise.all([getCourse(), getModules()]);
+  const ids = new Set(modules.map((m) => m.id));
+  for (const sitting of course.sittings) {
+    const missing = sitting.modules.filter((m) => !ids.has(m));
+    if (missing.length > 0)
+      throw new Error(
+        `course.yaml: sitting "${sitting.id}" covers ${missing.join(", ")}, which the Course has no Module for`,
+      );
+  }
+  return course.sittings;
+}
+
+export type Sitting = Awaited<ReturnType<typeof getSittings>>[number];
+
+/** A Module's rules for Master Rules and Revision, in solving order; undefined when it has no rules.yaml. */
+export async function getRules(moduleId: string) {
+  return (await getEntry("rules", moduleId))?.data;
+}
+
+/** What a Module's Mastery is measured on: its Worked examples, with their steps, and its Practice items. */
+export async function masteryShape(moduleId: string): Promise<MasteryShape> {
+  const [worked, practice] = await Promise.all([
+    moduleEntries("worked", moduleId),
+    moduleEntries("practice", moduleId),
+  ]);
+  return {
+    worked: worked.map((w) => ({ code: w.data.code, steps: w.data.steps.length })),
+    practice: practice.map((p) => itemNumber(p.id)),
+  };
+}
+
+/** A Practice item's number in its Module: its file name. */
+export const itemNumber = (id: string) => id.split("/").pop() ?? id;
 
 type ModuleCollection = "beats" | "worked" | "practice";
 

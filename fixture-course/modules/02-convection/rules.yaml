@@ -1,0 +1,9 @@
+rules:
+  - name: Newton's law of cooling
+    formula: '$\dot{Q} = h A \left(T_s - T_\infty\right)$'
+    use: Whenever a surface meets a moving fluid.
+  - name: Convection as a resistance
+    formula: '$R = \frac{1}{h A}$'
+    use: To add a fluid film in series with a wall.
+provenance:
+  stated: ['1']

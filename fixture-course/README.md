@@ -6,8 +6,16 @@ worked out here, not copied from any Course's Materials.
 
 Layout (content contract v0):
 
-- `course.yaml`: the course config (name, pad, Credit line).
-- `modules/<NN>-<slug>/module.yaml`: one Module; the folder name is its route.
+- `course.yaml`: the course config (name, pad, Credit line, `owner` for the About page) and the
+  Exam `sittings`, in exam order: each has an `id` (its route), a `name`, an optional `date`
+  (`YYYY-MM-DD`), the `modules` it covers by folder name, and `complete`, which only the Owner sets.
+  A complete sitting gets its Revision page.
+- `modules/<NN>-<slug>/module.yaml`: one Module; the folder name is its route. `highYield: true`
+  rings it in red pen on the contents sheet.
+- `modules/<NN>-<slug>/rules.yaml` (optional): the Module's rules for Master Rules and Revision,
+  in the order a solution uses them. Each has a `name`, a `formula` (every fraction stacked:
+  `rac{…}{…}`, never a bare `/`) and an optional `use` line; the file has one `provenance`
+  block for the numbers they show.
 - `modules/<NN>-<slug>/media.yaml` (optional): the Module's media. `video`, `audio` and
   `infographic` name files in the Module's `media/` folder, and `youtube` lists cards (9/10 match
   or better). Every slot is optional; an empty one renders nothing. The Fixture Course's media are

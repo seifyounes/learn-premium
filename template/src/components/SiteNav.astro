@@ -1,0 +1,25 @@
+---
+// The fixed nav, printed along the head of the sheet; the page the student is on is the tab drawn
+// open onto the sheet.
+import { getSittings } from "../content/course";
+import { navItems, type NavKey } from "../site/nav";
+
+interface Props {
+  current: NavKey;
+}
+
+const { current } = Astro.props;
+const items = navItems(await getSittings());
+---
+
+<nav class="site-nav" aria-label="Study site">
+  <ul class="site-nav-list">
+    {items.map((item) => (
+      <li>
+        <a href={item.href} class="site-nav-link" aria-current={item.key === current ? "page" : undefined}>
+          {item.label}
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>

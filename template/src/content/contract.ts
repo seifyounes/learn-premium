@@ -4,27 +4,62 @@ import { z } from "astro/zod";
 import { isPadKey, PAD_COLOUR, PAD_KEYS } from "../pads/catalogue.ts";
 import { CELL_REF, parseCell } from "../worked/cells.ts";
 
+/** A Module's folder name is its route: a two-digit number and a slug, e.g. `01-thermal-resistance`. */
+export const MODULE_ID = /^(\d{2})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
+
 /** The Course's pad: a catalogue key, or a colour to build a custom pad from. */
 const pad = z.string().refine((value) => isPadKey(value) || PAD_COLOUR.test(value), {
   message: `a catalogue pad (${PAD_KEYS.join(", ")}) or a colour written #RRGGBB`,
 });
 
-export const course = z.strictObject({
+/**
+ * One exam the Course is assessed in (CONTEXT.md, Exam sitting). Its Revision (and, from #74, its
+ * Exam room) exists only once the Owner has said it is complete.
+ */
+const sitting = z.strictObject({
+  /** Its routes: `/revision/<id>/`. */
+  id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "a sitting id is lower-case letters, digits and dashes"),
   name: z.string().min(1),
-  code: z.string().min(1),
-  pad,
-  /** A synthetic Course (the Fixture Course) says so in the title block of every page. */
-  synthetic: z.boolean().default(false),
-  credit: z.strictObject({
-    professor: z.string().min(1),
-    course: z.string().min(1),
-    university: z.string().min(1),
-  }),
+  date: z
+    .string()
+    .regex(/^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/, "a date is written YYYY-MM-DD")
+    .optional(),
+  /** The Modules it covers, by folder name. */
+  modules: z.array(z.string().regex(MODULE_ID, "a Module is named by its folder, e.g. 01-thermal-resistance")).min(1),
+  /** Sitting complete: only the Owner says so. */
+  complete: z.boolean().default(false),
 });
+
+export const course = z
+  .strictObject({
+    name: z.string().min(1),
+    code: z.string().min(1),
+    pad,
+    /** A synthetic Course (the Fixture Course) says so in the title block of every page. */
+    synthetic: z.boolean().default(false),
+    credit: z.strictObject({
+      professor: z.string().min(1),
+      course: z.string().min(1),
+      university: z.string().min(1),
+    }),
+    /** Who built the Study site, for the About page. */
+    owner: z.string().min(1),
+    sittings: z.array(sitting).default([]),
+  })
+  .superRefine((c, ctx) => {
+    const ids = new Set<string>();
+    c.sittings.forEach((s, i) => {
+      if (ids.has(s.id))
+        ctx.addIssue({ code: "custom", path: ["sittings", i, "id"], message: `"${s.id}" is used twice` });
+      ids.add(s.id);
+    });
+  });
 
 export const module = z.strictObject({
   title: z.string().min(1),
   summary: z.string().min(1),
+  /** Ringed in red pen on the contents sheet: where limited time is best spent. */
+  highYield: z.boolean().default(false),
 });
 
 /**
@@ -207,6 +242,24 @@ export const worked = z
     });
   });
 
+/** One of the main rules the Module's problems use. */
+const rule = z.strictObject({
+  name: z.string().min(1),
+  /** The rule as written on the sheet: paper math, every fraction stacked. */
+  formula: z.string().min(1),
+  /** When the problems reach for it, in one line. */
+  use: z.string().min(1).optional(),
+});
+
+/**
+ * A Module's rules for Master Rules (CONTEXT.md), in `rules.yaml`, in the order a solution uses
+ * them. Master Rules and Revision are assembled from them; they are reference only.
+ */
+export const rules = z.strictObject({
+  rules: z.array(rule).min(1),
+  ...tagged,
+});
+
 /** A Summary beat's frontmatter; its body is plain Markdown of at most 90 words. */
 export const beat = z.strictObject({
   title: z.string().min(1),
@@ -280,6 +333,3 @@ export const media = z.strictObject({
   /** YouTube cards, after the NotebookLM media. */
   youtube: z.array(youtubeCard).default([]),
 });
-
-/** A Module's folder name is its route: a two-digit number and a slug, e.g. `01-thermal-resistance`. */
-export const MODULE_ID = /^(\d{2})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;

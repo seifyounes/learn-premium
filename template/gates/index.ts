@@ -2,6 +2,7 @@
 // template CI proves each one catches its defect before the release ships.
 import { padGate, redHueRule } from "./colour.ts";
 import { contentContract, katexGate } from "./content.ts";
+import { masterRules } from "./master-rules.ts";
 import { renderedPageScan } from "./pages.ts";
 import { provenanceGate } from "./provenance.ts";
 import type { Gate } from "./runner.ts";
@@ -12,6 +13,7 @@ export const GATES: readonly Gate[] = [
   katexGate,
   teachingMethod,
   provenanceGate,
+  masterRules,
   renderedPageScan,
   padGate,
   redHueRule,

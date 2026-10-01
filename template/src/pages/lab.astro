@@ -1,0 +1,29 @@
+---
+// The Lab: every interactive tool in the Course, by Module, for free play. Tools arrive with the sim
+// contract (#49), which lists each one here beside the Module that uses it.
+import Cell from "../components/Cell.astro";
+import HonestyCell from "../components/HonestyCell.astro";
+import TitleBlock from "../components/TitleBlock.astro";
+import { getCourse, prose } from "../content/course";
+import Sheet from "../layouts/Sheet.astro";
+
+const course = await getCourse();
+---
+
+<Sheet title="Lab" nav="lab">
+  <TitleBlock class="grid-cols-2 pad:grid-cols-[2.6fr_1fr]">
+    <Cell label="Lab" class="col-span-2 pad:col-span-1">
+      <h1
+        class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]"
+        set:html={prose(course.name)}
+      />
+    </Cell>
+    <Cell label="Tools">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">0</span>
+    </Cell>
+    <HonestyCell />
+  </TitleBlock>
+
+  <h2 class="group-heading mbs-8 mbe-4">Tools</h2>
+  <p class="text-muted">No interactive tools are built for this Course yet.</p>
+</Sheet>

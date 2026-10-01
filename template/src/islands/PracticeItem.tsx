@@ -4,7 +4,7 @@
 import { MotionConfig, useReducedMotion } from "motion/react";
 import { useEffect, useId, useState, type ReactNode, type SubmitEvent } from "react";
 import { checkNumeric, type NumericResult } from "../practice/check.ts";
-import { recordPractice } from "../progress/progress.ts";
+import { markPlace, recordPractice } from "../progress/progress.ts";
 import { updateProgress } from "../progress/store.ts";
 import { DoneTick, PenVerdict } from "./worked/pen.tsx";
 
@@ -81,7 +81,13 @@ function Numeric({
     setChecks((n) => n + 1);
     if (verdict === "unreadable") return;
     setTried(true);
-    updateProgress((p) => recordPractice(p, module, item, { kind: "numeric", correct: verdict === "right" }));
+    updateProgress((p) =>
+      markPlace(recordPractice(p, module, item, { kind: "numeric", correct: verdict === "right" }), {
+        module,
+        kind: "practice",
+        item,
+      }),
+    );
   };
   const unit = unitHtml && <span className="answer-unit" dangerouslySetInnerHTML={{ __html: unitHtml }} />;
   return (
@@ -150,7 +156,13 @@ function Prose({
   const [shown, setShown] = useState(false);
   const [earned, setEarned] = useState<ReadonlySet<number>>(new Set());
   const record = (marks: number) =>
-    updateProgress((p) => recordPractice(p, module, item, { kind: "prose", marks, of: earnsHtml.length }));
+    updateProgress((p) =>
+      markPlace(recordPractice(p, module, item, { kind: "prose", marks, of: earnsHtml.length }), {
+        module,
+        kind: "practice",
+        item,
+      }),
+    );
   const toggle = (i: number) => {
     const next = new Set(earned);
     if (!next.delete(i)) next.add(i);

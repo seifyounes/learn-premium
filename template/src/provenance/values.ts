@@ -136,7 +136,7 @@ export interface ValueFound extends NumberFound {
 }
 
 /** The kinds of entry that show values. */
-export type ValueCollection = "worked" | "practice" | "beats";
+export type ValueCollection = "worked" | "practice" | "beats" | "rules";
 
 type Raw = Record<string, unknown>;
 const asObject = (value: unknown): Raw => (value && typeof value === "object" ? (value as Raw) : {});
@@ -205,6 +205,15 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
       const answer = asObject(entry.answer);
       quantity(answer.value, "answer.value");
       prose(answer.unit, "answer.unit");
+      break;
+    }
+    case "rules": {
+      asArray(entry.rules).forEach((r, i) => {
+        const rule = asObject(r);
+        prose(rule.name, `rules.${i}.name`);
+        prose(rule.formula, `rules.${i}.formula`);
+        prose(rule.use, `rules.${i}.use`);
+      });
       break;
     }
     case "beats": {

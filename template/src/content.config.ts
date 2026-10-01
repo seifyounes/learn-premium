@@ -11,6 +11,7 @@ export const collections = {
   course: defineCollection({ loader: loader(COLLECTIONS.course), schema: COLLECTIONS.course.schema }),
   modules: defineCollection({ loader: loader(COLLECTIONS.modules), schema: COLLECTIONS.modules.schema }),
   media: defineCollection({ loader: loader(COLLECTIONS.media), schema: COLLECTIONS.media.schema }),
+  rules: defineCollection({ loader: loader(COLLECTIONS.rules), schema: COLLECTIONS.rules.schema }),
   beats: defineCollection({ loader: loader(COLLECTIONS.beats), schema: COLLECTIONS.beats.schema }),
   worked: defineCollection({ loader: loader(COLLECTIONS.worked), schema: COLLECTIONS.worked.schema }),
   practice: defineCollection({ loader: loader(COLLECTIONS.practice), schema: COLLECTIONS.practice.schema }),

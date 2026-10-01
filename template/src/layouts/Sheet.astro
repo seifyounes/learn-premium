@@ -6,14 +6,18 @@ import "@fontsource/atkinson-hyperlegible-mono/latin-400.css";
 import "@fontsource/atkinson-hyperlegible-mono/latin-500.css";
 import "katex/dist/katex.min.css";
 import "../styles/global.css";
+import SiteNav from "../components/SiteNav.astro";
 import { getCourse, prose } from "../content/course";
 import { padStyle, resolvePad } from "../pads/pad";
+import type { NavKey } from "../site/nav";
 
 interface Props {
   title: string;
+  /** Where the page sits in the fixed nav. */
+  nav: NavKey;
 }
 
-const { title } = Astro.props;
+const { title, nav } = Astro.props;
 const course = await getCourse();
 const { professor, course: courseName, university } = course.credit;
 // The pad is one config value; the auto-fixed slots reach every token through these variables.
@@ -30,6 +34,7 @@ const pad = resolvePad(course.pad);
   </head>
   <body class="min-h-dvh pad:px-6 pad:py-6">
     <main class="sheet mx-auto max-w-[1200px] px-4 pbs-4 pbe-5 pad:rounded-sheet pad:px-10 pad:pbs-7 pad:pbe-6">
+      <SiteNav current={nav} />
       <slot />
       <footer
         class="mbs-12 border-bs border-print pbs-3 text-body-small text-muted"

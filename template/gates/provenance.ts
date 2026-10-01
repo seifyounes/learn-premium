@@ -1,5 +1,5 @@
-// The provenance gate, per job: every number a Worked example, Practice item or Summary beat shows
-// carries a Provenance tag (stated, derived, scaled or assumed), so nothing on the page is of
+// The provenance gate, per job: every number a Worked example, Practice item, Summary beat or rule
+// shows carries a Provenance tag (stated, derived, scaled or assumed), so nothing on the page is of
 // unknown origin. A value no list in the entry's `provenance` block names blocks.
 import { readFileSync } from "node:fs";
 import { COLLECTIONS } from "../src/content/layout.ts";
@@ -9,13 +9,13 @@ import { courseFiles, courseWith } from "./course-files.ts";
 import type { Finding, Gate } from "./runner.ts";
 
 const ignoreMath = () => {};
-const TAGGED: readonly ValueCollection[] = ["worked", "practice", "beats"];
+const TAGGED: readonly ValueCollection[] = ["worked", "practice", "beats", "rules"];
 const isTagged = (collection: string): collection is ValueCollection =>
   (TAGGED as readonly string[]).includes(collection);
 
 export const provenanceGate: Gate = {
   id: "provenance",
-  checks: "every number a Worked example, Practice item or Summary beat shows carries a Provenance tag",
+  checks: "every number a Worked example, Practice item, Summary beat or rule shows carries a Provenance tag",
   points: ["job", "deploy"],
   async run(input) {
     const coverage = { entries: 0, values: 0 };

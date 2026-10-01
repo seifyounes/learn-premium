@@ -1,0 +1,17 @@
+---
+// A Module as a group heading on a hub page: its sheet number and title, linking to its page.
+import { prose, type ModuleRef } from "../content/course";
+
+interface Props {
+  module: ModuleRef;
+}
+
+const { module } = Astro.props;
+---
+
+<h2 class="group-heading hub-module-heading">
+  <a href={`/${module.id}/`} class="hub-module-link">
+    <span class="hub-module-number">{module.number}</span>
+    <span set:html={prose(module.entry.data.title)} />
+  </a>
+</h2>

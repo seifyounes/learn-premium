@@ -1,0 +1,46 @@
+---
+// Master Rules: the main rules the Course's problems use, Module by Module in solving order.
+// Reference only: no search, no test mode, nothing to run.
+import Cell from "../components/Cell.astro";
+import HonestyCell from "../components/HonestyCell.astro";
+import ModuleHeading from "../components/ModuleHeading.astro";
+import RuleList from "../components/RuleList.astro";
+import TitleBlock from "../components/TitleBlock.astro";
+import { getCourse, getModules, getRules, prose } from "../content/course";
+import Sheet from "../layouts/Sheet.astro";
+
+const course = await getCourse();
+const modules = (
+  await Promise.all((await getModules()).map(async (module) => ({ module, rules: await getRules(module.id) })))
+).flatMap(({ module, rules }) => (rules ? [{ module, rules }] : []));
+const count = modules.reduce((sum, m) => sum + m.rules.rules.length, 0);
+---
+
+<Sheet title="Master Rules" nav="rules">
+  <TitleBlock class="grid-cols-2 pad:grid-cols-[2.6fr_1fr_1fr]">
+    <Cell label="Master Rules" class="col-span-2 pad:col-span-1">
+      <h1
+        class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]"
+        set:html={prose(course.name)}
+      />
+    </Cell>
+    <Cell label="Rules">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{count}</span>
+    </Cell>
+    <Cell label="Modules">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{modules.length}</span>
+    </Cell>
+    <HonestyCell />
+  </TitleBlock>
+
+  {modules.length === 0 ? (
+    <p class="mbs-8 text-muted">No Module has its rules written yet.</p>
+  ) : (
+    modules.map(({ module, rules }) => (
+      <section class="hub-module" aria-label={`Module ${module.number}`}>
+        <ModuleHeading module={module} />
+        <RuleList rules={rules} />
+      </section>
+    ))
+  )}
+</Sheet>

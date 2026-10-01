@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { plantedExample } from "../gates/teaching.ts";
 import { worked } from "../src/content/contract.ts";
 import { toSheet } from "../src/worked/sheet.ts";
-import { shownAt, startStepping, stepping, type Stepping, type SteppingAction } from "../src/worked/stepping.ts";
+import {
+  shownAt,
+  startStepping,
+  stepping,
+  triedAt,
+  type Stepping,
+  type SteppingAction,
+} from "../src/worked/stepping.ts";
 
 // Three steps: read the question (writes nothing), then two that write a value each.
 const example = plantedExample() as { artefact: { rows: string[][] }; steps: object[] };
@@ -62,6 +69,24 @@ describe("stepping through a sheet", () => {
     const jumped = run({ type: "toggle-try-first" }, { type: "go", to: 2 });
     expect(shown(jumped).hidden).toBe(true);
     expect(shown(stepping(sheet, jumped, { type: "go", to: 1 })).hidden).toBe(false);
+  });
+
+  it("counts a step worked try-first once the student had a go and asked for its values", () => {
+    const held = run({ type: "toggle-try-first" }, { type: "onward" });
+    expect(triedAt(sheet, held)).toBe(false);
+    expect(triedAt(sheet, stepping(sheet, held, { type: "onward" }))).toBe(true);
+  });
+
+  it("counts reading the question try-first as worked try-first: there is nothing to hold back", () => {
+    expect(triedAt(sheet, run({ type: "toggle-try-first" }))).toBe(true);
+    expect(triedAt(sheet, run())).toBe(false);
+  });
+
+  it("doesn't count a step passed over, or read through, as worked try-first", () => {
+    const back = run({ type: "toggle-try-first" }, { type: "go", to: 2 }, { type: "go", to: 1 });
+    expect(shown(back).hidden).toBe(false);
+    expect(triedAt(sheet, back)).toBe(false);
+    expect(triedAt(sheet, run({ type: "onward" }))).toBe(false);
   });
 
   it("points the phone's region at the work, until the student picks a tab", () => {

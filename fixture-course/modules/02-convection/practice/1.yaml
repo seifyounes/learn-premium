@@ -1,0 +1,13 @@
+kind: numeric
+question: >-
+  A plate with a face of $A = 2\ \text{m}^2$ sits at $T_s = 80\ ^\circ\text{C}$ in air at
+  $T_\infty = 20\ ^\circ\text{C}$, with $h = 25\ \text{W/(m}^2\text{·K)}$. Find the heat it loses,
+  in kW.
+answer:
+  value: 3
+  unit: kW
+  tolerance: 0.05
+model: '$\dot{Q} = h A (T_s - T_\infty) = 25 \times 2 \times 60 = 3000\ \text{W} = 3.0\ \text{kW}$'
+provenance:
+  stated: ['$A = 2\ \text{m}^2$', '$T_s = 80$', '$T_\infty = 20$', '$h = 25$']
+  derived: ['60', '3000', '3.0']

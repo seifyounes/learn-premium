@@ -2,50 +2,177 @@
 import Cell from "../components/Cell.astro";
 import HonestyCell from "../components/HonestyCell.astro";
 import TitleBlock from "../components/TitleBlock.astro";
-import { getCourse, getModules, prose } from "../content/course";
+import { getCourse, getModules, getRules, getSittings, masteryShape, prose } from "../content/course";
 import Sheet from "../layouts/Sheet.astro";
+import { revisionHref } from "../site/nav";
 
 const course = await getCourse();
-const modules = await getModules();
+const sittings = await getSittings();
+const modules = await Promise.all(
+  (await getModules()).map(async (m) => ({
+    ...m,
+    shape: await masteryShape(m.id),
+    rules: (await getRules(m.id))?.rules.length ?? 0,
+    sittings: sittings.filter((s) => s.modules.includes(m.id)),
+  })),
+);
+const total = (count: (m: (typeof modules)[number]) => number) => modules.reduce((sum, m) => sum + count(m), 0);
+const shapes = Object.fromEntries(modules.map((m) => [m.id, m.shape]));
+const numberOf = new Map(modules.map((m) => [m.id, m.number]));
+const counts = (m: (typeof modules)[number]) => [
+  { label: "Worked", value: m.shape.worked.length },
+  { label: "Practice", value: m.shape.practice.length },
+  { label: "Rules", value: m.rules },
+];
 ---
 
-<Sheet title="Contents">
-  <TitleBlock class="grid-cols-2 pad:grid-cols-[2.6fr_1fr_1fr]">
+<Sheet title="Contents" nav="modules">
+  <TitleBlock class="grid-cols-2 pad:grid-cols-[2.6fr_repeat(5,1fr)]">
     <Cell label="Course" class="col-span-2 pad:col-span-1">
       <h1
         class="font-print text-display-phone font-bold tracking-[-0.01em] text-graphite [font-variation-settings:'wdth'_75] pad:text-display"
         set:html={prose(course.name)}
       />
     </Cell>
-    <Cell label="Code">
+    <Cell label="Code" class="col-span-2 pad:col-span-1">
       <span class="font-quantity text-quantity text-graphite" set:html={prose(course.code)} />
     </Cell>
-    <Cell label="Modules">
-      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{modules.length}</span>
-    </Cell>
+    {[
+      { label: "Modules", value: modules.length },
+      { label: "Worked", value: total((m) => m.shape.worked.length) },
+      { label: "Practice", value: total((m) => m.shape.practice.length) },
+      { label: "Rules", value: total((m) => m.rules) },
+    ].map(({ label, value }) => (
+      <Cell label={label}>
+        <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{value}</span>
+      </Cell>
+    ))}
     <HonestyCell />
   </TitleBlock>
 
-  <h2 class="group-heading mbs-8">Modules</h2>
-  <ol>
-    {modules.map((m) => (
-      <li>
-        <a
-          href={`/${m.id}/`}
-          class="group grid grid-cols-[44px_1fr] items-center gap-4 border-be border-pencil/50 pbs-3 pbe-3 hover:bg-print/8"
+  <div data-contents data-shapes={JSON.stringify(shapes)}>
+    <div class="contents-head mbs-8">
+      <h2 class="group-heading contents-heading">Modules</h2>
+      <span class="contents-head-counts" aria-hidden="true">
+        {["Worked", "Practice", "Rules", "Mastery"].map((label) => (
+          <span class="field-label">{label}</span>
+        ))}
+      </span>
+    </div>
+    <ol class="contents-list">
+      {modules.map((m, i) => (
+        <li
+          class="contents-line"
+          data-module={m.id}
+          data-high-yield={m.entry.data.highYield || undefined}
+          style={`--line: ${i}`}
         >
-          <span class="grid size-11 place-items-center border-[1.5px] border-print font-print text-caption font-bold text-print">
-            {m.number}
-          </span>
-          <span>
-            <span
-              class="block text-contents-title font-semibold group-hover:underline"
-              set:html={prose(m.entry.data.title)}
-            />
-            <span class="block text-body-small text-muted" set:html={prose(m.entry.data.summary)} />
-          </span>
-        </a>
-      </li>
-    ))}
-  </ol>
+          <div class="contents-margin" data-margin>
+            {i === 0 && (
+              <a class="resume-note" href="/" hidden data-resume>
+                <span class="resume-text">
+                  <span>You stopped here:</span>
+                  <span class="resume-place" data-resume-place />
+                </span>
+                <svg class="resume-arrow resume-arrow-side" viewBox="0 0 46 34" aria-hidden="true">
+                  <path pathLength="1" d="M2 5 C14 -1 30 5 42 24" />
+                  <path pathLength="1" d="M35 21l7 3 0-7" />
+                </svg>
+                <svg class="resume-arrow resume-arrow-down" viewBox="0 0 34 30" aria-hidden="true">
+                  <path pathLength="1" d="M4 3 C20 2 28 10 26 26" />
+                  <path pathLength="1" d="M20 21l6 6 5-7" />
+                </svg>
+              </a>
+            )}
+          </div>
+          <a href={`/${m.id}/`} class="contents-link">
+            <span class="sheet-number">
+              {m.number}
+              {m.entry.data.highYield && (
+                <>
+                  <svg class="high-yield-ring" viewBox="0 0 68 68" aria-hidden="true">
+                    <path
+                      pathLength="1"
+                      d="M37 5 C54 5 64 18 63 35 C62 52 49 63 32 63 C15 63 5 51 5 34 C5 17 17 6 33 5 C38 5 42 6 45 8"
+                    />
+                  </svg>
+                  <span class="sr-only">High yield</span>
+                </>
+              )}
+            </span>
+            <span class="contents-text">
+              <span class="contents-title" set:html={prose(m.entry.data.title)} />
+              <span class="contents-summary" set:html={prose(m.entry.data.summary)} />
+              {m.sittings.length > 0 && (
+                <span class="sitting-tags">
+                  <span class="sr-only">Exam sittings:</span>
+                  {m.sittings.map((s) => (
+                    <span class="sitting-tag">{s.name}</span>
+                  ))}
+                </span>
+              )}
+            </span>
+            <span class="contents-counts">
+              {counts(m).map(({ label, value }) => (
+                <span class="contents-count">
+                  {value}
+                  <span class="count-unit">{label.toLowerCase()}</span>
+                </span>
+              ))}
+              <span class="contents-count contents-mastery">
+                <span>
+                  <span data-mastery>0</span>%
+                </span>
+                <span class="count-unit">mastery</span>
+              </span>
+            </span>
+          </a>
+        </li>
+      ))}
+    </ol>
+
+    {sittings.length > 0 && (
+      <>
+        <h2 class="group-heading mbs-12">Exam sittings</h2>
+        <ol class="sittings">
+          {sittings.map((s) => (
+            <li class="sitting-line" data-sitting={s.id} data-modules={JSON.stringify(s.modules)}>
+              <span class="sitting-head">
+                <span class="sitting-name">{s.name}</span>
+                {s.date && <span class="sitting-date">{s.date}</span>}
+              </span>
+              <span class="sitting-covers">
+                <span class="field-label">Modules</span>
+                <span class="font-quantity text-quantity">
+                  {s.modules.map((id) => numberOf.get(id) ?? id).join(" · ")}
+                </span>
+              </span>
+              <span class="sitting-readiness">
+                <span class="field-label">Readiness</span>
+                <span class="readiness">
+                  <span class="readiness-meter" data-readiness-meter aria-hidden="true">
+                    {Array.from({ length: 10 }, () => (
+                      <span class="readiness-box" />
+                    ))}
+                  </span>
+                  <span class="font-quantity text-quantity tabular-nums">
+                    <span data-readiness>0</span>%
+                  </span>
+                </span>
+              </span>
+              {s.complete && (
+                <a class="button-print label-action sitting-revision" href={revisionHref(s)}>
+                  Revision
+                </a>
+              )}
+            </li>
+          ))}
+        </ol>
+      </>
+    )}
+  </div>
 </Sheet>
+
+<script>
+  import "../progress/home.ts";
+</script>

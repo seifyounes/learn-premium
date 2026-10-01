@@ -1,0 +1,39 @@
+---
+// One Summary beat beside its one figure: the Module page's Summary and a sitting's Revision both
+// place it. Scaled and assumed values are noted after the text, derived ones after that.
+import { render, type CollectionEntry } from "astro:content";
+import { prose } from "../content/course";
+import { provenanceNotes } from "../provenance/notes";
+import { toFigure } from "../worked/sheet";
+import BeatFigure from "./BeatFigure";
+
+interface Props {
+  beat: CollectionEntry<"beats">;
+  /** Unique on the page: the figure's caption id. */
+  figureId: string;
+}
+
+const { beat, figureId } = Astro.props;
+const { Content } = await render(beat);
+const { inputsHtml, outputsHtml } = provenanceNotes(beat.data.provenance, prose);
+const figure = beat.data.figure && toFigure(beat.data.figure, prose);
+---
+
+<article class="beat" data-has-figure={figure !== undefined}>
+  <div class="beat-text">
+    <h3
+      class="mbe-2 font-print text-sheet-title font-semibold [font-variation-settings:'wdth'_87]"
+      set:html={prose(beat.data.title)}
+    />
+    <div class="space-y-3">
+      <Content />
+    </div>
+    {inputsHtml && <div class="mbs-3" set:html={inputsHtml} />}
+    {outputsHtml && <div class="mbs-3" set:html={outputsHtml} />}
+  </div>
+  {figure && (
+    <div class="beat-figure">
+      <BeatFigure figure={figure} captionId={figureId} />
+    </div>
+  )}
+</article>

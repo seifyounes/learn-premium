@@ -14,6 +14,8 @@ export interface Stepping {
   tryFirst: boolean;
   /** Steps the student has had a go at in try-first, so their values are on the sheet. */
   attempted: ReadonlySet<number>;
+  /** Steps whose held-back values the student asked for after having a go: worked try-first. */
+  revealed: ReadonlySet<number>;
   tab: Tab;
   /** The student picked a tab themselves; the region stops following the work. */
   tabPicked: boolean;
@@ -44,6 +46,7 @@ export const startStepping = (sheet: SheetData): Stepping => ({
   epoch: 0,
   tryFirst: false,
   attempted: new Set(),
+  revealed: new Set(),
   tab: sheet.figure ? "figure" : "table",
   tabPicked: false,
 });
@@ -53,6 +56,13 @@ const hasWork = (state: StepState) => state.index > 0 || state.fresh.length > 0 
 
 export const isHidden = (sheet: SheetData, s: Stepping) =>
   s.tryFirst && !s.attempted.has(s.step) && hasWork(stateAt(sheet, s.step));
+
+/**
+ * The step on screen was worked try-first: the student had a go before its values showed. Reading
+ * the question in try-first counts too, as there is nothing to hold back; a step passed over doesn't.
+ */
+export const triedAt = (sheet: SheetData, s: Stepping) =>
+  s.tryFirst && (s.revealed.has(s.step) || !hasWork(stateAt(sheet, s.step)));
 
 export function shownAt(sheet: SheetData, s: Stepping, reducedMotion: boolean): Shown {
   return {
@@ -69,7 +79,12 @@ export function stepping(sheet: SheetData, s: Stepping, action: SteppingAction):
       return go(sheet, s, action.to);
     case "onward":
       return isHidden(sheet, s)
-        ? { ...s, attempted: new Set([...s.attempted, s.step]), animate: true }
+        ? {
+            ...s,
+            attempted: new Set([...s.attempted, s.step]),
+            revealed: new Set([...s.revealed, s.step]),
+            animate: true,
+          }
         : go(sheet, s, s.step + 1);
     case "toggle-try-first":
       return { ...s, tryFirst: !s.tryFirst };

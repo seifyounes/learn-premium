@@ -50,9 +50,22 @@ describe("the first gates on the Fixture Course", () => {
   it("pass at every gate point, each reporting what it covered", async () => {
     const job = await run("job", { ...input, module: MODULE });
     expect(job.green, JSON.stringify(job.gates, null, 2)).toBe(true);
-    expect(job.gates.map((g) => g.id)).toEqual(["content-contract", "katex", "teaching-method", "provenance"]);
-    expect(gate(job, "content-contract")?.coverage).toEqual({ modules: 1, media: 1, beats: 1, worked: 1, practice: 3 });
-    expect(gate(job, "katex")?.coverage.files).toBe(7);
+    expect(job.gates.map((g) => g.id)).toEqual([
+      "content-contract",
+      "katex",
+      "teaching-method",
+      "provenance",
+      "master-rules",
+    ]);
+    expect(gate(job, "content-contract")?.coverage).toEqual({
+      modules: 1,
+      media: 1,
+      rules: 1,
+      beats: 1,
+      worked: 1,
+      practice: 3,
+    });
+    expect(gate(job, "katex")?.coverage.files).toBe(8);
     expect(gate(job, "katex")?.coverage.formulas).toBeGreaterThan(10);
 
     const module = await run("module", { ...input, module: MODULE });
@@ -75,12 +88,14 @@ describe("the first gates on the Fixture Course", () => {
       "katex",
       "teaching-method",
       "provenance",
+      "master-rules",
       "rendered-page-scan",
       "pad",
       "red-hue-rule",
     ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
-    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(2);
+    // Home, two Modules, Master Rules, Lab, About and the complete sitting's Revision.
+    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(7);
   });
 
   it("each ship a negative control that they catch, and pass their positive fixture", async () => {
@@ -177,7 +192,7 @@ describe("the content gates", () => {
 
   it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
-    expect(report.gates.map((g) => g.status)).toEqual(["failed", "failed", "failed", "failed"]);
+    expect(report.gates.map((g) => g.status)).toEqual(["failed", "failed", "failed", "failed", "failed"]);
   });
 });
 
