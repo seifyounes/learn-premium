@@ -8,6 +8,11 @@ describe("a bare / in a rule", () => {
     expect(bareSlashes("Q = dT/R")).toEqual(["Q = dT/R"]);
   });
 
+  it("is found only in the math of a name or use line, where a / in words reads as 'or'", () => {
+    expect(bareSlashes("when $q/A$ is known", true)).toEqual(["$q/A$"]);
+    expect(bareSlashes("Heating/cooling", true)).toEqual([]);
+  });
+
   it("isn't a stacked fraction, or a unit written in words", () => {
     expect(bareSlashes("$\\dot{Q} = \\frac{\\Delta T}{R}$")).toEqual([]);
     expect(bareSlashes("$R = 0.04\\ \\text{K/W}$")).toEqual([]);

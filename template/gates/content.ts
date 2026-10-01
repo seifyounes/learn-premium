@@ -3,7 +3,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { MODULE_ID, type course } from "../src/content/contract.ts";
+import { MODULE_ID, uncoveredModules, type course } from "../src/content/contract.ts";
 import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
 import { where, type MathError } from "../src/math/katex.ts";
@@ -63,7 +63,7 @@ export const contentContract: Gate = {
         });
       }
       if (parsed.success && file.collection === "course") {
-        findings.push(...unknownSittingModules(input.contentDir, parsed.data as z.infer<typeof course>));
+        findings.push(...sittingsWithoutModules(input.contentDir, parsed.data as z.infer<typeof course>));
       }
       if (parsed.success && file.collection === "media" && folder !== undefined) {
         for (const missing of missingMediaFiles(input.contentDir, folder, parsed.data as Media)) {
@@ -125,18 +125,14 @@ export const contentContract: Gate = {
 };
 
 /** An Exam sitting covering a Module the Course has no folder for. */
-function unknownSittingModules(contentDir: string, c: z.infer<typeof course>): Finding[] {
+function sittingsWithoutModules(contentDir: string, c: z.infer<typeof course>): Finding[] {
   const folder = join(contentDir, "modules");
   const modules = new Set(existsSync(folder) ? readdirSync(folder) : []);
-  return c.sittings.flatMap((sitting, i) =>
-    sitting.modules
-      .filter((m) => !modules.has(m))
-      .map((m) => ({
-        outcome: "block" as const,
-        at: "course.yaml",
-        message: `sittings.${i} ("${sitting.id}") covers ${m}, which the Course has no Module for`,
-      })),
-  );
+  return uncoveredModules(c.sittings, modules).map(({ index, message }) => ({
+    outcome: "block",
+    at: "course.yaml",
+    message: `sittings.${index}: ${message}`,
+  }));
 }
 
 export const katexGate: Gate = {

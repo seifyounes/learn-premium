@@ -39,13 +39,17 @@ const modules = await Promise.all(
 ---
 
 <Sheet title={`Revision: ${sitting.name}`} nav="revision">
-  <TitleBlock class="grid-cols-2 pad:grid-cols-[2.6fr_1fr_1fr]">
+  <TitleBlock
+    class:list={["grid-cols-2", sitting.date ? "pad:grid-cols-[2.6fr_1fr_1fr]" : "pad:grid-cols-[2.6fr_1fr]"]}
+  >
     <Cell label="Revision" class="col-span-2 pad:col-span-1">
       <h1 class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]">{sitting.name}</h1>
     </Cell>
-    <Cell label="Date">
-      <span class="font-quantity text-quantity text-graphite tabular-nums">{sitting.date ?? "Not set"}</span>
-    </Cell>
+    {sitting.date && (
+      <Cell label="Date">
+        <span class="font-quantity text-quantity text-graphite tabular-nums">{sitting.date}</span>
+      </Cell>
+    )}
     <Cell label="Modules">
       <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{modules.length}</span>
     </Cell>
@@ -58,7 +62,7 @@ const modules = await Promise.all(
       {others.map((s, i) => (
         <>
           {i > 0 && " · "}
-          <a class="text-print underline" href={revisionHref(s)}>
+          <a class="text-graphite underline" href={revisionHref(s)}>
             {s.name}
           </a>
         </>

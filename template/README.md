@@ -147,16 +147,16 @@ Every finding either blocks or raises a Checkpoint item; there is no warning lev
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
 A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
-| Gate                 | Points         | Checks                                                                                                                                    |
-| -------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists          |
-| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                           |
-| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words         |
-| `provenance`         | job, deploy    | every number an entry shows carries a Provenance tag (Master Rules included)                                                              |
-| `master-rules`       | job, deploy    | every rule's formula is set with stacked fractions (a bare `/` outside a `	ext{…}` unit blocks); no emoji in a rule                        |
-| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included                                                                     |
-| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                             |
-| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked) |
+| Gate                 | Points         | Checks                                                                                                                                             |
+| -------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists                   |
+| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                                    |
+| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words                  |
+| `provenance`         | job, deploy    | every number an entry shows carries a Provenance tag (Master Rules included)                                                                       |
+| `master-rules`       | job, deploy    | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name` and `use`, inside their math); no emoji in a rule |
+| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included                                                                              |
+| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                      |
+| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)          |
 
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).

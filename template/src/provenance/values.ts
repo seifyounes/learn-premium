@@ -139,7 +139,7 @@ export interface ValueFound extends NumberFound {
 export type ValueCollection = "worked" | "practice" | "beats" | "rules";
 
 type Raw = Record<string, unknown>;
-const asObject = (value: unknown): Raw => (value && typeof value === "object" ? (value as Raw) : {});
+export const asObject = (value: unknown): Raw => (value && typeof value === "object" ? (value as Raw) : {});
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 /**

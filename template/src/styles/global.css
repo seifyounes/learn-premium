@@ -1256,7 +1256,7 @@
     font-weight: 600;
     line-height: 1.1;
     font-variation-settings: "wdth" 80;
-    color: var(--color-print);
+    color: var(--color-pencil);
   }
   .contents-counts {
     grid-column: 2;
@@ -1435,11 +1435,16 @@
     font-variant-numeric: tabular-nums;
     color: var(--color-pencil);
   }
+  /* Each field of a sitting line is a pencil-ruled box with its printed label inside. */
   .sitting-covers,
   .sitting-readiness {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    justify-self: start;
+    padding: 6px 12px 8px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
   }
   .readiness {
     display: flex;

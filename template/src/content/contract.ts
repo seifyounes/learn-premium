@@ -55,6 +55,16 @@ export const course = z
     });
   });
 
+export type Sitting = z.infer<typeof course>["sittings"][number];
+
+/** What a sitting covers that the Course has no Module for: each one with what to say about it. */
+export const uncoveredModules = (sittings: readonly Sitting[], modules: ReadonlySet<string>) =>
+  sittings.flatMap((sitting, index) =>
+    sitting.modules
+      .filter((m) => !modules.has(m))
+      .map((m) => ({ index, message: `sitting "${sitting.id}" covers ${m}, which the Course has no Module for` })),
+  );
+
 export const module = z.strictObject({
   title: z.string().min(1),
   summary: z.string().min(1),

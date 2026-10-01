@@ -4,7 +4,7 @@
 import { MotionConfig, useReducedMotion } from "motion/react";
 import { useEffect, useId, useState, type ReactNode, type SubmitEvent } from "react";
 import { checkNumeric, type NumericResult } from "../practice/check.ts";
-import { markPlace, recordPractice } from "../progress/progress.ts";
+import { markPlace, recordPractice, type PracticeResult } from "../progress/progress.ts";
 import { updateProgress } from "../progress/store.ts";
 import { DoneTick, PenVerdict } from "./worked/pen.tsx";
 
@@ -35,6 +35,10 @@ export default function PracticeItem(props: Props) {
     </MotionConfig>
   );
 }
+
+/** Keeps the item's result, and marks it where the student stopped. */
+const recordResult = (module: string, item: string, result: PracticeResult) =>
+  updateProgress((p) => markPlace(recordPractice(p, module, item, result), { module, kind: "practice", item }));
 
 function ModelAnswer({
   modelHtml,
@@ -81,13 +85,7 @@ function Numeric({
     setChecks((n) => n + 1);
     if (verdict === "unreadable") return;
     setTried(true);
-    updateProgress((p) =>
-      markPlace(recordPractice(p, module, item, { kind: "numeric", correct: verdict === "right" }), {
-        module,
-        kind: "practice",
-        item,
-      }),
-    );
+    recordResult(module, item, { kind: "numeric", correct: verdict === "right" });
   };
   const unit = unitHtml && <span className="answer-unit" dangerouslySetInnerHTML={{ __html: unitHtml }} />;
   return (
@@ -155,14 +153,7 @@ function Prose({
   const [written, setWritten] = useState("");
   const [shown, setShown] = useState(false);
   const [earned, setEarned] = useState<ReadonlySet<number>>(new Set());
-  const record = (marks: number) =>
-    updateProgress((p) =>
-      markPlace(recordPractice(p, module, item, { kind: "prose", marks, of: earnsHtml.length }), {
-        module,
-        kind: "practice",
-        item,
-      }),
-    );
+  const record = (marks: number) => recordResult(module, item, { kind: "prose", marks, of: earnsHtml.length });
   const toggle = (i: number) => {
     const next = new Set(earned);
     if (!next.delete(i)) next.add(i);

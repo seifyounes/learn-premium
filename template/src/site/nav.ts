@@ -1,11 +1,8 @@
-// The fixed nav: Modules · Master Rules · Lab · Exam room · Revision · About. Exam room and
-// Revision are there only once a sitting is complete (no stub): until then they don't exist.
-import type { z } from "astro/zod";
-import type { course } from "../content/contract.ts";
+// The fixed nav: Modules · Master Rules · Lab · Revision · About. Revision is there only once a
+// sitting is complete (no stub): until then it doesn't exist. The Exam room joins with #74.
+import type { Sitting } from "../content/contract.ts";
 
-type Sitting = z.infer<typeof course>["sittings"][number];
-
-export type NavKey = "modules" | "rules" | "lab" | "exam" | "revision" | "about";
+export type NavKey = "modules" | "rules" | "lab" | "revision" | "about";
 
 export interface NavItem {
   key: NavKey;
