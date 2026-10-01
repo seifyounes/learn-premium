@@ -113,13 +113,17 @@ const notebookShape = obj({
   sources: arr(obj({ material: nonEmpty, hash: sha256, title: nonEmpty, addedAt: isoTime })),
 });
 
-export const mediaFileSchema = obj({
+const mediaFileShape = obj({
   schema: version,
   course: nonEmpty,
   /** Null until the Course notebook is made. */
   notebook: nullable(notebookShape),
   items: arr(item),
 });
+
+/** A media file written before the Course notebook was recorded reads as having none. */
+export const mediaFileSchema: Schema<Infer<typeof mediaFileShape>> = (v, p) =>
+  mediaFileShape(typeof v === "object" && v !== null && !("notebook" in v) ? { ...v, notebook: null } : v, p);
 
 export const chromeSchema = obj({ schema: version, profile: nonEmpty });
 
@@ -159,7 +163,7 @@ export type MediaFile = Infer<typeof mediaFileSchema>;
 export type MediaItem = MediaFile["items"][number];
 export type MediaKind = MediaItem["kind"];
 export type ItemState = MediaItem["state"];
-export type Notebook = Infer<typeof notebookShape>;
+export type CourseNotebook = Infer<typeof notebookShape>;
 export type Registry = Infer<typeof registrySchema>;
 export type Usage = Infer<typeof usageSchema>;
 export type Limit = (typeof LIMITS)[number];

@@ -31,7 +31,7 @@ function noLedger(project: string): LedgerError {
   return new LedgerError("refused", `no Build ledger in ${project}: run intake first`);
 }
 
-function requireLedger(project: string): Ledger {
+export function requireLedger(project: string): Ledger {
   const ledger = readLedger(project);
   if (ledger === null) throw noLedger(project);
   return ledger;

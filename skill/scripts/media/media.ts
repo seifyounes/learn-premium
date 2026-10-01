@@ -30,7 +30,7 @@ import {
   updateUsage,
 } from "./store.ts";
 
-function iso(ms: number): string {
+export function iso(ms: number): string {
   return new Date(ms).toISOString();
 }
 
@@ -222,7 +222,7 @@ function findItem(file: MediaFile, id: string): MediaItem {
   return item;
 }
 
-function requireMediaFile(project: string): MediaFile {
+export function requireMediaFile(project: string): MediaFile {
   const file = readMediaFile(project);
   if (file === null) throw noMediaFile(project);
   return file;
