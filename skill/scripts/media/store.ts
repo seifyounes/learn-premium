@@ -4,6 +4,8 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { LedgerError, readChecked, withMutex, writeChecked } from "../ledger/file.ts";
 import {
+  CHROME_FILE,
+  chromeSchema,
   MEDIA_FILE,
   mediaFileSchema,
   REGISTRY_FILE,
@@ -42,7 +44,8 @@ export function updateMediaFile<T>(
 ): T {
   return withMutex(mediaPath(project), () => {
     const file =
-      readMediaFile(project) ?? (course === undefined ? null : { schema: SCHEMA_VERSION, course, items: [] });
+      readMediaFile(project) ??
+      (course === undefined ? null : { schema: SCHEMA_VERSION, course, notebook: null, items: [] });
     if (file === null) throw noMediaFile(project);
     const result = change(file);
     writeChecked(mediaPath(project), mediaFileSchema, "media", file);
@@ -103,4 +106,22 @@ function updateStateFile<D, T>(
     after(result);
     return result;
   });
+}
+
+/** The dedicated Chrome profile's name, as Claude in Chrome lists the browser; null until the Owner sets it. */
+export function readChromeProfile(stateDir: string): string | null {
+  return readChecked(join(stateDir, CHROME_FILE), chromeSchema, "chrome")?.profile ?? null;
+}
+
+export function writeChromeProfile(stateDir: string, profile: string): void {
+  updateStateFile(
+    stateDir,
+    CHROME_FILE,
+    chromeSchema,
+    (dir) => readChecked(join(dir, CHROME_FILE), chromeSchema, "chrome") ?? { schema: SCHEMA_VERSION, profile },
+    (data) => {
+      data.profile = profile;
+    },
+    () => {},
+  );
 }

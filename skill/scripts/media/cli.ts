@@ -6,6 +6,8 @@ import { Args } from "../ledger/args.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { isoTime, oneOf, SchemaError } from "../ledger/schema.ts";
 import { advance, fail, limit, place, register, setQuota, start, survey } from "./media.ts";
+import { addSource, ingest, notebook, recipe } from "./notebook.ts";
+import { readChromeProfile, writeChromeProfile } from "./store.ts";
 import { DEFAULT_STATE_DIR, LIMITS, MEDIA_KINDS, units, type Usage } from "./model.ts";
 
 export interface RunResult {
@@ -82,6 +84,19 @@ function dispatch(args: Args): Output {
     }
     case "quota":
       return setQuota(stateDir, quotaFlags(args));
+    case "notebook":
+      return notebook(stateDir, args.required("--project"), args.optional("--url") ?? null);
+    case "source":
+      return addSource(stateDir, args.required("--project"), args.required("--material"), args.required("--title"));
+    case "recipe":
+      return { ...recipe(args.required("--project"), args.required("--item")) };
+    case "ingest":
+      return { ...ingest(stateDir, args.required("--project"), args.required("--private")) };
+    case "chrome": {
+      const profile = args.optional("--profile");
+      if (profile !== undefined) writeChromeProfile(stateDir, profile);
+      return { profile: readChromeProfile(stateDir) };
+    }
     default:
       throw new LedgerError("invalid", `unknown command: ${command}`);
   }

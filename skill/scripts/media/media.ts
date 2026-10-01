@@ -157,7 +157,11 @@ export function survey(stateDir: string, persist: boolean): Report {
             (f) => writeMediaPage(project, f, usage, at),
             course,
           )
-        : withWanted(readMediaFile(project) ?? { schema: SCHEMA_VERSION, course, items: [] }, want, iso(at));
+        : withWanted(
+            readMediaFile(project) ?? { schema: SCHEMA_VERSION, course, notebook: null, items: [] },
+            want,
+            iso(at),
+          );
       want.forEach((w, order) => {
         const item = file.items.find((i) => i.id === w.id);
         if (item === undefined || item.state === "placed" || item.state === "dropped") return;
@@ -235,9 +239,10 @@ export type StartResult = { started: true; attempt: number } | { started: false;
 
 /**
  * queued → generating: logs the generation in the usage log, then moves the item. Refused while a limit
- * stops new generations. Safe to repeat after a crash between the two writes: the spend is counted once.
+ * stops new generations, unless it was `made` already (by hand, from a Notebook recipe): that one is
+ * only counted. Safe to repeat after a crash between the two writes: the spend is counted once.
  */
-export function start(stateDir: string, project: string, id: string): StartResult {
+export function start(stateDir: string, project: string, id: string, made = false): StartResult {
   const path = resolve(project);
   const at = Date.now();
   return updateUsage(
@@ -249,7 +254,7 @@ export function start(stateDir: string, project: string, id: string): StartResul
       if (item.state === "generating" && spent !== undefined) return { started: true, attempt };
       if (item.state !== "queued") throw new LedgerError("refused", `${id} is ${item.state}, not queued`);
       if (spent === undefined) {
-        const stopped = stopFor(usage, item.kind, at);
+        const stopped = made ? null : stopFor(usage, item.kind, at);
         if (stopped !== null) return { started: false, stopped };
         usage.spends.push({ at: iso(at), project: path, item: id, kind: item.kind, attempt, voided: null });
       }

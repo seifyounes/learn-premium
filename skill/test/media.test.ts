@@ -3,12 +3,12 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { FakeNotebookLM, must, placedPath, runMediaPass } from "./fake-notebooklm.ts";
-import { jsonInput, ledger, media, tempDir, writeFiles } from "./helpers.ts";
+import { fixtureCourse, makeLive, registered, sitting } from "./fixture-courses.ts";
+import { ledger, media, tempDir, writeFiles } from "./helpers.ts";
 
 const NOW = Date.parse("2026-10-01T08:00:00.000Z");
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -491,10 +491,6 @@ function iso(ms: number): string {
   return new Date(ms).toISOString();
 }
 
-function sitting(id: string, date: string | null) {
-  return { id, name: id, date };
-}
-
 function measured(limits: { "5-hour": number; weekly: number }): string[] {
   return [
     "--limit-5-hour",
@@ -515,61 +511,6 @@ function oneCourse(options: { live?: string[] } = {}) {
   registered(state, project);
   must(media("gather", "--state", state));
   return { state, project };
-}
-
-function registered(state: string, ...projects: string[]): void {
-  for (const project of projects) must(media("register", "--state", state, "--project", project));
-}
-
-/**
- * A synthetic Course project built through the ledger commands: Modules `live` merged, `planned` only
- * mapped, and `liveSittings` with a merged Sitting wave. session-a keeps the ledger lock throughout.
- */
-function fixtureCourse(
-  name: string,
-  options: {
-    sittings?: { id: string; name: string; date: string | null }[];
-    live?: string[];
-    planned?: string[];
-    liveSittings?: string[];
-  },
-): string {
-  const { sittings = [], live = [], planned = [], liveSittings = [] } = options;
-  const project = tempDir("project");
-  const materials = tempDir("materials");
-  const modules = [...live, ...planned];
-  writeFiles(materials, Object.fromEntries(modules.map((id) => [`L${id}.pdf`, `${name} ${id}`])));
-  const intake = {
-    courseName: name,
-    materialsPath: materials,
-    disciplines: ["maths"],
-    pad: "graph-green",
-    arabicNotes: false,
-    sittings,
-  };
-  must(
-    ledger("init", "--project", project, "--holder", "session-a", "--release", "v2.0.0", "--intake", jsonInput(intake)),
-  );
-  const moduleMap = {
-    modules: modules.map((id) => ({ id, slug: `m${id}`, title: `Module ${id}`, materials: [`L${id}.pdf`] })),
-    unmapped: [],
-  };
-  must(ledger("map", "--project", project, "--holder", "session-a", "--input", jsonInput(moduleMap)));
-  for (const id of live) makeLive(project, id);
-  for (const id of liveSittings) mergeWave(project, "sitting", id);
-  return project;
-}
-
-function makeLive(project: string, module: string): void {
-  mergeWave(project, "module", module);
-}
-
-function mergeWave(project: string, kind: "module" | "sitting", target: string): void {
-  const holder = ["--project", project, "--holder", "session-a"];
-  const { wave } = must(
-    ledger("wave", "start", ...holder, "--kind", kind, "--target", target, "--branch", `b-${target}`),
-  );
-  must(ledger("wave", "end", ...holder, "--wave", wave, "--result", "merged", "--commit", COMMIT));
 }
 
 function placeFile(project: string, item: string): void {

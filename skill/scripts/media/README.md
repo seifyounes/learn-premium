@@ -10,6 +10,13 @@ The Media pass's state lives in three files, and nothing edits them by hand:
   Media pass gathers from. A Course joins it at intake.
 - **The quota/usage log**, `media-usage.json` in the machine state folder: the Owner's measured
   NotebookLM numbers, every generation started, and every limit NotebookLM reported.
+- **The Chrome profile**, `chrome.json` in the machine state folder: the name of the dedicated Chrome
+  profile (as Claude in Chrome lists the browser) the Media pass drives NotebookLM in.
+
+The media file also records the **Course notebook**: its address, and each Material uploaded to it at
+the hash its Module was built from, so a pass extends the notebook and re-uploads only what changed.
+Downloaded media wait in the Course project's **media inbox**, `media-inbox/`, which ignores itself in
+git; `ingest` keeps each one's master in the Private folder and never in the Course project.
 
 ```bash
 node "$HOME/.claude/skills/learn-premium/scripts/media.ts" <command> [--state <machine state folder>] [flags]
@@ -46,6 +53,28 @@ A Module gets a `video`, an `audio` and an `infographic` once it is `live`; an E
 | `fail --project P --item I --reason R [--final]` | A failed generation, download, fact check or re-encode, from any of `generating`, `downloaded`, `checked`. The first failure queues it to be made again (`regenerations` 1); the second drops it. `--final` drops it at once, for a failure a regeneration can't fix (a file still over 100 MB after the harder re-encode). Returns `{state, regenerations}`. |
 | `limit --kind 5-hour\|weekly [--until ISO] [--project P --item I]` | NotebookLM said a limit is reached: no generation starts until `--until` (default: 5 hours, or 7 days, from now). With the item it refused, that item goes back to `queued` first and its generation is then voided, so it is never counted (after a crash in between, its next `start` reuses the spend, and NotebookLM's next refusal voids it). |
 | `quota [--limit-5-hour N] [--limit-weekly N] [--cost-video N] [--cost-audio N] [--cost-infographic N] [--cost-sitting-audio N]` | Records the Owner's measured numbers from NotebookLM's Settings → Usage, in the unit it shows. Flags left out keep their value; a cost over a limit is refused, since that item could never start. Returns `{limits, costs}`. |
+| `notebook --project P [--url U]` | The Course notebook as recorded (`{notebook}`, null until made), or, with `--url`, records its address (`https://notebook.google.com/notebook/<id>`). A different address starts a new notebook with no sources. |
+| `source --project P --material M --title T` | Records Material `M` (its path in the Materials folder) as uploaded to the Course notebook, under the title NotebookLM shows. Refused (3) before `notebook --url`, and when the file changed since its Module was built (rebuild the Module first). |
+| `recipe --project P --item I` | The Notebook recipe for one Module's item (below). Makes the media inbox. A sitting audio is refused (3): the ledger doesn't say yet which Modules a sitting covers. |
+| `ingest --project P --private DIR` | Takes each file in the media inbox named `<item id><extension>` (`module-01-video.mp4`): keeps it as `DIR/media/masters/<item>-<attempt><ext>`, then moves the item to `downloaded`. A `queued` item (made by hand ahead of the pass) is counted as started first, whatever the limits say. Returns `{ingested, cleared, ignored}`: files it can't take stay in the inbox with the reason; an inbox copy of a master already taken is cleared. `DIR` must sit outside the Course project. |
+| `chrome [--profile NAME]` | The dedicated Chrome profile's name, or records it. Returns `{profile}` (null until set). |
+
+## The Notebook recipe (`recipe`)
+
+What to do in NotebookLM for one item, as data for the Chrome driver and as `steps` the Owner follows
+by hand when Chrome fails:
+
+- `notebook`: `{title, url}`: the Course notebook, named after the Course; `url` is null until it is
+  made.
+- `sources`: the Module's current Materials, each `{material, path, title, bytes, action, replaces,
+  viaDrive}`. `action` is `add`, `select` (already in the notebook at this hash) or `replace`
+  (delete the older upload titled `replaces`, then add). `viaDrive` is set over 10 MB, Claude in
+  Chrome's upload limit: upload to Google Drive, then add from Drive. Only these are ticked.
+- `skipped`: Materials NotebookLM can't take (video), with the reason.
+- `output`: `{studio, settings, style, language, prompt}`: an Explainer Video Overview in the Custom
+  visual style, a Deep Dive Audio Overview at the default length, or a landscape Infographic at the
+  standard detail; `style` describes the Course pad (null for audio); always English.
+- `save`: `{folder, name, extensions}`: the media inbox and the file name to save the download as.
 
 ## The report (`gather` and `status`)
 
@@ -68,8 +97,11 @@ A Module gets a `video`, an `audio` and an `infographic` once it is `live`; an E
 
 ## Running a Media pass
 
-Repeat: `gather`, then move `next` one step (`start` and generate it; `downloaded`; fact check, then
-`checked` or `fail`; re-encode and place, then `placed`), until `next` is null. If NotebookLM refuses a
+Repeat: `gather`, then move `next` one step (`start`; generate it from its `recipe`, save the download
+in the media inbox and `ingest`; fact check, then `checked` or `fail`; re-encode and place, then
+`placed`), until `next` is null. Generating is the same whether Claude in Chrome drives NotebookLM
+(`../../notebooklm.md`) or the Owner follows the recipe's `steps` by hand: either way the file lands
+in the inbox and `ingest` moves the item on. If NotebookLM refuses a
 generation, run `limit` with that item. When `next` is null and `stopped` is set, the pass is done for
 now: tell the Owner when it lifts, and the next pass resumes from the files. Nothing is left half-done:
 items under way need no quota, so `next` offers them until they are placed, dropped or queued again,
