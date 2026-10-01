@@ -136,7 +136,7 @@ export interface ValueFound extends NumberFound {
 }
 
 /** The kinds of entry that show values. */
-export type ValueCollection = "worked" | "practice" | "beats" | "rules";
+export type ValueCollection = "worked" | "practice" | "beats" | "rules" | "sims";
 
 type Raw = Record<string, unknown>;
 export const asObject = (value: unknown): Raw => (value && typeof value === "object" ? (value as Raw) : {});
@@ -220,6 +220,28 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
       prose(entry.title, "title");
       figure(entry.figure, "figure");
       if (body !== undefined) for (const n of numbersInMarkdown(body)) found.push({ ...n, at: "body" });
+      break;
+    }
+    case "sims": {
+      // A sim's constants: the model, the values it opens on and the ranges students tune.
+      prose(entry.title, "title");
+      prose(entry.caption, "caption");
+      const numbers = (value: unknown, at: string): void => {
+        if (Array.isArray(value)) value.forEach((v) => numbers(v, at));
+        else if (value && typeof value === "object")
+          for (const [key, v] of Object.entries(value)) numbers(v, `${at}.${key}`);
+        else quantity(value, at);
+      };
+      const model = asObject(entry.model);
+      for (const [key, v] of Object.entries(model)) numbers(v, `model.${key}`);
+      for (const [key, v] of Object.entries(asObject(entry.start))) quantity(v, `start.${key}`);
+      for (const [key, range] of Object.entries(asObject(entry.tune))) {
+        const r = asObject(range);
+        for (const end of ["min", "max", "step"]) quantity(r[end], `tune.${key}`);
+      }
+      const stepped = asObject(entry.stepThrough);
+      figure(stepped.figure, "stepThrough.figure");
+      asArray(stepped.steps).forEach((step, i) => prose(asObject(step).caption, `stepThrough.steps.${i}.caption`));
       break;
     }
   }

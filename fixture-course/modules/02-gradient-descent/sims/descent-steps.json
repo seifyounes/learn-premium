@@ -1,0 +1,60 @@
+{
+  "kind": "gradient-descent",
+  "title": "The descent path, step by step",
+  "caption": "Where the first two steps of W02.1 take $\\theta$ on the plane of $\\theta_0$ and $\\theta_1$.",
+  "recompute": "none",
+  "model": {
+    "data": [
+      [0, 1],
+      [1, 3],
+      [2, 4]
+    ]
+  },
+  "stepThrough": {
+    "figure": {
+      "kind": "plot",
+      "caption": "Descent on the plane of $\\theta_0$ and $\\theta_1$",
+      "x": { "label": "$\\theta_0$", "min": -0.5, "max": 1.5, "step": 0.5 },
+      "y": { "label": "$\\theta_1$", "min": -0.5, "max": 2, "step": 0.5 },
+      "elements": [
+        { "id": "theta-0", "kind": "point", "at": [0, 0], "label": "$\\theta^{(0)}$", "side": "below" },
+        { "id": "theta-1", "kind": "point", "at": [0.2667, 0.3667], "label": "$\\theta^{(1)}$", "side": "end" },
+        { "id": "theta-2", "kind": "point", "at": [0.47, 0.6456], "label": "$\\theta^{(2)}$", "side": "end" },
+        {
+          "id": "step-1",
+          "kind": "line",
+          "through": [
+            [0, 0],
+            [0.2667, 0.3667]
+          ]
+        },
+        {
+          "id": "step-2",
+          "kind": "line",
+          "through": [
+            [0.2667, 0.3667],
+            [0.47, 0.6456]
+          ]
+        },
+        { "id": "minimum", "kind": "point", "at": [1.1667, 1.5], "label": "minimum", "side": "start" }
+      ],
+      "question": ["theta-0", "minimum"]
+    },
+    "steps": [
+      { "caption": "Descent starts at $\\theta^{(0)} = (0, 0)$, far from the minimum" },
+      { "caption": "One step against the gradient: $\\theta^{(1)} = (0.2667, 0.3667)$", "add": ["step-1", "theta-1"], "ring": ["theta-1"] },
+      { "caption": "A second, shorter step: $\\theta^{(2)} = (0.4700, 0.6456)$", "add": ["step-2", "theta-2"], "ring": ["theta-2"] }
+    ]
+  },
+  "provenance": {
+    "stated": [
+      "the points $(0, 1)$, $(1, 3)$, $(2, 4)$",
+      "$\\theta^{(0)} = (0, 0)$",
+      "$\\alpha = 0.1$",
+      "two steps: $2$",
+      "$\\theta^{(1)} = (0.2667, 0.3667)$",
+      "$\\theta^{(2)} = (0.4700, 0.6456)$"
+    ],
+    "derived": ["the minimum, $(1.1667, 1.5)$"]
+  }
+}

@@ -5,6 +5,7 @@ import { contentContract, katexGate } from "./content.ts";
 import { masterRules } from "./master-rules.ts";
 import { renderedPageScan } from "./pages.ts";
 import { provenanceGate } from "./provenance.ts";
+import { simNumbers, toolsGate } from "./sims.ts";
 import type { Gate } from "./runner.ts";
 import { teachingMethod } from "./teaching.ts";
 
@@ -14,6 +15,8 @@ export const GATES: readonly Gate[] = [
   teachingMethod,
   provenanceGate,
   masterRules,
+  simNumbers,
+  toolsGate,
   renderedPageScan,
   padGate,
   redHueRule,

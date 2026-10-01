@@ -1,0 +1,81 @@
+---
+import { getEntry } from "astro:content";
+import { prose, type SimRef } from "../content/course";
+import GradientDescentSim from "../islands/GradientDescentSim";
+import StepThrough from "../islands/StepThrough";
+import { provenanceNotes } from "../provenance/notes";
+import { isLive } from "../sims/kinds";
+import { printedDecimals } from "../sims/precision";
+import { toStepThrough } from "../sims/step-through";
+import { parseCell } from "../worked/cells";
+
+/**
+ * An Agent-built sim where it is used: a Worked example, the Lab or the Tool gallery. A sim an
+ * independent recompute checked ships live; one it couldn't check ships as its step-through. Its
+ * illustrative constants (assumed, scaled) are labelled above it, derived values below.
+ */
+interface Props {
+  sim: SimRef;
+  heading: "h3" | "h4";
+}
+
+const { sim: ref, heading: Heading } = Astro.props;
+const s = ref.entry.data;
+const live = isLive(s) ? s : undefined;
+const { inputsHtml, outputsHtml } = provenanceNotes(s.provenance, prose);
+const text = (html: string) => html.replace(/<[^>]*>/g, "");
+
+// The sim prints its numbers the way the sheet it opens on does.
+const example = s.worked === undefined ? undefined : await getEntry("worked", `${ref.module}/worked/${s.worked}`);
+const sheetCells = Object.keys(s.sheet).map((cell) => {
+  const { row, col } = parseCell(cell);
+  return example?.data.artefact.rows[row]?.[col] ?? "";
+});
+const decimals = printedDecimals(sheetCells) ?? 4;
+const math = (tex: string) => prose(`$${tex}$`);
+// The content contract gives every sim it can't recompute a step-through.
+const stepThrough = s.stepThrough && toStepThrough(s.stepThrough, prose);
+---
+
+<article class="sim-card" id={`sim-${ref.module}-${ref.name}`} data-sim-kind={s.kind} data-recompute={s.recompute}>
+  <div class="sim-head">
+    <span class="field-label">{live ? "Sim" : "Step-through"}</span>
+    <Heading
+      class="font-print text-sheet-title font-semibold text-graphite [font-variation-settings:'wdth'_87]"
+      set:html={prose(s.title)}
+    />
+    <p class="max-w-[68ch] text-body-small text-muted" set:html={prose(s.caption)} />
+  </div>
+  {inputsHtml && <div class="mbe-3" set:html={inputsHtml} />}
+  {live ? (
+    <GradientDescentSim
+      client:visible
+      model={live.model}
+      start={live.start}
+      tune={live.tune}
+      decimals={decimals}
+      label={text(prose(s.title))}
+      mathHtml={{
+        k: math("k"),
+        theta0: math("\\theta_0"),
+        theta1: math("\\theta_1"),
+        J: math("J(\\theta)"),
+        alpha: math("\\alpha"),
+        start: math("\\theta^{(0)}"),
+        x: math("x"),
+        y: math("y"),
+      }}
+    />
+  ) : (
+    stepThrough && (
+      <>
+        <StepThrough client:visible data={stepThrough} label={text(prose(s.title))} />
+        <p class="mbs-2 max-w-[68ch] text-body-small text-muted">
+          A step-through, not a live sim: no independent recompute could check a model of this figure, so it steps
+          through the Materials' own values.
+        </p>
+      </>
+    )
+  )}
+  {outputsHtml && <div class="mbs-3" set:html={outputsHtml} />}
+</article>

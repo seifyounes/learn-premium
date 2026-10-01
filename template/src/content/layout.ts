@@ -55,6 +55,12 @@ export const COLLECTIONS = {
     generateId: moduleEntryId,
     schema: contract.practice,
   },
+  sims: {
+    pattern: "modules/*/sims/*.{json,yaml,yml}",
+    format: "structured",
+    generateId: moduleEntryId,
+    schema: contract.sim,
+  },
 } as const satisfies Record<string, CollectionLayout & { schema: unknown }>;
 
 /** The Module a content file belongs to (its folder name), or undefined for Course-level files. */

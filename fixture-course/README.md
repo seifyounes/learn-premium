@@ -23,6 +23,15 @@ Layout (content contract v0):
 - `modules/<NN>-<slug>/summary/<n>.md`: one Summary beat each, plain Markdown of at most 90 words,
   with an optional `figure` (a plot) in its frontmatter. A Module has at most five beats.
 - `modules/<NN>-<slug>/worked/<n>.json`: one Worked example each (JSON or YAML).
+- `modules/<NN>-<slug>/sims/<name>.json`: one Agent-built sim each (JSON or YAML): its `kind`, the
+  `model` students never change, the Worked example's values it opens on (`start`), the ranges
+  students tune (`tune`), and `recompute`. A live sim (`independent`) names the Worked example it
+  sits in (`worked`) and maps that sheet's cells to the engine's quantities (`sheet`). A sim no
+  recompute can check (`none`) gives a `stepThrough` instead: a plotted `figure` and `steps`
+  that `add` and `ring` its elements.
+- `build-records/recompute/<NN>-<slug>/<name>.json`: a live sim's recompute log, the inputs it
+  took from the Materials and every number it worked out. Here it is written by
+  `tools/recompute_gradient_descent.py`, in exact fractions, apart from the template's engine.
 - `modules/<NN>-<slug>/practice/<n>.yaml`: one Practice item each (JSON or YAML). A `numeric`
   item has an `answer` (`value`, `unit`, `tolerance`) the site checks; a `prose` item lists what
   `earns` the mark, one point per mark, for the student to mark themselves against.
@@ -52,6 +61,11 @@ A Worked example is solved the Professor's way, step by step:
 The teaching-method gate holds them to it: the artefact is declared and shipped, the fill order
 is declared and every worked-out value is written exactly once, the first step shows the figure
 as the question sets it, and nothing is ringed before it is on the sheet.
+
+Module 2 (gradient descent) carries the Fixture Course's sims, on a synthetic line fit whose numbers
+are worked out here. `sims/descent.json` is the live sim inline in W02.1, checked three ways against
+its recompute log and the sheet. `sims/descent-steps.json` is marked `recompute: none` only to
+exercise the step-through a sim falls back to; it sits in the Lab and the Tool gallery.
 
 Every string is prose: math is written between `$…$` (inline) or `$$…$$` (display), `\ce{…}`
 renders chemistry, and a literal dollar sign is written `\$`. In JSON every backslash is doubled;

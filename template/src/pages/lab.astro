@@ -1,13 +1,19 @@
 ---
-// The Lab: every interactive tool in the Course, by Module, for free play. Tools arrive with the sim
-// contract (#49), which lists each one here beside the Module that uses it.
+// The Lab: every interactive tool in the Course, by Module, for free play: each Agent-built sim
+// beside the Module that uses it (a live sim, or the step-through a sim falls back to).
 import Cell from "../components/Cell.astro";
 import HonestyCell from "../components/HonestyCell.astro";
+import ModuleHeading from "../components/ModuleHeading.astro";
+import Sim from "../components/Sim.astro";
 import TitleBlock from "../components/TitleBlock.astro";
-import { getCourse, prose } from "../content/course";
+import { getCourse, getModules, getSims, prose } from "../content/course";
 import Sheet from "../layouts/Sheet.astro";
 
 const course = await getCourse();
+const sims = await getSims();
+const groups = (await getModules())
+  .map((module) => ({ module, tools: sims.filter((s) => s.module === module.id) }))
+  .filter((g) => g.tools.length > 0);
 ---
 
 <Sheet title="Lab" nav="lab">
@@ -19,11 +25,28 @@ const course = await getCourse();
       />
     </Cell>
     <Cell label="Tools">
-      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">0</span>
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{sims.length}</span>
     </Cell>
     <HonestyCell />
   </TitleBlock>
 
-  <h2 class="group-heading mbs-8 mbe-4">Tools</h2>
-  <p class="text-muted">No interactive tools are built for this Course yet.</p>
+  {
+    groups.length === 0 ? (
+      <>
+        <h2 class="group-heading mbs-8 mbe-4">Tools</h2>
+        <p class="text-muted">No interactive tools are built for this Course yet.</p>
+      </>
+    ) : (
+      groups.map(({ module, tools }) => (
+        <section class="hub-module" aria-label={`Module ${module.number}`}>
+          <ModuleHeading module={module} />
+          <div class="space-y-12">
+            {tools.map((sim) => (
+              <Sim sim={sim} heading="h3" />
+            ))}
+          </div>
+        </section>
+      ))
+    )
+  }
 </Sheet>

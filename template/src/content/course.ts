@@ -72,6 +72,25 @@ export async function moduleEntries<C extends ModuleCollection>(collection: C, m
   return entries.filter((e) => e.id.startsWith(`${moduleId}/`)).sort((a, b) => order(a) - order(b));
 }
 
+export interface SimRef {
+  /** The Module it belongs to (its folder name). */
+  module: string;
+  /** Its file name in the Module's `sims/` folder, without the extension. */
+  name: string;
+  entry: CollectionEntry<"sims">;
+}
+
+/** Every Agent-built sim in the Course, Module by Module, by file name within each. */
+export async function getSims(): Promise<SimRef[]> {
+  const sims = await getCollection("sims");
+  return sims
+    .map((entry) => {
+      const [module = "", , name = ""] = entry.id.split("/");
+      return { module, name, entry };
+    })
+    .sort((a, b) => a.module.localeCompare(b.module) || a.name.localeCompare(b.name));
+}
+
 /**
  * Prose field → HTML with paper math. The loader already rendered every string once and failed
  * the build on bad LaTeX with its file and line, so a location is never needed here.
@@ -90,7 +109,8 @@ export interface ModuleMedia {
  * names but its `media/` folder doesn't hold fails the build, naming both.
  */
 export async function getMedia(moduleId: string): Promise<ModuleMedia> {
-  const entry = await getEntry("media", moduleId);
+  // A Module may have no media.yaml; looked up in the collection so its absence isn't logged as a miss.
+  const entry = (await getCollection("media")).find((e) => e.id === moduleId);
   if (!entry) return { youtube: [] };
   const m = entry.data;
   const contentDir = buildContentDir();

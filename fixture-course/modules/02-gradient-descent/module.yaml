@@ -1,0 +1,2 @@
+title: Gradient descent
+summary: Fitting a line by stepping downhill on its cost, and the learning rate that makes the steps overshoot.

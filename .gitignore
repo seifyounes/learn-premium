@@ -13,5 +13,6 @@ research/scratch/
 __pycache__/
 .venv/
 .pytest_cache/
-# The Fixture Course's Gate reports; a Course project commits its own.
-fixture-course/build-records/
+# The Fixture Course's Gate reports; a Course project commits its own. Its recompute logs are
+# committed: the sim-numbers gate reads them.
+fixture-course/build-records/gate-reports/

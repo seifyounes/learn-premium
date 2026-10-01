@@ -1561,6 +1561,163 @@
   }
 }
 
+/* Agent-built sims: drawn on the sheet in the pad's inks, beside printed controls. */
+@layer components {
+  .sim-card {
+    margin-block-start: 24px;
+    padding-block-start: 16px;
+    border-block-start: 1px solid var(--color-pencil);
+  }
+  .sim-head {
+    display: grid;
+    gap: 4px;
+    margin-block-end: 12px;
+  }
+  .sim {
+    container: sim / inline-size;
+  }
+  .sim-grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "contours" "controls" "table" "fit";
+  }
+  @container sim (width >= 760px) {
+    .sim-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas:
+        "contours fit"
+        "controls table";
+      gap: 20px 32px;
+    }
+    /* Shorter boards side by side, so the boards and the table share one laptop screen. */
+    .sim-stage {
+      aspect-ratio: 3 / 2;
+    }
+  }
+  .sim-contours {
+    grid-area: contours;
+  }
+  .sim-fit {
+    grid-area: fit;
+  }
+  .sim-controls {
+    grid-area: controls;
+    display: grid;
+    align-content: start;
+    gap: 14px;
+  }
+  .sim-table {
+    grid-area: table;
+    min-inline-size: 0;
+  }
+  .sim-figure {
+    min-inline-size: 0;
+  }
+  /* The board: the sheet's grid shows through it. A swipe that starts on it scrolls the page;
+     only the start handle takes a drag (JSXGraph sets touch-action on the board itself). */
+  .sim-stage-wrap {
+    position: relative;
+    padding-block-start: 22px;
+  }
+  .sim-stage {
+    position: relative;
+    overflow: hidden;
+    inline-size: 100%;
+    aspect-ratio: 4 / 3;
+    touch-action: pan-y !important;
+    user-select: none;
+  }
+  .sim-stage .sim-handle {
+    touch-action: none;
+    cursor: grab;
+  }
+  .sim-tick {
+    font-family: var(--font-quantity);
+    font-size: 12px !important;
+    font-variant-numeric: tabular-nums;
+  }
+  .sim-board-label {
+    padding: 1px 3px;
+    background: var(--color-sheet);
+    font-size: 15px !important;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .sim-axis-name {
+    position: absolute;
+    font-size: 15px;
+    line-height: 1.1;
+    color: var(--color-graphite);
+  }
+  .sim-axis-name[data-axis="y"] {
+    inset-block-start: 0;
+    inset-inline-start: 4px;
+  }
+  .sim-axis-name[data-axis="x"] {
+    inset-block-end: 4px;
+    inset-inline-end: 4px;
+    padding: 1px 3px;
+    background: var(--color-sheet);
+  }
+  .sim-caption {
+    display: flex;
+    gap: 8px;
+    padding-block-start: 8px;
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+    color: var(--color-muted);
+  }
+  .sim-slider {
+    display: grid;
+    gap: 2px;
+  }
+  .sim-slider-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--color-graphite);
+  }
+  .sim-slider input[type="range"] {
+    inline-size: 100%;
+    min-block-size: 32px;
+    accent-color: var(--color-print);
+  }
+  .sim button:disabled,
+  .sim input:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .sim .button-print:disabled:hover {
+    background: var(--color-sheet);
+  }
+  .sim-warning {
+    max-inline-size: 68ch;
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+    color: var(--color-red-pen);
+  }
+  .sim-table-box {
+    max-block-size: 320px;
+  }
+  .sim-column {
+    display: block;
+    color: var(--color-graphite);
+  }
+  .sim-readout {
+    margin-block-start: 8px;
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+    color: var(--color-muted);
+  }
+  .step-through-grid {
+    display: grid;
+    gap: 12px;
+    max-inline-size: 480px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

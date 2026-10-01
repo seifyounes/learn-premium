@@ -40,6 +40,29 @@ describe("the provenance gate", () => {
   });
 });
 
+describe("the provenance gate on Agent-built sims", () => {
+  const ML = "02-gradient-descent";
+  const sim = (name: string) => `modules/${ML}/sims/${name}`;
+
+  it("passes the Fixture Course's sims, every constant tagged, the illustrative ones as assumed", async () => {
+    const run = await provenanceGate.run({ contentDir: FIXTURE_COURSE, module: ML });
+    expect(run.findings).toEqual([]);
+    expect(run.coverage.entries).toBe(3);
+  });
+
+  it("blocks an untagged sim constant: a slider's range, the model's data, a step-through's figure", async () => {
+    let course = fixtureWith(sim("descent.json"), (s) => s.replace('"max": 30, "step": 1', '"max": 40, "step": 1'));
+    course = fixtureWith(sim("descent.json"), (s) => s.replace("[2, 4]", "[2, 4.5]"), course);
+    course = fixtureWith(sim("descent-steps.json"), (s) => s.replace("[1.1667, 1.5]", "[1.1667, 1.6]"), course);
+    const run = await provenanceGate.run({ contentDir: course, module: ML });
+    expect(run.findings.map((f) => `${f.at}: ${f.message.split(" carries")[0]}`)).toEqual([
+      `${sim("descent-steps.json")}: 1.6 (in stepThrough.figure.elements.5.at)`,
+      `${sim("descent.json")}: 4.5 (in model.data)`,
+      `${sim("descent.json")}: 40 (in tune.iterations)`,
+    ]);
+  });
+});
+
 describe("the content contract on Module media", () => {
   it("blocks a YouTube card below a 9/10 match", async () => {
     const course = fixtureWith(at("media.yaml"), (s) =>
