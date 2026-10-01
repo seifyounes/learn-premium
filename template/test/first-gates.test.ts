@@ -56,6 +56,8 @@ describe("the first gates on the Fixture Course", () => {
       "teaching-method",
       "provenance",
       "master-rules",
+      "sim-numbers",
+      "tools",
     ]);
     expect(gate(job, "content-contract")?.coverage).toEqual({
       modules: 1,
@@ -65,6 +67,8 @@ describe("the first gates on the Fixture Course", () => {
       worked: 1,
       practice: 3,
     });
+    // Module 1 has no sim: the sim gates looked in it, found nothing to check, and pass.
+    expect(gate(job, "sim-numbers")?.coverage).toMatchObject({ modules: 1, sims: 0 });
     expect(gate(job, "katex")?.coverage.files).toBe(8);
     expect(gate(job, "katex")?.coverage.formulas).toBeGreaterThan(10);
 
@@ -89,13 +93,15 @@ describe("the first gates on the Fixture Course", () => {
       "teaching-method",
       "provenance",
       "master-rules",
+      "sim-numbers",
+      "tools",
       "rendered-page-scan",
       "pad",
       "red-hue-rule",
     ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
-    // Home, two Modules, Master Rules, Lab, About and the complete sitting's Revision.
-    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(7);
+    // Home, three Modules, Master Rules, Lab, About, the complete sitting's Revision and the Tool gallery.
+    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(9);
   });
 
   it("each ship a negative control that they catch, and pass their positive fixture", async () => {
@@ -192,7 +198,7 @@ describe("the content gates", () => {
 
   it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
-    expect(report.gates.map((g) => g.status)).toEqual(["failed", "failed", "failed", "failed", "failed"]);
+    expect(report.gates.map((g) => g.status)).toEqual(Array(7).fill("failed"));
   });
 });
 

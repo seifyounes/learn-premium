@@ -94,7 +94,10 @@ async function main(argv: string[]): Promise<number> {
         console.log(`${gate.id}: positive fixture ${gate.positive}`);
         if (gate.controls.length === 0) console.log("  no negative control");
         for (const c of gate.controls) {
-          console.log(`  ${c.caught ? "caught" : "MISSED"}  ${c.defect} (${c.status}${c.error ? `: ${c.error}` : ""})`);
+          const wanted = c.expected === "block" ? "" : `, wanted ${c.expected}`;
+          console.log(
+            `  ${c.caught ? "caught" : "MISSED"}  ${c.defect} (${c.status}${wanted}${c.error ? `: ${c.error}` : ""})`,
+          );
         }
       }
       console.log(result.ok ? "negative controls: all caught" : "negative controls: FAILED");

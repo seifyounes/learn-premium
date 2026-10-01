@@ -1,0 +1,43 @@
+{
+  "recompute": "learn-premium recompute log v1",
+  "by": "fixture-course/tools/recompute_gradient_descent.py: exact fractions, apart from the engine",
+  "inputs": {
+    "model": {
+      "data": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          4
+        ]
+      ]
+    },
+    "start": {
+      "theta0": 0,
+      "theta1": 0,
+      "alpha": 0.1,
+      "iterations": 2
+    }
+  },
+  "values": {
+    "theta0[0]": 0.0,
+    "theta1[0]": 0.0,
+    "J[0]": 4.333333333333333,
+    "theta0[1]": 0.26666666666666666,
+    "theta1[1]": 0.36666666666666664,
+    "J[1]": 2.5231481481481484,
+    "theta0[2]": 0.47,
+    "theta1[2]": 0.6455555555555555,
+    "J[2]": 1.4741090534979424,
+    "minimum.theta0": 1.1666666666666667,
+    "minimum.theta1": 1.5,
+    "minimum.J": 0.027777777777777776,
+    "alpha.limit": 0.8377223398316206
+  }
+}

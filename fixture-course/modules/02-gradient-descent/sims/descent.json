@@ -1,0 +1,40 @@
+{
+  "kind": "gradient-descent",
+  "title": "Gradient descent on the three points",
+  "caption": "Drag the start $\\theta^{(0)}$ on the contours of $J$, change $\\alpha$ or the number of steps. The table fills step by step; past the largest $\\alpha$ that converges, the steps overshoot and $J$ grows.",
+  "recompute": "independent",
+  "worked": "1",
+  "sheet": {
+    "B1": "theta0[0]",
+    "C1": "theta1[0]",
+    "D1": "J[0]",
+    "B2": "theta0[1]",
+    "C2": "theta1[1]",
+    "D2": "J[1]",
+    "B3": "theta0[2]",
+    "C3": "theta1[2]",
+    "D3": "J[2]"
+  },
+  "model": {
+    "data": [
+      [0, 1],
+      [1, 3],
+      [2, 4]
+    ]
+  },
+  "start": { "theta0": 0, "theta1": 0, "alpha": 0.1, "iterations": 2 },
+  "tune": {
+    "theta0": { "min": -1, "max": 3, "step": 0.1 },
+    "theta1": { "min": -1, "max": 3, "step": 0.1 },
+    "alpha": { "min": 0.01, "max": 1, "step": 0.01 },
+    "iterations": { "min": 0, "max": 30, "step": 1 }
+  },
+  "provenance": {
+    "stated": ["the points $(0, 1)$, $(1, 3)$, $(2, 4)$", "$\\theta^{(0)} = (0, 0)$", "$\\alpha = 0.1$", "two steps: $2$"],
+    "assumed": [
+      "$\\theta_0$ and $\\theta_1$ tuned from $-1$ to $3$ in steps of $0.1$",
+      "$\\alpha$ tuned from $0.01$ to $1$ in steps of $0.01$",
+      "up to $30$ steps"
+    ]
+  }
+}

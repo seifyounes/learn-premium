@@ -178,7 +178,11 @@ describe("negative controls", () => {
     const result = await runControls({ input, gates: [stubGate("a", clean)] });
     expect(result.ok).toBe(true);
     expect(result.gates).toEqual([
-      { id: "a", positive: "pass", controls: [{ defect: "a planted defect", status: "block", caught: true }] },
+      {
+        id: "a",
+        positive: "pass",
+        controls: [{ defect: "a planted defect", expected: "block", status: "block", caught: true }],
+      },
     ]);
   });
 
@@ -190,6 +194,30 @@ describe("negative controls", () => {
     const result = await runControls({ input, gates: [blind] });
     expect(result.ok).toBe(false);
     expect(result.gates[0]?.controls[0]).toMatchObject({ caught: false, status: "pass" });
+  });
+
+  it("catch a defect only the Owner can settle when the gate raises it as a Checkpoint item", async () => {
+    const asking = (outcome: "block" | "checkpoint") =>
+      stubGate("asks", clean, {
+        run: async (given) =>
+          given.contentDir === "/planted"
+            ? { coverage: { items: 1 }, findings: [{ outcome, message: "the sheet differs" }] }
+            : clean,
+        controls: [
+          {
+            defect: "a sheet value the engine and the recompute agree against",
+            expect: "checkpoint",
+            plant: (good) => ({ ...good, contentDir: "/planted" }),
+          },
+        ],
+      });
+    const raised = await runControls({ input, gates: [asking("checkpoint")] });
+    expect(raised.ok).toBe(true);
+    expect(raised.gates[0]?.controls[0]).toMatchObject({ caught: true, status: "checkpoint", expected: "checkpoint" });
+    // Blocking what only the Owner may rule is as wrong as letting it through.
+    const blocked = await runControls({ input, gates: [asking("block")] });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.gates[0]?.controls[0]).toMatchObject({ caught: false, status: "block", expected: "checkpoint" });
   });
 
   it("fail when a gate has no negative control", async () => {

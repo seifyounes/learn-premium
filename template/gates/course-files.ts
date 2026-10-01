@@ -45,14 +45,21 @@ export function courseFiles({ contentDir, module }: GateInput): CourseFile[] {
  * gate input's Module, or to the first Module when the input names none.
  */
 export function courseWith(good: GateInput, scratch: string, files: Record<string, string>): GateInput {
-  const contentDir = join(scratch, "course");
-  cpSync(good.contentDir, contentDir, { recursive: true });
+  const copy = courseCopy(good, scratch);
+  const { contentDir } = copy;
   const module = good.module ?? firstModule(contentDir);
   for (const [entry, text] of Object.entries(files)) {
     const path = join(contentDir, "modules", module, entry);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, text);
   }
+  return copy;
+}
+
+/** A scratch copy of the Course's content, to plant a defect in. */
+export function courseCopy(good: GateInput, scratch: string): GateInput {
+  const contentDir = join(scratch, "course");
+  cpSync(good.contentDir, contentDir, { recursive: true });
   return { ...good, contentDir };
 }
 

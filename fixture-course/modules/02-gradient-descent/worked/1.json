@@ -1,0 +1,92 @@
+{
+  "code": "W02.1",
+  "title": "Two steps of gradient descent",
+  "statement": "Fit the line $h(x) = \\theta_0 + \\theta_1 x$ to the three points by gradient descent on $J(\\theta) = \\frac{1}{2m} \\sum_i \\left( h(x_i) - y_i \\right)^2$. Start from $\\theta^{(0)} = (0, 0)$ with learning rate $\\alpha = 0.1$ and take two steps, updating $\\theta_0$ and $\\theta_1$ together.",
+  "given": [
+    "Points $(0, 1)$, $(1, 3)$, $(2, 4)$, so $m = 3$",
+    "$\\theta^{(0)} = (0, 0)$",
+    "$\\alpha = 0.1$"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "Each step: $\\theta := \\theta - \\alpha \\nabla J(\\theta)$",
+    "columns": [
+      { "label": "$k$", "given": true },
+      { "label": "$\\theta_0$" },
+      { "label": "$\\theta_1$" },
+      { "label": "$J(\\theta)$" }
+    ],
+    "rows": [
+      ["0", "0", "0", "4.3333"],
+      ["1", "0.2667", "0.3667", "2.5231"],
+      ["2", "0.4700", "0.6456", "1.4741"]
+    ]
+  },
+  "fillOrder": "rows",
+  "figure": {
+    "kind": "plot",
+    "caption": "The three points, and the line after two steps",
+    "x": { "label": "$x$", "min": 0, "max": 2.5, "step": 0.5 },
+    "y": { "label": "$y$", "min": 0, "max": 5, "step": 1 },
+    "elements": [
+      { "id": "p1", "kind": "point", "at": [0, 1], "side": "end" },
+      { "id": "p2", "kind": "point", "at": [1, 3], "side": "end" },
+      { "id": "p3", "kind": "point", "at": [2, 4], "side": "end" },
+      {
+        "id": "fit",
+        "kind": "line",
+        "through": [
+          [0, 0.47],
+          [2, 1.7611]
+        ],
+        "label": "$h(x)$ after two steps"
+      }
+    ],
+    "question": ["p1", "p2", "p3"]
+  },
+  "steps": [
+    {
+      "title": "Read the problem",
+      "note": "Each row of the table is one value of $\\theta$ and its cost. A step moves both parameters against the gradient, $\\frac{\\partial J}{\\partial \\theta_0} = \\frac{1}{m} \\sum_i (h - y)$ and $\\frac{\\partial J}{\\partial \\theta_1} = \\frac{1}{m} \\sum_i (h - y) x$."
+    },
+    {
+      "title": "Cost at the start",
+      "note": "At $\\theta^{(0)}$ the line is $h = 0$, so every error is $-y$: $J = \\frac{1}{2 \\times 3}\\left(1^2 + 3^2 + 4^2\\right) = \\frac{26}{6} = 4.3333$.",
+      "fill": ["B1", "C1", "D1"]
+    },
+    {
+      "title": "First step",
+      "note": "The gradient at the start is $\\left(-\\frac{8}{3}, -\\frac{11}{3}\\right)$, so $\\theta^{(1)} = (0, 0) - 0.1 \\times \\left(-\\frac{8}{3}, -\\frac{11}{3}\\right) = (0.2667, 0.3667)$.",
+      "fill": ["B2", "C2"],
+      "marks": ["B2", "C2"]
+    },
+    {
+      "title": "Cost after one step",
+      "note": "The same sum of squares at $\\theta^{(1)}$: $J = 2.5231$. Downhill, as it should be.",
+      "fill": ["D2"]
+    },
+    {
+      "title": "Second step",
+      "note": "At $\\theta^{(1)}$ the gradient is $(-2.0333, -2.7889)$, so $\\theta^{(2)} = (0.4700, 0.6456)$ and $J = 1.4741$.",
+      "fill": ["B3", "C3", "D3"],
+      "marks": ["B3", "C3"],
+      "figure": { "add": ["fit"], "caption": "The line after two steps, still below the points" }
+    }
+  ],
+  "answer": "$\\theta^{(2)} = (0.4700, 0.6456)$ with $J(\\theta^{(2)}) = 1.4741$: the cost falls at every step",
+  "provenance": {
+    "stated": [
+      "the points $(0, 1)$, $(1, 3)$, $(2, 4)$ and $m = 3$",
+      "$\\theta^{(0)} = (0, 0)$",
+      "$\\alpha = 0.1$",
+      "the cost's $\\frac{1}{2m}$",
+      "two steps: rows $1$ and $2$",
+      "$J^{(0)} = \\frac{26}{6} = 4.3333$",
+      "the gradient at the start, $\\left(-\\frac{8}{3}, -\\frac{11}{3}\\right)$",
+      "$\\theta^{(1)} = (0.2667, 0.3667)$, $J = 2.5231$",
+      "the gradient at $\\theta^{(1)}$, $(-2.0333, -2.7889)$",
+      "$\\theta^{(2)} = (0.4700, 0.6456)$, $J = 1.4741$",
+      "the line's $h(2) = 1.7611$"
+    ]
+  }
+}

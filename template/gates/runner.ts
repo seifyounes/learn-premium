@@ -44,9 +44,15 @@ export interface GateRun {
   fixes?: string[];
 }
 
-/** Deliberately broken input the gate must block: proof it can see what it claims to check. */
+/**
+ * Deliberately broken input the gate must catch: proof it can see what it claims to check. Most
+ * defects must block; one only the Owner can settle (a sheet value the engine and the recompute
+ * agree against) must raise a Checkpoint item, and blocking it is a miss too.
+ */
 export interface NegativeControl {
   defect: string;
+  /** The outcome that catches it: `block` unless said otherwise. */
+  expect?: Outcome;
   /** Builds the broken input from the good one, writing any files under `scratch`. */
   plant(good: GateInput, scratch: string): GateInput;
 }
@@ -179,14 +185,15 @@ export function verifyReport(report: unknown, expected: ExpectedReport): { green
 
 export interface ControlResult {
   defect: string;
+  expected: Outcome;
   status: GateStatus;
-  /** The gate blocked the planted defect. Anything else, a crash included, is a miss. */
+  /** The gate reached the expected outcome on the planted defect. Anything else, a crash included, is a miss. */
   caught: boolean;
   error?: string;
 }
 
 export interface ControlsResult {
-  /** Every gate passed its positive fixture, has a negative control, and blocked every one. */
+  /** Every gate passed its positive fixture, has a negative control, and caught every one. */
   ok: boolean;
   gates: { id: string; positive: GateStatus; controls: ControlResult[] }[];
 }
@@ -213,17 +220,19 @@ export async function runControls({
 
 async function runControl(gate: Gate, control: NegativeControl, good: GateInput): Promise<ControlResult> {
   const scratch = mkdtempSync(join(tmpdir(), `lp-control-${gate.id}-`));
+  const expected = control.expect ?? "block";
   try {
     const broken = control.plant(good, scratch);
     const result = await runGate(gate, broken);
     return {
       defect: control.defect,
+      expected,
       status: result.status,
-      caught: result.status === "block",
+      caught: result.status === expected,
       ...(result.error === undefined ? {} : { error: result.error }),
     };
   } catch (error) {
-    return { defect: control.defect, status: "failed", caught: false, error: messageOf(error) };
+    return { defect: control.defect, expected, status: "failed", caught: false, error: messageOf(error) };
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

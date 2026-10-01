@@ -270,6 +270,122 @@ export const rules = z.strictObject({
   ...tagged,
 });
 
+/** A range a student tunes one input over. */
+const tuneRange = z
+  .strictObject({ min: z.number(), max: z.number(), step: z.number().positive() })
+  .refine((r) => r.max > r.min, "max must be greater than min");
+
+/**
+ * What an Agent-built sim falls back to when its model can't be recomputed independently: its
+ * figure as the Materials draw it, stepped through with motion. Nothing on it is computed.
+ */
+const stepThrough = z.strictObject({
+  figure: plotFigure,
+  steps: z
+    .array(
+      z.strictObject({
+        caption: z.string().min(1),
+        /** Elements first drawn at this step. */
+        add: z.array(elementId).default([]),
+        /** Elements the red pen rings at this step. */
+        ring: z.array(elementId).default([]),
+      }),
+    )
+    .min(2),
+});
+
+/** What every Agent-built sim declares, whatever its kind. */
+const simCommon = {
+  title: z.string().min(1),
+  caption: z.string().min(1),
+  /**
+   * `independent`: an independent recompute checks the engine at build, and the sim ships live.
+   * `none`: its model can't be recomputed, so the page shows `stepThrough` instead.
+   */
+  recompute: z.enum(["independent", "none"]),
+  /** The Worked example it sits in, by its file number in the Module's `worked/` folder. */
+  worked: z.string().regex(/^\d+$/, "a Worked example's file number, e.g. 1").optional(),
+  /** The cells of that example's table the engine must reproduce, each with the quantity it prints. */
+  sheet: z.record(cellRef, z.string().min(1)).default({}),
+  stepThrough: stepThrough.optional(),
+  ...tagged,
+};
+
+/**
+ * Gradient descent fitting a line to the Professor's data by the half mean squared error
+ * (`src/sims/gradient-descent/engine.ts`). The model is fixed; students tune where descent starts,
+ * the learning rate and the number of steps.
+ */
+const gradientDescentSim = z.strictObject({
+  kind: z.literal("gradient-descent"),
+  ...simCommon,
+  model: z.strictObject({ data: z.array(coordinate).min(2) }),
+  /** The example's values: a live sim opens on them. A step-through has none. */
+  start: z
+    .strictObject({
+      theta0: z.number(),
+      theta1: z.number(),
+      alpha: z.number().positive(),
+      iterations: z.number().int().nonnegative(),
+    })
+    .optional(),
+  /** The only inputs students change, each by slider. Anything else in the model is the Professor's. */
+  tune: z.strictObject({ theta0: tuneRange, theta1: tuneRange, alpha: tuneRange, iterations: tuneRange }).optional(),
+});
+
+/**
+ * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
+ * the same way in Node at build and in the page. Students tune it, never rewire it.
+ */
+export const sim = z.discriminatedUnion("kind", [gradientDescentSim]).superRefine((s, ctx) => {
+  if (s.recompute === "independent") {
+    for (const key of ["start", "tune"] as const) {
+      if (s[key] === undefined)
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: `a live sim opens on the example's values (start) and says what students tune over (tune)`,
+        });
+    }
+  }
+  for (const [input, range] of Object.entries(s.tune ?? {})) {
+    const value = (s.start as Record<string, number> | undefined)?.[input];
+    if (value !== undefined && (value < range.min || value > range.max)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["start", input],
+        message: `${value} is outside the range students tune it over (${range.min} to ${range.max})`,
+      });
+    }
+  }
+  if (Object.keys(s.sheet).length > 0 && s.worked === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["sheet"],
+      message: "the sim checks sheet cells but names no Worked example (worked)",
+    });
+  }
+  if (s.recompute === "none" && s.stepThrough === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["stepThrough"],
+      message: "a sim that can't be recomputed ships as a step-through: give its figure and steps",
+    });
+  }
+  const figure = s.stepThrough?.figure;
+  const ids = new Set(figure?.elements.map((e) => e.id));
+  const unknown = (path: (string | number)[]) => (id: string, i: number) => {
+    if (!ids.has(id))
+      ctx.addIssue({ code: "custom", path: [...path, i], message: `the figure has no element "${id}"` });
+  };
+  figure?.question.forEach(unknown(["stepThrough", "figure", "question"]));
+  s.stepThrough?.steps.forEach((step, i) => {
+    step.add.forEach(unknown(["stepThrough", "steps", i, "add"]));
+    step.ring.forEach(unknown(["stepThrough", "steps", i, "ring"]));
+  });
+});
+export const SIM_KINDS = ["gradient-descent"] as const satisfies readonly z.infer<typeof sim>["kind"][];
+
 /** A Summary beat's frontmatter; its body is plain Markdown of at most 90 words. */
 export const beat = z.strictObject({
   title: z.string().min(1),

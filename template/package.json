@@ -26,6 +26,7 @@
     "astro": "7.3.5",
     "culori": "4.0.2",
     "hast-util-from-html": "2.0.3",
+    "jsxgraph": "1.13.3",
     "katex": "0.18.9",
     "motion": "13.4.6",
     "react": "19.3.0",
@@ -37,6 +38,7 @@
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/culori": "4.0.1",
     "@types/hast": "3.0.5",
     "@types/node": "24.10.1",
