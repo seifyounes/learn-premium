@@ -1,0 +1,86 @@
+---
+// Revision for one complete Exam sitting: its Modules' Summaries and rules, assembled from what the
+// Modules ship and never written separately. Exam weight orders it once #74 gives sittings one;
+// until then it follows Module order.
+import Cell from "../../components/Cell.astro";
+import HonestyCell from "../../components/HonestyCell.astro";
+import ModuleHeading from "../../components/ModuleHeading.astro";
+import RuleList from "../../components/RuleList.astro";
+import SummaryBeat from "../../components/SummaryBeat.astro";
+import TitleBlock from "../../components/TitleBlock.astro";
+import { getModules, getRules, getSittings, moduleEntries, prose, type Sitting } from "../../content/course";
+import Sheet from "../../layouts/Sheet.astro";
+import { revisionHref } from "../../site/nav";
+
+export async function getStaticPaths() {
+  const complete = (await getSittings()).filter((s) => s.complete);
+  return complete.map((sitting) => ({
+    params: { sitting: sitting.id },
+    props: { sitting, others: complete.filter((s) => s !== sitting) },
+  }));
+}
+
+interface Props {
+  sitting: Sitting;
+  /** The other complete sittings, each with its own Revision. */
+  others: Sitting[];
+}
+
+const { sitting, others } = Astro.props;
+const modules = await Promise.all(
+  (await getModules())
+    .filter((m) => sitting.modules.includes(m.id))
+    .map(async (module) => ({
+      module,
+      beats: await moduleEntries("beats", module.id),
+      rules: await getRules(module.id),
+    })),
+);
+---
+
+<Sheet title={`Revision: ${sitting.name}`} nav="revision">
+  <TitleBlock class="grid-cols-2 pad:grid-cols-[2.6fr_1fr_1fr]">
+    <Cell label="Revision" class="col-span-2 pad:col-span-1">
+      <h1 class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]">{sitting.name}</h1>
+    </Cell>
+    <Cell label="Date">
+      <span class="font-quantity text-quantity text-graphite tabular-nums">{sitting.date ?? "Not set"}</span>
+    </Cell>
+    <Cell label="Modules">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{modules.length}</span>
+    </Cell>
+    <HonestyCell />
+  </TitleBlock>
+
+  {others.length > 0 && (
+    <p class="mbs-4 text-body-small text-muted">
+      Revision for another sitting:
+      {others.map((s, i) => (
+        <>
+          {i > 0 && " · "}
+          <a class="text-print underline" href={revisionHref(s)}>
+            {s.name}
+          </a>
+        </>
+      ))}
+    </p>
+  )}
+
+  {modules.map(({ module, beats, rules }) => (
+    <section class="hub-module" aria-label={`Module ${module.number}`}>
+      <ModuleHeading module={module} />
+      {beats.length === 0 && !rules && (
+        <p class="text-body-small text-muted" set:html={prose(module.entry.data.summary)} />
+      )}
+      {beats.map((beat, i) => (
+        <SummaryBeat beat={beat} figureId={`${module.id}-beat-${i + 1}-figure`} />
+      ))}
+      {rules && (
+        <div class="rules-box">
+          <span class="field-label">Rules</span>
+          <RuleList rules={rules} />
+        </div>
+      )}
+    </section>
+  ))}
+</Sheet>

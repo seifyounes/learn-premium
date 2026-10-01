@@ -1,9 +1,9 @@
 // The content gates, per job: the content contract (Zod) and KaTeX with throwOnError. Both read a
 // Course's files the way the build does, but collect every finding instead of stopping at the first.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { MODULE_ID } from "../src/content/contract.ts";
+import { MODULE_ID, type course } from "../src/content/contract.ts";
 import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
 import { where, type MathError } from "../src/math/katex.ts";
@@ -11,6 +11,7 @@ import { paperMathProcessor } from "../src/math/markdown.ts";
 import { missingMediaFiles, notInMediaFolder, type Media } from "../src/media/media.ts";
 import { courseFiles, courseWith, slashes, type CourseFile } from "./course-files.ts";
 import type { Finding, Gate, GateRun } from "./runner.ts";
+import type { z } from "astro/zod";
 
 const ignoreMath = () => {};
 
@@ -61,6 +62,9 @@ export const contentContract: Gate = {
           message: `${issue.path.join(".") || "(file)"}: ${issue.message}`,
         });
       }
+      if (parsed.success && file.collection === "course") {
+        findings.push(...unknownSittingModules(input.contentDir, parsed.data as z.infer<typeof course>));
+      }
       if (parsed.success && file.collection === "media" && folder !== undefined) {
         for (const missing of missingMediaFiles(input.contentDir, folder, parsed.data as Media)) {
           findings.push({
@@ -102,12 +106,38 @@ export const contentContract: Gate = {
         }),
     },
     {
+      defect: "an Exam sitting covering a Module the Course has no folder for",
+      plant: (good, scratch) => {
+        const planted = courseWith(good, scratch, {});
+        const path = join(planted.contentDir, "course.yaml");
+        // The Course's own sittings run to the end of the file; the planted one replaces them.
+        const course = readFileSync(path, "utf8").replace(/^sittings:[\s\S]*/m, "");
+        writeFileSync(path, `${course}sittings:\n  - { id: planted, name: Planted, modules: [99-planted] }\n`);
+        return planted;
+      },
+    },
+    {
       defect: "a media.yaml naming a video its media/ folder doesn't hold",
       plant: (good, scratch) =>
         courseWith(good, scratch, { "media.yaml": "video: { file: planted.mp4, duration: '1:00' }\n" }),
     },
   ],
 };
+
+/** An Exam sitting covering a Module the Course has no folder for. */
+function unknownSittingModules(contentDir: string, c: z.infer<typeof course>): Finding[] {
+  const folder = join(contentDir, "modules");
+  const modules = new Set(existsSync(folder) ? readdirSync(folder) : []);
+  return c.sittings.flatMap((sitting, i) =>
+    sitting.modules
+      .filter((m) => !modules.has(m))
+      .map((m) => ({
+        outcome: "block" as const,
+        at: "course.yaml",
+        message: `sittings.${i} ("${sitting.id}") covers ${m}, which the Course has no Module for`,
+      })),
+  );
+}
 
 export const katexGate: Gate = {
   id: "katex",

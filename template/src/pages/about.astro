@@ -1,0 +1,62 @@
+---
+// About: what this Study site is and how it was built, for the Professor judging it as a project.
+import Cell from "../components/Cell.astro";
+import HonestyCell from "../components/HonestyCell.astro";
+import TitleBlock from "../components/TitleBlock.astro";
+import { getCourse, prose } from "../content/course";
+import Sheet from "../layouts/Sheet.astro";
+
+const course = await getCourse();
+const credit = {
+  course: prose(course.credit.course),
+  professor: prose(course.credit.professor),
+  university: prose(course.credit.university),
+  owner: prose(course.owner),
+};
+const fields = [
+  { label: "Course", html: credit.course },
+  { label: "Professor", html: credit.professor },
+  { label: "University", html: credit.university },
+  { label: "Built by", html: credit.owner },
+];
+---
+
+<Sheet title="About" nav="about">
+  <TitleBlock class="grid-cols-2 pad:grid-cols-4">
+    <Cell label="About" class="col-span-2 pad:col-span-4">
+      <h1
+        class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]"
+        set:html={prose(course.name)}
+      />
+    </Cell>
+    {fields.map(({ label, html }) => (
+      <Cell label={label}>
+        <span class="text-body-small text-pencil" set:html={html} />
+      </Cell>
+    ))}
+    <HonestyCell />
+  </TitleBlock>
+
+  <h2 class="group-heading mbs-8 mbe-4">How it was built</h2>
+  <div class="about-prose">
+    <p>
+      <Fragment set:html={credit.owner} /> built this Study site from the Materials of{" "}
+      <Fragment set:html={credit.course} />, taught by <Fragment set:html={credit.professor} /> at{" "}
+      <Fragment set:html={credit.university} />. It was made with learn-premium, which turns a Course's Materials into
+      one page per Module: Watch, Summary, Worked examples and Practice.
+    </p>
+    <p>
+      Every Worked example is solved the way the Professor solves it, on the same table or figure, filled in the same
+      order. Every number on the site carries its origin: stated in the Materials, derived here, measured off a drawing,
+      or assumed. The page says so wherever a value isn't the Materials' own.
+    </p>
+    <p>
+      Before anything ships, gates check it: every formula renders, every number carries its origin, and the built pages
+      are scanned for anything left broken.
+    </p>
+    <p>
+      Progress (each Module's Mastery and each Exam sitting's readiness) is kept in this browser only. There are no
+      accounts.
+    </p>
+  </div>
+</Sheet>

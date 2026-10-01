@@ -29,7 +29,8 @@ describe("the Fixture Course", () => {
   });
 
   it("ships no JavaScript on a static page, and React islands where a page places one", () => {
-    expect(build.page("").includes("<script"), "a script on the home page").toBe(false);
+    expect(build.page("rules").includes("<script"), "a script on Master Rules").toBe(false);
+    expect(build.page("").includes("<astro-island"), "an island on the home page").toBe(false);
     const island = /<astro-island[^>]*component-url="(\/_astro\/PracticeItem\.[^"]+\.js)"[^>]*client="visible"/.exec(
       build.page("01-thermal-resistance"),
     );

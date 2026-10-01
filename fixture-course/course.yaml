@@ -6,3 +6,15 @@ credit:
   professor: A. N. Example
   course: Fixture Course (FX 101)
   university: Example University
+owner: A. N. Owner
+# Exam sittings. Only the Owner says a sitting is complete; until then it has no Revision.
+sittings:
+  - id: midterm
+    name: Midterm
+    date: '2026-11-10'
+    modules: [01-thermal-resistance]
+    complete: true
+  - id: final
+    name: Final
+    date: '2027-01-20'
+    modules: [01-thermal-resistance, 02-convection]

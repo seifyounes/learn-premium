@@ -1089,11 +1089,479 @@
   }
 }
 
+/* The site shell (DESIGN.md; ticket #45): the fixed nav along the head of every sheet, the home
+   contents sheet with its margin column, and the Course hubs' ruled reference lines. */
+@layer components {
+  /* The fixed nav: printed tabs on a print baseline; the page the student is on is the tab drawn
+     open onto the sheet. */
+  .site-nav {
+    margin-block-end: 16px;
+    border-block-end: 1.5px solid var(--color-print);
+  }
+  .site-nav-list {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 2px;
+  }
+  .site-nav-link {
+    display: flex;
+    align-items: center;
+    min-block-size: 40px;
+    margin-block-end: -1.5px;
+    padding-inline: 10px;
+    border: 1.5px solid transparent;
+    border-block-end: 0;
+    font-family: var(--font-print);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variation-settings: "wdth" 80;
+    color: var(--color-print);
+    transition: background-color 150ms ease-out;
+  }
+  .site-nav-link:hover {
+    background: color-mix(in srgb, var(--color-print) 10%, transparent);
+  }
+  .site-nav-link[aria-current="page"] {
+    border-color: var(--color-print);
+    background: var(--color-sheet);
+    color: var(--color-graphite);
+  }
+  @media (width >= 760px) {
+    .site-nav-link {
+      padding-inline: 16px;
+      font-size: var(--text-label-action);
+    }
+  }
+
+  /* The contents sheet: each Module a ruled line, with a margin column at its inline start where
+     the red-pen resume note lives, ruled off by a print margin line. */
+  .contents-head-counts {
+    display: none;
+  }
+  .contents-list {
+    position: relative;
+  }
+  .contents-line {
+    display: grid;
+  }
+  .contents-margin {
+    padding-block: 10px 2px;
+  }
+  .contents-margin:not(:has(.resume-note:not([hidden]))) {
+    display: none;
+  }
+  .contents-link {
+    position: relative;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    column-gap: 16px;
+    align-items: start;
+    padding-block: 13px 14px;
+    color: var(--color-graphite);
+    transition: background-color 150ms ease-out;
+  }
+  .contents-link:hover {
+    background: color-mix(in srgb, var(--color-print) 8%, transparent);
+  }
+  .contents-link:hover .contents-title {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .contents-link:focus-visible {
+    outline-offset: -2px;
+  }
+  /* The line's rule draws along the writing direction as the sheet opens. */
+  .contents-link::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    border-block-end: 1px solid color-mix(in srgb, var(--color-pencil) 50%, transparent);
+    transform-origin: 0 50%;
+    animation: rule-draw 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--line, 0) * 30ms);
+  }
+  [dir="rtl"] .contents-link::after {
+    transform-origin: 100% 50%;
+  }
+  @keyframes rule-draw {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  .sheet-number {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 44px;
+    block-size: 44px;
+    border: 1.5px solid var(--color-print);
+    background: var(--color-sheet);
+    font-family: var(--font-print);
+    font-size: 22px;
+    font-weight: 700;
+    font-variation-settings: "wdth" 75;
+    color: var(--color-print);
+  }
+  /* High yield: the red pen rings the sheet number. */
+  .high-yield-ring {
+    position: absolute;
+    inset: -12px;
+    inline-size: 68px;
+    block-size: 68px;
+    overflow: visible;
+    fill: none;
+    stroke: var(--color-red-pen);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+  }
+  .high-yield-ring path {
+    stroke-dasharray: 1;
+    animation: pen-draw 420ms ease-out 360ms both;
+  }
+  .contents-text {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+  }
+  .contents-title {
+    font-size: var(--text-contents-title);
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .contents-summary {
+    margin-block-start: 3px;
+    max-inline-size: 70ch;
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+    color: var(--color-muted);
+  }
+  .sitting-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-block-start: 8px;
+  }
+  /* A sitting tag is printed onto the line: a ruled box, square like everything on the sheet. */
+  .sitting-tag {
+    padding: 2px 7px 3px;
+    border: 1px solid var(--color-print);
+    font-family: var(--font-print);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variation-settings: "wdth" 80;
+    color: var(--color-print);
+  }
+  .contents-counts {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin-block-start: 8px;
+  }
+  .contents-count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    font-family: var(--font-quantity);
+    font-size: var(--text-quantity);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-pencil);
+  }
+  .count-unit {
+    font-family: var(--font-prose);
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--color-muted);
+  }
+
+  /* The resume note: where the student stopped, in red pen, with a drawn arrow at the line. */
+  .resume-note {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 2px;
+    font-size: var(--text-body-small);
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--color-red-pen);
+  }
+  .resume-note[hidden] {
+    display: none;
+  }
+  .resume-text {
+    display: flex;
+    flex-direction: column;
+  }
+  .resume-place {
+    font-family: var(--font-quantity);
+    font-size: 14px;
+    line-height: 1.5;
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+  }
+  .resume-note:hover .resume-place {
+    text-decoration-thickness: 2.5px;
+  }
+  .resume-arrow {
+    flex: none;
+    overflow: visible;
+    fill: none;
+    stroke: var(--color-red-pen);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .resume-arrow path {
+    stroke-dasharray: 1;
+    animation: pen-draw 360ms ease-out both;
+  }
+  [dir="rtl"] .resume-arrow {
+    scale: -1 1;
+  }
+  .resume-arrow-side {
+    display: none;
+    inline-size: 46px;
+    block-size: 34px;
+    margin-block-start: 8px;
+  }
+  .resume-arrow-down {
+    inline-size: 34px;
+    block-size: 30px;
+    margin-block-start: 10px;
+  }
+
+  @media (width >= 760px) {
+    .contents-list,
+    .contents-head-counts {
+      --count-column: 72px;
+    }
+    .contents-head-counts {
+      display: grid;
+      grid-template-columns: repeat(4, var(--count-column));
+      column-gap: 16px;
+      justify-content: end;
+      justify-items: center;
+      padding-block: 10px 6px;
+    }
+    .contents-list::before {
+      content: "";
+      position: absolute;
+      inset-block: 0;
+      inset-inline-start: var(--spacing-margin-column);
+      border-inline-start: 1px solid var(--color-print);
+    }
+    .contents-line {
+      grid-template-columns: var(--spacing-margin-column) minmax(0, 1fr);
+    }
+    .contents-margin,
+    .contents-margin:not(:has(.resume-note:not([hidden]))) {
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+      padding-block: 12px 0;
+      padding-inline-end: 6px;
+    }
+    .resume-text {
+      text-align: end;
+    }
+    .resume-arrow-side {
+      display: block;
+    }
+    .resume-arrow-down {
+      display: none;
+    }
+    .contents-link {
+      grid-template-columns: 44px minmax(0, 1fr) repeat(4, var(--count-column));
+      padding-inline-start: 16px;
+    }
+    .contents-counts {
+      display: contents;
+    }
+    .contents-count {
+      justify-content: center;
+      align-self: center;
+      font-size: 17px;
+    }
+    .count-unit {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+  @media (width >= 760px) and (width < 1000px) {
+    .contents-list,
+    .contents-head-counts {
+      --count-column: 60px;
+      --spacing-margin-column: 184px;
+    }
+  }
+
+  /* Exam sittings: one ruled line each, its readiness a row of boxes hatched in pencil. */
+  .sitting-line {
+    display: grid;
+    gap: 10px 24px;
+    align-items: center;
+    padding-block: 12px 14px;
+    border-block-end: 1px solid color-mix(in srgb, var(--color-pencil) 50%, transparent);
+  }
+  .sitting-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+  }
+  .sitting-name {
+    font-family: var(--font-print);
+    font-size: var(--text-title);
+    font-weight: 700;
+    line-height: 1.2;
+    font-variation-settings: "wdth" 80;
+    color: var(--color-graphite);
+  }
+  .sitting-date {
+    font-family: var(--font-quantity);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-pencil);
+  }
+  .sitting-covers,
+  .sitting-readiness {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .readiness {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-pencil);
+  }
+  .readiness-meter {
+    display: flex;
+    gap: 3px;
+  }
+  .readiness-box {
+    inline-size: 14px;
+    block-size: 14px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .readiness-box[data-filled] {
+    background: repeating-linear-gradient(-45deg, var(--color-graphite) 0 1.5px, transparent 1.5px 4px);
+  }
+  .sitting-revision {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+  }
+  @media (width >= 760px) {
+    .sitting-line {
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.4fr) 132px;
+    }
+  }
+
+  /* The Course hubs: a Module as a group heading, then its ruled reference lines. */
+  .hub-module {
+    margin-block-start: 36px;
+  }
+  .hub-module-heading {
+    margin-block-end: 8px;
+  }
+  .hub-module-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .hub-module-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+  .hub-module-number {
+    display: grid;
+    place-items: center;
+    flex: none;
+    inline-size: 36px;
+    block-size: 36px;
+    border: 1.5px solid var(--color-print);
+    font-size: 20px;
+  }
+  .rule {
+    display: grid;
+    gap: 6px 28px;
+    padding-block: 12px 14px;
+    border-block-end: 1px solid color-mix(in srgb, var(--color-pencil) 50%, transparent);
+  }
+  .rule-name {
+    font-size: var(--text-contents-title);
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-graphite);
+  }
+  .rule-use {
+    margin-block-start: 2px;
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+    color: var(--color-muted);
+  }
+  .rule-formula {
+    min-inline-size: 0;
+    overflow-x: auto;
+    color: var(--color-graphite);
+  }
+  @media (width >= 760px) {
+    .rule {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+      align-items: center;
+    }
+  }
+  .rules-box {
+    margin-block-start: 20px;
+    padding: 10px 16px 0;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .rules-box .rule:last-child {
+    border-block-end: 0;
+  }
+  .about-prose {
+    display: grid;
+    gap: 14px;
+    max-inline-size: 68ch;
+  }
+
+  /* A resume link lands on its Worked example or Practice item clear of the pinned rail tabs. */
+  .worked-example {
+    margin-block-end: 40px;
+    scroll-margin-block-start: 60px;
+  }
+  .practice-item {
+    scroll-margin-block-start: 60px;
+  }
+  @media (width >= 1200px) {
+    .worked-example,
+    .practice-item {
+      scroll-margin-block-start: 24px;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: 0s !important;
     animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }

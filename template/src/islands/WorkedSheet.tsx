@@ -4,10 +4,10 @@
 // default; try-first hides each step's values until the student asks to see them.
 import { MotionConfig, useReducedMotion } from "motion/react";
 import { useEffect, useId, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { recordStep } from "../progress/progress.ts";
-import { updateProgress } from "../progress/store.ts";
+import { markPlace, placeAnchor, recordStep } from "../progress/progress.ts";
+import { readProgress, updateProgress } from "../progress/store.ts";
 import type { SheetData } from "../worked/sheet.ts";
-import { shownAt, startStepping, stepping, type SteppingAction } from "../worked/stepping.ts";
+import { shownAt, startStepping, stepping, triedAt, type SteppingAction } from "../worked/stepping.ts";
 import { Arrow, DoneTick } from "./worked/pen.tsx";
 import { PlotFigure } from "./worked/PlotFigure.tsx";
 import { SheetTable } from "./worked/SheetTable.tsx";
@@ -29,11 +29,17 @@ const WIDE = "(width >= 900px)";
 export default function WorkedSheet({ sheet, topicHtml, module, outputsHtml, children }: Props) {
   const reduced = useReducedMotion() ?? false;
   const [ready, setReady] = useState(false);
-  const [s, dispatch] = useReducer(
+  const [s, apply] = useReducer(
     (current: ReturnType<typeof startStepping>, action: SteppingAction) => stepping(sheet, current, action),
     sheet,
     startStepping,
   );
+  // Where the student stopped moves only when they move; opening or resuming the sheet doesn't.
+  const moved = useRef(false);
+  const dispatch = (action: SteppingAction) => {
+    moved.current = true;
+    apply(action);
+  };
   const root = useRef<HTMLElement>(null);
   const captionId = useId();
   useEffect(() => setReady(true), []);
@@ -52,12 +58,24 @@ export default function WorkedSheet({ sheet, topicHtml, module, outputsHtml, chi
 
   const count = sheet.steps.length;
   const { code } = sheet;
+  // Opened from the home page's resume note: back to the step the student stopped on.
   useEffect(() => {
-    if (ready) updateProgress((p) => recordStep(p, module, code, s.step, count));
-  }, [ready, module, code, s.step, count]);
+    const last = readProgress().last;
+    if (last?.kind !== "worked" || last.module !== module || last.code !== code) return;
+    if (decodeURIComponent(location.hash.slice(1)) !== placeAnchor(last)) return;
+    apply({ type: "go", to: last.step });
+  }, [module, code]);
+  const tried = triedAt(sheet, s);
+  useEffect(() => {
+    if (!ready) return;
+    updateProgress((p) => {
+      const next = recordStep(p, module, code, s.step, count, tried);
+      return moved.current ? markPlace(next, { module, kind: "worked", code, step: s.step, steps: count }) : next;
+    });
+  }, [ready, module, code, s.step, count, tried]);
   const shown = shownAt(sheet, s, reduced);
   const { state, hidden } = shown;
-  const step = sheet.steps[s.step];
+  const current = sheet.steps[s.step];
   const go = (to: number) => dispatch({ type: "go", to });
   const onward = () => dispatch({ type: "onward" });
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -210,7 +228,7 @@ export default function WorkedSheet({ sheet, topicHtml, module, outputsHtml, chi
               </span>
               <h4
                 className="min-w-0 flex-1 font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]"
-                dangerouslySetInnerHTML={{ __html: step?.titleHtml ?? "" }}
+                dangerouslySetInnerHTML={{ __html: current?.titleHtml ?? "" }}
               />
               <div className="note-controls">
                 <button
@@ -241,7 +259,7 @@ export default function WorkedSheet({ sheet, topicHtml, module, outputsHtml, chi
             ) : (
               <div
                 className="mbs-2 max-w-[68ch] leading-[1.55]"
-                dangerouslySetInnerHTML={{ __html: step?.noteHtml ?? "" }}
+                dangerouslySetInnerHTML={{ __html: current?.noteHtml ?? "" }}
               />
             )}
             {state.last && !hidden && (

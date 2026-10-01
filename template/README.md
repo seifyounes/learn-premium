@@ -13,6 +13,55 @@ the page templates place the components.
 Every file is read by `src/content/loaders.ts`. Bad LaTeX anywhere, or content that breaks the
 contract, fails the build and names the file (and, for LaTeX, the line).
 
+## Routes and the fixed nav
+
+| Route                  | Page                                                            |
+| ---------------------- | --------------------------------------------------------------- |
+| `/`                    | Home, the contents sheet                                        |
+| `/<NN-slug>/`          | A Module's page (its folder name)                               |
+| `/rules/`              | Master Rules                                                    |
+| `/lab/`                | The Lab                                                         |
+| `/revision/<sitting>/` | A sitting's Revision, built only once the sitting is `complete` |
+| `/about/`              | About                                                           |
+
+Every page opens with the fixed nav (`SiteNav.astro`, from `src/site/nav.ts`): Modules · Master
+Rules · Lab · Revision · About. Revision is there only once a sitting is complete (no stub), and
+opens the last complete sitting in `course.yaml`; the Exam room joins with #74. Every page ends
+with the Credit line (the Professor, the Course and the University from `course.yaml`) and carries
+a noindex meta tag.
+
+## Home
+
+The contents sheet (`src/pages/index.astro`): the title block with the Course's counts, then one
+ruled line per Module in number order, each with its Worked, Practice and Rules counts, its
+Mastery, and a tag for each Exam sitting that covers it. A Module marked `highYield` has its sheet
+number ringed in red pen. The Exam sittings follow, each with its readiness meter and, once
+complete, a link to its Revision.
+
+The home page's script (`src/progress/home.ts`) fills in Mastery and readiness from the browser's
+progress, and writes the red-pen resume note ("You stopped here: W01.1, step 4 of 6") in the
+margin of the Module the student stopped in. It points at the last Worked example step or Practice
+item they worked on, and following it reopens the Worked example at that step.
+
+**Mastery** (`mastery` in `src/progress/progress.ts`, decided on #45): 60% Practice + 40% Worked
+examples. A Practice item counts 1 when right (a prose item its marks out of its points); a Worked
+example step counts 1 when read and 1 more when worked try-first (its values held back until the
+student had a go), out of 2 per step. A Module with only one of them counts it in full. A sitting's
+**readiness** is the average Mastery of its Modules; the best mock score joins it with the Exam
+room (#74).
+
+## Course hubs
+
+- **Master Rules** (`/rules/`): each Module's `rules.yaml`, Module by Module, in the order a
+  solution uses them, every formula set as display paper math. Reference only: no search, no test
+  mode, no script.
+- **Lab** (`/lab/`): every interactive tool, by Module. Tools arrive with the sim contract (#49);
+  until then the page says none are built.
+- **Revision** (`/revision/<sitting>/`): a complete sitting's Modules, each with its Summary beats
+  and its rules, assembled from what the Modules ship. It follows Module order until #74 gives
+  sittings an exam weight.
+- **About** (`/about/`): the Course, the Professor, the University, who built the site and how.
+
 ## Module page
 
 A Module's page (`src/pages/[module].astro`) is one scroll: Watch, Summary, Worked examples,
@@ -100,10 +149,11 @@ A new gate goes in `gates/index.ts` with at least one negative control that plan
 
 | Gate                 | Points         | Checks                                                                                                                                    |
 | -------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there                                                |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists          |
 | `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                           |
 | `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words         |
-| `provenance`         | job, deploy    | every number an entry shows carries a Provenance tag                                                                                      |
+| `provenance`         | job, deploy    | every number an entry shows carries a Provenance tag (Master Rules included)                                                              |
+| `master-rules`       | job, deploy    | every rule's formula is set with stacked fractions (a bare `/` outside a `	ext{…}` unit blocks); no emoji in a rule                        |
 | `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included                                                                     |
 | `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                             |
 | `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked) |

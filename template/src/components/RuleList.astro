@@ -1,0 +1,30 @@
+---
+// One Module's rules as ruled reference lines: the rule's name and when it's used, then the rule set
+// as display paper math. Master Rules and a sitting's Revision both place it.
+import type { CollectionEntry } from "astro:content";
+import { prose } from "../content/course";
+import { provenanceNotes } from "../provenance/notes";
+
+interface Props {
+  rules: CollectionEntry<"rules">["data"];
+}
+
+const { rules, provenance } = Astro.props.rules;
+/** A rule written as one inline formula is set as a display formula. */
+const display = (formula: string) => (/^\$[^$]+\$$/.test(formula.trim()) ? `$${formula.trim()}$` : formula);
+const { inputsHtml, outputsHtml } = provenanceNotes(provenance, prose);
+---
+
+<ol class="rule-list">
+  {rules.map((rule) => (
+    <li class="rule">
+      <div class="rule-words">
+        <h3 class="rule-name" set:html={prose(rule.name)} />
+        {rule.use && <p class="rule-use" set:html={prose(rule.use)} />}
+      </div>
+      <div class="rule-formula" set:html={prose(display(rule.formula))} />
+    </li>
+  ))}
+</ol>
+{inputsHtml && <div class="mbs-3" set:html={inputsHtml} />}
+{outputsHtml && <div class="mbs-3" set:html={outputsHtml} />}
