@@ -14,7 +14,7 @@ Layout (content contract v0):
   rings it in red pen on the contents sheet.
 - `modules/<NN>-<slug>/rules.yaml` (optional): the Module's rules for Master Rules and Revision,
   in the order a solution uses them. Each has a `name`, a `formula` (every fraction stacked:
-  `rac{…}{…}`, never a bare `/`) and an optional `use` line; the file has one `provenance`
+  `\frac{…}{…}`, never a bare `/`) and an optional `use` line; the file has one `provenance`
   block for the numbers they show.
 - `modules/<NN>-<slug>/media.yaml` (optional): the Module's media. `video`, `audio` and
   `infographic` name files in the Module's `media/` folder, and `youtube` lists cards (9/10 match

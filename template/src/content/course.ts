@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { renderProse } from "../math/katex";
 import { mediaFolder, mediaUrl, missingMediaFiles, notInMediaFolder, pngSize, type Media } from "../media/media";
 import type { MasteryShape } from "../progress/progress";
-import { MODULE_ID } from "./contract";
+import { MODULE_ID, uncoveredModules } from "./contract";
+
+export type { Sitting } from "./contract";
 import { buildContentDir } from "./layout";
 
 export async function getCourse() {
@@ -36,18 +38,10 @@ export async function getModules(): Promise<ModuleRef[]> {
  */
 export async function getSittings() {
   const [course, modules] = await Promise.all([getCourse(), getModules()]);
-  const ids = new Set(modules.map((m) => m.id));
-  for (const sitting of course.sittings) {
-    const missing = sitting.modules.filter((m) => !ids.has(m));
-    if (missing.length > 0)
-      throw new Error(
-        `course.yaml: sitting "${sitting.id}" covers ${missing.join(", ")}, which the Course has no Module for`,
-      );
-  }
+  const [uncovered] = uncoveredModules(course.sittings, new Set(modules.map((m) => m.id)));
+  if (uncovered) throw new Error(`course.yaml: ${uncovered.message}`);
   return course.sittings;
 }
-
-export type Sitting = Awaited<ReturnType<typeof getSittings>>[number];
 
 /** A Module's rules for Master Rules and Revision, in solving order; undefined when it has no rules.yaml. */
 export async function getRules(moduleId: string) {

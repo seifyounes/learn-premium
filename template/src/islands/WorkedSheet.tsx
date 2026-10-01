@@ -66,13 +66,15 @@ export default function WorkedSheet({ sheet, topicHtml, module, outputsHtml, chi
     apply({ type: "go", to: last.step });
   }, [module, code]);
   const tried = triedAt(sheet, s);
+  const held = shownAt(sheet, s, false).hidden;
+  // A step whose values are held back isn't read yet: it counts once the student asks to see them.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || held) return;
     updateProgress((p) => {
       const next = recordStep(p, module, code, s.step, count, tried);
       return moved.current ? markPlace(next, { module, kind: "worked", code, step: s.step, steps: count }) : next;
     });
-  }, [ready, module, code, s.step, count, tried]);
+  }, [ready, held, module, code, s.step, count, tried]);
   const shown = shownAt(sheet, s, reduced);
   const { state, hidden } = shown;
   const current = sheet.steps[s.step];

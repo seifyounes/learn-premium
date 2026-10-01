@@ -27,8 +27,9 @@ function start(contents: HTMLElement) {
       const ready = readiness(modules.map(masteryOf));
       const cell = line.querySelector("[data-readiness]");
       if (cell) cell.textContent = percent(ready);
-      const filled = Math.round((ready ?? 0) * 10);
-      line.querySelectorAll(".readiness-box").forEach((box, i) => box.toggleAttribute("data-filled", i < filled));
+      const boxes = line.querySelectorAll(".readiness-box");
+      const filled = Math.round((ready ?? 0) * boxes.length);
+      boxes.forEach((box, i) => box.toggleAttribute("data-filled", i < filled));
     }
 
     // The note sits in the margin of the line the student stopped in.
