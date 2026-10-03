@@ -57,6 +57,11 @@ jobs:
             npm run gates -- run --point module --module "$module"
             npm run gates -- verify --point module --module "$module"
           done
+      # The per-Module loop above opens each Module's page; the hub pages (home) get theirs here.
+      - name: Browser gates on every page
+        run: |
+          npm run gates -- run --point module
+          npm run gates -- verify --point module
       - name: Gates per deploy
         run: |
           npm run gates -- run --point deploy

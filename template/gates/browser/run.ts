@@ -8,7 +8,7 @@
 //   - sweeps at each of the eight widths, the viewport width asserted first, every collapsible open
 //     (`in-page.js` measures);
 // then taps every control of every page in scope with emulated phone touch at 375 and 390px (4×
-// slower CPU on Chromium), and sweeps the state that leaves.
+// slower CPU on Chromium; WebKit has no CPU throttling), and sweeps the state that leaves.
 //
 // The Trap page proves each sweep could see: every sweep of it must find every seeded defect, or
 // the run is void and no browser gate's verdict counts.
@@ -16,10 +16,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Element as HastElement } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import { chromium, webkit, type Browser, type BrowserContext, type Page } from "playwright";
+import { chromium, webkit, type Browser, type Page } from "playwright";
 import { TRAP_DEFECTS, TRAP_ROUTE, type TrapDefect } from "../../src/trap/route.ts";
-import { COPY_DEFECTS, RAW_TEX } from "../copy-checks.ts";
-import { sitePages } from "../pages.ts";
+import { COPY_DEFECTS, quote, RAW_TEX, type CopyDefect } from "../copy-checks.ts";
+import { sitePages, textIn } from "../pages.ts";
 import type { Finding, GateInput, GateRun } from "../runner.ts";
 import { serveSite } from "./serve.ts";
 
@@ -38,25 +38,66 @@ export const BROWSER_GATE_IDS = [
 ] as const;
 export type BrowserGateId = (typeof BROWSER_GATE_IDS)[number];
 
+/** What `in-page.js` reports: the layout checks, and the live page's text checks. */
+type LayoutKind =
+  "page-scroll" | "covers-figure" | "above-viewport" | "text-collision" | "height-overflow" | "tiny-text";
+type TextKind = "katex-error" | "raw-tex" | CopyDefect["kind"];
+type Kind =
+  | LayoutKind
+  | TextKind
+  | "load"
+  | "page-error"
+  | "heavy-library"
+  | "never-hydrated"
+  | "disabled-after-hydration"
+  | "enabled-before-hydration"
+  | "untappable"
+  | "dead-field"
+  | "dead-tap";
+
 /** What catches each of the Trap page's seeded defects. */
-const TRAP_CATCHES: Record<TrapDefect, { gate: BrowserGateId; kinds: string[] }> = {
+const TRAP_CATCHES: Record<TrapDefect, { gate: BrowserGateId; kinds: Kind[] }> = {
   "tiny-font-figure": { gate: "layout-sweep", kinds: ["tiny-text"] },
   "katex-error": { gate: "live-page-scan", kinds: ["katex-error"] },
   overlap: { gate: "layout-sweep", kinds: ["covers-figure", "text-collision"] },
   "wrong-number": { gate: "live-page-scan", kinds: ["garbled-number"] },
 };
 
-/** Heavy libraries that load only when opened or scrolled to, never with the page. */
+/**
+ * Heavy libraries that load only when opened or scrolled to, never with the page: named by the
+ * address asked for (a request to another site is blocked, but still asked for) or by the body.
+ */
 const HEAVY_LIBRARIES = [
-  { name: "three.js", url: /(?:^|[/._-])three(?:[._-]|\.module)/i, body: /\bWebGLRenderer\b/ },
+  { name: "three.js", url: /(?:^|[/._-])three(?:[._@-]|\.module)/i, body: /\bWebGLRenderer\b/ },
   { name: "Pyodide", url: /pyodide/i, body: /\bloadPyodide\b/ },
   { name: "Plotly", url: /plotly/i, body: /\bPlotly\b[\s\S]*\bnewPlot\b|\bnewPlot\b[\s\S]*\bPlotly\b/ },
 ];
 
+/** The controls an island renders, which it must keep off until it hydrates. */
+const ISLAND_CONTROL_TAGS = ["button", "input", "textarea", "select"];
+const ISLAND_CONTROLS = ISLAND_CONTROL_TAGS.map((tag) => (tag === "input" ? 'input:not([type="hidden"])' : tag)).join(
+  ", ",
+);
 /** Everything a student can operate, inside an island or out. */
-const CONTROLS =
-  'button, input:not([type="hidden"]), textarea, select, summary, [role="button"], [role="tab"], [role="checkbox"]';
-const ISLAND_CONTROLS = "button, input:not([type='hidden']), textarea, select";
+const CONTROLS = `${ISLAND_CONTROLS}, summary, [role="button"], [role="tab"], [role="checkbox"]`;
+
+// How long the run waits, each named for what it waits on.
+/** For requests the load started to land, before the initial load is called done. */
+const LOAD_SETTLES_MS = 300;
+/** For an island scrolled into view to hydrate. */
+const HYDRATES_MS = 10_000;
+/** For a hydrated island to turn its controls on (it does so in an effect, just after). */
+const CONTROLS_ON_MS = 5_000;
+/** For a control to take a tap (Playwright retries while something else would take it). */
+const TAP_TAKES_MS = 5_000;
+/** For a resized viewport to reach the page. */
+const WIDTH_ARRIVES_MS = 2_000;
+/** For the page to answer a tap. */
+const TAP_ANSWERS_MS = 2_000;
+/** At most this many taps on a page: a control that keeps adding controls can't loop forever. */
+const MOST_TAPS = 200;
+/** Pages a browser has open at once. */
+const PAGES_AT_ONCE = 3;
 
 /** The in-page sweep, with the copy checks it shares with the rendered-page scan. */
 const IN_PAGE = `window.__lpChecks = ${JSON.stringify({
@@ -65,12 +106,34 @@ const IN_PAGE = `window.__lpChecks = ${JSON.stringify({
 })};
 ${readFileSync(join(import.meta.dirname, "in-page.js"), "utf8")}`;
 
+interface PageFinding<K extends Kind> {
+  kind: K;
+  detail: string;
+  trap?: string;
+}
+
+interface PageSweep {
+  layout: PageFinding<LayoutKind>[];
+  text: PageFinding<TextKind>[];
+  coverage: { collapsibles: number; views: number; texts: number; figures: number; formulas: number };
+  collapsiblesOnPage: number;
+}
+
+declare global {
+  interface Window {
+    /** `in-page.js`. */
+    __lpSweep: { sweep(): Promise<PageSweep>; settle(): Promise<void> };
+    /** DOM changes since touch began counting, to tell a tap that did something. */
+    __lpMutations: number;
+  }
+}
+
 interface Observation {
   gate: BrowserGateId;
   route: string;
   /** Which browser, width and state saw it. */
   where: string;
-  kind: string;
+  kind: Kind;
   detail: string;
   trap?: string | undefined;
 }
@@ -96,9 +159,6 @@ export function browserRun(input: GateInput): Promise<BrowserRun> {
   return run;
 }
 
-/** Pages a browser has open at once. */
-const PAGES_AT_ONCE = 3;
-
 /** Runs `tasks`, at most `limit` at a time, and returns their results in the tasks' order. */
 async function inTurns<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
   const results: T[] = new Array(tasks.length);
@@ -114,13 +174,7 @@ async function inTurns<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T
 }
 
 const heightFor = (width: number) => (width < 768 ? 844 : width < 1280 ? 1024 : 900);
-
-interface PageSweep {
-  layout: { kind: string; detail: string; trap?: string }[];
-  text: { kind: string; detail: string; trap?: string }[];
-  coverage: { collapsibles: number; views: number; texts: number; figures: number; formulas: number };
-  collapsiblesOnPage: number;
-}
+const firstLine = (error: unknown) => (error instanceof Error ? error.message : String(error)).split("\n")[0] ?? "";
 
 async function execute(input: GateInput): Promise<BrowserRun> {
   const pages = sitePages(input);
@@ -129,20 +183,13 @@ async function execute(input: GateInput): Promise<BrowserRun> {
   const base = (input.siteUrl ?? served?.url ?? "").replace(/\/$/, "");
   const observations: Observation[] = [];
   const observe = (o: Observation) => observations.push(o);
+  // Every count is of what the run looked at; one that stayed at zero covered nothing.
+  const swept = { browsers: new Set<string>(), widths: new Set<number>(), pages: new Set<string>() };
   const coverage = {
-    layout: {
-      browsers: 0,
-      widths: WIDTHS.length,
-      pages: pages.length,
-      sweeps: 0,
-      collapsibles: 0,
-      views: 0,
-      texts: 0,
-      figures: 0,
-    },
-    live: { pages: pages.length, sweeps: 0, texts: 0, formulas: 0 },
-    hydration: { pages: pages.length, islands: 0, controls: 0 },
-    touch: { pages: 0, widths: 0, taps: 0 },
+    layout: { sweeps: 0, collapsibles: 0, views: 0, texts: 0, figures: 0 },
+    live: { sweeps: 0, texts: 0, formulas: 0 },
+    hydration: { pages: 0, islands: 0, controls: 0 },
+    touch: { pages: new Set<string>(), widths: new Set<number>(), taps: 0 },
     initial: { pages: 0, requests: 0 },
     trap: { sweeps: 0, defects: 0 },
   };
@@ -155,12 +202,19 @@ async function execute(input: GateInput): Promise<BrowserRun> {
   const perBrowser = async (name: BrowserName) => {
     const browser = await launch(name);
     try {
-      const sweeps = routes.map((route) => () => sweepPage(browser, name, `${base}${route}`, route));
-      const touches = pages.flatMap(({ route }) =>
-        TOUCH_WIDTHS.map((width) => () => touchPage(browser, name, width, `${base}${route}`, route)),
+      const sweeps = routes.map(
+        (route) => () => againIfCrashed(() => sweepPage(browser, name, `${base}${route}`, route)),
       );
-      const [swept, touched] = await Promise.all([inTurns(sweeps, PAGES_AT_ONCE), inTurns(touches, PAGES_AT_ONCE)]);
-      return { name, swept, touched };
+      const touches = pages.flatMap(({ route }) =>
+        TOUCH_WIDTHS.map(
+          (width) => () => againIfCrashed(() => touchPage(browser, name, width, `${base}${route}`, route)),
+        ),
+      );
+      const [sweptPages, touched] = await Promise.all([
+        inTurns(sweeps, PAGES_AT_ONCE),
+        inTurns(touches, PAGES_AT_ONCE),
+      ]);
+      return { name, sweptPages, touched };
     } finally {
       await browser.close();
     }
@@ -172,9 +226,8 @@ async function execute(input: GateInput): Promise<BrowserRun> {
     await served?.close();
   }
 
-  for (const { name, swept, touched } of results) {
-    coverage.layout.browsers += 1;
-    swept.forEach((result, i) => {
+  for (const { name, sweptPages, touched } of results) {
+    sweptPages.forEach((result, i) => {
       const route = routes[i] ?? "";
       const trap = route === TRAP_ROUTE;
       if (result === "missing") {
@@ -189,6 +242,9 @@ async function execute(input: GateInput): Promise<BrowserRun> {
       result.observations.forEach(observe);
       for (const s of result.sweeps) {
         s.observations.forEach(observe);
+        swept.browsers.add(name);
+        swept.widths.add(s.width);
+        swept.pages.add(route);
         coverage.layout.sweeps += 1;
         coverage.live.sweeps += 1;
         coverage.layout.collapsibles = Math.max(coverage.layout.collapsibles, s.collapsibles);
@@ -204,15 +260,16 @@ async function execute(input: GateInput): Promise<BrowserRun> {
     });
     for (const result of touched) {
       result.observations.forEach(observe);
+      coverage.touch.pages.add(result.route);
+      coverage.touch.widths.add(result.width);
       coverage.touch.taps += result.taps;
     }
   }
-  coverage.touch.pages = pages.length;
-  coverage.touch.widths = TOUCH_WIDTHS.length;
 
   // Before hydration: the server's HTML is what a student meets first, and it must not offer a
   // control the island can't answer yet.
   for (const { route, path } of pages) {
+    coverage.hydration.pages += 1;
     for (const island of islandsIn(readFileSync(path, "utf8"))) {
       for (const control of controlsIn(island)) {
         coverage.hydration.controls += 1;
@@ -246,18 +303,22 @@ async function execute(input: GateInput): Promise<BrowserRun> {
     trapFindings.push({
       outcome: "block",
       at: TRAP_ROUTE,
-      message: `the run missed the Trap page's ${TRAP_DEFECTS[defect]} (${wheres.join("; ")}), so it is void`,
+      message: `the run missed the Trap page's seeded ${TRAP_DEFECTS[defect]} (${wheres.join("; ")}), so it is void`,
     });
   }
 
   const findingsOf = (gate: BrowserGateId) => aggregate(observations.filter((o) => o.gate === gate));
   const { layout, live, hydration, touch, initial, trap } = coverage;
+  const sweptCounts = { browsers: swept.browsers.size, widths: swept.widths.size, pages: swept.pages.size };
   return {
     gates: {
-      "layout-sweep": { coverage: layout, findings: findingsOf("layout-sweep") },
-      "live-page-scan": { coverage: live, findings: findingsOf("live-page-scan") },
+      "layout-sweep": { coverage: { ...sweptCounts, ...layout }, findings: findingsOf("layout-sweep") },
+      "live-page-scan": { coverage: { pages: swept.pages.size, ...live }, findings: findingsOf("live-page-scan") },
       hydration: { coverage: hydration, findings: findingsOf("hydration") },
-      touch: { coverage: touch, findings: findingsOf("touch") },
+      touch: {
+        coverage: { pages: touch.pages.size, widths: touch.widths.size, taps: touch.taps },
+        findings: findingsOf("touch"),
+      },
       "initial-load": { coverage: initial, findings: findingsOf("initial-load") },
       "trap-page": { coverage: trap, findings: trapFindings },
     },
@@ -288,7 +349,7 @@ async function launch(name: BrowserName): Promise<Browser> {
     return await BROWSERS[name].launch();
   } catch (error) {
     throw new Error(
-      `can't start Playwright's ${name}; install it with \`npx playwright install chromium webkit\`: ${(error as Error).message.split("\n")[0]}`,
+      `can't start Playwright's ${name}; install it with \`npx playwright install chromium webkit\`: ${firstLine(error)}`,
       { cause: error },
     );
   }
@@ -320,9 +381,9 @@ async function hydrate(page: Page): Promise<string[]> {
         [...el.children].find((child) => child.getClientRects().length > 0)?.scrollIntoView({ block: "center" }),
       );
       await island.evaluate(
-        (el) =>
+        (el, ms) =>
           new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error("timeout")), 10_000);
+            const timer = setTimeout(() => reject(new Error("timeout")), ms);
             const check = () => {
               if (!el.hasAttribute("ssr")) {
                 clearTimeout(timer);
@@ -331,6 +392,7 @@ async function hydrate(page: Page): Promise<string[]> {
             };
             check();
           }),
+        HYDRATES_MS,
       );
     } catch {
       never.push((await island.getAttribute("component-url").catch(() => null)) ?? `island ${i + 1}`);
@@ -340,18 +402,53 @@ async function hydrate(page: Page): Promise<string[]> {
   return never;
 }
 
+/** The page's width must be the one asked for, or nothing measured at it can be trusted. */
+async function assertWidth(page: Page, name: BrowserName, width: number, of: "viewport" | "screen" = "viewport") {
+  // A resize reaches the page a moment after it is asked for; a width that never arrives can't.
+  // An emulated phone is judged by its screen: there, a page wider than the screen widens the
+  // viewport itself (the phone zooms out), which is the page's defect, not the emulation's.
+  const measure = of === "screen" ? () => window.screen.width : () => window.innerWidth;
+  const arrived = await page
+    .waitForFunction(
+      ({ w, screen }) => (screen ? window.screen.width : window.innerWidth) === w,
+      { w: width, screen: of === "screen" },
+      { timeout: WIDTH_ARRIVES_MS },
+    )
+    .then(() => true)
+    .catch(() => false);
+  if (arrived) return;
+  const actual = await page.evaluate(measure);
+  throw new Error(`asked ${name} for a ${width}px ${of} and the page has ${actual}px, so the sweep can't be trusted`);
+}
+
+/**
+ * Runs a page task again, once, if the browser crashed under it: a crashed renderer says nothing
+ * about the page. A second crash stands, and fails the run.
+ */
+async function againIfCrashed<T>(task: () => Promise<T>): Promise<T> {
+  try {
+    return await task();
+  } catch (error) {
+    if (!/crashed|Target (?:page, context or browser )?(?:has been )?closed/i.test(firstLine(error))) throw error;
+    return task();
+  }
+}
+
+interface Sweep {
+  where: string;
+  width: number;
+  observations: Observation[];
+  collapsibles: number;
+  views: number;
+  texts: number;
+  figures: number;
+  formulas: number;
+}
+
 interface SweptPage {
   /** What the load and hydration saw, beside the sweeps. */
   observations: Observation[];
-  sweeps: {
-    where: string;
-    observations: Observation[];
-    collapsibles: number;
-    views: number;
-    texts: number;
-    figures: number;
-    formulas: number;
-  }[];
+  sweeps: Sweep[];
   islands: number;
   requests: number;
 }
@@ -371,37 +468,38 @@ async function sweepPage(
   try {
     const page = await context.newPage();
     const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message.split("\n")[0] ?? ""));
-    const loaded: { url: string; body: Promise<string> }[] = [];
+    page.on("pageerror", (error) => errors.push(firstLine(error)));
+    // The initial load: every address asked for (a request to another site is blocked, but was
+    // still asked for), and the body of every script that arrived.
+    const asked: string[] = [];
+    const bodies: Promise<string>[] = [];
     let initial = true;
+    page.on("request", (request) => {
+      if (initial) asked.push(request.url());
+    });
     page.on("response", (response) => {
       if (!initial) return;
-      const type = response.request().resourceType();
-      const body =
-        type === "script" || /\.(?:m?js|wasm)(?:[?#]|$)/.test(response.url()) ? response.text() : Promise.resolve("");
-      loaded.push({ url: response.url(), body: body.catch(() => "") });
+      const script = response.request().resourceType() === "script" || /\.(?:m?js|wasm)(?:[?#]|$)/.test(response.url());
+      if (script) bodies.push(response.text().catch(() => ""));
     });
     const response = await page.goto(url, { waitUntil: "load" });
     if (!response || response.status() >= 400) return "missing";
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(LOAD_SETTLES_MS);
     initial = false;
-    for (const { url: fetched, body } of loaded) {
-      const text = await body;
-      for (const library of HEAVY_LIBRARIES) {
-        if (library.url.test(new URL(fetched).pathname) || library.body.test(text)) {
-          observe({
-            gate: "initial-load",
-            route,
-            where: name,
-            kind: "heavy-library",
-            detail: `${library.name} loads with the page (${new URL(fetched).pathname}); load it when opened or scrolled to`,
-          });
-        }
-      }
+    const scripts = await Promise.all(bodies);
+    for (const library of HEAVY_LIBRARIES) {
+      const address = asked.find((a) => library.url.test(new URL(a).pathname));
+      if (address === undefined && !scripts.some((body) => library.body.test(body))) continue;
+      observe({
+        gate: "initial-load",
+        route,
+        where: name,
+        kind: "heavy-library",
+        detail: `${library.name} loads with the page${address === undefined ? "" : ` (${address})`}; load it when opened or scrolled to`,
+      });
     }
 
-    const unhydrated = await hydrate(page);
-    for (const island of unhydrated) {
+    for (const island of await hydrate(page)) {
       observe({
         gate: "hydration",
         route,
@@ -410,24 +508,28 @@ async function sweepPage(
         detail: `the island ${island} never hydrated`,
       });
     }
-    // Hydrating renders the server's HTML again; the island turns its controls on in an effect
-    // just after, so give it a moment before calling a control dead.
-    const islands = await page.evaluate(async (selector) => {
-      const outermost = [...document.querySelectorAll("astro-island:not([ssr])")].filter(
-        (island) => !island.parentElement?.closest("astro-island"),
-      );
-      const count = (island: Element) => {
-        const controls = [...island.querySelectorAll<HTMLButtonElement>(selector)];
-        return { controls: controls.length, enabled: controls.filter((c) => !c.disabled).length };
-      };
-      const deadline = performance.now() + 5_000;
-      while (outermost.some((i) => count(i).controls > 0 && count(i).enabled === 0) && performance.now() < deadline)
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      return outermost.map((island) => ({
-        island: island.getAttribute("component-url") ?? "an island",
-        ...count(island),
-      }));
-    }, ISLAND_CONTROLS);
+    // An island turns its controls on in an effect just after it hydrates, so it gets a moment.
+    // Some stay off by design (Prev at the first step, Check before an answer), so an island is
+    // dead only when every control it has is still off.
+    const islands = await page.evaluate(
+      async ({ selector, ms }) => {
+        const outermost = [...document.querySelectorAll("astro-island:not([ssr])")].filter(
+          (island) => !island.parentElement?.closest("astro-island"),
+        );
+        const count = (island: Element) => {
+          const controls = [...island.querySelectorAll<HTMLButtonElement>(selector)];
+          return { controls: controls.length, enabled: controls.filter((c) => !c.disabled).length };
+        };
+        const dead = () => outermost.some((i) => count(i).controls > 0 && count(i).enabled === 0);
+        const deadline = performance.now() + ms;
+        while (dead() && performance.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
+        return outermost.map((island) => ({
+          island: island.getAttribute("component-url") ?? "an island",
+          ...count(island),
+        }));
+      },
+      { selector: ISLAND_CONTROLS, ms: CONTROLS_ON_MS },
+    );
     for (const island of islands) {
       if (island.controls > 0 && island.enabled === 0) {
         observe({
@@ -440,20 +542,15 @@ async function sweepPage(
       }
     }
 
-    const sweeps: SweptPage["sweeps"] = [];
+    const sweeps: Sweep[] = [];
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: heightFor(width) });
       await page.evaluate(async () => {
         window.scrollTo(0, 0);
-        await (window as unknown as { __lpSweep: { settle(): Promise<void> } }).__lpSweep.settle();
+        await window.__lpSweep.settle();
       });
-      const actual = await page.evaluate(() => window.innerWidth);
-      if (actual !== width) {
-        throw new Error(
-          `asked ${name} for a ${width}px viewport and the page has ${actual}px, so the sweep can't be trusted`,
-        );
-      }
-      sweeps.push(toSweep(await sweepNow(page), route, `${name} ${width}px`));
+      await assertWidth(page, name, width);
+      sweeps.push(toSweep(await sweepNow(page), route, width, `${name} ${width}px`));
     }
     for (const error of errors) {
       observe({
@@ -464,30 +561,30 @@ async function sweepPage(
         detail: `an uncaught error on the page: ${error}`,
       });
     }
-    return { observations, sweeps, islands: islands.length, requests: loaded.length };
+    return { observations, sweeps, islands: islands.length, requests: asked.length };
   } finally {
     await context.close();
   }
 }
 
-const sweepNow = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __lpSweep: { sweep(): Promise<PageSweep> } }).__lpSweep.sweep());
+const sweepNow = (page: Page) => page.evaluate(() => window.__lpSweep.sweep());
 
-function toSweep(result: PageSweep, route: string, where: string): SweptPage["sweeps"][number] {
-  const observations: Observation[] = [
-    ...result.layout.map((f) => ({ gate: "layout-sweep" as const, route, where, ...f })),
-    ...result.text.map((f) => ({ gate: "live-page-scan" as const, route, where, ...f })),
-  ];
+function toSweep(result: PageSweep, route: string, width: number, where: string): Sweep {
+  const { views, texts, figures, formulas } = result.coverage;
   return {
     where,
-    observations,
+    width,
+    observations: [
+      ...result.layout.map((f) => ({ gate: "layout-sweep" as const, route, where, ...f })),
+      ...result.text.map((f) => ({ gate: "live-page-scan" as const, route, where, ...f })),
+    ],
     collapsibles: result.collapsiblesOnPage,
-    views: result.coverage.views,
-    ...pick(result.coverage),
+    views,
+    texts,
+    figures,
+    formulas,
   };
 }
-
-const pick = ({ texts, figures, formulas }: PageSweep["coverage"]) => ({ texts, figures, formulas });
 
 /**
  * Emulated phone touch: taps every control on the page once, in page order, typing into fields
@@ -501,11 +598,11 @@ async function touchPage(
   width: number,
   url: string,
   route: string,
-): Promise<{ observations: Observation[]; taps: number }> {
+): Promise<{ route: string; width: number; observations: Observation[]; taps: number }> {
   const observations: Observation[] = [];
   const observe = (o: Observation) => observations.push(o);
   const where = `${name} ${width}px touch`;
-  const context: BrowserContext = await siteContext(browser, url, {
+  const context = await siteContext(browser, url, {
     viewport: { width, height: heightFor(width) },
     hasTouch: true,
     isMobile: true,
@@ -515,7 +612,7 @@ async function touchPage(
   try {
     const page = await context.newPage();
     const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message.split("\n")[0] ?? ""));
+    page.on("pageerror", (error) => errors.push(firstLine(error)));
     if (name === "chromium") {
       const cdp = await context.newCDPSession(page);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
@@ -523,13 +620,12 @@ async function touchPage(
     await page.goto(url, { waitUntil: "load" });
     await hydrate(page);
     await page.evaluate(() => {
-      const w = window as unknown as { __lpMutations: number };
-      w.__lpMutations = 0;
+      window.__lpMutations = 0;
       new MutationObserver((records) => {
-        w.__lpMutations += records.length;
+        window.__lpMutations += records.length;
       }).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
     });
-    for (let round = 0; round < 200; round++) {
+    for (let round = 0; round < MOST_TAPS; round++) {
       const next = await page.evaluate((selector) => {
         const shown = (el: Element) => el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
         const candidates = [...document.querySelectorAll<HTMLElement>(`main :is(${selector})`)].filter(
@@ -543,25 +639,25 @@ async function touchPage(
             shown(el),
         );
         // Fields first: what they unlock (a Check button) gets its turn after.
-        const field = candidates.find((el) => el.matches("input, textarea"));
-        const el = field ?? candidates[0];
+        const el = candidates.find((c) => c.matches("input, textarea")) ?? candidates[0];
         if (!el) return null;
         el.setAttribute("data-lp-tapped", "");
         const id = String(document.querySelectorAll("[data-lp-tapped]").length);
         el.setAttribute("data-lp-control", id);
-        const label = el.getAttribute("aria-label") ?? el.textContent ?? "";
         return {
           id,
           field: el.matches("input, textarea"),
-          name: `<${el.tagName.toLowerCase()}> "${label.replace(/\s+/g, " ").trim().slice(0, 32)}"`,
+          tag: el.tagName.toLowerCase(),
+          label: el.getAttribute("aria-label") ?? el.textContent ?? "",
         };
       }, CONTROLS);
       if (!next) break;
       const control = page.locator(`[data-lp-control="${next.id}"]`);
-      const before = await page.evaluate(() => (window as unknown as { __lpMutations: number }).__lpMutations);
+      const named = `<${next.tag}> ${quote(next.label, 32)}`;
+      const before = await page.evaluate(() => window.__lpMutations);
       taps += 1;
       try {
-        await control.tap({ timeout: 5_000 });
+        await control.tap({ timeout: TAP_TAKES_MS });
       } catch (error) {
         const why = (error as Error).message.split("\n").find((line) => /intercepts|not visible|outside/.test(line));
         observe({
@@ -569,7 +665,7 @@ async function touchPage(
           route,
           where,
           kind: "untappable",
-          detail: `${next.name} can't be tapped${why ? `: ${why.trim()}` : ""}`,
+          detail: `${named} can't be tapped${why ? `: ${why.trim()}` : ""}`,
         });
         continue;
       }
@@ -582,29 +678,38 @@ async function touchPage(
             route,
             where,
             kind: "dead-field",
-            detail: `typing into ${next.name} after a tap did nothing`,
+            detail: `typing into ${named} after a tap did nothing`,
           });
         continue;
       }
       const changed = await page
-        .waitForFunction((count) => (window as unknown as { __lpMutations: number }).__lpMutations > count, before, {
-          timeout: 2_000,
-        })
+        .waitForFunction((count) => window.__lpMutations > count, before, { timeout: TAP_ANSWERS_MS })
         .then(() => true)
         .catch(() => false);
       if (!changed)
-        observe({ gate: "touch", route, where, kind: "dead-tap", detail: `a tap on ${next.name} changed nothing` });
+        observe({ gate: "touch", route, where, kind: "dead-tap", detail: `a tap on ${named} changed nothing` });
     }
     for (const error of errors) {
       observe({ gate: "touch", route, where, kind: "page-error", detail: `an uncaught error while tapping: ${error}` });
     }
     // The state every tap left: answers shown, steps taken, folds opened.
     await page.evaluate(() => window.scrollTo(0, 0));
-    toSweep(await sweepNow(page), route, `${where} end state`).observations.forEach(observe);
+    await assertWidth(page, name, width, "screen");
+    const laidOut = await page.evaluate(() => window.innerWidth);
+    if (laidOut > width) {
+      observe({
+        gate: "layout-sweep",
+        route,
+        where: `${where} end state`,
+        kind: "page-scroll",
+        detail: `the page lays out ${laidOut}px wide on a ${width}px phone screen, so the phone zooms it out`,
+      });
+    }
+    toSweep(await sweepNow(page), route, width, `${where} end state`).observations.forEach(observe);
   } finally {
     await context.close();
   }
-  return { observations, taps };
+  return { route, width, observations, taps };
 }
 
 /** The outermost islands in a page's server HTML. */
@@ -629,7 +734,7 @@ function controlsIn(island: HastElement): HastElement[] {
       // The island's slot holds the page's static HTML (the Given box), which needs no island.
       if (child.tagName === "astro-slot") continue;
       const hidden = child.tagName === "input" && child.properties.type === "hidden";
-      if (["button", "input", "textarea", "select"].includes(child.tagName) && !hidden) found.push(child);
+      if (ISLAND_CONTROL_TAGS.includes(child.tagName) && !hidden) found.push(child);
       visit(child);
     }
   };
@@ -638,9 +743,6 @@ function controlsIn(island: HastElement): HastElement[] {
 }
 
 function describeHast(el: HastElement): string {
-  const text = (node: HastElement): string =>
-    node.children.map((c) => (c.type === "text" ? c.value : c.type === "element" ? text(c) : "")).join("");
-  const label = typeof el.properties.ariaLabel === "string" ? el.properties.ariaLabel : text(el);
-  const shown = label.replace(/\s+/g, " ").trim().slice(0, 32);
-  return `<${el.tagName}>${shown ? ` "${shown}"` : ""}`;
+  const label = typeof el.properties.ariaLabel === "string" ? el.properties.ariaLabel : textIn(el);
+  return `<${el.tagName}>${label.trim() ? ` ${quote(label, 32)}` : ""}`;
 }

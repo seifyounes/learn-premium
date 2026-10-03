@@ -1,18 +1,20 @@
-// The browser gates, per Module and per deploy: slices of one browser run (`browser/run.ts`) on
-// Chromium and WebKit. A run that missed any of the Trap page's seeded defects is void: the
-// trap-page gate blocks, and every other browser gate fails rather than pass on a blind run.
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+// The browser gates, per Module, on the Module's preview: slices of one browser run
+// (`browser/run.ts`) on Chromium and WebKit. A run that missed any of the Trap page's seeded defects
+// is void: the trap-page gate blocks, and every other browser gate fails rather than pass on a
+// blind run. Not per deploy: a production build carries no Trap page, so every run there would be
+// void. A Module-point run with no `--module` opens every page of the Course.
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { TRAP_ROUTE } from "../src/trap/route.ts";
 import { browserRun, WIDTHS, type BrowserGateId } from "./browser/run.ts";
-import { inMain, sitePages } from "./pages.ts";
+import { copySite, inMain, sitePages } from "./pages.ts";
 import type { Gate, GateInput, NegativeControl } from "./runner.ts";
 
 function browserGate(id: BrowserGateId, checks: string, controls: NegativeControl[]): Gate {
   return {
     id,
     checks,
-    points: ["module", "deploy"],
+    points: ["module"],
     async run(input) {
       const run = await browserRun(input);
       if (run.void !== undefined && id !== "trap-page") throw new Error(run.void);
@@ -37,12 +39,14 @@ function planted(
   edit: (page: string) => string,
   { from = "home", files = {} }: { from?: "home" | "module"; files?: Record<string, string | null> } = {},
 ): GateInput {
-  if (good.distDir === undefined) throw new Error("no built site to plant a negative control in");
-  const pages = sitePages({ contentDir: good.contentDir, distDir: good.distDir });
-  const source = pages.find((p) => (from === "home" ? p.route === "/" : p.route !== "/"));
+  // The page to copy is found in the whole site, whatever the good input is scoped to.
+  const whole: GateInput = {
+    contentDir: good.contentDir,
+    ...(good.distDir === undefined ? {} : { distDir: good.distDir }),
+  };
+  const source = sitePages(whole).find((p) => (from === "home" ? p.route === "/" : p.route !== "/"));
   if (!source) throw new Error(`the built site has no ${from} page to plant a negative control in`);
-  const distDir = join(scratch, "site");
-  cpSync(good.distDir, distDir, { recursive: true });
+  const distDir = copySite(good, scratch, { whole: true });
   const page = readFileSync(source.path, "utf8");
   const edited = edit(page);
   if (edited === page) throw new Error(`${source.route} had nothing to plant a negative control in`);
@@ -65,12 +69,12 @@ const plantInMain =
   (good, scratch) =>
     planted(good, scratch, inMain(html), options);
 
-/** A planted page whose `<head>` loads `src`, a script that holds `body`. */
+/** A planted page whose `<head>` loads `src`: a file in the site holding `body`, or another site's address. */
 const plantScript =
-  (file: string, body: string): NegativeControl["plant"] =>
+  (src: string, body?: string): NegativeControl["plant"] =>
   (good, scratch) =>
-    planted(good, scratch, (page) => page.replace("</head>", `<script type="module" src="/${file}"></script></head>`), {
-      files: { [file]: body },
+    planted(good, scratch, (page) => page.replace("</head>", `<script type="module" src="${src}"></script></head>`), {
+      files: body === undefined ? {} : { [src.slice(1)]: body },
     });
 
 /** The Trap page with one of its seeded defects defused, beside a light planted page. */
@@ -78,6 +82,7 @@ const defuseTrap =
   (from: string, to: string): NegativeControl["plant"] =>
   (good, scratch) => {
     const trapPage = join(good.distDir ?? "", TRAP_ROUTE, "index.html");
+    if (!existsSync(trapPage)) throw new Error(`the built site has no Trap page at ${TRAP_ROUTE} to defuse`);
     const page = readFileSync(trapPage, "utf8");
     if (!page.includes(from)) throw new Error(`the Trap page has no "${from}" to defuse`);
     return planted(good, scratch, inMain("<p>Planted beside a defused Trap page.</p>"), {
@@ -135,6 +140,9 @@ export const livePageScan = browserGate(
     { defect: "raw TeX a script wrote into the page", plant: writtenOnLoad(String.raw`"so $R = \\frac{L}{kA}$"`) },
     { defect: "a hollow 0/0 score a script wrote", plant: writtenOnLoad('"Score: " + 0 + "/" + 0') },
     { defect: "floating-point noise a script computed", plant: writtenOnLoad('"Heat loss: " + 0.1 * 3 + " kW"') },
+    { defect: "NaN a script computed", plant: writtenOnLoad('"Heat loss: " + 0 / 0 + " kW"') },
+    { defect: "an object a script printed", plant: writtenOnLoad('"Answer: " + {}') },
+    { defect: "a placeholder a script never filled", plant: writtenOnLoad('"{{" + "MODULE_TITLE" + "}}"') },
     {
       defect: "an uncaught error as the page loads",
       plant: plantInMain('<script>throw new Error("planted")</script>'),
@@ -152,6 +160,26 @@ export const hydrationGate = browserGate(
         planted(good, scratch, (page) => page.replace(/(<astro-island[\s\S]*?<button[^>]*?) disabled=""/, "$1"), {
           from: "module",
         }),
+    },
+    {
+      defect: "an island that hydrates and leaves every control off",
+      // A renderer that hydrates the island by doing nothing: the server's disabled controls stay.
+      plant: (good, scratch) =>
+        planted(
+          good,
+          scratch,
+          (page) =>
+            page
+              .replace(/component-url="[^"]*"/, 'component-url="/_astro/inert.planted.js"')
+              .replace(/renderer-url="[^"]*"/, 'renderer-url="/_astro/inert-renderer.planted.js"'),
+          {
+            from: "module",
+            files: {
+              "_astro/inert.planted.js": "export default {};\n",
+              "_astro/inert-renderer.planted.js": "export default () => async () => {};\n",
+            },
+          },
+        ),
     },
     {
       defect: "an island that never hydrates",
@@ -172,6 +200,16 @@ export const touchGate = browserGate(
       plant: plantInMain('<button type="button">Does nothing</button>'),
     },
     {
+      defect: "a field that drops what is typed",
+      plant: plantInMain(`<label>Your answer <input oninput="this.value = ''"></label>`),
+    },
+    {
+      defect: "a button that throws when tapped",
+      plant: plantInMain(
+        `<button type="button" onclick="this.textContent = 'Tapped'; throw new Error('planted on tap')">Tap to fail</button>`,
+      ),
+    },
+    {
       defect: "a button under a transparent layer that takes the tap",
       plant: plantInMain(
         '<div style="position: relative"><button type="button" onclick="this.textContent = \'Tapped\'">Tap me</button><div style="position: absolute; inset: 0"></div></div>',
@@ -186,15 +224,19 @@ export const initialLoad = browserGate(
   [
     {
       defect: "three.js loaded with the page",
-      plant: plantScript("_astro/three.module.planted.js", "export class WebGLRenderer {}\n"),
+      plant: plantScript("/_astro/three.module.planted.js", "export class WebGLRenderer {}\n"),
     },
     {
       defect: "Pyodide loaded with the page",
-      plant: plantScript("_astro/runtime.planted.js", "globalThis.loadPyodide = () => {};\n"),
+      plant: plantScript("/_astro/runtime.planted.js", "globalThis.loadPyodide = () => {};\n"),
     },
     {
       defect: "Plotly loaded with the page",
-      plant: plantScript("_astro/charts.planted.js", "globalThis.Plotly = { newPlot() {} };\n"),
+      plant: plantScript("/_astro/charts.planted.js", "globalThis.Plotly = { newPlot() {} };\n"),
+    },
+    {
+      defect: "three.js asked for from a CDN with the page",
+      plant: plantScript("https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"),
     },
   ],
 );

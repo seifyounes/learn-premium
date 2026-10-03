@@ -27,5 +27,5 @@ export const COPY_DEFECTS: readonly CopyDefect[] = [
   },
 ];
 
-/** A finding's quote of `text`: trimmed, one line, at most 60 characters. */
-export const quote = (text: string) => `"${text.replace(/\s+/g, " ").trim().slice(0, 60)}"`;
+/** A finding's quote of `text`: trimmed, one line, at most `max` characters. */
+export const quote = (text: string, max = 60) => `"${text.replace(/\s+/g, " ").trim().slice(0, max)}"`;
