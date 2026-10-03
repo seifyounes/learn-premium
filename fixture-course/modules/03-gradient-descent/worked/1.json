@@ -1,5 +1,5 @@
 {
-  "code": "W02.1",
+  "code": "W03.1",
   "title": "Two steps of gradient descent",
   "statement": "Fit the line $h(x) = \\theta_0 + \\theta_1 x$ to the three points by gradient descent on $J(\\theta) = \\frac{1}{2m} \\sum_i \\left( h(x_i) - y_i \\right)^2$. Start from $\\theta^{(0)} = (0, 0)$ with learning rate $\\alpha = 0.1$ and take two steps, updating $\\theta_0$ and $\\theta_1$ together.",
   "given": [

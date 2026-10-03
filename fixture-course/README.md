@@ -62,8 +62,8 @@ The teaching-method gate holds them to it: the artefact is declared and shipped,
 is declared and every worked-out value is written exactly once, the first step shows the figure
 as the question sets it, and nothing is ringed before it is on the sheet.
 
-Module 2 (gradient descent) carries the Fixture Course's sims, on a synthetic line fit whose numbers
-are worked out here. `sims/descent.json` is the live sim inline in W02.1, checked three ways against
+Module 3 (gradient descent) carries the Fixture Course's sims, on a synthetic line fit whose numbers
+are worked out here. `sims/descent.json` is the live sim inline in W03.1, checked three ways against
 its recompute log and the sheet. `sims/descent-steps.json` is marked `recompute: none` only to
 exercise the step-through a sim falls back to; it sits in the Lab and the Tool gallery.
 

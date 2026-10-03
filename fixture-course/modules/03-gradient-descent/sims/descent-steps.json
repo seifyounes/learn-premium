@@ -1,7 +1,7 @@
 {
   "kind": "gradient-descent",
   "title": "The descent path, step by step",
-  "caption": "Where the first two steps of W02.1 take $\\theta$ on the plane of $\\theta_0$ and $\\theta_1$.",
+  "caption": "Where the first two steps of W03.1 take $\\theta$ on the plane of $\\theta_0$ and $\\theta_1$.",
   "recompute": "none",
   "model": {
     "data": [

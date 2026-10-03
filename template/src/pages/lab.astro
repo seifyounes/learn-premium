@@ -30,23 +30,21 @@ const groups = (await getModules())
     <HonestyCell />
   </TitleBlock>
 
-  {
-    groups.length === 0 ? (
-      <>
-        <h2 class="group-heading mbs-8 mbe-4">Tools</h2>
-        <p class="text-muted">No interactive tools are built for this Course yet.</p>
-      </>
-    ) : (
-      groups.map(({ module, tools }) => (
-        <section class="hub-module" aria-label={`Module ${module.number}`}>
-          <ModuleHeading module={module} />
-          <div class="space-y-12">
-            {tools.map((sim) => (
-              <Sim sim={sim} heading="h3" />
-            ))}
-          </div>
-        </section>
-      ))
-    )
-  }
+  {groups.length === 0 ? (
+    <>
+      <h2 class="group-heading mbs-8 mbe-4">Tools</h2>
+      <p class="text-muted">No interactive tools are built for this Course yet.</p>
+    </>
+  ) : (
+    groups.map(({ module, tools }) => (
+      <section class="hub-module" aria-label={`Module ${module.number}`}>
+        <ModuleHeading module={module} />
+        <div class="space-y-12">
+          {tools.map((sim) => (
+            <Sim sim={sim} heading="h3" />
+          ))}
+        </div>
+      </section>
+    ))
+  )}
 </Sheet>

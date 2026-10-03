@@ -17,7 +17,7 @@ LOG = (
     Path(__file__).resolve().parents[1]
     / "build-records"
     / "recompute"
-    / "02-gradient-descent"
+    / "03-gradient-descent"
     / "descent.json"
 )
 
