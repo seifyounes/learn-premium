@@ -11,7 +11,9 @@ import {
   placeLabel,
   readiness,
   recordPractice,
+  recordSheet,
   recordStep,
+  resumable,
   type MasteryShape,
 } from "../src/progress/progress.ts";
 
@@ -174,5 +176,50 @@ describe("where the student stopped", () => {
     let p = markPlace(emptyProgress(), { module: M, kind: "practice", item: "1" });
     p = markPlace(p, { module: "02-convection", kind: "practice", item: "3" });
     expect(p.last).toEqual({ module: "02-convection", kind: "practice", item: "3" });
+  });
+});
+
+describe("what a Worked example sheet records at a step", () => {
+  const at = { module: M, code: "W01.1", step: 2, steps: 6 };
+
+  it("counts a step read and, once the student moved, marks where they stopped", () => {
+    const p = recordSheet(emptyProgress(), at, { held: false, tried: false, moved: true });
+    expect(p.modules[M]?.worked?.["W01.1"]?.seen).toEqual([2]);
+    expect(p.last).toEqual({ ...at, kind: "worked" });
+  });
+
+  it("marks where the student stopped on a step whose values are held back, without counting it read", () => {
+    const p = recordSheet(emptyProgress(), at, { held: true, tried: false, moved: true });
+    expect(p.modules[M]).toBeUndefined();
+    expect(p.last).toEqual({ ...at, kind: "worked" });
+  });
+
+  it("doesn't move where the student stopped when the sheet only opened", () => {
+    expect(recordSheet(emptyProgress(), at, { held: false, tried: false, moved: false }).last).toBeUndefined();
+  });
+});
+
+describe("a place to resume", () => {
+  const shapes = { [M]: { worked: [{ code: "W01.1", steps: 4 }], practice: ["1", "2"] } };
+
+  it("is the place itself while the site still has it", () => {
+    const place = { module: M, kind: "practice", item: "2" } as const;
+    expect(resumable(place, shapes)).toEqual(place);
+  });
+
+  it("is gone when its Module, Worked example or Practice item is gone", () => {
+    expect(resumable({ module: "09-gone", kind: "practice", item: "1" }, shapes)).toBeUndefined();
+    expect(resumable({ module: M, kind: "worked", code: "W01.9", step: 0, steps: 4 }, shapes)).toBeUndefined();
+    expect(resumable({ module: M, kind: "practice", item: "7" }, shapes)).toBeUndefined();
+  });
+
+  it("follows a Worked example that has fewer steps now, to its last step", () => {
+    expect(resumable({ module: M, kind: "worked", code: "W01.1", step: 5, steps: 6 }, shapes)).toEqual({
+      module: M,
+      kind: "worked",
+      code: "W01.1",
+      step: 3,
+      steps: 4,
+    });
   });
 });

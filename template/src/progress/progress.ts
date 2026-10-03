@@ -100,6 +100,33 @@ const seenSteps = (w: WorkedProgress | undefined): number[] | undefined =>
 /** Where the student stopped. */
 export const markPlace = (p: Progress, place: Place): Progress => ({ ...p, last: place });
 
+/**
+ * What a Worked example sheet records at a step: the step read and maybe worked try-first, unless
+ * its values are still held back (it counts once the student asks to see them); and, once the
+ * student has moved, where they stopped, held back or not.
+ */
+export function recordSheet(
+  p: Progress,
+  at: { module: string; code: string; step: number; steps: number },
+  { held, tried, moved }: { held: boolean; tried: boolean; moved: boolean },
+): Progress {
+  const next = held ? p : recordStep(p, at.module, at.code, at.step, at.steps, tried);
+  return moved ? markPlace(next, { ...at, kind: "worked" }) : next;
+}
+
+/**
+ * A stored place as the site has it now: gone when its Module, Worked example or Practice item is,
+ * and a Worked step brought within an example that has fewer steps than when it was stored.
+ */
+export function resumable(place: Place, shapes: Record<string, MasteryShape>): Place | undefined {
+  const shape = shapes[place.module];
+  if (!shape) return undefined;
+  if (place.kind === "practice") return shape.practice.includes(place.item) ? place : undefined;
+  const example = shape.worked.find((w) => w.code === place.code);
+  if (!example) return undefined;
+  return { ...place, step: Math.min(place.step, example.steps - 1), steps: example.steps };
+}
+
 /** The resume note's location line: "W01.1, step 4 of 6" or "Practice 2". */
 export const placeLabel = (place: Place) =>
   place.kind === "worked" ? `${place.code}, step ${place.step + 1} of ${place.steps}` : `Practice ${place.item}`;

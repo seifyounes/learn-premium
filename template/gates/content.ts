@@ -126,8 +126,11 @@ export const contentContract: Gate = {
 
 /** An Exam sitting covering a Module the Course has no folder for. */
 function sittingsWithoutModules(contentDir: string, c: z.infer<typeof course>): Finding[] {
+  // A Module is a folder with a module.yaml, as the build loads them.
   const folder = join(contentDir, "modules");
-  const modules = new Set(existsSync(folder) ? readdirSync(folder) : []);
+  const modules = new Set(
+    (existsSync(folder) ? readdirSync(folder) : []).filter((m) => existsSync(join(folder, m, "module.yaml"))),
+  );
   return uncoveredModules(c.sittings, modules).map(({ index, message }) => ({
     outcome: "block",
     at: "course.yaml",

@@ -1,7 +1,7 @@
 // The home page's own script: each Module's Mastery and each sitting's readiness, measured on what
 // the student has done in this browser, and the red-pen resume note in the margin of the Module
 // they stopped in. Kept current as progress changes in another tab.
-import { mastery, placeHref, placeLabel, readiness, type MasteryShape } from "./progress.ts";
+import { mastery, placeHref, placeLabel, readiness, resumable, type MasteryShape } from "./progress.ts";
 import { onProgress, readProgress } from "./store.ts";
 
 const percent = (value: number | undefined) => (value === undefined ? "–" : String(Math.round(value * 100)));
@@ -32,8 +32,8 @@ function start(contents: HTMLElement) {
       boxes.forEach((box, i) => box.toggleAttribute("data-filled", i < filled));
     }
 
-    // The note sits in the margin of the line the student stopped in.
-    const last = progress.last;
+    // The note sits in the margin of the line the student stopped in, while the site still has it.
+    const last = progress.last && resumable(progress.last, shapes);
     const margin =
       last && contents.querySelector(`.contents-line[data-module="${CSS.escape(last.module)}"] [data-margin]`);
     if (!note) return;

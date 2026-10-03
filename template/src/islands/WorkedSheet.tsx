@@ -4,7 +4,7 @@
 // default; try-first hides each step's values until the student asks to see them.
 import { MotionConfig, useReducedMotion } from "motion/react";
 import { useEffect, useId, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { markPlace, placeAnchor, recordStep } from "../progress/progress.ts";
+import { placeAnchor, recordSheet } from "../progress/progress.ts";
 import { readProgress, updateProgress } from "../progress/store.ts";
 import type { SheetData } from "../worked/sheet.ts";
 import { shownAt, startStepping, stepping, triedAt, type SteppingAction } from "../worked/stepping.ts";
@@ -63,17 +63,15 @@ export default function WorkedSheet({ sheet, topicHtml, module, outputsHtml, chi
     const last = readProgress().last;
     if (last?.kind !== "worked" || last.module !== module || last.code !== code) return;
     if (decodeURIComponent(location.hash.slice(1)) !== placeAnchor(last)) return;
-    apply({ type: "go", to: last.step });
-  }, [module, code]);
+    apply({ type: "go", to: Math.min(last.step, count - 1) });
+  }, [module, code, count]);
   const tried = triedAt(sheet, s);
   const held = shownAt(sheet, s, false).hidden;
-  // A step whose values are held back isn't read yet: it counts once the student asks to see them.
   useEffect(() => {
-    if (!ready || held) return;
-    updateProgress((p) => {
-      const next = recordStep(p, module, code, s.step, count, tried);
-      return moved.current ? markPlace(next, { module, kind: "worked", code, step: s.step, steps: count }) : next;
-    });
+    if (!ready) return;
+    updateProgress((p) =>
+      recordSheet(p, { module, code, step: s.step, steps: count }, { held, tried, moved: moved.current }),
+    );
   }, [ready, held, module, code, s.step, count, tried]);
   const shown = shownAt(sheet, s, reduced);
   const { state, hidden } = shown;
