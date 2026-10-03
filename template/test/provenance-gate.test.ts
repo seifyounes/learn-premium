@@ -41,7 +41,7 @@ describe("the provenance gate", () => {
 });
 
 describe("the provenance gate on Agent-built sims", () => {
-  const ML = "02-gradient-descent";
+  const ML = "03-gradient-descent";
   const sim = (name: string) => `modules/${ML}/sims/${name}`;
 
   it("passes the Fixture Course's sims, every constant tagged, the illustrative ones as assumed", async () => {

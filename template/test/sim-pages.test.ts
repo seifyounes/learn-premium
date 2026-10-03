@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildCourse, FIXTURE_COURSE } from "./build-course";
 import { serve } from "./serve";
 
-const MODULE = "02-gradient-descent";
+const MODULE = "03-gradient-descent";
 const build = buildCourse(FIXTURE_COURSE);
 
 /** The `<article>` holding a Worked example (by its code) on a built page. */
@@ -22,7 +22,7 @@ describe("the sim on the built pages", () => {
   });
 
   it("sits inline in its Worked example, opened on the example's values, its controls off until hydrated", () => {
-    const article = articleOf(build.page(MODULE), "W02.1");
+    const article = articleOf(build.page(MODULE), "W03.1");
     expect(article).toMatch(/component-url="\/_astro\/GradientDescentSim\.[^"]+\.js"[^>]*client="visible"/);
     // The first render is the example's table, at the sheet's 4 decimals.
     const rows = [...article.matchAll(/<tr class="h-\[29px\]" data-row="(\d+)">([\s\S]*?)<\/tr>/g)].map((m) =>
@@ -40,7 +40,7 @@ describe("the sim on the built pages", () => {
   });
 
   it("labels its illustrative constants with their Provenance tag", () => {
-    const article = articleOf(build.page(MODULE), "W02.1");
+    const article = articleOf(build.page(MODULE), "W03.1");
     const sim = article.slice(article.indexOf('class="sim-card"'));
     expect(sim).toMatch(
       /<dt class="field-label">Assumed<\/dt><dd><span class="provenance-gloss">supplied here, not in the Materials:/,
@@ -59,7 +59,7 @@ describe("the sim on the built pages", () => {
 
   it("falls back to a step-through for a sim marked non-recomputable: no engine ships in it", () => {
     const lab = build.page("lab");
-    const fallback = lab.slice(lab.indexOf('id="sim-02-gradient-descent-descent-steps"'));
+    const fallback = lab.slice(lab.indexOf('id="sim-03-gradient-descent-descent-steps"'));
     expect(fallback).toMatch(/component-url="\/_astro\/StepThrough\.[^"]+\.js"/);
     expect(fallback).not.toMatch(/GradientDescentSim/);
     expect(fallback).toContain("A step-through, not a live sim");

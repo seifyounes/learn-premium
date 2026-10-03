@@ -5,13 +5,13 @@ import { runControls } from "../gates/runner.ts";
 import { simNumbers } from "../gates/sims.ts";
 import { FIXTURE_COURSE, fixtureWith } from "./build-course";
 
-const MODULE = "02-gradient-descent";
+const MODULE = "03-gradient-descent";
 const SIM = `modules/${MODULE}/sims/descent.json`;
 const WORKED = `modules/${MODULE}/worked/1.json`;
 const LOG = `build-records/recompute/${MODULE}/descent.json`;
 
 const run = (contentDir: string) => simNumbers.run({ contentDir, module: MODULE });
-/** The Fixture Course with one sheet cell of W02.1 printed as `printed`. */
+/** The Fixture Course with one sheet cell of W03.1 printed as `printed`. */
 const sheetWith = (cell: string, printed: string, from = FIXTURE_COURSE) =>
   fixtureWith(WORKED, (s) => s.replace(cell, printed), from);
 

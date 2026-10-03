@@ -1,11 +1,21 @@
 // The Study site shell around the Module pages: the routes, the fixed nav, the contents-sheet home,
 // the Course hubs (Master Rules, Lab, Revision) and About, and what every page carries.
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildCourse, FIXTURE_COURSE, fixtureWith } from "./build-course";
 
-const ROUTES = ["", "01-thermal-resistance", "02-convection", "rules", "lab", "about", "revision/midterm"];
+const ROUTES = [
+  "",
+  "01-thermal-resistance",
+  "02-convection",
+  "03-gradient-descent",
+  "rules",
+  "lab",
+  "about",
+  "revision/midterm",
+  "tool-gallery",
+];
 
 /** The fixed nav's links on a page: label → href, and the one marked current. */
 function nav(page: string) {
@@ -48,10 +58,13 @@ describe("the Study site shell", () => {
       "": "Modules",
       "01-thermal-resistance": "Modules",
       "02-convection": "Modules",
+      "03-gradient-descent": "Modules",
       rules: "Master Rules",
       lab: "Lab",
       about: "About",
       "revision/midterm": "Revision",
+      // The Tool gallery is the Lab's other page of tools.
+      "tool-gallery": "Lab",
     };
     for (const route of ROUTES) {
       const { links, current: marked } = nav(build.page(route));
@@ -75,7 +88,7 @@ describe("the Study site shell", () => {
 
     it("lists every Module in number order, each line linking to its page", () => {
       const lines = [...home().matchAll(/<li class="contents-line"[^>]*data-module="([^"]+)"/g)].map((m) => m[1]);
-      expect(lines).toEqual(["01-thermal-resistance", "02-convection"]);
+      expect(lines).toEqual(["01-thermal-resistance", "02-convection", "03-gradient-descent"]);
       expect(contentsLine(home(), "02-convection")).toContain('href="/02-convection/"');
     });
 
@@ -139,8 +152,11 @@ describe("the Study site shell", () => {
     });
   });
 
-  it("lists every tool on the Lab page, saying so when there are none yet", () => {
-    expect(build.page("lab")).toContain("No interactive tools are built for this Course yet.");
+  it("lists every tool on the Lab page under the Module that uses it", () => {
+    const lab = build.page("lab");
+    expect(lab).toContain('href="/03-gradient-descent/"');
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(2);
+    expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
 
   it("explains the project on the About page: Course, Professor, University and who built it", () => {
@@ -168,6 +184,16 @@ describe("before a sitting is complete", () => {
     for (const route of ["", "01-thermal-resistance", "rules", "lab", "about"]) {
       expect(Object.keys(nav(build.page(route)).links), route).toEqual(["Modules", "Master Rules", "Lab", "About"]);
     }
+  });
+});
+
+describe("a Course with no tools yet", () => {
+  it("says so on the Lab page", () => {
+    const course = fixtureWith("course.yaml", (s) => s);
+    rmSync(join(course, "modules", "03-gradient-descent"), { recursive: true });
+    const build = buildCourse(course);
+    expect(build.ok, build.output).toBe(true);
+    expect(build.page("lab")).toContain("No interactive tools are built for this Course yet.");
   });
 });
 

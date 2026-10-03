@@ -176,18 +176,18 @@ Every finding either blocks or raises a Checkpoint item; there is no warning lev
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
 A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
-| Gate | Points | Checks |
-| --- | --- | --- |
-| `content-contract` | job, deploy | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists |
-| `katex` | job, deploy | every formula through KaTeX with `throwOnError` |
-| `teaching-method` | job, deploy | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words |
-| `provenance` | job, deploy | every number an entry shows (Master Rules included), and every constant a sim is built from, carries a Provenance tag |
-| `master-rules` | job, deploy | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name` and `use`, inside their math); no emoji in a rule |
-| `sim-numbers` | job, deploy | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item |
-| `tools` | job, deploy | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless |
-| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included |
-| `pad` | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it |
-| `red-hue-rule` | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked) |
+| Gate                 | Points         | Checks                                                                                                                                             |
+| -------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists                   |
+| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                                    |
+| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words                  |
+| `provenance`         | job, deploy    | every number an entry shows (Master Rules included), and every constant a sim is built from, carries a Provenance tag                              |
+| `master-rules`       | job, deploy    | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name` and `use`, inside their math); no emoji in a rule |
+| `sim-numbers`        | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                     |
+| `tools`              | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless                 |
+| `rendered-page-scan` | module, deploy | no `.katex-error` or raw TeX on a built page, islands' props included                                                                              |
+| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                      |
+| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)          |
 
 The sim gates in detail (`gates/sims.ts`):
 

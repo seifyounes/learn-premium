@@ -3,7 +3,7 @@ import { runControls } from "../gates/runner.ts";
 import { eligibilityOfSource, plantedSim, toolsGate } from "../gates/sims.ts";
 import { FIXTURE_COURSE, fixtureWith } from "./build-course";
 
-const MODULE = "02-gradient-descent";
+const MODULE = "03-gradient-descent";
 const at = (file: string) => `modules/${MODULE}/${file}`;
 const run = (contentDir: string) => toolsGate.run({ contentDir, module: MODULE });
 const withSim = (sim: Record<string, unknown>) => fixtureWith(at("sims/900.json"), () => JSON.stringify(sim));
