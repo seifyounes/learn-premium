@@ -2,7 +2,8 @@
 // recompute (which never sees the engine or the writer, and logs what it worked out), and the
 // Worked example's sheet at its printed precision. Engine ≠ recompute is a bug, so it blocks; the
 // two agreeing against the sheet is the Professor's call, so it goes to the Owner as a Checkpoint
-// item, unless the Owner already ruled that value a Divergence. Pure: the gate reads the files.
+// item, unless the Owner already ruled on it: a Divergence ships as printed, and a Slip the sheet
+// still prints blocks, since the site ships the corrected value. Pure: the gate reads the files.
 import { z } from "astro/zod";
 import { numbersIn } from "../provenance/values.ts";
 import { parseCell } from "../worked/cells.ts";
@@ -23,10 +24,15 @@ export const recomputeLog = z.strictObject({
 });
 export type RecomputeLog = z.output<typeof recomputeLog>;
 
-/** The Worked example's table as printed, and the values the Owner ruled Divergences. */
+/**
+ * The Worked example's table as printed, and the Owner's rulings on it: each Divergence's value,
+ * and each Slip's value as the sheet printed it. A ruling is matched by its number, since it names
+ * no cell.
+ */
 export interface Sheet {
   rows: readonly (readonly string[])[];
   divergences: readonly string[];
+  slips: readonly string[];
 }
 
 export interface Disagreement {
@@ -63,7 +69,10 @@ export function threeWay(s: LiveSim, log: RecomputeLog, sheet: Sheet | undefined
   }
 
   const engine = engineQuantities(s);
-  const ruled = new Set((sheet?.divergences ?? []).flatMap((d) => numbersIn(d).map((n) => n.value)));
+  const numbers = (written: readonly string[] = []) =>
+    new Set(written.flatMap((w) => numbersIn(w).map((n) => n.value)));
+  const divergences = numbers(sheet?.divergences);
+  const slips = numbers(sheet?.slips);
   const onSheet = new Set<string>();
   for (const [cell, quantity] of Object.entries(s.sheet)) {
     onSheet.add(quantity);
@@ -94,12 +103,21 @@ export function threeWay(s: LiveSim, log: RecomputeLog, sheet: Sheet | undefined
       block(
         `${quantity} (sheet cell ${cell}): the engine gives ${printAt(fromEngine, d)} but the independent recompute gives ${printAt(fromRecompute, d)}, at the sheet's ${d} decimals; fix whichever is wrong`,
       );
-    } else if (!agreesAtPrint(fromEngine, printed) && !ruled.has(Math.abs(printed.value))) {
-      result.problems.push({
-        outcome: "checkpoint",
-        on: "sheet",
-        message: `sheet cell ${cell} prints ${printed.written}, but the engine and the independent recompute both give ${printAt(fromEngine, d)} (${quantity}): rule it a Slip or a Divergence`,
-      });
+    } else if (!agreesAtPrint(fromEngine, printed) && !divergences.has(Math.abs(printed.value))) {
+      const computed = `${printAt(fromEngine, d)} (${quantity})`;
+      result.problems.push(
+        slips.has(Math.abs(printed.value))
+          ? {
+              outcome: "block",
+              on: "sheet",
+              message: `sheet cell ${cell} prints ${printed.written}, which the Owner ruled a Slip: the site ships the corrected value, ${computed}`,
+            }
+          : {
+              outcome: "checkpoint",
+              on: "sheet",
+              message: `sheet cell ${cell} prints ${printed.written}, but the engine and the independent recompute both give ${computed}: rule it a Slip or a Divergence`,
+            },
+      );
     }
   }
 

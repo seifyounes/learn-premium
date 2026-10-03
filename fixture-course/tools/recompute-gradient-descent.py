@@ -5,7 +5,7 @@ compares the engine and the sheet with.
 
 Run from the repo root (standard library only):
 
-    python fixture-course/tools/recompute_gradient_descent.py
+    python fixture-course/tools/recompute-gradient-descent.py
 """
 
 import json
@@ -82,7 +82,7 @@ def main() -> None:
     values["alpha.limit"] = alpha_limit()
     log = {
         "recompute": "learn-premium recompute log v1",
-        "by": "fixture-course/tools/recompute_gradient_descent.py: exact fractions, apart from the engine",
+        "by": "fixture-course/tools/recompute-gradient-descent.py: exact fractions, apart from the engine",
         "inputs": {
             "model": {"data": [list(p) for p in POINTS]},
             "start": {
@@ -95,7 +95,7 @@ def main() -> None:
         "values": values,
     }
     LOG.parent.mkdir(parents=True, exist_ok=True)
-    LOG.write_text(json.dumps(log, indent=2) + "\n", encoding="utf-8")
+    LOG.write_text(json.dumps(log, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"wrote {LOG}")
 
 

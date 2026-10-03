@@ -4,13 +4,11 @@
 import type { z } from "astro/zod";
 import type { sim } from "../content/contract.ts";
 import * as gradientDescent from "./gradient-descent/engine.ts";
+import type { Inputs } from "./tuning.ts";
 
 export type Sim = z.output<typeof sim>;
 export type SimKind = Sim["kind"];
 type SimOf<K extends SimKind> = Extract<Sim, { kind: K }>;
-
-/** The inputs students tune, by name. */
-export type Inputs = Readonly<Record<string, number>>;
 
 interface Kind<K extends SimKind> {
   /** Every number the engine gives for the model at `inputs`, by the name sheets and recompute logs use. */

@@ -80,6 +80,25 @@ describe("the sim-numbers gate", () => {
     expect((await run(course)).findings).toEqual([]);
   });
 
+  it("blocks a sheet still printing a value the Owner ruled a Slip, rather than asking again", async () => {
+    const course = fixtureWith(WORKED, (s) =>
+      s
+        .replace('"0.2667", "0.3667"', '"0.2667", "0.3700"')
+        .replace(
+          '"stated": [',
+          '"slips": [{ "value": "$\\\\theta_1^{(1)} = 0.3667$", "sheet": "$0.3700$" }],\n    "stated": [',
+        ),
+    );
+    expect((await run(course)).findings).toEqual([
+      {
+        outcome: "block",
+        at: WORKED,
+        message:
+          "sheet cell C2 prints 0.3700, which the Owner ruled a Slip: the site ships the corrected value, 0.3667 (theta1[1])",
+      },
+    ]);
+  });
+
   it("blocks a sim that doesn't open on the inputs the recompute took from the Materials", async () => {
     const course = fixtureWith(SIM, (s) => s.replace('"alpha": 0.1, "iterations": 2', '"alpha": 0.2, "iterations": 2'));
     const result = await run(course);

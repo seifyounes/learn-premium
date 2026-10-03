@@ -6,6 +6,7 @@
 import { motion } from "motion/react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { AxisData, ElementData, FigureData, LabelSide } from "../../worked/sheet.ts";
+import { decimalsOf } from "../../sims/print.ts";
 import type { Shown } from "../../worked/stepping.ts";
 import { PenRing } from "./pen.tsx";
 import { FIGURE_STAGGER, figureRingsDelay, LABEL_AFTER, LABEL_FADE, LINE_DRAW, MARK_FADE } from "./timing.ts";
@@ -22,10 +23,9 @@ function ticks({ min, max, step }: AxisData, per = 1): number[] {
   return Array.from({ length: count + 1 }, (_, i) => min + (i * step) / per);
 }
 
-const decimals = (step: number) => (String(step).split(".")[1] ?? "").length;
 /** A tick's printed value: the step's decimals, a true minus sign, and never "−0.00". */
 const tickLabel = (v: number, step: number) =>
-  (Math.abs(v) < step / 1e6 ? 0 : v).toFixed(decimals(step)).replace(/^-/, "−");
+  (Math.abs(v) < step / 1e6 ? 0 : v).toFixed(decimalsOf(step)).replace(/^-/, "−");
 
 interface Placed {
   x: number;

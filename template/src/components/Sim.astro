@@ -23,7 +23,8 @@ const { sim: ref, heading: Heading } = Astro.props;
 const s = ref.entry.data;
 const live = isLive(s) ? s : undefined;
 const { inputsHtml, outputsHtml } = provenanceNotes(s.provenance, prose);
-const text = (html: string) => html.replace(/<[^>]*>/g, "");
+/** Rendered prose as plain words, for assistive tech. */
+const plainText = (html: string) => html.replace(/<[^>]*>/g, "");
 
 // The sim prints its numbers the way the sheet it opens on does.
 const example = s.worked === undefined ? undefined : await getEntry("worked", `${ref.module}/worked/${s.worked}`);
@@ -31,6 +32,7 @@ const sheetCells = Object.keys(s.sheet).map((cell) => {
   const { row, col } = parseCell(cell);
   return example?.data.artefact.rows[row]?.[col] ?? "";
 });
+// A sim on no sheet prints to four places, the sheets' usual precision.
 const decimals = printedDecimals(sheetCells) ?? 4;
 const math = (tex: string) => prose(`$${tex}$`);
 // The content contract gives every sim it can't recompute a step-through.
@@ -54,7 +56,7 @@ const stepThrough = s.stepThrough && toStepThrough(s.stepThrough, prose);
       start={live.start}
       tune={live.tune}
       decimals={decimals}
-      label={text(prose(s.title))}
+      label={plainText(prose(s.title))}
       mathHtml={{
         k: math("k"),
         theta0: math("\\theta_0"),
@@ -69,7 +71,7 @@ const stepThrough = s.stepThrough && toStepThrough(s.stepThrough, prose);
   ) : (
     stepThrough && (
       <>
-        <StepThrough client:visible data={stepThrough} label={text(prose(s.title))} />
+        <StepThrough client:visible data={stepThrough} label={plainText(prose(s.title))} />
         <p class="mbs-2 max-w-[68ch] text-body-small text-muted">
           A step-through, not a live sim: no independent recompute could check a model of this figure, so it steps
           through the Materials' own values.

@@ -199,6 +199,8 @@ describe("the sim in a browser", () => {
     const { page, errors } = await open(context, "tool-gallery");
     await hydrated(page);
     const cdp = await context.newCDPSession(page);
+    // A mid-range phone: the spec's emulated touch runs at a 4× CPU slowdown.
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
     const touch = async (type: "touchStart" | "touchMove" | "touchEnd", x: number, y: number) =>
       cdp.send("Input.dispatchTouchEvent", {
         type,
