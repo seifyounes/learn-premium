@@ -189,18 +189,20 @@ A new gate goes in `gates/index.ts` with at least one negative control that plan
 | `rendered-page-scan` | module, deploy | no `.katex-error`, raw TeX, prose set as a fraction or hollow copy (`0/0`, NaN) on a built page, islands' props included; the content's braces render literally                                             |
 | `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                                                                               |
 | `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)                                                                   |
-| `layout-sweep`       | module, deploy | browser: at 320/375/390/430/768/1024/1280/1440, every collapsible open, no sideways scroll, nothing over a figure, nothing above the page, no colliding text, no height-locked overflow, no text under 12px |
-| `live-page-scan`     | module, deploy | browser: the live page has no KaTeX error, raw TeX, hollow copy, NaN or floating-point noise, and no uncaught error                                                                                         |
-| `hydration`          | module, deploy | browser: island controls are disabled in the server's HTML, and on once the island hydrates                                                                                                                 |
-| `touch`              | module, deploy | browser: with phone touch at 375 and 390px (4× slower CPU on Chromium), every control answers a tap                                                                                                         |
-| `initial-load`       | module, deploy | browser: three.js, Pyodide and Plotly are absent from every page's initial load                                                                                                                             |
-| `trap-page`          | module, deploy | browser: every sweep found every seeded defect on the Trap page                                                                                                                                             |
+| `layout-sweep`       | module         | browser: at 320/375/390/430/768/1024/1280/1440, every collapsible open, no sideways scroll, nothing over a figure, nothing above the page, no colliding text, no height-locked overflow, no text under 12px |
+| `live-page-scan`     | module         | browser: the live page has no KaTeX error, raw TeX, hollow copy, NaN or floating-point noise, and no uncaught error                                                                                         |
+| `hydration`          | module         | browser: island controls are disabled in the server's HTML, and on once the island hydrates                                                                                                                 |
+| `touch`              | module         | browser: with phone touch at 375 and 390px (4× slower CPU on Chromium), every control answers a tap                                                                                                         |
+| `initial-load`       | module         | browser: three.js, Pyodide and Plotly are absent from every page's initial load                                                                                                                             |
+| `trap-page`          | module         | browser: every sweep found every seeded defect on the Trap page                                                                                                                                             |
 
 ### Browser gates
 
 The browser gates (`gates/browser.ts`) are slices of one run of headless Playwright on Chromium and
-WebKit (WebKit stands in for iPhone Safari), made once per gate input (`gates/browser/run.ts`). For
-each browser, it opens every page in scope:
+WebKit (WebKit stands in for iPhone Safari), made once per gate input (`gates/browser/run.ts`). They
+run per Module, on the Module's preview; a Module-point run with no `--module` opens every page of
+the Course. They don't run per deploy: a production build carries no Trap page. For each browser,
+the run opens every page in scope:
 
 - it records what the initial load fetches, before anything is scrolled;
 - it scrolls each island into view, waits for it to hydrate, and checks it turned its controls on;
@@ -208,7 +210,12 @@ each browser, it opens every page in scope:
   opens every collapsible and visits every tab of each tab list, then measures the page in it
   (`gates/browser/in-page.js`);
 - it taps every control with emulated phone touch at 375 and 390px, typing into fields first, and
-  sweeps the state that leaves.
+  sweeps the state that leaves. Chromium runs with a 4× slower CPU; WebKit has no CPU throttling, so
+  its touch run is at full speed.
+
+An island turns its controls on once it hydrates, but some stay off by design (Prev at the first
+step, Check before an answer), so an island fails the after-hydration check only when every control
+it has is still off.
 
 Each check exists because v1 shipped its defect. A figure is covered when something positioned
 over it lies on its ink: an SVG's strokes, fills and text, sampled, never its blank ground. An

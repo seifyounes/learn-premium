@@ -198,8 +198,17 @@ function leavesOf(node: Element): Element[] {
   return children.length === 0 ? [node] : children.flatMap(leavesOf);
 }
 
-const textIn = (node: ElementContent): string =>
+/** The text inside a parsed HTML node. */
+export const textIn = (node: ElementContent): string =>
   node.type === "text" ? node.value : node.type === "element" ? node.children.map(textIn).join("") : "";
+
+/** Every string anywhere in a parsed JSON or YAML value. */
+function stringsIn(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(stringsIn);
+  if (value && typeof value === "object") return Object.values(value).flatMap(stringsIn);
+  return [];
+}
 
 /** Every literal brace group (`{a, b}`) in the prose of the Course's content in scope. */
 function contentBraces(input: GateInput): { group: string; file: string; module: string | undefined }[] {
@@ -207,17 +216,12 @@ function contentBraces(input: GateInput): { group: string; file: string; module:
   for (const file of courseFiles(input)) {
     const source = readFileSync(file.path, "utf8");
     const strings: string[] = [];
-    const collect = (value: unknown): void => {
-      if (typeof value === "string") strings.push(value);
-      else if (Array.isArray(value)) value.forEach(collect);
-      else if (value && typeof value === "object") Object.values(value).forEach(collect);
-    };
     try {
       if (COLLECTIONS[file.collection].format === "markdown") {
         const { frontmatter, body } = splitFrontmatter(source);
-        if (frontmatter !== undefined) collect(readStructured(frontmatter, file.entry, () => {}));
+        if (frontmatter !== undefined) strings.push(...stringsIn(readStructured(frontmatter, file.entry, () => {})));
         strings.push(body);
-      } else collect(readStructured(source, file.entry, () => {}));
+      } else strings.push(...stringsIn(readStructured(source, file.entry, () => {})));
     } catch {
       continue; // content that can't be read is the content gates' to block
     }
@@ -248,14 +252,7 @@ export function islandStrings(island: Element, block: (message: string) => void)
     block("an island's props can't be read, so what it renders can't be scanned");
     return [];
   }
-  const strings: string[] = [];
-  const walk = (value: unknown): void => {
-    if (typeof value === "string") strings.push(value);
-    else if (Array.isArray(value)) value.forEach(walk);
-    else if (value && typeof value === "object") Object.values(value).forEach(walk);
-  };
-  walk(parsed);
-  return strings;
+  return stringsIn(parsed);
 }
 
 function snippet(text: string, at: number): string {
@@ -266,12 +263,15 @@ function snippet(text: string, at: number): string {
     .trim()}${at + 40 < text.length ? "…" : ""}`;
 }
 
-/** A scratch copy of the built site's pages and stylesheets. */
-function copySite(good: GateInput, scratch: string): string {
+/**
+ * A scratch copy of the built site: its pages and stylesheets, or (`whole`) everything, scripts and
+ * media included, for the browsers to run.
+ */
+export function copySite(good: GateInput, scratch: string, { whole = false } = {}): string {
   const distDir = join(scratch, "site");
   cpSync(siteOf(good), distDir, {
     recursive: true,
-    filter: (src) => /\.(?:html|css)$/.test(src) || statSync(src).isDirectory(),
+    filter: (src) => whole || /\.(?:html|css)$/.test(src) || statSync(src).isDirectory(),
   });
   return distDir;
 }

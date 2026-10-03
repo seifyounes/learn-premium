@@ -25,19 +25,29 @@ const CAUGHT_BY: Record<string, RegExp> = {
   "a hollow 0/0 score a script wrote": /a hollow 0\/0 on the page: "Score: 0\/0"/,
   "floating-point noise a script computed":
     /a wrong number \(floating-point noise\) on the page: "Heat loss: 0\.30000000000000004 kW"/,
+  "NaN a script computed": /a wrong number \(NaN\) on the page: "Heat loss: NaN kW"/,
+  "an object a script printed": /an \[object Object\] on the page: "Answer: \[object Object\]"/,
+  "a placeholder a script never filled": /an unrendered \{\{placeholder\}\} on the page: "\{\{MODULE_TITLE\}\}"/,
   "an uncaught error as the page loads": /an uncaught error on the page: planted/,
   "an island control that works before its island hydrates": /<button> "Try first" works before its island hydrates/,
+  "an island that hydrates and leaves every control off":
+    /every control of the island \/_astro\/inert\.planted\.js is still disabled after it hydrated/,
   "an island that never hydrates": /the island \/_astro\/missing\.js never hydrated/,
   "a button that does nothing when tapped": /a tap on <button> "Does nothing" changed nothing/,
+  "a field that drops what is typed": /typing into <input> "" after a tap did nothing/,
+  "a button that throws when tapped": /an uncaught error while tapping: planted on tap/,
   "a button under a transparent layer that takes the tap": /<button> "Tap me" can't be tapped/,
   "three.js loaded with the page": /three\.js loads with the page/,
   "Pyodide loaded with the page": /Pyodide loads with the page/,
   "Plotly loaded with the page": /Plotly loads with the page/,
+  "three.js asked for from a CDN with the page":
+    /three\.js loads with the page \(https:\/\/cdn\.jsdelivr\.net\/npm\/three@0\.170\.0\/build\/three\.module\.js\)/,
   "a Trap page whose folded figure is labelled at a legal size":
-    /missed the Trap page's a figure labelled under the 12px floor/,
-  "a Trap page without its KaTeX error": /missed the Trap page's a KaTeX error/,
-  "a Trap page whose value chip sits clear of its figure": /missed the Trap page's a value chip laid over a figure/,
-  "a Trap page that computes its number right": /missed the Trap page's a wrong number/,
+    /missed the Trap page's seeded figure labelled under the 12px floor/,
+  "a Trap page without its KaTeX error": /missed the Trap page's seeded KaTeX error/,
+  "a Trap page whose value chip sits clear of its figure":
+    /missed the Trap page's seeded value chip laid over a figure/,
+  "a Trap page that computes its number right": /missed the Trap page's seeded wrong number/,
   "a build without the Trap page": /no Trap page at \/trap\//,
 };
 
@@ -52,17 +62,18 @@ describe("the browser gates on the Fixture Course", () => {
     expect(existsSync(join(build.outDir, "trap", "index.html"))).toBe(true);
   });
 
-  it("run at the Module and deploy points, after the static page gates", () => {
+  it("run at the Module point only: a production deploy has no Trap page, so a run there would be void", () => {
     const at = (point: "job" | "module" | "deploy") => GATES.filter((g) => g.points.includes(point)).map((g) => g.id);
     for (const g of BROWSER_GATES) {
       expect(at("module")).toContain(g.id);
-      expect(at("deploy")).toContain(g.id);
+      expect(at("deploy")).not.toContain(g.id);
       expect(at("job")).not.toContain(g.id);
     }
   });
 
   it("pass on the whole Course, sweeping every page at every width in both browsers", async () => {
-    const report = await runGates({ point: "deploy", commit: COMMIT, input, gates: BROWSER_GATES });
+    // A Module-point run with no Module named opens every page of the Course.
+    const report = await runGates({ point: "module", commit: COMMIT, input, gates: BROWSER_GATES });
     expect(report.green, JSON.stringify(report.gates, null, 2)).toBe(true);
     const coverage = (id: string) => report.gates.find((g) => g.id === id)?.coverage ?? {};
     const pages = 2; // home and the Module; never the Trap page
@@ -121,7 +132,7 @@ describe("the browser gates on the Fixture Course", () => {
         if (result.id === "trap-page") expect(result.status).toBe("block");
         else {
           expect(result.status, result.id).toBe("failed");
-          expect(result.error).toMatch(/the browser run is void: the run missed the Trap page's a KaTeX error/);
+          expect(result.error).toMatch(/the browser run is void: the run missed the Trap page's seeded KaTeX error/);
         }
       }
     } finally {
@@ -136,5 +147,5 @@ describe("the Trap page", () => {
     expect(build.ok, build.output).toBe(true);
     expect(existsSync(join(build.outDir, "trap"))).toBe(false);
     expect(existsSync(join(build.outDir, "index.html"))).toBe(true);
-  });
+  }, 300_000);
 });

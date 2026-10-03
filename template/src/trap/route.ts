@@ -3,12 +3,12 @@
 
 export const TRAP_ROUTE = "/trap/";
 
-/** The seeded defects, each wrapped in an element marked `data-trap="<id>"`. */
+/** The seeded defects, each wrapped in an element marked `data-trap="<id>"`, by what they are. */
 export const TRAP_DEFECTS = {
-  "tiny-font-figure": "a figure labelled under the 12px floor, inside a collapsed section",
-  "katex-error": "a KaTeX error",
-  overlap: "a value chip laid over a figure",
-  "wrong-number": "a wrong number the page computes as it loads",
+  "tiny-font-figure": "figure labelled under the 12px floor, inside a collapsed section",
+  "katex-error": "KaTeX error",
+  overlap: "value chip laid over a figure",
+  "wrong-number": "wrong number, computed as the page loads",
 } as const;
 export type TrapDefect = keyof typeof TRAP_DEFECTS;
 
