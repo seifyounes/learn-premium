@@ -31,7 +31,7 @@ Layout (content contract v0):
   that `add` and `ring` its elements.
 - `build-records/recompute/<NN>-<slug>/<name>.json`: a live sim's recompute log, the inputs it
   took from the Materials and every number it worked out. Here it is written by
-  `tools/recompute_gradient_descent.py`, in exact fractions, apart from the template's engine.
+  `tools/recompute-gradient-descent.py`, in exact fractions, apart from the template's engine.
 - `modules/<NN>-<slug>/practice/<n>.yaml`: one Practice item each (JSON or YAML). A `numeric`
   item has an `answer` (`value`, `unit`, `tolerance`) the site checks; a `prose` item lists what
   `earns` the mark, one point per mark, for the student to mark themselves against.

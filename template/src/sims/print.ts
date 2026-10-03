@@ -1,6 +1,9 @@
 // Printing a computed value the way the sheet prints its column. Kept apart from the sheet-reading
 // side of `precision.ts`, which parses TeX, so a sim's island ships without KaTeX.
 
+/** How many decimals a number is written with: 0.01 has 2, 30 has 0. */
+export const decimalsOf = (n: number) => (String(n).split(".")[1] ?? "").length;
+
 /** Past this, a value is printed in powers of ten so it fits its column. */
 const LARGE = 1e6;
 

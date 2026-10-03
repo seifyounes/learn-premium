@@ -1,6 +1,6 @@
 {
   "recompute": "learn-premium recompute log v1",
-  "by": "fixture-course/tools/recompute_gradient_descent.py: exact fractions, apart from the engine",
+  "by": "fixture-course/tools/recompute-gradient-descent.py: exact fractions, apart from the engine",
   "inputs": {
     "model": {
       "data": [

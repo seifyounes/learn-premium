@@ -195,7 +195,8 @@ The sim gates in detail (`gates/sims.ts`):
   recompute log, and the cell as printed. They agree when the computed value, rounded to the
   cell's decimals, is within 1 of it in the last digit (`src/sims/precision.ts`). The engine and the
   recompute disagreeing blocks. Both agreeing against the sheet raises a Checkpoint item with both
-  values, for the Owner to rule a Slip or a Divergence; a value ruled a Divergence is settled.
+  values, for the Owner to rule a Slip or a Divergence. A value ruled a Divergence is settled; a
+  sheet still printing a value ruled a Slip blocks, since the site ships the corrected value.
   Numbers off the sheet (the minimum, the α limit) must agree to 1e-9. A recompute log worked from
   other inputs than the sim opens on blocks, and so does a live sim with no log.
 - **`tools`**: a kind this template doesn't ship blocks (PhET and Falstad are credited links,

@@ -1568,10 +1568,14 @@
     padding-block-start: 16px;
     border-block-start: 1px solid var(--color-pencil);
   }
+  /* The sim's name and caption in a pencil-ruled box, its printed label inside. */
   .sim-head {
     display: grid;
     gap: 4px;
     margin-block-end: 12px;
+    padding: 8px 12px 10px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
   }
   .sim {
     container: sim / inline-size;
@@ -1634,13 +1638,11 @@
   }
   .sim-tick {
     font-family: var(--font-quantity);
-    font-size: 12px !important;
     font-variant-numeric: tabular-nums;
   }
   .sim-board-label {
     padding: 1px 3px;
     background: var(--color-sheet);
-    font-size: 15px !important;
     line-height: 1.1;
     white-space: nowrap;
   }

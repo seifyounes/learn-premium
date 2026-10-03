@@ -6,7 +6,7 @@
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { descend, type Model } from "../sims/gradient-descent/engine.ts";
-import { printAt } from "../sims/print.ts";
+import { decimalsOf, printAt } from "../sims/print.ts";
 import { startTuning, tuning, type Range, type TuningAction } from "../sims/tuning.ts";
 import { contourBoard, fitBoard, readInks, screenOf, type ContourBoard, type FitBoard } from "./sim/descent-boards.ts";
 import { PenRing } from "./worked/pen.tsx";
@@ -27,7 +27,6 @@ interface Props {
   label: string;
 }
 
-const decimalsOf = (n: number) => (String(n).split(".")[1] ?? "").length;
 const COLUMNS = ["theta0", "theta1", "J"] as const;
 
 export default function GradientDescentSim({ model, start, tune, decimals, mathHtml, label }: Props) {

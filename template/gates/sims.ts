@@ -9,7 +9,7 @@ import { SIM_KINDS, sim as simSchema, worked as workedSchema } from "../src/cont
 import { moduleOf } from "../src/content/layout.ts";
 import { readStructured } from "../src/content/loaders.ts";
 import { numbersIn } from "../src/provenance/values.ts";
-import { engineQuantities, isLive, type LiveSim, type SimKind } from "../src/sims/kinds.ts";
+import { engineQuantities, isLive, type LiveSim, type Sim, type SimKind } from "../src/sims/kinds.ts";
 import { printAt, readPrinted } from "../src/sims/precision.ts";
 import { recomputeLog, threeWay } from "../src/sims/three-way.ts";
 import { snap } from "../src/sims/tuning.ts";
@@ -26,32 +26,57 @@ const problems = (error: { issues: { path: PropertyKey[]; message: string }[] })
 export const recomputeLogEntry = (module: string, name: string) => `build-records/recompute/${module}/${name}.json`;
 const nameOf = (entry: string) => basename(entry, extname(entry));
 
+/**
+ * The sims in scope, and how many Modules were looked in. A Module with no sim has nothing to
+ * check and passes, the gate having looked in it; a Module that doesn't exist covers nothing.
+ */
+function simsInScope(input: GateInput) {
+  const files = courseFiles(input);
+  return {
+    files,
+    sims: files.filter((f) => f.collection === "sims"),
+    modules: files.filter((f) => f.collection === "modules").length,
+  };
+}
+
+/** A sim file as written, and as the content contract reads it, or why it can't be checked. */
+function readSim(
+  file: CourseFile,
+):
+  | { raw: Record<string, unknown>; sim: Sim; problem?: never }
+  | { raw?: Record<string, unknown>; sim?: never; problem: string } {
+  let raw: Record<string, unknown>;
+  try {
+    raw = read(file);
+  } catch (error) {
+    return { problem: `can't check the sim: ${(error as Error).message}` };
+  }
+  const parsed = simSchema.safeParse(raw);
+  return parsed.success
+    ? { raw, sim: parsed.data }
+    : { raw, problem: `can't check the sim: the content contract reports ${problems(parsed.error)}` };
+}
+
+/** Writes structured content back the way its file is written, JSON or YAML. */
+const writeStructured = (path: string, data: unknown) =>
+  writeFileSync(path, extname(path) === ".json" ? JSON.stringify(data) : stringify(data));
+
 export const simNumbers: Gate = {
   id: "sim-numbers",
   checks:
     "every number a live sim's sheet shows agrees three ways (engine, independent recompute, the sheet at its printed precision)",
   points: ["job", "deploy"],
   async run(input) {
-    const files = courseFiles(input);
-    const sims = files.filter((f) => f.collection === "sims");
-    // A Module with no sim has nothing to check, and passes: the gate still looked in it.
-    const modules = files.filter((f) => f.collection === "modules").length;
+    const { files, sims, modules } = simsInScope(input);
     const coverage = { modules, sims: sims.length, sheetValues: 0, recomputedValues: 0, stepThroughs: 0 };
     const findings: Finding[] = [];
     for (const file of sims) {
       const block = (message: string) => findings.push({ outcome: "block", at: file.entry, message });
-      let parsed;
-      try {
-        parsed = simSchema.safeParse(read(file));
-      } catch (error) {
-        block(`can't check the sim: ${(error as Error).message}`);
+      const { sim: s, problem } = readSim(file);
+      if (!s) {
+        block(problem);
         continue;
       }
-      if (!parsed.success) {
-        block(`can't check the sim: the content contract reports ${problems(parsed.error)}`);
-        continue;
-      }
-      const s = parsed.data;
       // A sim no recompute can check never ships live: the page shows its step-through.
       if (!isLive(s)) {
         coverage.stepThroughs += 1;
@@ -127,7 +152,7 @@ export const simNumbers: Gate = {
           // Five in the last printed digit: past the ±1 a hand may round by.
           const off = printed.value + 5 * 10 ** -printed.decimals;
           (example.artefact.rows[row] as string[])[col] = printAt(off, printed.decimals).replace("−", "-");
-          writeFileSync(path, extname(path) === ".json" ? JSON.stringify(example) : stringify(example));
+          writeStructured(path, example);
         }),
     },
     {
@@ -137,7 +162,7 @@ export const simNumbers: Gate = {
           const path = join(contentDir, simEntry);
           const { min, max } = sim.tune.theta0;
           const raw = { ...sim, start: { ...sim.start, theta0: sim.start.theta0 === max ? min : max } };
-          writeFileSync(path, extname(path) === ".json" ? JSON.stringify(raw) : stringify(raw));
+          writeStructured(path, raw);
         }),
     },
     {
@@ -207,9 +232,7 @@ export const toolsGate: Gate = {
     "every sim is a Toolkit tool that passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, checkable headlessly",
   points: ["job", "deploy"],
   async run(input) {
-    const files = courseFiles(input);
-    const sims = files.filter((f) => f.collection === "sims");
-    const modules = files.filter((f) => f.collection === "modules").length;
+    const { sims, modules } = simsInScope(input);
     const coverage = { modules, sims: sims.length, kinds: 0, checks: 0, engineSamples: 0 };
     const findings: Finding[] = [];
     const views = new Map<string, string[]>();
@@ -224,25 +247,18 @@ export const toolsGate: Gate = {
     };
     for (const file of sims) {
       const block = (message: string) => findings.push({ outcome: "block", at: file.entry, message });
-      let raw: Record<string, unknown>;
-      try {
-        raw = read(file);
-      } catch (error) {
-        block(`can't check the sim: ${(error as Error).message}`);
-        continue;
-      }
-      if (!(SIM_KINDS as readonly unknown[]).includes(raw.kind)) {
+      const { raw, sim: s, problem } = readSim(file);
+      // A kind this template doesn't ship is the tools gate's to name, before the contract's verdict.
+      if (raw && !(SIM_KINDS as readonly unknown[]).includes(raw.kind)) {
         block(
           `${JSON.stringify(raw.kind)} isn't a tool this template ships (it ships: ${SIM_KINDS.join(", ")}); PhET and Falstad appear only as credited links, never as a tool`,
         );
         continue;
       }
-      const parsed = simSchema.safeParse(raw);
-      if (!parsed.success) {
-        block(`can't check the sim: the content contract reports ${problems(parsed.error)}`);
+      if (!s) {
+        block(problem);
         continue;
       }
-      const s = parsed.data;
       const live = isLive(s);
       coverage.checks += 5;
       // 1–3, embeddable, takes the pad frame and touch-usable: properties of the view it ships in.
@@ -328,7 +344,11 @@ function workedExample(files: CourseFile[], module: string, number: string) {
   const { artefact, provenance } = parsed.data;
   return {
     entry: file.entry,
-    sheet: { rows: artefact.rows, divergences: provenance.divergences.map((d) => d.value) },
+    sheet: {
+      rows: artefact.rows,
+      divergences: provenance.divergences.map((d) => d.value),
+      slips: provenance.slips.map((s) => s.sheet),
+    },
   };
 }
 
@@ -353,11 +373,10 @@ interface PlantSite {
  */
 function plantInLiveSim(good: GateInput, scratch: string, plant: (site: PlantSite) => void): GateInput {
   const copy = courseCopy(good, scratch);
-  const files = courseFiles(copy);
-  for (const file of files.filter((f) => f.collection === "sims")) {
-    const parsed = simSchema.safeParse(read(file));
-    const sim = parsed.success && isLive(parsed.data) ? parsed.data : undefined;
-    if (!sim || Object.keys(sim.sheet).length === 0) continue;
+  const { files, sims } = simsInScope(copy);
+  for (const file of sims) {
+    const { sim } = readSim(file);
+    if (!sim || !isLive(sim) || Object.keys(sim.sheet).length === 0) continue;
     const module = moduleOf(file.entry) ?? "";
     const example = sim.worked && workedExample(files, module, sim.worked);
     plant({

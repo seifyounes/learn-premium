@@ -71,6 +71,7 @@ function makeBoard(JXG: JXG, el: HTMLElement, box: Box, inks: Inks): Board {
         label: {
           cssClass: "sim-tick",
           highlightCssClass: "sim-tick",
+          fontSize: 12,
           strokeColor: inks.pencil,
           highlight: false,
           display: "html",
@@ -138,6 +139,7 @@ export function contourBoard(
     label: {
       cssClass: "sim-board-label",
       highlightCssClass: "sim-board-label",
+      fontSize: 15,
       strokeColor: colour,
       highlight: false,
       display: "html" as const,
