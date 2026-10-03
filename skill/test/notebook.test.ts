@@ -142,7 +142,7 @@ describe("the Notebook recipe", () => {
       settings: { format: "Deep Dive", length: "Default" },
       style: null,
     });
-    expect(audio.save.extensions).toEqual([".mp3", ".m4a", ".wav"]);
+    expect(audio.save.extensions).toEqual([".m4a", ".mp3", ".wav"]);
     expect(infographic.output).toMatchObject({
       studio: "Infographic",
       settings: { orientation: "Landscape", detail: "Standard" },

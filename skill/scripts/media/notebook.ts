@@ -26,9 +26,9 @@ export const UPLOAD_LIMIT_BYTES = 10_000_000;
 /** What NotebookLM's downloads are saved as, per kind; the first is what it gives. */
 export const EXTENSIONS: Record<MediaKind, string[]> = {
   video: [".mp4"],
-  audio: [".mp3", ".m4a", ".wav"],
+  audio: [".m4a", ".mp3", ".wav"],
   infographic: [".png"],
-  "sitting-audio": [".mp3", ".m4a", ".wav"],
+  "sitting-audio": [".m4a", ".mp3", ".wav"],
 };
 
 /** Material kinds NotebookLM can't take as a source. */
