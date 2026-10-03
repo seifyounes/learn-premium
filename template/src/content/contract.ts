@@ -52,6 +52,12 @@ export const course = z
       if (ids.has(s.id))
         ctx.addIssue({ code: "custom", path: ["sittings", i, "id"], message: `"${s.id}" is used twice` });
       ids.add(s.id);
+      const covered = new Set<string>();
+      s.modules.forEach((m, j) => {
+        if (covered.has(m))
+          ctx.addIssue({ code: "custom", path: ["sittings", i, "modules", j], message: `"${m}" is listed twice` });
+        covered.add(m);
+      });
     });
   });
 
