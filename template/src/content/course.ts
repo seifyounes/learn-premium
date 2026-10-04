@@ -1,7 +1,9 @@
 // Read helpers the page templates use to place a Course's content.
 import { getCollection, getEntry, type CollectionEntry } from "astro:content";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderProse } from "../math/katex";
+import { notInPythonFolder, pythonSource } from "../python/tools";
 import { mediaFolder, mediaUrl, missingMediaFiles, notInMediaFolder, pngSize, type Media } from "../media/media";
 import type { MasteryShape } from "../progress/progress";
 import { MODULE_ID, uncoveredModules } from "./contract";
@@ -87,6 +89,33 @@ export async function getSims(): Promise<SimRef[]> {
     .map((entry) => {
       const [module = "", , name = ""] = entry.id.split("/");
       return { module, name, entry };
+    })
+    .sort((a, b) => a.module.localeCompare(b.module) || a.name.localeCompare(b.name));
+}
+
+export interface PythonRef {
+  /** The Module it belongs to (its folder name). */
+  module: string;
+  /** Its file name in the Module's `python/` folder, without the extension. */
+  name: string;
+  entry: CollectionEntry<"python">;
+  /** Its code, read from the `.py` file it names. */
+  code: string;
+}
+
+/**
+ * Every Pyodide tool in the Course, Module by Module, by file name within each, with its code. A
+ * tool naming a `.py` file its folder doesn't hold fails the build, naming both.
+ */
+export async function getPythonTools(): Promise<PythonRef[]> {
+  const contentDir = buildContentDir();
+  const tools = await getCollection("python");
+  return tools
+    .map((entry) => {
+      const [module = "", , name = ""] = entry.id.split("/");
+      const path = pythonSource(contentDir, module, entry.data.source);
+      if (!existsSync(path)) throw new Error(`${entry.filePath ?? entry.id} ${notInPythonFolder(entry.data.source)}`);
+      return { module, name, entry, code: readFileSync(path, "utf8") };
     })
     .sort((a, b) => a.module.localeCompare(b.module) || a.name.localeCompare(b.name));
 }

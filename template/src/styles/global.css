@@ -1865,6 +1865,73 @@
     outline: 2px solid var(--color-print);
     outline-offset: -2px;
   }
+
+  /* A Pyodide tool: its plot on the sheet beside the code, the printed Run-live key and what the
+     code printed. The code is the student's working, so it is written in graphite in a pencil box. */
+  .python-tool {
+    container: python / inline-size;
+  }
+  .python-grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @container python (width >= 760px) {
+    .python-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 20px 32px;
+    }
+  }
+  .python-figure,
+  .python-work {
+    min-inline-size: 0;
+  }
+  .python-work {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+  .python-code,
+  .python-output pre,
+  .python-error {
+    inline-size: 100%;
+    margin: 0;
+    padding: 8px 10px;
+    font-family: var(--font-quantity);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-graphite);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .python-code {
+    border: 1.2px solid var(--color-pencil);
+    border-radius: 0;
+    background: var(--color-sheet);
+    resize: vertical;
+  }
+  .python-code:disabled {
+    opacity: 1;
+  }
+  .python-output {
+    display: grid;
+    gap: 4px;
+  }
+  .python-output pre {
+    border-inline-start: 1.2px solid var(--color-pencil);
+  }
+  /* What went wrong is a correction: red-pen text with its stroke in the margin. Python's traceback
+     is code, in mono; a sentence about the result is prose. */
+  .python-error,
+  .python-error-note {
+    color: var(--color-red-pen);
+    border-inline-start: 2px solid var(--color-red-pen);
+  }
+  .python-error-note {
+    margin: 0;
+    padding-inline-start: 10px;
+    max-inline-size: 68ch;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

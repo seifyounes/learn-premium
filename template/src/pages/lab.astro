@@ -1,19 +1,26 @@
 ---
 // The Lab: every interactive tool in the Course, by Module, for free play: each Agent-built sim
-// beside the Module that uses it (a live sim, or the step-through a sim falls back to).
+// beside the Module that uses it (a live sim, or the step-through a sim falls back to), then its
+// Pyodide tools.
 import Cell from "../components/Cell.astro";
 import HonestyCell from "../components/HonestyCell.astro";
 import ModuleHeading from "../components/ModuleHeading.astro";
+import PythonTool from "../components/PythonTool.astro";
 import Sim from "../components/Sim.astro";
 import TitleBlock from "../components/TitleBlock.astro";
-import { getCourse, getModules, getSims, prose } from "../content/course";
+import { getCourse, getModules, getPythonTools, getSims, prose } from "../content/course";
 import Sheet from "../layouts/Sheet.astro";
 
 const course = await getCourse();
 const sims = await getSims();
+const pythonTools = await getPythonTools();
 const groups = (await getModules())
-  .map((module) => ({ module, tools: sims.filter((s) => s.module === module.id) }))
-  .filter((g) => g.tools.length > 0);
+  .map((module) => ({
+    module,
+    tools: sims.filter((s) => s.module === module.id),
+    python: pythonTools.filter((t) => t.module === module.id),
+  }))
+  .filter((g) => g.tools.length + g.python.length > 0);
 ---
 
 <Sheet title="Lab" nav="lab">
@@ -25,7 +32,9 @@ const groups = (await getModules())
       />
     </Cell>
     <Cell label="Tools">
-      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{sims.length}</span>
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">
+        {sims.length + pythonTools.length}
+      </span>
     </Cell>
     <HonestyCell />
   </TitleBlock>
@@ -36,12 +45,15 @@ const groups = (await getModules())
       <p class="text-muted">No interactive tools are built for this Course yet.</p>
     </>
   ) : (
-    groups.map(({ module, tools }) => (
+    groups.map(({ module, tools, python }) => (
       <section class="hub-module" aria-label={`Module ${module.number}`}>
         <ModuleHeading module={module} />
         <div class="space-y-12">
           {tools.map((sim) => (
             <Sim sim={sim} heading="h3" />
+          ))}
+          {python.map((tool) => (
+            <PythonTool tool={tool} heading="h3" />
           ))}
         </div>
       </section>

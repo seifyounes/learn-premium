@@ -21,6 +21,8 @@ const CONTENT_TYPES: Record<string, string> = {
   ".mp3": "audio/mpeg",
   ".vtt": "text/vtt; charset=utf-8",
   ".wasm": "application/wasm",
+  ".zip": "application/zip",
+  ".whl": "application/zip",
 };
 
 export interface ServedSite {

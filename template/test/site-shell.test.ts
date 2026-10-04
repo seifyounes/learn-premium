@@ -170,7 +170,8 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/03-gradient-descent/"');
     expect(lab).toContain('href="/04-full-adder/"');
     expect(lab).toContain('href="/05-derivatives/"');
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(5);
+    // The five sims and the Pyodide tool.
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(6);
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
 

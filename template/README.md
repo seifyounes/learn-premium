@@ -57,7 +57,7 @@ room (#74).
   solution uses them, every formula set as display paper math. Reference only: no search, no test
   mode, no script.
 - **Lab** (`/lab/`): every interactive tool, by Module: each Agent-built sim (see Agent-built sims),
-  live or as its step-through. A Course with none says so.
+  live or as its step-through, then each Pyodide tool. A Course with none says so.
 - **Revision** (`/revision/<sitting>/`): a complete sitting's Modules, each with its Summary beats
   and its rules, assembled from what the Modules ship. It follows Module order until #74 gives
   sittings an exam weight.
@@ -186,8 +186,36 @@ draws it at its own size, so a wide circuit scrolls inside its box rather than s
   example's table cells to the engine's quantities, for the number gate.
 
 Every sim is also in the Lab (`/lab/`). The Tool gallery (`/tool-gallery/`, linked from nowhere)
-has one live sim of every kind and one step-through. Its illustrative constants (a slider's range,
-say) are tagged `assumed` and labelled above it.
+has one live sim of every kind, one step-through and one Pyodide tool (below). Its illustrative
+constants (a slider's range, say) are tagged `assumed` and labelled above it.
+
+## Pyodide tools
+
+Real Python, only where real Python is the point (the Professor's own code, scikit-learn, SciPy).
+A Module's Pyodide tools sit in its `python/` folder (`pythonTool` in the content contract): a
+JSON or YAML file naming its code (`source`, a `.py` file beside it), the Pyodide `packages` it
+imports, the `figure` frame its plot is drawn in, `labels` for the plot's elements, and the
+Worked example it sits in (`worked`). The code ends by setting `plot` to the elements it draws,
+the sheet's plot elements as dicts (`point` with `at`, `line` with `through`, `guide` with
+`x`, each with an `id`); what it prints is shown too.
+
+- **Preview.** The build runs the code in Node (`src/python/preview.ts`), on the same Pyodide and
+  package files the page downloads, and the tool opens on that plot and printout. Code that fails,
+  leaves no plot, or imports a Pyodide package the tool doesn't name fails the build, naming the
+  file.
+- **Run live.** The printed button says what the tap downloads (`Run live · 16.5 MB`): the real
+  bytes of Pyodide's core files and every package file the tool loads (with what they depend on,
+  from Pyodide's lock), rounded up to the next 0.1 MB, uncompressed. Nothing of Pyodide is imported
+  until the tap: the island (`src/islands/PythonTool.tsx`) imports `src/python/live.ts` then,
+  which loads the self-hosted loader. The student can then edit the code and run it again; a
+  Python error shows its traceback in red pen.
+- **Self-hosted.** `src/python/integration.ts` serves Pyodide at `/pyodide/`: the core from the
+  template's pinned `pyodide` package, and each package file a tool loads from the Course's
+  `pyodide/` folder, committed in the Course project (ADR 0003). The build checks each against
+  the SHA-256 in Pyodide's lock. `npm run wheels` fetches the files the Course's tools need into
+  that folder from Pyodide's CDN, once. A Course with no Pyodide tool ships no Pyodide.
+- **Timing run.** In the Tool gallery, a live run shows how long Python took to start, to load
+  its packages and to run, and what the browser fetched: the Owner reads it on the real-phone pass.
 
 ## Pads
 
@@ -237,7 +265,8 @@ A new gate goes in `gates/index.ts` with at least one negative control that plan
 | `sim-numbers`        | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                                                                              |
 | `truth-table`        | job, deploy    | a logic sim's truth table three ways, bit for bit: engine ≠ recompute blocks, a row the recompute leaves out blocks; both ≠ sheet is a Checkpoint item                                                      |
 | `drawing`            | job, deploy    | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                           |
-| `tools`              | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless                                                                          |
+| `tools`              | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable           |
+| `pyodide`            | module, deploy | every Pyodide tool opens on its build-time preview beside a Run-live button that prints the real download, every file of it served from `/pyodide/`                                                         |
 | `rendered-page-scan` | module, deploy | no `.katex-error`, raw TeX, prose set as a fraction or hollow copy (`0/0`, NaN) on a built page, islands' props included; the content's braces render literally                                             |
 | `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                                                                               |
 | `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)                                                                   |
@@ -359,6 +388,7 @@ erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).
 | `npm run format:check` | Prettier                                                                           |
 | `npm test`             | Vitest: the Fixture Course build, the gate runner, the gates, the sims in Chromium |
 | `npm run gates -- …`   | The gate runner (see Gates)                                                        |
+| `npm run wheels`       | Fetches the Pyodide packages the Course's tools load into its `pyodide/` folder    |
 
 Dependencies are pinned to exact versions (`.npmrc` has `save-exact`); commit the lockfile with
 any change to them. CI (`.github/workflows/template-ci.yml`) runs all of the above. The browser

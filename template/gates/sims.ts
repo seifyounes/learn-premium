@@ -294,6 +294,8 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
   ],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
+/** A Pyodide tool's view: its preview and live plot draw on the sheet's plotted figure. */
+const PYTHON_VIEW = ["src/islands/PythonTool.tsx", "src/islands/worked/PlotFigure.tsx"];
 
 const COLOUR_LITERAL = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi;
 const MOUSE_ONLY =
@@ -342,16 +344,18 @@ export const toolsGate: Gate = {
     "every sim is a Toolkit tool that passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, checkable headlessly",
   points: ["job", "deploy"],
   async run(input) {
-    const { sims, modules } = simsInScope(input);
-    const coverage = { modules, sims: sims.length, kinds: 0, checks: 0, engineSamples: 0 };
+    const { files, sims, modules } = simsInScope(input);
+    const python = files.filter((f) => f.collection === "python");
+    const coverage = { modules, sims: sims.length, pythonTools: python.length, kinds: 0, checks: 0, engineSamples: 0 };
     const findings: Finding[] = [];
     const views = new Map<string, string[]>();
+    /** The sim kinds checked live: a step-through or a Pyodide tool is no kind. */
+    const kinds = new Set<string>();
     const viewOf = (key: string, files: readonly string[]) => {
       let found = views.get(key);
       if (!found) {
         found = viewProblems(files);
         views.set(key, found);
-        if (key !== "step-through") coverage.kinds += 1;
       }
       return found;
     };
@@ -372,6 +376,7 @@ export const toolsGate: Gate = {
       const live = isLive(s);
       coverage.checks += 5;
       // 1–3, embeddable, takes the pad frame and touch-usable: properties of the view it ships in.
+      if (live) kinds.add(s.kind);
       (live ? viewOf(s.kind, TOOLKIT[s.kind]) : viewOf("step-through", STEP_THROUGH_VIEW)).forEach(block);
       // 4, writable by the builder from the Materials: the model's numbers are the Materials' own.
       const fromMaterials = new Set(
@@ -404,6 +409,16 @@ export const toolsGate: Gate = {
         }
       }
     }
+    // A Pyodide tool runs real Python, checked headlessly by its build-time preview; its view must
+    // take the pad frame and answer touch like a sim's.
+    if (python.length > 0) {
+      const problems = viewOf("python", PYTHON_VIEW);
+      for (const file of python) {
+        coverage.checks += 2;
+        problems.forEach((message) => findings.push({ outcome: "block", at: file.entry, message }));
+      }
+    }
+    coverage.kinds = kinds.size;
     return { coverage, findings };
   },
   controls: [

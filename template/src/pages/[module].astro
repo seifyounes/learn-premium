@@ -5,11 +5,21 @@ import GivenBox from "../components/GivenBox.astro";
 import HonestyCell from "../components/HonestyCell.astro";
 import Infographic from "../components/Infographic.astro";
 import SectionRail from "../components/SectionRail.astro";
+import PythonTool from "../components/PythonTool.astro";
 import Sim from "../components/Sim.astro";
 import SummaryBeat from "../components/SummaryBeat.astro";
 import TitleBlock from "../components/TitleBlock.astro";
 import Watch from "../components/Watch.astro";
-import { getMedia, getModules, getSims, itemNumber, moduleEntries, prose, type ModuleRef } from "../content/course";
+import {
+  getMedia,
+  getModules,
+  getPythonTools,
+  getSims,
+  itemNumber,
+  moduleEntries,
+  prose,
+  type ModuleRef,
+} from "../content/course";
 import PracticeItem from "../islands/PracticeItem";
 import WorkedSheet from "../islands/WorkedSheet";
 import Sheet from "../layouts/Sheet.astro";
@@ -34,6 +44,9 @@ const practice = await moduleEntries("practice", module.id);
 /** The sims each Worked example carries inline, opened on its values. */
 const sims = (await getSims()).filter((s) => s.module === module.id);
 const simsOf = (id: string) => sims.filter((s) => s.entry.data.worked === itemNumber(id));
+/** The Pyodide tools each Worked example carries, below its sims. */
+const pythonTools = (await getPythonTools()).filter((t) => t.module === module.id);
+const pythonOf = (id: string) => pythonTools.filter((t) => t.entry.data.worked === itemNumber(id));
 
 // Watch → Summary → Worked examples → Practice; a section with nothing in it isn't on the page.
 const has: Record<Section, boolean> = {
@@ -114,6 +127,9 @@ const notes = (p: Parameters<typeof provenanceNotes>[0]) => provenanceNotes(p, p
                 </WorkedSheet>
                 {simsOf(id).map((sim) => (
                   <Sim sim={sim} heading="h4" />
+                ))}
+                {pythonOf(id).map((tool) => (
+                  <PythonTool tool={tool} heading="h4" />
                 ))}
               </article>
             );

@@ -6,12 +6,19 @@ import { buildContentDir } from "./src/content/layout.ts";
 import { paperMathProcessor } from "./src/math/markdown.ts";
 import { moduleMedia } from "./src/media/integration.ts";
 import { padLog } from "./src/pads/integration.ts";
+import { pyodideFiles } from "./src/python/integration.ts";
 import { trapPage } from "./src/trap/integration.ts";
 
 export default defineConfig({
   output: "static",
   trailingSlash: "always",
-  integrations: [react(), padLog(buildContentDir()), moduleMedia(buildContentDir()), trapPage()],
+  integrations: [
+    react(),
+    padLog(buildContentDir()),
+    moduleMedia(buildContentDir()),
+    pyodideFiles(buildContentDir()),
+    trapPage(),
+  ],
   markdown: {
     processor: paperMathProcessor(),
   },

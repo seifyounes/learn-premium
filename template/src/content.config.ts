@@ -16,4 +16,5 @@ export const collections = {
   worked: defineCollection({ loader: loader(COLLECTIONS.worked), schema: COLLECTIONS.worked.schema }),
   practice: defineCollection({ loader: loader(COLLECTIONS.practice), schema: COLLECTIONS.practice.schema }),
   sims: defineCollection({ loader: loader(COLLECTIONS.sims), schema: COLLECTIONS.sims.schema }),
+  python: defineCollection({ loader: loader(COLLECTIONS.python), schema: COLLECTIONS.python.schema }),
 };

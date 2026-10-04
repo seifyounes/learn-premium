@@ -12,8 +12,16 @@ describe("the tools gate: the five eligibility checks", () => {
   it("passes the Fixture Course's sims, sampling the engine at every slider's min, mid and max", async () => {
     const result = await run(FIXTURE_COURSE);
     expect(result.findings).toEqual([]);
-    // One live sim: the example's values, then 4 sliders × min, mid and max.
-    expect(result.coverage).toEqual({ modules: 1, sims: 2, kinds: 1, checks: 10, engineSamples: 13 });
+    // One live sim: the example's values, then 4 sliders × min, mid and max. The Pyodide tool's
+    // view adds its pad-frame and touch checks.
+    expect(result.coverage).toEqual({
+      modules: 1,
+      sims: 2,
+      pythonTools: 1,
+      kinds: 1,
+      checks: 12,
+      engineSamples: 13,
+    });
   });
 
   it("blocks a ready-made simulator as a tool: PhET and Falstad are credited links only", async () => {

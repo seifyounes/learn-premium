@@ -80,7 +80,7 @@ describe("the first gates on the Fixture Course", () => {
 
     const module = await run("module", { ...input, module: MODULE });
     expect(module.green, JSON.stringify(module.gates, null, 2)).toBe(true);
-    expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan", "pad", "red-hue-rule"]);
+    expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan", "pyodide", "pad", "red-hue-rule"]);
     expect(gate(module, "rendered-page-scan")?.coverage.pages).toBe(1);
     // The scan sees every formula the Module's content shows, the ones only inside islands' props
     // included (a Practice item's hidden model answer, a Worked example's later steps). An island's
@@ -104,6 +104,7 @@ describe("the first gates on the Fixture Course", () => {
       "drawing",
       "tools",
       "rendered-page-scan",
+      "pyodide",
       "pad",
       "red-hue-rule",
     ]);
