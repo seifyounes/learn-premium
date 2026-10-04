@@ -78,6 +78,9 @@ const ISLAND_CONTROL_TAGS = ["button", "input", "textarea", "select"];
 const ISLAND_CONTROLS = ISLAND_CONTROL_TAGS.map((tag) => (tag === "input" ? 'input:not([type="hidden"])' : tag)).join(
   ", ",
 );
+/** The fields a student types into: tapped, then typed into. */
+const TEXT_FIELDS =
+  'textarea, input:not([type]), input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="tel"], input[type="url"]';
 /** Everything a student can operate, inside an island or out. */
 const CONTROLS = `${ISLAND_CONTROLS}, summary, [role="button"], [role="tab"], [role="checkbox"]`;
 
@@ -630,31 +633,35 @@ async function touchPage(
       }).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
     });
     for (let round = 0; round < MOST_TAPS; round++) {
-      const next = await page.evaluate((selector) => {
-        const shown = (el: Element) => el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
-        const candidates = [...document.querySelectorAll<HTMLElement>(`main :is(${selector})`)].filter(
-          (el) =>
-            !el.hasAttribute("data-lp-tapped") &&
-            !(el as HTMLButtonElement).disabled &&
-            !(el as HTMLInputElement).readOnly &&
-            el.getAttribute("aria-current") === null &&
-            el.getAttribute("aria-selected") !== "true" &&
-            !el.closest("dialog:not([open])") &&
-            shown(el),
-        );
-        // Fields first: what they unlock (a Check button) gets its turn after.
-        const el = candidates.find((c) => c.matches("input, textarea")) ?? candidates[0];
-        if (!el) return null;
-        el.setAttribute("data-lp-tapped", "");
-        const id = String(document.querySelectorAll("[data-lp-tapped]").length);
-        el.setAttribute("data-lp-control", id);
-        return {
-          id,
-          field: el.matches("input, textarea"),
-          tag: el.tagName.toLowerCase(),
-          label: el.getAttribute("aria-label") ?? el.textContent ?? "",
-        };
-      }, CONTROLS);
+      const next = await page.evaluate(
+        ({ selector, fields }) => {
+          const shown = (el: Element) => el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+          const candidates = [...document.querySelectorAll<HTMLElement>(`main :is(${selector})`)].filter(
+            (el) =>
+              !el.hasAttribute("data-lp-tapped") &&
+              !(el as HTMLButtonElement).disabled &&
+              !(el as HTMLInputElement).readOnly &&
+              el.getAttribute("aria-current") === null &&
+              el.getAttribute("aria-selected") !== "true" &&
+              !el.closest("dialog:not([open])") &&
+              shown(el),
+          );
+          // Fields first: what they unlock (a Check button) gets its turn after.
+          const el = candidates.find((c) => c.matches(fields)) ?? candidates[0];
+          if (!el) return null;
+          el.setAttribute("data-lp-tapped", "");
+          const id = String(document.querySelectorAll("[data-lp-tapped]").length);
+          el.setAttribute("data-lp-control", id);
+          return {
+            id,
+            field: el.matches(fields),
+            slider: el.matches('input[type="range"]'),
+            tag: el.tagName.toLowerCase(),
+            label: el.getAttribute("aria-label") ?? el.textContent ?? "",
+          };
+        },
+        { selector: CONTROLS, fields: TEXT_FIELDS },
+      );
       if (!next) break;
       const control = page.locator(`[data-lp-control="${next.id}"]`);
       const named = `<${next.tag}> ${quote(next.label, 32)}`;
@@ -686,6 +693,9 @@ async function touchPage(
           });
         continue;
       }
+      // A slider is dragged, not tapped (a tap on its track moves nothing on an iPhone): touch holds
+      // it to taking the tap, which the tap above proved.
+      if (next.slider) continue;
       const changed = await page
         .waitForFunction((count) => window.__lpMutations > count, before, { timeout: TAP_ANSWERS_MS })
         .then(() => true)
