@@ -219,11 +219,13 @@ interface MarkProps {
 function Mark({ element: e, sx, sy, y0, y1, draw, delay }: MarkProps) {
   const pen = { initial: draw ? { pathLength: 0 } : false, animate: { pathLength: 1 } } as const;
   if (e.kind === "guide") {
-    // Dashed, so it fades in: drawing the stroke would take over its dash pattern.
+    // Dashed, so it fades in: drawing the stroke would take over its dash pattern. A construction
+    // line, so a label may break it as dimension text does on a drawing (`data-backdrop`).
     return (
       <motion.path
         d={`M ${sx(e.x)} ${y1} V ${y0}`}
         className="plot-guide"
+        data-backdrop
         initial={draw ? { opacity: 0 } : false}
         animate={{ opacity: 1 }}
         transition={{ duration: MARK_FADE, ease: "easeOut", delay }}

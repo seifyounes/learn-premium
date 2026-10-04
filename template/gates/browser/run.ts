@@ -84,8 +84,12 @@ const CONTROLS = `${ISLAND_CONTROLS}, summary, [role="button"], [role="tab"], [r
 // How long the run waits, each named for what it waits on.
 /** For requests the load started to land, before the initial load is called done. */
 const LOAD_SETTLES_MS = 300;
-/** For an island scrolled into view to hydrate. */
-const HYDRATES_MS = 10_000;
+/**
+ * For an island scrolled into view to hydrate. The gate is for an island that never hydrates, not
+ * a slow one (performance is reported, never gated): under a CI runner's load, with both browsers
+ * and 4× slower phone CPUs running at once, a Worked example took up to 24s and did hydrate.
+ */
+const HYDRATES_MS = 60_000;
 /** For a hydrated island to turn its controls on (it does so in an effect, just after). */
 const CONTROLS_ON_MS = 5_000;
 /** For a control to take a tap (Playwright retries while something else would take it). */
@@ -99,8 +103,8 @@ const MOST_TAPS = 200;
 /** Pages a browser has open at once. */
 const PAGES_AT_ONCE = 3;
 
-/** The in-page sweep, with the copy checks it shares with the rendered-page scan. */
-const IN_PAGE = `window.__lpChecks = ${JSON.stringify({
+/** The in-page sweep, with the copy checks it shares with the rendered-page scan (exported for its tests). */
+export const IN_PAGE = `window.__lpChecks = ${JSON.stringify({
   rawTex: { source: RAW_TEX.source, flags: RAW_TEX.flags },
   copy: COPY_DEFECTS.map(({ kind, what, pattern }) => ({ kind, what, source: pattern.source, flags: pattern.flags })),
 })};
