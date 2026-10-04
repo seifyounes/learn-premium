@@ -5,13 +5,14 @@
 // scaled, so labels stay at 13px; a wide drawing scrolls inside its box.
 import { motion } from "motion/react";
 import type { Drawing } from "../../sims/layout/drawing.ts";
+import type { InkNets } from "../../sims/layout/geometry.ts";
 import { LABEL_PX } from "../../sims/layout/drawing.ts";
 import { symbolOf, transformOf } from "../../sims/layout/symbols.ts";
 
 interface Props {
   drawing: Drawing;
   /** Each wire's net and each dot's, read from geometry at build. */
-  nets: { wires: (string | undefined)[]; dots: (string | undefined)[] };
+  nets: InkNets;
   /** Whether a net carries a 1. */
   high: (net: string | undefined) => boolean;
   /** Whether a wire turning high draws itself in: false for the drawing the page opens on. */

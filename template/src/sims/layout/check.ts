@@ -33,6 +33,9 @@ import {
 
 export const FIGURE_READING = "learn-premium figure reading v1";
 
+/** A part's turn, as the figure and the Layout hints both write it. */
+export const turnSchema = z.union(TURNS.map((t) => z.literal(t)) as [z.ZodLiteral<Turn>, ...z.ZodLiteral<Turn>[]]);
+
 const fraction = z.number().min(0).max(1);
 /**
  * A Blind reader's account of the Professor's figure, written without seeing any builder file. It
@@ -48,9 +51,9 @@ export const figureReading = z.strictObject({
     z.string(),
     z.strictObject({
       kind: z.enum(SYMBOL_KINDS as [SymbolKind, ...SymbolKind[]]),
-      /** The body's centre as a fraction of the figure's width and height, from its top-left. */
+      /** The body's centre as a fraction of the figure's width and height, measured from its upper corner on the inline start. */
       at: z.tuple([fraction, fraction]),
-      turn: z.union(TURNS.map((t) => z.literal(t)) as [z.ZodLiteral<Turn>, ...z.ZodLiteral<Turn>[]]),
+      turn: turnSchema,
       flip: z.boolean().default(false),
       /** The side its label is printed on. */
       label: z.enum(SIDES).optional(),
@@ -77,8 +80,22 @@ export type FigureReading = z.output<typeof figureReading>;
 export const CHECK_GROUPS = ["drawing ↔ model", "model ↔ figure", "drawing ↔ figure"] as const;
 export type CheckGroup = (typeof CHECK_GROUPS)[number];
 
+export type CheckId =
+  | "parts"
+  | "connectivity"
+  | "labels"
+  | "conventions"
+  | "legibility"
+  | "tidiness"
+  | "netlist"
+  | "arrangement"
+  | "turn"
+  | "label side"
+  | "symbols"
+  | "dots";
+
 export interface Check {
-  id: string;
+  id: CheckId;
   group: CheckGroup;
   problems: string[];
 }
@@ -88,7 +105,7 @@ export interface DrawingVerdict {
   checks: Check[];
 }
 
-const check = (id: string, group: CheckGroup, problems: string[]): Check => ({
+const check = (id: CheckId, group: CheckGroup, problems: string[]): Check => ({
   id,
   group,
   problems: [...new Set(problems)],
@@ -442,9 +459,7 @@ function figureChecks(
   // Junction dots copy the figure: each joint is dotted exactly when the figure dots its net.
   const dotted = (net: string[]) => {
     const keysOnNet = new Set(net.map(canon));
-    const index = figured.findIndex((n) =>
-      n.some((k) => !k.startsWith("GND") && !k.startsWith("RAIL") && keysOnNet.has(k)),
-    );
+    const index = figured.findIndex((n) => n.some((k) => k !== "GND.g" && k !== "RAIL.t" && keysOnNet.has(k)));
     return index < 0 ? undefined : (reading.nets[index]?.dotted ?? false);
   };
   const dots = joints.flatMap((j) => {

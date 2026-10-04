@@ -1805,20 +1805,23 @@
   .logic-input {
     gap: 8px;
   }
+  /* A key set to 1 is printed solid, as the Next button is: chrome stays in the pad's print. */
   .logic-input[aria-pressed="true"] {
-    background: var(--color-graphite);
+    background: var(--color-print);
     color: var(--color-sheet);
-    border-color: var(--color-graphite);
+    border-color: var(--color-print);
   }
   .logic-bits {
     display: grid;
     justify-items: center;
-    padding-block: 4px 6px;
+    padding-block: 2px 3px;
   }
   /* A truth-table row is one printed key: tap it to set the inputs. */
   .logic-row {
-    display: block;
+    display: grid;
+    align-items: center;
     inline-size: 100%;
+    min-block-size: 28px;
     color: var(--color-graphite);
     cursor: pointer;
   }

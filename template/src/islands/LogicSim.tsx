@@ -6,6 +6,7 @@
 import { MotionConfig } from "motion/react";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { Drawing } from "../sims/layout/drawing.ts";
+import type { InkNets } from "../sims/layout/geometry.ts";
 import { levels, rowName, truthTable, type Bit, type LogicModel } from "../sims/logic/engine.ts";
 import { Schematic } from "./sim/Schematic.tsx";
 import { PenRing } from "./worked/pen.tsx";
@@ -16,7 +17,7 @@ interface Props {
   /** The figure, laid out at build from the model and its Layout hints. */
   drawing: Drawing;
   /** Each wire's net and each dot's, read from the drawing's geometry at build. */
-  nets: { wires: (string | undefined)[]; dots: (string | undefined)[] };
+  nets: InkNets;
   /** The Worked example's input bits: the sim opens on them. */
   start: Record<string, Bit>;
   /** What the sim is, for assistive tech. */
@@ -41,6 +42,8 @@ export default function LogicSim({ model, drawing, nets, start, label }: Props) 
       ),
     [model],
   );
+  // The inputs' bits share one grid in the header and every row, so they line up as columns.
+  const bitColumns = { gridTemplateColumns: `repeat(${model.inputs.length}, minmax(2.75rem, 1fr))` };
   const labelOf = (id: string) => model.parts.find((p) => p.id === id)?.label ?? id;
   const valueOf = (id: string): Bit => {
     const net = terminalNets[id];
@@ -106,10 +109,7 @@ export default function LogicSim({ model, drawing, nets, start, label }: Props) 
                 <thead>
                   <tr>
                     <th scope="col" className="border border-pencil p-0 font-normal">
-                      <span
-                        className="logic-bits"
-                        style={{ gridTemplateColumns: `repeat(${model.inputs.length}, minmax(2.75rem, 1fr))` }}
-                      >
+                      <span className="logic-bits" style={bitColumns}>
                         {model.inputs.map((id) => (
                           <span key={id}>{labelOf(id)}</span>
                         ))}
@@ -130,7 +130,7 @@ export default function LogicSim({ model, drawing, nets, start, label }: Props) 
                   {rows.map((row) => {
                     const isCurrent = row.name === current;
                     return (
-                      <tr key={row.name} className="h-[33px]" data-row={row.name} data-current={isCurrent || undefined}>
+                      <tr key={row.name} className="h-[29px]" data-row={row.name} data-current={isCurrent || undefined}>
                         <td className="border border-pencil p-0">
                           <button
                             type="button"
@@ -140,10 +140,7 @@ export default function LogicSim({ model, drawing, nets, start, label }: Props) 
                             disabled={!ready}
                             onClick={() => set(row.bits)}
                           >
-                            <span
-                              className="logic-bits"
-                              style={{ gridTemplateColumns: `repeat(${model.inputs.length}, minmax(2.75rem, 1fr))` }}
-                            >
+                            <span className="logic-bits" style={bitColumns}>
                               {model.inputs.map((id) => (
                                 <span key={id}>{row.bits[id]}</span>
                               ))}

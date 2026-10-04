@@ -42,7 +42,9 @@ describe("the Drawing gate's negative control", () => {
   });
 
   it.each(mutants.map((m) => [m.id, m] as const))("catches the %s mutant on its check", (_, mutant) => {
-    const failed = Object.keys(failing(mutant.drawing));
+    const failed = checkDrawing(mutant.drawing, adder.model, reading)
+      .checks.filter((c) => c.problems.length > 0)
+      .map((c) => c.id);
     expect(
       failed.some((id) => mutant.expect.includes(id)),
       `${mutant.what}: failed ${failed.join(", ") || "nothing"}`,

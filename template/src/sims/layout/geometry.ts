@@ -170,10 +170,12 @@ export function modelNets(
  * The model net each wire and each dot is on, read from geometry, never from the router: what the
  * page inks when that net is high. The Drawing gate proves geometry and model agree.
  */
-export function inkNets(
-  d: Drawing,
-  nets: readonly { id: string; pins: readonly string[] }[],
-): { wires: (string | undefined)[]; dots: (string | undefined)[] } {
+export interface InkNets {
+  wires: (string | undefined)[];
+  dots: (string | undefined)[];
+}
+
+export function inkNets(d: Drawing, nets: readonly { id: string; pins: readonly string[] }[]): InkNets {
   const conn = connectivity(d);
   const netFor = (pins: readonly string[]) => nets.find((n) => n.pins.some((k) => pins.includes(k)))?.id;
   return {

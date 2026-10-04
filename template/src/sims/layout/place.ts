@@ -10,7 +10,8 @@ const STRAIGHTEN_PX = 40;
 /** How far sideways a ground may move to sit under its pin. */
 const SEAT_PX = 60;
 
-export const snap = (v: number) => Math.round(v / GRID) * GRID;
+/** `v` on the nearest line of the pad's grid. */
+export const toGrid = (v: number) => Math.round(v / GRID) * GRID;
 
 /** Kinds a few px can move without changing the drawing's arrangement: small parts and terminals. */
 const MOVABLE = new Set<SymbolKind>(["resistor", "capacitor", "inductor", "switch", "diode", "port", "ground", "rail"]);
@@ -22,8 +23,8 @@ export function place(model: SchematicModel, hints: LayoutHints): PlacedPart[] {
     return {
       id: m.id,
       kind: m.kind,
-      x: snap(col * PITCH),
-      y: snap(row * PITCH),
+      x: toGrid(col * PITCH),
+      y: toGrid(row * PITCH),
       turn: h?.turn ?? 0,
       flip: h?.flip ?? false,
     };
@@ -110,12 +111,18 @@ function labelFor(part: PlacedPart, text: string, side: Side) {
   // A terminal's text sits beside its circle; a part's beside its body.
   const terminal = symbolOf(part.kind).pins.t !== undefined;
   const gap = terminal ? 10 : 8;
-  const at: Record<Side, [number, number]> = {
-    left: [(terminal ? part.x : x0) - gap - w, (terminal ? part.y : cy) + 5],
-    right: [(terminal ? part.x : x1) + gap, (terminal ? part.y : cy) + 5],
-    above: [cx - w / 2, (terminal ? part.y - 6 : y0) - gap],
-    below: [cx - w / 2, (terminal ? part.y + 6 : y1) + gap + 10],
-  };
-  const [x, y] = at[side];
+  // The figure's sides are its own, never mirrored: the Professor's drawing reads one way.
+  const [x, y] = ((): [number, number] => {
+    switch (side) {
+      case "left":
+        return [(terminal ? part.x : x0) - gap - w, (terminal ? part.y : cy) + 5];
+      case "right":
+        return [(terminal ? part.x : x1) + gap, (terminal ? part.y : cy) + 5];
+      case "above":
+        return [cx - w / 2, (terminal ? part.y - 6 : y0) - gap];
+      case "below":
+        return [cx - w / 2, (terminal ? part.y + 6 : y1) + gap + 10];
+    }
+  })();
   return { text, x: Math.round(x), y: Math.round(y) };
 }
