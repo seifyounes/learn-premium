@@ -1720,6 +1720,119 @@
     gap: 12px;
     max-inline-size: 480px;
   }
+
+  /* The logic sim: the redrawn circuit across the sim, its inputs and truth table below. */
+  .logic-grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "figure" "controls" "table";
+  }
+  @container sim (width >= 640px) {
+    .logic-grid {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "figure figure"
+        "controls table";
+      gap: 20px 32px;
+    }
+  }
+  .logic-figure {
+    grid-area: figure;
+  }
+  .logic-controls {
+    grid-area: controls;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+  .logic-table {
+    grid-area: table;
+    min-inline-size: 0;
+  }
+  /* Drawn at its own size so labels stay at 13px: a wide circuit scrolls sideways in its box,
+     and a swipe on it still scrolls the page. */
+  .logic-stage {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+  .schematic {
+    display: block;
+    max-inline-size: none;
+  }
+  .schematic-wire {
+    fill: none;
+    stroke: var(--color-pencil);
+    stroke-width: 1.25;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+  }
+  .schematic-wire.is-high {
+    stroke: var(--color-graphite);
+    stroke-width: 3;
+  }
+  .schematic-dot {
+    fill: var(--color-pencil);
+  }
+  .schematic-dot.is-high {
+    fill: var(--color-graphite);
+    r: 4.5px;
+  }
+  .schematic-symbol {
+    fill: none;
+    stroke: var(--color-graphite);
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+  }
+  .schematic-symbol .schematic-lead {
+    stroke: var(--color-pencil);
+    stroke-width: 1.25;
+  }
+  .schematic-symbol .schematic-fill {
+    fill: var(--color-graphite);
+  }
+  .schematic-circle {
+    fill: var(--color-sheet);
+  }
+  .schematic-circle.is-high {
+    fill: var(--color-graphite);
+  }
+  .schematic-label {
+    font-family: var(--font-quantity);
+    fill: var(--color-graphite);
+    stroke: none;
+  }
+  .logic-input {
+    gap: 8px;
+  }
+  .logic-input[aria-pressed="true"] {
+    background: var(--color-graphite);
+    color: var(--color-sheet);
+    border-color: var(--color-graphite);
+  }
+  .logic-bits {
+    display: grid;
+    justify-items: center;
+    padding-block: 4px 6px;
+  }
+  /* A truth-table row is one printed key: tap it to set the inputs. */
+  .logic-row {
+    display: block;
+    inline-size: 100%;
+    color: var(--color-graphite);
+    cursor: pointer;
+  }
+  .logic-row:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--color-print) 8%, transparent);
+  }
+  .logic-row[aria-current="true"] {
+    background: color-mix(in oklab, var(--color-graphite) 10%, transparent);
+    font-weight: 600;
+  }
+  .logic-row:focus-visible {
+    outline: 2px solid var(--color-print);
+    outline-offset: -2px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

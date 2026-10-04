@@ -3,10 +3,11 @@
 import { BROWSER_GATES } from "./browser.ts";
 import { padGate, redHueRule } from "./colour.ts";
 import { contentContract, katexGate } from "./content.ts";
+import { drawingGate } from "./drawing.ts";
 import { masterRules } from "./master-rules.ts";
 import { renderedPageScan } from "./pages.ts";
 import { provenanceGate } from "./provenance.ts";
-import { simNumbers, toolsGate } from "./sims.ts";
+import { simNumbers, toolsGate, truthTableGate } from "./sims.ts";
 import type { Gate } from "./runner.ts";
 import { teachingMethod } from "./teaching.ts";
 
@@ -17,6 +18,8 @@ export const GATES: readonly Gate[] = [
   provenanceGate,
   masterRules,
   simNumbers,
+  truthTableGate,
+  drawingGate,
   toolsGate,
   renderedPageScan,
   padGate,

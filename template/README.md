@@ -128,6 +128,30 @@ screen. Its table fills in hand order and the red pen rings each new θ. The pat
 contours of J, the start drags, and α can diverge. A swipe on a board scrolls the page; only the
 start handle takes a drag.
 
+The second kind is the logic sim (`src/sims/logic/engine.ts`, `src/islands/LogicSim.tsx`): the
+figure's gates as a netlist (`model`: `parts`, `nets`, and the `inputs` and `outputs` terminals in the
+truth table's column order), its input bits as `start`, each input tuned from 0 to 1. Tapping a row
+of its truth table, or an input key, sets the inputs; every wire carrying a 1 inks in over its
+pencil line, and the red pen rings the row's outputs. Its engine gives every net's level on every
+row, named `net[row]` (`S[101]`), so `sheet` maps a truth-table artefact's cells to them.
+
+### The layout core
+
+A schematic sim (logic now; circuits, ladder, pneumatics, block diagrams and FSMs to come) is drawn
+by the layout core (`src/sims/layout/`), never by hand. The builder writes the model and its Layout
+hints (`layout`): each part's cell on the figure's coarse grid (`at`, `[column, row]`, to a tenth of
+a step), its `turn` and `flip`, the side its `label` is printed on, and the nets whose joints the
+figure dots (`dots`). The contract has no field for a coordinate and no hand-placed override.
+
+`layOut(model, hints)` (`layout.ts`) is pure: it snaps every part to the pad's 20px grid (every pin
+of every symbol in `symbols.ts` sits on it, gate inputs included), seats grounds under the pin they
+serve, straightens pins under 40px out of line, sets each label on its side and routes. The router
+(`route.ts`) is A* on the 20px grid: each net grows from the pin nearest its centre, straight joins
+first; a wire meets a pin from the side the pin faces, crosses another net only straight over it,
+never runs along one, pays to run beside one, and meets its own net at a T. The page gets the
+drawing made at build (`Sim.astro`), the one the Drawing gate checked; `src/islands/sim/Schematic.tsx`
+draws it at its own size, so a wide circuit scrolls inside its box rather than shrinking its labels.
+
 - `recompute: independent`: the independent recompute logs what it worked out from the Materials in
   the Course's `build-records/recompute/<module>/<name>.json`, and the sim ships live.
 - `recompute: none`: no recompute can check its model, so the page shows its `stepThrough` instead:
@@ -185,6 +209,8 @@ A new gate goes in `gates/index.ts` with at least one negative control that plan
 | `provenance`         | job, deploy    | every number an entry shows (Master Rules included), and every constant a sim is built from, carries a Provenance tag                                                                                       |
 | `master-rules`       | job, deploy    | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name`, `use` and the printed provenance notes, inside their math); no emoji                                      |
 | `sim-numbers`        | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                                                                              |
+| `truth-table`        | job, deploy    | a logic sim's truth table three ways, bit for bit: engine ≠ recompute blocks, a row the recompute leaves out blocks; both ≠ sheet is a Checkpoint item                                                      |
+| `drawing`            | job, deploy    | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                           |
 | `tools`              | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless                                                                          |
 | `rendered-page-scan` | module, deploy | no `.katex-error`, raw TeX, prose set as a fraction or hollow copy (`0/0`, NaN) on a built page, islands' props included; the content's braces render literally                                             |
 | `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                                                                               |
@@ -242,18 +268,44 @@ The sim gates in detail (`gates/sims.ts`):
   sheet still printing a value ruled a Slip blocks, since the site ships the corrected value.
   Numbers off the sheet (the minimum, the α limit) must agree to 1e-9. A recompute log worked from
   other inputs than the sim opens on blocks, and so does a live sim with no log.
+- **`truth-table`** is `sim-numbers` for logic sims, compared exactly: a bit has no last digit to
+  round. The recompute log gives every net on every row, and one it leaves out blocks.
 - **`tools`**: a kind this template doesn't ship blocks (PhET and Falstad are credited links,
   never tools). The view's source names no colour (it reads the pad's tokens) and has no
   mouse-only handler. Every number in the model is tagged stated or scaled, so it comes from the
   Materials. The engine runs in Node to finite numbers at the example's values and at every
   slider's min, mid and max.
-- A Module with no sim passes both, having looked in it; a Module that doesn't exist covers
+- A Module with no sim passes each, having looked in it; a Module that doesn't exist covers
   nothing and fails.
+
+The Drawing gate (`gates/drawing.ts`, checks in `src/sims/layout/check.ts`) lays each schematic sim
+out exactly as the page does and blocks on any failed check:
+
+- **drawing ↔ model**: the parts; the connectivity, read from geometry alone (a wire meets a pin
+  only where one of its points lands on it, and another wire only where an end of one lands on the
+  other, so a T connects without a dot and a crossing never connects; grounds and same-named rails
+  join without a wire); the labels; the conventions (every pin and corner on the 20px grid, no
+  diagonal, no wire along another or over a pin, no wire ending in the open, no dot but at a
+  joint); legibility (no label on a wire, a body or another label; no wire through a body); and
+  tidiness (no jog under 20px, at most 4 bends a wire, no parallel wires under 20px apart).
+- **model ↔ figure**: the model's nets equal the Blind reader's (a resistor's ends and a gate's two
+  inputs may swap). The reading sits in the Course's `build-records/figure/<module>/<name>.json`,
+  written without seeing any builder file: each labelled part's kind, place (fractions of the
+  figure), turn and label side; the unlabelled symbols counted; every net, and whether the figure
+  dots its joints.
+- **drawing ↔ figure**: every labelled pair kept in the figure's left/right and above/below order
+  (a pair the figure parts by under 4% may line up), each part's turn (polarity-aware), each
+  label's side, the unlabelled symbols, and the junction dots, which copy the figure.
+- **the negative control**, on every build: each drawing is broken eight ways (`mutants.ts`: a short,
+  an open, a part turned round, a label dropped, an extra part, the drawing mirrored, a staircase
+  wire, a dot removed), and each must fail its check, or the gate blocks.
 
 `test/sim-pages.test.ts` drives the built Tool gallery, Lab and Module page in Chromium (Playwright):
 JSXGraph loads only once the sim is on screen, every drawn colour is a pad ink, the layout holds at
 375 and 1280px at each slider's min, mid and max, and on a touch phone the start drags while a
-swipe elsewhere on the board scrolls the page.
+swipe elsewhere on the board scrolls the page. The logic sim inks the nets a tapped row drives
+high, and its circuit scrolls inside its box on a phone. `test/layout-core.test.ts` holds the
+layout core to its public interface: hints in, drawing out.
 
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).

@@ -1,0 +1,202 @@
+{
+  "recompute": "learn-premium recompute log v1",
+  "by": "fixture-course/tools/recompute-full-adder.py: each net walked back to its driving gate, apart from the engine",
+  "inputs": {
+    "model": {
+      "parts": [
+        {
+          "id": "A",
+          "kind": "port",
+          "label": "A"
+        },
+        {
+          "id": "B",
+          "kind": "port",
+          "label": "B"
+        },
+        {
+          "id": "Cin",
+          "kind": "port",
+          "label": "Cin"
+        },
+        {
+          "id": "G1",
+          "kind": "xor",
+          "label": "G1"
+        },
+        {
+          "id": "G2",
+          "kind": "and",
+          "label": "G2"
+        },
+        {
+          "id": "G3",
+          "kind": "xor",
+          "label": "G3"
+        },
+        {
+          "id": "G4",
+          "kind": "and",
+          "label": "G4"
+        },
+        {
+          "id": "G5",
+          "kind": "or",
+          "label": "G5"
+        },
+        {
+          "id": "S",
+          "kind": "port",
+          "label": "S"
+        },
+        {
+          "id": "Cout",
+          "kind": "port",
+          "label": "Cout"
+        }
+      ],
+      "nets": [
+        {
+          "id": "A",
+          "pins": [
+            "A.t",
+            "G1.in1",
+            "G2.in1"
+          ]
+        },
+        {
+          "id": "B",
+          "pins": [
+            "B.t",
+            "G1.in2",
+            "G2.in2"
+          ]
+        },
+        {
+          "id": "Cin",
+          "pins": [
+            "Cin.t",
+            "G3.in2",
+            "G4.in2"
+          ]
+        },
+        {
+          "id": "AxB",
+          "pins": [
+            "G1.out",
+            "G3.in1",
+            "G4.in1"
+          ]
+        },
+        {
+          "id": "AB",
+          "pins": [
+            "G2.out",
+            "G5.in2"
+          ]
+        },
+        {
+          "id": "CinAxB",
+          "pins": [
+            "G4.out",
+            "G5.in1"
+          ]
+        },
+        {
+          "id": "S",
+          "pins": [
+            "G3.out",
+            "S.t"
+          ]
+        },
+        {
+          "id": "Cout",
+          "pins": [
+            "G5.out",
+            "Cout.t"
+          ]
+        }
+      ],
+      "inputs": [
+        "A",
+        "B",
+        "Cin"
+      ],
+      "outputs": [
+        "S",
+        "Cout"
+      ]
+    },
+    "start": {
+      "A": 1,
+      "B": 0,
+      "Cin": 1
+    }
+  },
+  "values": {
+    "A[000]": 0,
+    "B[000]": 0,
+    "Cin[000]": 0,
+    "AxB[000]": 0,
+    "AB[000]": 0,
+    "CinAxB[000]": 0,
+    "S[000]": 0,
+    "Cout[000]": 0,
+    "A[001]": 0,
+    "B[001]": 0,
+    "Cin[001]": 1,
+    "AxB[001]": 0,
+    "AB[001]": 0,
+    "CinAxB[001]": 0,
+    "S[001]": 1,
+    "Cout[001]": 0,
+    "A[010]": 0,
+    "B[010]": 1,
+    "Cin[010]": 0,
+    "AxB[010]": 1,
+    "AB[010]": 0,
+    "CinAxB[010]": 0,
+    "S[010]": 1,
+    "Cout[010]": 0,
+    "A[011]": 0,
+    "B[011]": 1,
+    "Cin[011]": 1,
+    "AxB[011]": 1,
+    "AB[011]": 0,
+    "CinAxB[011]": 1,
+    "S[011]": 0,
+    "Cout[011]": 1,
+    "A[100]": 1,
+    "B[100]": 0,
+    "Cin[100]": 0,
+    "AxB[100]": 1,
+    "AB[100]": 0,
+    "CinAxB[100]": 0,
+    "S[100]": 1,
+    "Cout[100]": 0,
+    "A[101]": 1,
+    "B[101]": 0,
+    "Cin[101]": 1,
+    "AxB[101]": 1,
+    "AB[101]": 0,
+    "CinAxB[101]": 1,
+    "S[101]": 0,
+    "Cout[101]": 1,
+    "A[110]": 1,
+    "B[110]": 1,
+    "Cin[110]": 0,
+    "AxB[110]": 0,
+    "AB[110]": 1,
+    "CinAxB[110]": 0,
+    "S[110]": 0,
+    "Cout[110]": 1,
+    "A[111]": 1,
+    "B[111]": 1,
+    "Cin[111]": 1,
+    "AxB[111]": 0,
+    "AB[111]": 1,
+    "CinAxB[111]": 0,
+    "S[111]": 1,
+    "Cout[111]": 1
+  }
+}

@@ -93,6 +93,13 @@ side, symbols, junction dots). All checks block, and a negative control of delib
 drawings must be caught on every build.
 _Avoid_: layout check, visual QA
 
+**Figure reading**:
+A Blind reader's account of one Professor's figure for a schematic sim, written without seeing any
+builder file: each labelled part's kind, place, turn and label side, the unlabelled symbols, and
+every net with whether the figure dots its joints. The Drawing gate checks the model and the
+drawing against it. Kept in the Course's build records beside the recompute logs.
+_Avoid_: facts file, netlist (alone)
+
 **Pilot course**:
 The Course whose v1 build is rebuilt first in v2 to prove the new pipeline end to end.
 Currently Machine Learning.
