@@ -136,8 +136,33 @@
     );
   };
 
+  const positioned = (el) => /^(?:absolute|fixed)$/.test(getComputedStyle(el).position);
+
+  /**
+   * Whether `box` overflows with its own flow: a line of its text, or a descendant laid out in its
+   * flow (not positioned, nor inside something positioned), reaching more than 8px past its bottom.
+   */
+  function inFlowOverflow(box) {
+    const bottom = box.getBoundingClientRect().top + box.clientTop + box.clientHeight + 8;
+    const range = document.createRange();
+    const reaches = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (!node.nodeValue.trim()) return false;
+        range.selectNodeContents(node);
+        return [...range.getClientRects()].some((r) => r.bottom > bottom);
+      }
+      if (!(node instanceof Element) || positioned(node)) return false;
+      if (node.getClientRects().length > 0 && node.getBoundingClientRect().bottom > bottom) return true;
+      return !(node instanceof SVGElement) && [...node.childNodes].some(reaches);
+    };
+    return [...box.childNodes].some(reaches);
+  }
+
   const FIGURES = "svg, img, canvas, video";
-  /** What a figure draws as ground rather than ink (the sheet's grid, a plot's sheet-coloured field). */
+  /**
+   * What a figure draws as ground rather than ink: the sheet's grid, a plot's sheet-coloured field,
+   * and its dashed guides, construction lines a label may break.
+   */
   const BACKDROP = "[data-backdrop]";
   const SHAPES = "path, line, polyline, polygon, circle, ellipse, rect";
 
@@ -145,7 +170,8 @@
 
   /**
    * What of `figure`'s ink the rectangle `r` lies on, if any: the figure's box for a picture, video
-   * or canvas; for an SVG, its text and its painted shapes, sampled every 2px.
+   * or canvas; for an SVG, its text and its painted shapes, sampled every 1px: a 2px grid steps
+   * clean over a 1px line (a dashed guide) when the line falls between its samples.
    */
   function inkCovered(r, figure, visible) {
     const box = figure.getBoundingClientRect();
@@ -174,8 +200,8 @@
       })
       .filter(({ g, stroke, fill, m }) => (stroke || fill) && m && near(g.getBoundingClientRect()));
     let hits = 0;
-    for (let y = top; y <= bottom; y += 2) {
-      for (let x = left; x <= right; x += 2) {
+    for (let y = top; y <= bottom; y += 1) {
+      for (let x = left; x <= right; x += 1) {
         for (const { g, stroke, fill, m } of shapes) {
           const p = new DOMPoint(x, y).matrixTransform(m);
           if ((stroke && g.isPointInStroke(p)) || (fill && g.isPointInFill(p))) {
@@ -284,13 +310,16 @@
     }
 
     // height-overflow: a box whose content is taller than the box. Font metrics can run a few px
-    // past a line box, so 8px of slack; a row that wrapped when it shouldn't is tens.
+    // past a line box, so 8px of slack; a row that wrapped when it shouldn't is tens. Only content
+    // in the box's flow counts: a positioned mark hung over its edge (the red pen's high-yield
+    // ring round a sheet number) is drawn there on purpose.
     for (const el of document.body.querySelectorAll("*")) {
       if (el instanceof SVGElement || el.closest(".katex") || NOT_TEXT.has(el.tagName)) continue;
       if (/^(?:VIDEO|AUDIO|IMG|CANVAS|IFRAME|INPUT|TEXTAREA|SELECT|DIALOG)$/.test(el.tagName)) continue;
       if (el.clientHeight === 0 || el.scrollHeight <= el.clientHeight + 8) continue;
       const style = getComputedStyle(el);
       if (style.overflowY === "auto" || style.overflowY === "scroll" || !visible(el)) continue;
+      if (!inFlowOverflow(el)) continue;
       add(
         layout,
         "height-overflow",

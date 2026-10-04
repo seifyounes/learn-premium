@@ -13,8 +13,8 @@ import type { NavKey } from "../site/nav";
 
 interface Props {
   title: string;
-  /** Where the page sits in the fixed nav. */
-  nav: NavKey;
+  /** Where the page sits in the fixed nav; `null` for a page outside it (the Trap page). */
+  nav: NavKey | null;
 }
 
 const { title, nav } = Astro.props;

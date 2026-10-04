@@ -1,9 +1,10 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { chromium } from "playwright";
 import { describe, expect, it } from "vitest";
 import { BROWSER_GATES } from "../gates/browser.ts";
-import { WIDTHS } from "../gates/browser/run.ts";
+import { browserRun, IN_PAGE, WIDTHS } from "../gates/browser/run.ts";
 import { GATES } from "../gates/index.ts";
 import { runGates, type Gate, type GateInput } from "../gates/runner.ts";
 import { buildCourse, FIXTURE_COURSE } from "./build-course";
@@ -76,7 +77,8 @@ describe("the browser gates on the Fixture Course", () => {
     const report = await runGates({ point: "module", commit: COMMIT, input, gates: BROWSER_GATES });
     expect(report.green, JSON.stringify(report.gates, null, 2)).toBe(true);
     const coverage = (id: string) => report.gates.find((g) => g.id === id)?.coverage ?? {};
-    const pages = 2; // home and the Module; never the Trap page
+    // Home, two Modules, Master Rules, Lab, About and the complete sitting's Revision; never the Trap page.
+    const pages = 7;
     expect(coverage("layout-sweep")).toMatchObject({ browsers: BROWSERS, widths: WIDTHS.length, pages });
     expect(coverage("layout-sweep").sweeps).toBe(BROWSERS * WIDTHS.length * pages);
     // The Given box is the Module page's collapsible; the sweep opened it.
@@ -84,7 +86,7 @@ describe("the browser gates on the Fixture Course", () => {
     // A Worked example's Table | Plot tabs add a view at the widths that show them.
     expect(coverage("layout-sweep").views).toBeGreaterThan(coverage("layout-sweep").sweeps ?? 0);
     expect(coverage("live-page-scan").formulas).toBeGreaterThan(0);
-    expect(coverage("hydration")).toMatchObject({ islands: 4 });
+    expect(coverage("hydration")).toMatchObject({ islands: 5 });
     expect(coverage("hydration").controls).toBeGreaterThan(10);
     expect(coverage("touch").taps).toBeGreaterThan(20);
     expect(coverage("initial-load").requests).toBeGreaterThan(0);
@@ -148,4 +150,62 @@ describe("the Trap page", () => {
     expect(existsSync(join(build.outDir, "trap"))).toBe(false);
     expect(existsSync(join(build.outDir, "index.html"))).toBe(true);
   }, 300_000);
+});
+
+describe("the layout sweep's figure check", () => {
+  it("finds a label on a 1px line wherever the line falls between pixels", async () => {
+    // A 1px stroke centred at x = 12 covers 11.5 to 12.5: a grid sampling every 2px from the
+    // label's edge (x = 11, 13, ...) steps right over it, as it did on the Linux runner.
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 400, height: 200 } });
+      await page.setContent(
+        `<body style="margin: 0"><figure style="position: relative; margin: 0">
+          <svg width="200" height="100" viewBox="0 0 200 100" style="display: block">
+            <path d="M12 0V100" fill="none" stroke="black" stroke-width="1"/>
+          </svg>
+          <span style="position: absolute; left: 10px; top: 30px; font: 16px/20px monospace">T3</span>
+        </figure></body>`,
+      );
+      // An init script doesn't run on set content; add the sweep to the page as it stands.
+      await page.addScriptTag({ content: IN_PAGE });
+      const found = await page.evaluate(() =>
+        (window as unknown as { __lpSweep: { scan(): { layout: { kind: string; detail: string }[] } } }).__lpSweep
+          .scan()
+          .layout.filter((f) => f.kind === "covers-figure")
+          .map((f) => f.detail),
+      );
+      expect(found).toEqual([expect.stringMatching(/"T3" covers its path/)]);
+    } finally {
+      await browser.close();
+    }
+  }, 60_000);
+});
+
+describe("the hydration check", () => {
+  const build = buildCourse(FIXTURE_COURSE);
+
+  it("waits out an island that is slow to hydrate: only one that never does fails", async () => {
+    // Under a CI runner's load a Worked example took up to 24s to hydrate, and did. A renderer that
+    // takes 15s stands in for it.
+    expect(build.ok, build.output).toBe(true);
+    const scratch = mkdtempSync(join(tmpdir(), "lp-slow-island-"));
+    try {
+      const site = join(scratch, "site");
+      cpSync(build.outDir, site, { recursive: true });
+      const path = join(site, "01-thermal-resistance", "index.html");
+      const page = readFileSync(path, "utf8");
+      const renderer = /renderer-url="([^"]+)"/.exec(page)?.[1];
+      expect(renderer).toBeDefined();
+      writeFileSync(
+        join(site, "_astro", "slow-renderer.js"),
+        `import real from "${renderer}";\nexport default (el) => async (...args) => { await new Promise((r) => setTimeout(r, 15000)); return real(el)(...args); };\n`,
+      );
+      writeFileSync(path, page.replace(/renderer-url="[^"]+"/, 'renderer-url="/_astro/slow-renderer.js"'));
+      const run = await browserRun({ contentDir: FIXTURE_COURSE, distDir: site, module: "01-thermal-resistance" });
+      expect(run.gates.hydration.findings).toEqual([]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 600_000);
 });

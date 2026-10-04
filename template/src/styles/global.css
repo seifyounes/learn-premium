@@ -1471,8 +1471,10 @@
     justify-self: start;
   }
   @media (width >= 760px) {
+    /* The readiness box is never narrower than its meter and percentage, or it runs under the
+       Revision button beside it (at 768px it needed 235px of a 165px column). */
     .sitting-line {
-      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.4fr) 132px;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(max-content, 1.4fr) 132px;
     }
   }
 

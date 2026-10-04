@@ -5,7 +5,8 @@ import { getSittings } from "../content/course";
 import { navItems, type NavKey } from "../site/nav";
 
 interface Props {
-  current: NavKey;
+  /** `null` for a page outside the nav (the Trap page): no tab is drawn open. */
+  current: NavKey | null;
 }
 
 const { current } = Astro.props;

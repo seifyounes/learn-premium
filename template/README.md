@@ -218,9 +218,10 @@ step, Check before an answer), so an island fails the after-hydration check only
 it has is still off.
 
 Each check exists because v1 shipped its defect. A figure is covered when something positioned
-over it lies on its ink: an SVG's strokes, fills and text, sampled, never its blank ground. An
-element marked `data-backdrop` is ground (the sheet's grid), and one marked `data-allow-overlap`
-is a deliberate overlay (the red pen's rings).
+over it lies on its ink: an SVG's strokes, fills and text, sampled every pixel, never its blank
+ground. An element marked `data-backdrop` is ground: the sheet's grid, and a plot's dashed guides,
+which a label may break as dimension text breaks a construction line (the Owner's call on #46). One
+marked `data-allow-overlap` is a deliberate overlay (the red pen's rings).
 
 **The Trap page** (`/trap/`, `src/trap/`) is a hidden page of seeded defects in every build except
 Vercel's production deploy: a figure labelled under 12px inside a collapsed section, a KaTeX error,
