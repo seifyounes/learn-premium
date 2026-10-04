@@ -67,7 +67,9 @@ function makeBoard(JXG: JXG, el: HTMLElement, box: Box, inks: Inks): Board {
         minorTicks: 0,
         insertTicks: false,
         ticksDistance: tickSpacing(span),
-        drawZero: true,
+        // The axes' crossing marks the origin; both zeros there would sit on each other, and under
+        // the start handle when it starts at the origin.
+        drawZero: false,
         label: {
           cssClass: "sim-tick",
           highlightCssClass: "sim-tick",
@@ -133,7 +135,12 @@ export function contourBoard(
     tune.theta1.min - pad(tune.theta1),
   ];
   const board = makeBoard(JXG, el, box, inks);
-  const label = (html: string, colour: string) => ({
+  /** A point's label, above and right of it unless `place` hangs it elsewhere. */
+  const label = (
+    html: string,
+    colour: string,
+    place: { offset: [number, number]; anchorX?: "left" | "right"; anchorY?: "top" | "bottom" } = { offset: [9, 9] },
+  ) => ({
     name: html,
     withLabel: true,
     label: {
@@ -143,7 +150,7 @@ export function contourBoard(
       strokeColor: colour,
       highlight: false,
       display: "html" as const,
-      offset: [9, 9],
+      ...place,
     },
   });
 
@@ -152,13 +159,14 @@ export function contourBoard(
   for (const share of [1.8, 1, 0.55, 0.28, 0.12, 0.04]) {
     const ellipse = contour(model, minimum.J + (levelsFrom - minimum.J) * share);
     if (!ellipse) continue;
-    board.create("curve", [(t: number) => ellipse.at(t)[0], (t: number) => ellipse.at(t)[1], 0, 2 * Math.PI], {
-      strokeColor: inks.pencil,
-      strokeWidth: 1,
-      strokeOpacity: 0.55,
-      highlight: false,
-      fixed: true,
-    });
+    const level = board.create(
+      "curve",
+      [(t: number) => ellipse.at(t)[0], (t: number) => ellipse.at(t)[1], 0, 2 * Math.PI],
+      { strokeColor: inks.pencil, strokeWidth: 1, strokeOpacity: 0.55, highlight: false, fixed: true },
+    );
+    // A contour is the plot's field, like the sheet's grid: a label may cross it (the layout
+    // sweep's figure check reads it as ground).
+    (level.rendNode as Element | undefined)?.setAttribute("data-backdrop", "");
   }
   board.create("point", [minimum.theta0, minimum.theta1], {
     face: "x",
@@ -206,7 +214,8 @@ export function contourBoard(
     showInfobox: false,
     cssClass: "sim-handle",
     highlightCssClass: "sim-handle",
-    ...label(startLabelHtml, inks.graphite),
+    // Below and left of the start: the descent path leaves it up and right, towards the minimum.
+    ...label(startLabelHtml, inks.graphite, { offset: [-12, -12], anchorX: "right", anchorY: "top" }),
   });
   handle.on("drag", () => onDrag(handle.X(), handle.Y()));
   board.unsuspendUpdate();

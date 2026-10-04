@@ -15,7 +15,7 @@
       "kind": "plot",
       "caption": "Descent on the plane of $\\theta_0$ and $\\theta_1$",
       "x": { "label": "$\\theta_0$", "min": -0.5, "max": 1.5, "step": 0.5 },
-      "y": { "label": "$\\theta_1$", "min": -0.5, "max": 2, "step": 0.5 },
+      "y": { "label": "$\\theta_1$", "min": -1, "max": 2, "step": 0.5 },
       "elements": [
         { "id": "theta-0", "kind": "point", "at": [0, 0], "label": "$\\theta^{(0)}$", "side": "below" },
         { "id": "theta-1", "kind": "point", "at": [0.2667, 0.3667], "label": "$\\theta^{(1)}$", "side": "end" },

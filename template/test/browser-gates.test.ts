@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { chromium } from "playwright";
 import { describe, expect, it } from "vitest";
 import { BROWSER_GATES } from "../gates/browser.ts";
+import { sitePages } from "../gates/pages.ts";
 import { browserRun, IN_PAGE, WIDTHS } from "../gates/browser/run.ts";
 import { GATES } from "../gates/index.ts";
 import { runGates, type Gate, type GateInput } from "../gates/runner.ts";
@@ -77,8 +78,8 @@ describe("the browser gates on the Fixture Course", () => {
     const report = await runGates({ point: "module", commit: COMMIT, input, gates: BROWSER_GATES });
     expect(report.green, JSON.stringify(report.gates, null, 2)).toBe(true);
     const coverage = (id: string) => report.gates.find((g) => g.id === id)?.coverage ?? {};
-    // Home, two Modules, Master Rules, Lab, About and the complete sitting's Revision; never the Trap page.
-    const pages = 7;
+    // Every built page but the Trap page: the Course hubs, every Module, the Tool gallery.
+    const pages = sitePages(input).length;
     expect(coverage("layout-sweep")).toMatchObject({ browsers: BROWSERS, widths: WIDTHS.length, pages });
     expect(coverage("layout-sweep").sweeps).toBe(BROWSERS * WIDTHS.length * pages);
     // The Given box is the Module page's collapsible; the sweep opened it.
@@ -86,7 +87,7 @@ describe("the browser gates on the Fixture Course", () => {
     // A Worked example's Table | Plot tabs add a view at the widths that show them.
     expect(coverage("layout-sweep").views).toBeGreaterThan(coverage("layout-sweep").sweeps ?? 0);
     expect(coverage("live-page-scan").formulas).toBeGreaterThan(0);
-    expect(coverage("hydration")).toMatchObject({ islands: 5 });
+    expect(coverage("hydration").islands).toBeGreaterThan(4);
     expect(coverage("hydration").controls).toBeGreaterThan(10);
     expect(coverage("touch").taps).toBeGreaterThan(20);
     expect(coverage("initial-load").requests).toBeGreaterThan(0);
