@@ -1,6 +1,7 @@
 // The gate runner: every gate plugs in here, and every gate point (per job, per Module, per
-// deploy, and live: per deploy again, after it, on the live URL) runs through `runGates`. A gate has two outcomes on a finding, block or Checkpoint item;
-// there is no warning level. A gate that didn't run, crashed or saw nothing counts as failed.
+// deploy, and live: on the live URL once Vercel has deployed) runs through `runGates`. A gate has
+// two outcomes on a finding, block or Checkpoint item; there is no warning level. A gate that
+// didn't run, crashed or saw nothing counts as failed.
 //
 // The run leaves a Gate report bound to the exact commit it checked. `verifyReport` is the only
 // way to call a report green: it re-derives the verdict rather than trusting the report's own.

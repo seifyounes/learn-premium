@@ -27,7 +27,11 @@ export interface HandWrittenNotice {
   text: string;
 }
 
-export const LICENCES_ROUTE = "/licences.txt";
+/** The file's name in the built site, served at `LICENCES_ROUTE`. */
+export const LICENCES_FILE = "licences.txt";
+export const LICENCES_ROUTE = `/${LICENCES_FILE}`;
+/** Where the Course project commits it, in the Site template's layer: what the Go-public check looks for. */
+export const COMMITTED_LICENCES = `public/${LICENCES_FILE}`;
 
 const RULE = "=".repeat(78);
 const UNDER = "-".repeat(78);

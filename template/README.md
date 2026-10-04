@@ -288,7 +288,7 @@ A new gate goes in `gates/index.ts` with at least one negative control that plan
 | `licences-file`      | deploy         | the Licences file carries every hand-written notice, no page links to it, and `public/licences.txt` is the build's                                                                                          |
 | `live-routes`        | live           | every route the build made answers 200 with the build's own page; the hubs and `/licences.txt` are there                                                                                                    |
 | `live-headers`       | live           | every response carries `X-Robots-Tag: noindex`; pages, scripts and stylesheets of 1 KiB or more come Brotli-compressed                                                                                      |
-| `live-private-paths` | live           | the Course's content and build records (at their content and repo paths), the Build ledger's Materials, config, `.env` and `.git` answer 404                                                                |
+| `live-private-paths` | live           | the Course's content and build records (at their content and repo paths), the Build ledger's Materials, the evidence-shaped folders, config, `.env` and `.git` answer 404                                   |
 
 ### Browser gates
 

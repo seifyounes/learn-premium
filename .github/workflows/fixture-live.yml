@@ -58,6 +58,7 @@ jobs:
       - name: Playwright Chromium (the performance report)
         run: npx playwright install --with-deps chromium
       - name: Wait until production serves this commit
+        id: await
         run: npm run deploy -- await-live --sha "$SHA"
       # The pages to expect come from the same build Vercel made.
       - name: Build what Vercel built
@@ -67,8 +68,11 @@ jobs:
       - name: Live gates
         continue-on-error: true
         run: npm run gates -- run --point live --url "$LIVE_URL" --report "$RUNNER_TEMP/live-report.json"
+      # Once production serves the commit, the verdict always runs: gates that couldn't run (a
+      # failed build included) count as failed, and fail the live site back to the last green.
       - name: Verdict (red rolls Vercel back)
         id: verdict
+        if: always() && steps.await.outcome == 'success'
         run: >-
           npm run deploy -- verdict --sha "$SHA" --live-url "$LIVE_URL"
           --report "$RUNNER_TEMP/live-report.json" --out "$RUNNER_TEMP/owner"
@@ -81,7 +85,23 @@ jobs:
         run: >-
           gh issue create --title "$(cat "$RUNNER_TEMP/owner/issue-title.txt")"
           --body-file "$RUNNER_TEMP/owner/issue-body.md" --assignee "$GITHUB_REPOSITORY_OWNER"
+      - name: Tell the Owner the deploy never went live
+        if: failure() && steps.await.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REASON: ${{ steps.await.outputs.reason }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "Production never served $SHA, so the live gates didn't run and nothing was rolled back."
+            echo
+            echo "${REASON:-See the run.}"
+            echo
+            echo "Run: $RUN_URL"
+          } > "$RUNNER_TEMP/never-live.md"
+          gh issue create --title "Deploy of ${SHA::7} never went live" \
+            --body-file "$RUNNER_TEMP/never-live.md" --assignee "$GITHUB_REPOSITORY_OWNER"
       - name: Performance (reported, never blocking)
-        if: always()
+        if: always() && steps.await.outcome == 'success'
         continue-on-error: true
         run: npm run deploy -- performance --url "$LIVE_URL" --lighthouse

@@ -1,8 +1,8 @@
 // The rendered-page scan, per Module and per deploy: reads the built pages the way a student gets
 // them (islands' props included) and blocks a KaTeX error span, raw TeX, prose set as a fraction,
 // copy that assumes a content shape, and content braces that didn't render literally.
-import { cpSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { cpSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Element, ElementContent, Nodes } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
@@ -27,8 +27,13 @@ function siteOf({ distDir }: GateInput): string {
 
 /** The built pages in scope: a Module's own route, or every page. Never the Trap page, whose defects are seeded. */
 export function sitePages(input: GateInput) {
-  const inScope = (entry: string) => input.module === undefined || entry.startsWith(`${input.module}/`);
-  return filesIn(siteOf(input), "**/*.html", inScope)
+  return pagesOf(siteOf(input), input.module);
+}
+
+/** A built site's pages by route, or one Module's; never the Trap page. */
+export function pagesOf(distDir: string, module?: string) {
+  const inScope = (entry: string) => module === undefined || entry.startsWith(`${module}/`);
+  return filesIn(distDir, "**/*.html", inScope)
     .map((page) => ({ route: `/${page.entry.replace(/(^|\/)index\.html$/, "$1")}`, ...page }))
     .filter((page) => page.route !== TRAP_ROUTE);
 }
@@ -286,6 +291,17 @@ export function siteWith(good: GateInput, scratch: string, edit: (page: string) 
   const edited = edit(page);
   if (edited === page) throw new Error(`${first.route} had nothing to plant a negative control in`);
   writeFileSync(path, edited);
+  return { ...good, distDir };
+}
+
+/** A whole scratch copy of the built site with `files` (path in the site → content) added. */
+export function siteFilesWith(good: GateInput, scratch: string, files: Record<string, string>): GateInput {
+  const distDir = copySite(good, scratch, { whole: true });
+  for (const [entry, content] of Object.entries(files)) {
+    const path = join(distDir, entry);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content);
+  }
   return { ...good, distDir };
 }
 

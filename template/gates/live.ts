@@ -7,31 +7,28 @@
 // The pages to expect are listed from the same build (`--dist`, built at the deployed commit). With
 // no URL the gates serve that build the way Vercel would under vercel.json (`live/vercel-like.ts`):
 // how their negative controls run, and how template CI checks the config before anything deploys.
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { basename, join, relative } from "node:path";
 import { course } from "../src/content/contract.ts";
 import { readStructured } from "../src/content/loaders.ts";
-import { LICENCES_ROUTE } from "../src/licences/file.ts";
+import { LICENCES_FILE, LICENCES_ROUTE } from "../src/licences/file.ts";
 import { navItems } from "../src/site/nav.ts";
 import type { ServedSite } from "./browser/serve.ts";
-import { courseCopy, slashes } from "./course-files.ts";
+import { allFiles, courseCopy, gitRoot, slashes, templateOf, templateWith } from "./course-files.ts";
 import { serveLikeVercel } from "./live/vercel-like.ts";
-import { copySite, sitePages } from "./pages.ts";
-import {
-  allFiles,
-  LEDGER_FILE,
-  readLedgerMaterials,
-  readVercelConfig,
-  siteFilesWith,
-  templateWith,
-} from "./private-files.ts";
+import { copySite, pagesOf, siteFilesWith } from "./pages.ts";
+import { LEDGER_FILE, readLedgerMaterials } from "./private-files.ts";
 import type { Finding, Gate, GateInput } from "./runner.ts";
+import { NOINDEX, readVercelConfig } from "./vercel-config.ts";
+
+/** A site's base URL, without the trailing slash routes are appended to. */
+export const baseUrl = (url: string) => url.replace(/\/+$/, "");
 
 /** The live site: the URL given, or the build served the way Vercel would serve it. */
 async function liveSite(input: GateInput): Promise<ServedSite> {
-  if (input.siteUrl !== undefined) return { url: input.siteUrl.replace(/\/+$/, ""), close: async () => {} };
+  if (input.siteUrl !== undefined) return { url: baseUrl(input.siteUrl), close: async () => {} };
   if (input.distDir === undefined) throw new Error("no live URL and no built site to serve (distDir)");
-  return serveLikeVercel(input.distDir, readVercelConfig(input));
+  return serveLikeVercel(input.distDir, readVercelConfig(templateOf(input)));
 }
 
 async function withLiveSite<T>(input: GateInput, check: (url: string) => Promise<T>): Promise<T> {
@@ -52,11 +49,8 @@ const get = (url: string) =>
 
 /** Every page the build made, by route, with its title: the whole Course, whatever the scope. */
 function builtPages(input: GateInput) {
-  const whole: GateInput = {
-    contentDir: input.contentDir,
-    ...(input.distDir === undefined ? {} : { distDir: input.distDir }),
-  };
-  return sitePages(whole).map((page) => ({ ...page, title: titleOf(readFileSync(page.path, "utf8")) }));
+  if (input.distDir === undefined) throw new Error("no built site to list the pages from (distDir)");
+  return pagesOf(input.distDir).map((page) => ({ ...page, title: titleOf(readFileSync(page.path, "utf8")) }));
 }
 
 const titleOf = (html: string) => /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.replace(/\s+/g, " ").trim();
@@ -110,7 +104,8 @@ export const liveRoutes: Gate = {
     },
     {
       defect: "vercel.json that redirects every route away from its trailing slash",
-      plant: (good, scratch) => templateWith(good, scratch, (config) => ({ ...config, trailingSlash: false })),
+      plant: (good, scratch) =>
+        templateWith(good, scratch, { config: (config) => ({ ...config, trailingSlash: false }) }),
     },
   ],
 };
@@ -131,7 +126,7 @@ export const liveHeaders: Gate = {
     const checked = [
       ...builtPages(input),
       ...assets,
-      { route: LICENCES_ROUTE, path: join(input.distDir, "licences.txt") },
+      { route: LICENCES_ROUTE, path: join(input.distDir, LICENCES_FILE) },
     ];
     const findings: Finding[] = [];
     const block = (at: string, message: string) => findings.push({ outcome: "block", at, message });
@@ -139,7 +134,7 @@ export const liveHeaders: Gate = {
       for (const { route, path } of checked) {
         const response = await get(`${url}${route}`);
         await response.arrayBuffer();
-        if (!/\bnoindex\b/i.test(response.headers.get("x-robots-tag") ?? ""))
+        if (!NOINDEX.test(response.headers.get("x-robots-tag") ?? ""))
           block(route, "the response carries no X-Robots-Tag: noindex");
         const textual = route.endsWith("/") || /\.(js|css)$/.test(route);
         const encoding = response.headers.get("content-encoding");
@@ -152,7 +147,21 @@ export const liveHeaders: Gate = {
   controls: [
     {
       defect: "vercel.json without the X-Robots-Tag header",
-      plant: (good, scratch) => templateWith(good, scratch, (config) => ({ ...config, headers: [] })),
+      plant: (good, scratch) => templateWith(good, scratch, { config: (config) => ({ ...config, headers: [] }) }),
+    },
+    {
+      // Vercel compresses by type: a script served as a binary type goes out uncompressed.
+      defect: "vercel.json serving scripts as application/octet-stream, which Vercel won't compress",
+      plant: (good, scratch) =>
+        templateWith(good, scratch, {
+          config: (config) => ({
+            ...config,
+            headers: [
+              ...((config["headers"] as unknown[] | undefined) ?? []),
+              { source: "/_astro/(.*)", headers: [{ key: "Content-Type", value: "application/octet-stream" }] },
+            ],
+          }),
+        }),
     },
   ],
 };
@@ -163,6 +172,13 @@ const ALWAYS_PRIVATE = [
   "/build-records/",
   "/private/",
   "/materials/",
+  // Where Build evidence would sit (the evidence-shaped folders of `gates/evidence.ts`).
+  "/transcripts/",
+  "/crops/",
+  "/quotes/",
+  "/blind-readings/",
+  "/evidence/",
+  "/reader/pages/",
   "/vercel.json",
   "/package.json",
   "/.env",
@@ -189,14 +205,6 @@ function privatePaths(input: GateInput): string[] {
     paths.add(`/${basename(path)}`);
   }
   return [...paths].map(encodePath);
-}
-
-/** The repo the content sits in (its `.git` may be a worktree's file), if any. */
-function gitRoot(dir: string): string | undefined {
-  for (let at = resolve(dir); ; at = dirname(at)) {
-    if (existsSync(join(at, ".git"))) return at;
-    if (dirname(at) === at) return undefined;
-  }
 }
 
 export const livePrivatePaths: Gate = {

@@ -37,10 +37,6 @@ export class Vercel {
     this.#options = options;
   }
 
-  get projectId() {
-    return this.#options.projectId;
-  }
-
   async #call(method: "GET" | "POST", path: string, query: Record<string, string> = {}): Promise<unknown> {
     const { token, teamId, fetch: send = fetch } = this.#options;
     const params = new URLSearchParams({ ...query, ...(teamId === undefined ? {} : { teamId }) });
