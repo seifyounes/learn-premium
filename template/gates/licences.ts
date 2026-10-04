@@ -6,6 +6,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  COMMITTED_LICENCES,
+  LICENCES_FILE,
   LICENCES_ROUTE,
   readLicences,
   renderEntries,
@@ -14,20 +16,14 @@ import {
 } from "../src/licences/file.ts";
 import { HAND_WRITTEN_NOTICES } from "../src/licences/hand-written.ts";
 import { readPackage } from "../src/licences/packages.ts";
-import { licenceVerdict } from "../src/licences/spdx.ts";
-import { templateOf } from "./course-files.ts";
-import { inMain, siteWith } from "./pages.ts";
-import { allFiles, siteFilesWith, templateWith } from "./private-files.ts";
+import { ALLOWED_LICENCES, licenceVerdict } from "../src/licences/spdx.ts";
+import { allFiles, templateOf, templateWith } from "./course-files.ts";
+import { inMain, siteFilesWith, siteWith } from "./pages.ts";
 import type { Finding, Gate, GateInput } from "./runner.ts";
-
-const FILE = LICENCES_ROUTE.slice(1);
-
-/** Where the Course project commits its Licences file, in the Site template's layer. */
-export const COMMITTED_LICENCES = "public/licences.txt";
 
 function builtLicences(input: GateInput): { path: string; text: string; file: LicencesFile } {
   if (input.distDir === undefined) throw new Error("no built site given to check (distDir)");
-  const path = join(input.distDir, FILE);
+  const path = join(input.distDir, LICENCES_FILE);
   if (!existsSync(path)) throw new Error(`the build wrote no Licences file at ${LICENCES_ROUTE}`);
   const text = readFileSync(path, "utf8");
   return { path, text, file: readLicences(text) };
@@ -38,13 +34,12 @@ const PLANTED_GPL = fileURLToPath(new URL("./planted/gpl-package/", import.meta.
 
 /** A scratch copy of the built site whose Licences file also lists `pkg`. */
 function licencesWith(good: GateInput, scratch: string, pkg: PackageNotice) {
-  return siteFilesWith(good, scratch, { [FILE]: `${builtLicences(good).text}${renderEntries([pkg], [])}` });
+  return siteFilesWith(good, scratch, { [LICENCES_FILE]: `${builtLicences(good).text}${renderEntries([pkg], [])}` });
 }
 
 export const licencesGate: Gate = {
   id: "licences",
-  checks:
-    "every npm package the build ships is under MIT, BSD-2/3, ISC, Apache-2.0, 0BSD, CC0-1.0, Zlib, BSL-1.0, PSF-2.0, OFL-1.1, MPL-2.0 or EPL-2.0; anything else is a Checkpoint item",
+  checks: `every npm package the build ships is under ${[...ALLOWED_LICENCES].join(", ")}; anything else is a Checkpoint item`,
   points: ["deploy"],
   async run(input) {
     const { packages } = builtLicences(input).file;
@@ -97,7 +92,7 @@ export const licencesFileGate: Gate = {
 
     // The UI never links to it: no href, src or action on any page names the file.
     const pages = allFiles(input.distDir ?? "").filter((f) => f.entry.endsWith(".html"));
-    const link = new RegExp(`(?:href|src|action)\\s*=\\s*["'][^"']*${FILE.replace(".", "\\.")}`, "i");
+    const link = new RegExp(`(?:href|src|action)\\s*=\\s*["'][^"']*${LICENCES_FILE.replace(".", "\\.")}`, "i");
     for (const { entry, path } of pages) {
       if (link.test(readFileSync(path, "utf8"))) block(`/${entry}`, `the page links to ${LICENCES_ROUTE}`);
     }
@@ -113,7 +108,7 @@ export const licencesFileGate: Gate = {
       );
     }
     return {
-      coverage: { files: 1, notices: HAND_WRITTEN_NOTICES.length, pages: pages.length },
+      coverage: { files: 1, notices: present.size, pages: pages.length },
       findings,
     };
   },
@@ -124,22 +119,21 @@ export const licencesFileGate: Gate = {
         const built = builtLicences(good);
         const without = built.text.replace(/\n={78}\nNotice: elkjs\n[\s\S]*$/, "\n");
         if (without === built.text) throw new Error("the Licences file has no elkjs notice to remove");
-        const site = siteFilesWith(good, scratch, { [FILE]: without });
-        return templateWith(site, scratch, undefined, { licences: without });
+        const site = siteFilesWith(good, scratch, { [LICENCES_FILE]: without });
+        return templateWith(site, scratch, { licences: without });
       },
     },
     {
       defect: "a page that links to the Licences file",
       plant: (good, scratch) => {
         const site = siteWith(good, scratch, inMain(`<a href="${LICENCES_ROUTE}">Licences</a>`));
-        writeFileSync(join(site.distDir ?? "", FILE), builtLicences(good).text);
+        writeFileSync(join(site.distDir ?? "", LICENCES_FILE), builtLicences(good).text);
         return site;
       },
     },
     {
       defect: "a committed Licences file the build has moved on from",
-      plant: (good, scratch) =>
-        templateWith(good, scratch, undefined, { licences: `${builtLicences(good).text}\nstale line\n` }),
+      plant: (good, scratch) => templateWith(good, scratch, { licences: `${builtLicences(good).text}\nstale line\n` }),
     },
   ],
 };

@@ -312,9 +312,9 @@ _Avoid_: publish gate, open-sourcing
 **Gate**:
 A check a build must pass. It has only two outcomes on a finding: it blocks (the job that made the
 problem fixes it) or it raises a Checkpoint item (only the Owner can settle it). There is no
-warning level. Gates run at three points: per job, per Module and per deploy. The per-deploy gates
-run twice: on the build before it merges, and on the live URL after Vercel deploys it (the `live`
-point), where a failure rolls Vercel back to the last green deployment.
+warning level. Gates run at three points: per job, per Module and per deploy. Per deploy has two
+halves: the `deploy` gates check the build before it merges, and the `live` gates check the live
+URL after Vercel deploys it, where a failure rolls Vercel back to the last green deployment.
 _Avoid_: test (alone), lint (for the whole class), warning
 
 **Gate report**:

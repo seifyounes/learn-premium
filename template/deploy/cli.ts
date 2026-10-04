@@ -4,11 +4,13 @@
 //                Refreshes the committed Licences file (public/licences.txt) from the build's.
 //   await-live   --sha SHA [--timeout-s N]
 //                Waits until Vercel's production deployment of SHA is ready and holds the production
-//                domains, so the live gates check that build and not the one before it.
+//                domains, so the live gates check that build and not the one before it. On failure
+//                it writes `reason` for the Owner's issue.
 //   verdict      --sha SHA --live-url URL [--report FILE] [--drill] [--out DIR] [--run-url URL]
 //                Settles a live gate run: green marks the commit green (the rollback's "last green");
-//                red (or a drill) marks it red, rolls Vercel back to the last green deployment and
-//                writes the Owner's report to DIR (issue-title.txt, issue-body.md).
+//                red marks it red, rolls Vercel back to the last green deployment and writes the
+//                Owner's report to DIR (issue-title.txt, issue-body.md). A drill does the same but
+//                leaves the commit's mark alone: the drill proves the rollback, not the commit.
 //   performance  [--url URL] [--dist DIR] [--lighthouse] [--out FILE]
 //                Reports initial JS, LCP and (with --lighthouse) Lighthouse per page. Never blocks.
 //
@@ -19,10 +21,11 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
+import { baseUrl } from "../gates/live.ts";
 import { serveLikeVercel } from "../gates/live/vercel-like.ts";
-import { sitePages } from "../gates/pages.ts";
-import { readVercelConfig } from "../gates/private-files.ts";
+import { pagesOf } from "../gates/pages.ts";
 import type { GateReport } from "../gates/runner.ts";
+import { readVercelConfig } from "../gates/vercel-config.ts";
 import { GitHub } from "./github.ts";
 import { commitLicences } from "./licences.ts";
 import { measure, performanceMarkdown } from "./performance.ts";
@@ -86,21 +89,28 @@ async function main(argv: string[]): Promise<number> {
 
     case "await-live": {
       const commit = sha();
-      const deadline = Date.now() + Number(values["timeout-s"] ?? 900) * 1000;
+      const timeout = Number(values["timeout-s"] ?? 900);
+      if (!Number.isFinite(timeout) || timeout <= 0) throw new UsageError("--timeout-s must be a number of seconds");
+      const deadline = Date.now() + timeout * 1000;
       const api = vercel();
+      const fail = (reason: string) => {
+        output("reason", reason);
+        return 1;
+      };
       for (;;) {
         const [deployment] = await api.productionDeployments({ sha: commit, limit: 5 });
         if (deployment?.readyState === "READY" && deployment.aliasAssigned !== null) {
           output("deployment", deployment.uid);
           return 0;
         }
-        if (deployment !== undefined && ["ERROR", "CANCELED"].includes(deployment.readyState)) {
-          console.log(`the production deployment of ${commit} ended ${deployment.readyState}`);
-          return 1;
-        }
+        if (deployment !== undefined && ["ERROR", "CANCELED"].includes(deployment.readyState))
+          return fail(`the production deployment of ${commit} ended ${deployment.readyState}`);
         if (Date.now() > deadline) {
-          console.log(`no production deployment of ${commit} went live in time`);
-          return 1;
+          return fail(
+            deployment?.readyState === "READY"
+              ? `the production deployment of ${commit} is ready but production never moved to it: Vercel stops promoting new pushes after a rollback, so undo the rollback (Undo Rollback, or vercel promote ${deployment.uid})`
+              : `no production deployment of ${commit} went live within ${timeout}s`,
+          );
         }
         await sleep(15_000);
       }
@@ -123,7 +133,7 @@ async function main(argv: string[]): Promise<number> {
         console.log(`green: ${commit} passed the live gates on ${liveUrl}`);
         return 0;
       }
-      await github.markLiveGates(commit, "failure", drill ? "rollback drill" : `live gates red on ${liveUrl}`, runUrl);
+      if (!drill) await github.markLiveGates(commit, "failure", `live gates red on ${liveUrl}`, runUrl);
       const outcome = await rollBackFrom(
         commit,
         drill ? "learn-premium rollback drill" : "learn-premium live gates red",
@@ -142,11 +152,11 @@ async function main(argv: string[]): Promise<number> {
     }
 
     case "performance": {
-      const routes = sitePages({ contentDir: TEMPLATE_DIR, distDir }).map((p) => p.route);
+      const routes = pagesOf(distDir).map((p) => p.route);
       const site =
         values.url === undefined
-          ? await serveLikeVercel(distDir, readVercelConfig({ contentDir: TEMPLATE_DIR }))
-          : { url: values.url.replace(/\/+$/, ""), close: async () => {} };
+          ? await serveLikeVercel(distDir, readVercelConfig(TEMPLATE_DIR))
+          : { url: baseUrl(values.url), close: async () => {} };
       try {
         const report = await measure(site.url, routes, {
           lighthouseRoutes: values.lighthouse ? routes.filter((r) => r === "/" || r === "/tool-gallery/") : [],

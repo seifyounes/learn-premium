@@ -32,7 +32,12 @@ just before the current one. When the last green deployment is further back, Ver
 the issue says so; production then stays on the failing deployment until the Owner promotes the
 green one by hand or fixes forward. After any rollback, Vercel stops promoting new pushes to
 `main` until it is undone. To undo it, use **Undo Rollback** on the project's production tile or
-`vercel promote <deployment>`.
+`vercel promote <deployment>`. Until then, every push's run ends in a "never went live" issue that
+says so.
+
+Once production serves the deployed commit, the verdict always runs. Gates that couldn't run,
+such as after a failed build in the run, count as failed and roll production back. If production
+never serves the commit, nothing is rolled back and the issue says why.
 
 ## Setting up the Vercel project (the Owner, once)
 
@@ -59,9 +64,13 @@ green one by hand or fixes forward. After any rollback, Vercel stops promoting n
 
    The project ID is under Project Settings → General. Create the token under Account Settings →
    Tokens. A team-owned project also needs `VERCEL_TEAM_ID`; a personal Hobby account needs none.
-5. Prove it: the next push to `main` should end with a green **Fixture live gates** run. Then run
-   the drill once (Actions → Fixture live gates → Run workflow → `drill`). Production should roll
-   back to the previous green deployment and an issue should open. Undo the rollback afterwards.
+
+5. Prove it: the next push to `main` should end with a green **Fixture live gates** run. After a
+   second green deploy (on Hobby, the rollback target must be the deployment just before the
+   current one, and it must be green), run the drill once: Actions → Fixture live gates → Run
+   workflow on `main` → `drill`. Production should roll back to the previous green deployment and
+   an issue should open. The drill doesn't mark the current commit red, so undo the rollback
+   afterwards and production is back where it was.
 
 ## Release sequence
 

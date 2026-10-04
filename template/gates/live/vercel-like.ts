@@ -8,7 +8,7 @@ import type { AddressInfo } from "node:net";
 import { extname, join, normalize, sep } from "node:path";
 import { brotliCompressSync, gzipSync } from "node:zlib";
 import { CONTENT_TYPES, type ServedSite } from "../browser/serve.ts";
-import type { VercelConfig } from "../private-files.ts";
+import type { VercelConfig } from "../vercel-config.ts";
 
 /** Vercel compresses text types; images, fonts and media go as they are. */
 const COMPRESSED = /^(text\/|application\/(json|javascript|xml)|image\/svg)/;
@@ -53,7 +53,12 @@ export async function serveLikeVercel(distDir: string, config: VercelConfig): Pr
 
   const server: Server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://site");
-    const path = decodeURIComponent(url.pathname);
+    let path: string;
+    try {
+      path = decodeURIComponent(url.pathname);
+    } catch {
+      return void response.writeHead(400).end("bad request");
+    }
     const headers: Record<string, string> = {};
     for (const rule of headerRules)
       if (rule.test.test(path)) for (const { key, value } of rule.headers) headers[key.toLowerCase()] = value;
@@ -71,7 +76,8 @@ export async function serveLikeVercel(distDir: string, config: VercelConfig): Pr
       response.writeHead(404, { ...headers, "content-type": CONTENT_TYPES[".html"] ?? "text/html" });
       return void response.end(notFound === undefined ? "not found" : readFileSync(notFound));
     }
-    const type = CONTENT_TYPES[extname(file)] ?? "application/octet-stream";
+    // A Content-Type the config sets wins, as on Vercel, and decides whether the file is compressed.
+    const type = headers["content-type"] ?? CONTENT_TYPES[extname(file)] ?? "application/octet-stream";
     let body = readFileSync(file);
     const accepts = String(request.headers["accept-encoding"] ?? "");
     if (COMPRESSED.test(type) && /\bbr\b/.test(accepts)) {
