@@ -286,8 +286,14 @@
     // blank ground by design; one laid on a trace, a tick or a point covers it (value chips buried
     // the traces they annotated). An SVG is judged by its drawn strokes and fills, sampled, with
     // the sheet's grid as backdrop; a picture, video or canvas by its whole box.
+    // A deliberate overlay (the red pen's ring round an iterate) is skipped as a pair, whichever
+    // of the two lies on top.
     const figures = [...document.querySelectorAll(FIGURES)].filter(
-      (f) => !f.closest(".katex") && !(f instanceof SVGElement && f.ownerSVGElement) && visible(f),
+      (f) =>
+        !f.closest(".katex") &&
+        !f.closest(ALLOW_OVERLAP) &&
+        !(f instanceof SVGElement && f.ownerSVGElement) &&
+        visible(f),
     );
     coverage.figures = figures.length;
     for (const el of document.body.querySelectorAll("*")) {
