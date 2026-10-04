@@ -1,0 +1,87 @@
+# The live gates on the Fixture Course's Vercel project, after every production deploy. Vercel's
+# Git integration deploys `main` and reports it to GitHub as a deployment; once production serves
+# it, this runs the live gates on the live URL. Green marks the commit green (the rollback's "last
+# green"). Red rolls Vercel back to the last green deployment and opens an issue for the Owner.
+#
+# Run it by hand with `drill` to force a red verdict: the rollback and the Owner's report, end to end.
+#
+# Needs the repo secret VERCEL_TOKEN and the repo variables VERCEL_PROJECT_ID, FIXTURE_LIVE_URL and,
+# for a team-owned project, VERCEL_TEAM_ID (docs/deploy.md).
+name: Fixture live gates
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      drill:
+        description: "Force a red verdict: roll production back and report to the Owner"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  statuses: write
+  issues: write
+
+# One live run at a time; a newer deploy waits for the run before it rather than racing its rollback.
+concurrency:
+  group: fixture-live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       startsWith(github.event.deployment.environment, 'Production'))
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+      LIVE_URL: ${{ vars.FIXTURE_LIVE_URL }}
+      SHA: ${{ github.event.deployment.sha || github.sha }}
+      GITHUB_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        working-directory: template
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: template/.node-version
+          cache: npm
+          cache-dependency-path: template/package-lock.json
+      - run: npm ci
+      - name: Playwright Chromium (the performance report)
+        run: npx playwright install --with-deps chromium
+      - name: Wait until production serves this commit
+        run: npm run deploy -- await-live --sha "$SHA"
+      # The pages to expect come from the same build Vercel made.
+      - name: Build what Vercel built
+        run: npm run build
+        env:
+          VERCEL_ENV: production
+      - name: Live gates
+        continue-on-error: true
+        run: npm run gates -- run --point live --url "$LIVE_URL" --report "$RUNNER_TEMP/live-report.json"
+      - name: Verdict (red rolls Vercel back)
+        id: verdict
+        run: >-
+          npm run deploy -- verdict --sha "$SHA" --live-url "$LIVE_URL"
+          --report "$RUNNER_TEMP/live-report.json" --out "$RUNNER_TEMP/owner"
+          --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          ${{ inputs.drill && '--drill' || '' }}
+      - name: Tell the Owner
+        if: failure() && steps.verdict.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh issue create --title "$(cat "$RUNNER_TEMP/owner/issue-title.txt")"
+          --body-file "$RUNNER_TEMP/owner/issue-body.md" --assignee "$GITHUB_REPOSITORY_OWNER"
+      - name: Performance (reported, never blocking)
+        if: always()
+        continue-on-error: true
+        run: npm run deploy -- performance --url "$LIVE_URL" --lighthouse

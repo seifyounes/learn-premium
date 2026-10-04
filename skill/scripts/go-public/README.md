@@ -38,8 +38,11 @@ The report also gives `head` (where the Licences file was looked for: run it on 
 which is what the public repo shows), `scanned` (commits, paths, blobs, text blobs, messages,
 remote refs), and `materials` (how many hashes it matched against, and which folders it read).
 
-Provisional, for later tickets to confirm: the Licences file's path (#47, which generates it) and the
-evidence-shaped path rules (#68's pre-commit gate is meant to share them). Git LFS content isn't
-seen, only its pointer files; Course projects don't use LFS (ADR 0003).
+The Licences file's path is the Site template's `public/licences.txt` (#47: every build writes it
+and the `licences-file` deploy gate blocks a stale committed copy). The evidence-shaped path rules
+are shared with the template's deploy gates (`template/gates/evidence.ts`, an identical copy the
+template's tests hold to this one). They are still provisional, for #68's pre-commit gate to
+confirm or narrow. Git LFS content isn't seen, only its pointer files; Course projects don't use
+LFS (ADR 0003).
 
 Tests: `npm test` in `skill/` (Vitest, throwaway repos and synthetic Materials only).

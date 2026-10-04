@@ -24,6 +24,7 @@ contract, fails the build and names the file (and, for LaTeX, the line).
 | `/revision/<sitting>/` | A sitting's Revision, built only once the sitting is `complete` |
 | `/about/`              | About                                                           |
 | `/tool-gallery/`       | The Tool gallery (linked from no page)                          |
+| `/licences.txt`        | The Licences file (linked from no page; see Deploy)             |
 
 Every page opens with the fixed nav (`SiteNav.astro`, from `src/site/nav.ts`): Modules · Master
 Rules · Lab · Revision · About. Revision is there only once a sitting is complete (no stub), and
@@ -242,10 +243,12 @@ keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.
 
 `gates/` is the gate runner: one entry (`npm run gates -- <command>`) for every gate point.
 
-- `run --point job|module|deploy [--module NN-slug] [--url URL]` runs the point's gates and writes a
-  Gate report to the Course's `build-records/gate-reports/`, bound to the commit it checked. It
-  exits 1 unless the report is green. The browser gates serve `dist/` themselves, or open the same
-  build at `--url` (its Vercel preview).
+- `run --point job|module|deploy|live [--module NN-slug] [--dist DIR] [--url URL]` runs the point's
+  gates and writes a Gate report to the Course's `build-records/gate-reports/`, bound to the commit
+  it checked. It exits 1 unless the report is green. The browser gates serve `dist/` themselves, or
+  open the same build at `--url` (its Vercel preview). `deploy` checks the build before it merges;
+  `live` checks the live site at `--url` after Vercel deploys it (see Deploy), or, with no URL,
+  the build served the way Vercel serves it under `vercel.json`.
 - `verify --point … [--module …] [--commit SHA]` accepts a report only if it is green for that
   commit (HEAD by default). A report for another commit, or taken on uncommitted changes, is red.
 - `controls` runs every gate on its positive fixture (the Course as it is) and on each of its
@@ -278,6 +281,14 @@ A new gate goes in `gates/index.ts` with at least one negative control that plan
 | `touch`              | module         | browser: with phone touch at 375 and 390px (4× slower CPU on Chromium), every control answers a tap                                                                                                         |
 | `initial-load`       | module         | browser: three.js, Pyodide and Plotly are absent from every page's initial load                                                                                                                             |
 | `trap-page`          | module         | browser: every sweep found every seeded defect on the Trap page                                                                                                                                             |
+| `no-materials`       | deploy         | no file in the build output is a document, deck, sheet or camera original, or matches a Materials hash in the Build ledger                                                                                  |
+| `no-build-evidence`  | deploy         | no evidence-shaped path (`gates/evidence.ts`, shared with the Go-public check), nothing under `build-records/`, no copy of a recompute log or Gate report                                                   |
+| `noindex`            | deploy         | every built page has a robots noindex meta tag, and `vercel.json` sends `X-Robots-Tag: noindex` on every path                                                                                               |
+| `licences`           | deploy         | every npm package the build ships is on the licence allow-list; anything else (GPL, NC, ND, unknown) is a Checkpoint item                                                                                   |
+| `licences-file`      | deploy         | the Licences file carries every hand-written notice, no page links to it, and `public/licences.txt` is the build's                                                                                          |
+| `live-routes`        | live           | every route the build made answers 200 with the build's own page; the hubs and `/licences.txt` are there                                                                                                    |
+| `live-headers`       | live           | every response carries `X-Robots-Tag: noindex`; pages, scripts and stylesheets of 1 KiB or more come Brotli-compressed                                                                                      |
+| `live-private-paths` | live           | the Course's content and build records (at their content and repo paths), the Build ledger's Materials, config, `.env` and `.git` answer 404                                                                |
 
 ### Browser gates
 
@@ -381,18 +392,60 @@ interface: hints in, drawing out.
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).
 
+## Deploy
+
+A Course deploys to its own Vercel project through the Git integration, as plain static files
+(`vercel.json`: Vercel's Astro preset, `dist/`, trailing slashes, and `X-Robots-Tag: noindex` on
+every path). Vercel compresses text with Brotli on its own. The Fixture Course's project and its
+setup are in `../docs/deploy.md`.
+
+- **Before merge**, the `deploy` gates run on a production build (`VERCEL_ENV=production`, so no
+  Trap page): no Materials file, nothing from Build evidence, noindex everywhere, the licence
+  allow-list and the Licences file. The `live` gates then run on that build served the way Vercel
+  serves it (`gates/live/vercel-like.ts`), which checks `vercel.json` before anything deploys.
+- **After the deploy**, the `live` gates run on the live URL. `deploy/` holds what runs around
+  them (`npm run deploy -- <command>`):
+  - `await-live` waits until Vercel's production deployment of a commit holds the production
+    domains;
+  - `verdict` settles the run. Green marks the commit with the `learn-premium/live-gates` GitHub
+    status. Red (or `--drill`) rolls Vercel back to the newest earlier production deployment whose
+    commit is green (`deploy/rollback.ts`) and writes the Owner's issue.
+- `performance` reports each page's initial JavaScript against the ~300 KB reference, its LCP on
+  a phone-sized Chromium and, with `--lighthouse`, Lighthouse's mobile score
+  (`deploy/performance.ts`). It never blocks.
+
+**The Licences file** (`/licences.txt`, linked from no page) is written by every build
+(`src/licences/integration.ts`). It lists the npm packages the bundle actually ships, read off the
+bundle itself: the client bundle, every stylesheet and asset, and Astro's inline island loader. A
+package that only builds the site (Astro's compiler, sharp, Tailwind) is never listed. After them
+come the hand-written notices (`src/licences/hand-written.ts`, reviewed at every release):
+
+- mhchem's Apache-2.0;
+- KaTeX's OFL fonts;
+- Pyodide (MPL-2.0, with its source line);
+- RDKit and the FreeType inside it;
+- the CoolProp WASM;
+- elkjs (EPL-2.0, with its source line).
+
+`npm run deploy -- licences` copies the build's file to `public/licences.txt`. That committed copy
+is what the Go-public check looks for, and `licences-file` blocks a stale one. The licence gate's
+allow-list (`src/licences/spdx.ts`) is MIT, BSD-2/3, ISC, Apache-2.0, 0BSD, CC0-1.0, Zlib, BSL-1.0,
+PSF-2.0, OFL-1.1, MPL-2.0 and EPL-2.0. A choice (`MIT OR LGPL-3.0-or-later`) passes when any side
+does. Its negative control is a planted GPL-3.0 package (`gates/planted/gpl-package/`).
+
 ## Scripts
 
-| Script                 | What it does                                                                       |
-| ---------------------- | ---------------------------------------------------------------------------------- |
-| `npm run dev`          | Dev server on the Fixture Course                                                   |
-| `npm run build`        | Static build into `dist/`                                                          |
-| `npm run check`        | `astro check` (TypeScript strictest, `.astro` files included)                      |
-| `npm run lint`         | ESLint                                                                             |
-| `npm run format:check` | Prettier                                                                           |
-| `npm test`             | Vitest: the Fixture Course build, the gate runner, the gates, the sims in Chromium |
-| `npm run gates -- …`   | The gate runner (see Gates)                                                        |
-| `npm run wheels`       | Fetches the Pyodide packages the Course's tools load into its `pyodide/` folder    |
+| Script                 | What it does                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| `npm run dev`          | Dev server on the Fixture Course                                                    |
+| `npm run build`        | Static build into `dist/`                                                           |
+| `npm run check`        | `astro check` (TypeScript strictest, `.astro` files included)                       |
+| `npm run lint`         | ESLint                                                                              |
+| `npm run format:check` | Prettier                                                                            |
+| `npm test`             | Vitest: the Fixture Course build, the gate runner, the gates, the sims in Chromium  |
+| `npm run gates -- …`   | The gate runner (see Gates)                                                         |
+| `npm run wheels`       | Fetches the Pyodide packages the Course's tools load into its `pyodide/` folder     |
+| `npm run deploy -- …`  | The deploy tooling: `licences`, `await-live`, `verdict`, `performance` (see Deploy) |
 
 Dependencies are pinned to exact versions (`.npmrc` has `save-exact`); commit the lockfile with
 any change to them. CI (`.github/workflows/template-ci.yml`) runs all of the above. The browser

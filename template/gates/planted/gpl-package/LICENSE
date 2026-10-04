@@ -1,0 +1,2 @@
+Planted for the licence gate's negative control: a package that declares GPL-3.0. It is never
+installed or shipped; the control writes its entry into a scratch copy of a built Licences file.

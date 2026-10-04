@@ -2,12 +2,18 @@
 // collections load, from `src/content/layout.ts`) or a built site's pages, scoped to one Module
 // when the gate input names one.
 import { cpSync, globSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { MODULE_ID } from "../src/content/contract.ts";
 import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
 import type { GateInput } from "./runner.ts";
 
 export const slashes = (path: string) => path.replace(/\\/g, "/");
+
+/** The Site template the gates belong to: what `GateInput.templateDir` defaults to. */
+const OWN_TEMPLATE = resolve(import.meta.dirname, "..");
+
+/** The Site template the site was built with. */
+export const templateOf = (input: GateInput) => input.templateDir ?? OWN_TEMPLATE;
 
 export interface CheckedFile {
   /** Path relative to the folder checked, forward slashes: how findings name the file. */

@@ -62,10 +62,24 @@ jobs:
         run: |
           npm run gates -- run --point module
           npm run gates -- verify --point module
+      # Before merge, the deploy gates check what Vercel's production deploy builds: no Trap page.
+      - name: Build the Fixture Course as Vercel's production deploy does
+        run: npm run build -- --outDir dist-production
+        env:
+          VERCEL_ENV: production
       - name: Gates per deploy
         run: |
-          npm run gates -- run --point deploy
+          npm run gates -- run --point deploy --dist dist-production
           npm run gates -- verify --point deploy
+      # The live gates, on that build served the way Vercel serves it under vercel.json. After the
+      # deploy, fixture-live.yml runs them again on the live URL.
+      - name: Live gates on the Vercel-like server
+        run: |
+          npm run gates -- run --point live --dist dist-production
+          npm run gates -- verify --point live
+      - name: Performance (reported, never blocking)
+        continue-on-error: true
+        run: npm run deploy -- performance --dist dist-production
       # A negative control that passes means its gate can't see its defect: CI goes red.
       - name: Negative controls
         run: npm run gates -- controls

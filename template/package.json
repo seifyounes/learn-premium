@@ -15,7 +15,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "gates": "node gates/cli.ts",
-    "wheels": "node src/python/wheels.ts"
+    "wheels": "node src/python/wheels.ts",
+    "deploy": "node deploy/cli.ts"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "7.3.1",

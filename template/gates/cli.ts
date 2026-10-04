@@ -1,10 +1,11 @@
 // The one entry for every gate point: `npm run gates -- <command> …` from the template folder.
 //
-//   run      --point job|module|deploy [--module NN-slug] [--content DIR] [--dist DIR] [--url URL] [--report FILE]
+//   run      --point job|module|deploy|live [--module NN-slug] [--content DIR] [--dist DIR] [--url URL] [--report FILE]
 //            Runs the point's gates and writes the Gate report, bound to the Course's HEAD commit.
 //            The browser gates serve the built site themselves, or open it at --url (a Vercel
-//            preview of the same build).
-//   verify   --point job|module|deploy [--module NN-slug] [--content DIR] [--report FILE] [--commit SHA]
+//            preview of the same build). The live gates check the live site at --url, or serve
+//            the build the way Vercel would under vercel.json.
+//   verify   --point job|module|deploy|live [--module NN-slug] [--content DIR] [--report FILE] [--commit SHA]
 //            Accepts the report only if it is green for that commit (HEAD by default).
 //   controls [--content DIR] [--dist DIR]
 //            Runs every gate on its positive fixture and on each of its negative controls.

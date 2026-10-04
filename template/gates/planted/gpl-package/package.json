@@ -1,0 +1,7 @@
+{
+  "name": "planted-gpl-package",
+  "version": "1.0.0",
+  "description": "A planted package for the licence gate's negative control. Never installed, never shipped.",
+  "license": "GPL-3.0",
+  "private": true
+}
