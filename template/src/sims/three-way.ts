@@ -3,12 +3,14 @@
 // Worked example's sheet at its printed precision. Engine ≠ recompute is a bug, so it blocks; the
 // two agreeing against the sheet is the Professor's call, so it goes to the Owner as a Checkpoint
 // item, unless the Owner already ruled on it: a Divergence ships as printed, and a Slip the sheet
-// still prints blocks, since the site ships the corrected value. Pure: the gate reads the files.
+// still prints blocks, since the site ships the corrected value. A truth table is checked exactly
+// instead: bits have no last digit to round, and the recompute works out every row the engine
+// gives. Pure: the gate reads the files.
 import { z } from "astro/zod";
 import { numbersIn } from "../provenance/values.ts";
 import { parseCell } from "../worked/cells.ts";
 import { engineQuantities, type LiveSim } from "./kinds.ts";
-import { agreesAtPrint, printAt, readPrinted } from "./precision.ts";
+import { agreesAtPrint, printAt, readPrinted, type Printed } from "./precision.ts";
 
 export const RECOMPUTE_LOG = "learn-premium recompute log v1";
 
@@ -53,8 +55,21 @@ export interface ThreeWay {
 /** Off the sheet there is no printed precision: engine and recompute agree to float rounding. */
 const RELATIVE = 1e-9;
 
-export function threeWay(s: LiveSim, log: RecomputeLog, sheet: Sheet | undefined): ThreeWay {
+export interface Comparison {
+  /** Bit for bit, every value the engine gives recomputed: a truth table. Else at the sheet's printed precision. */
+  exact: boolean;
+}
+
+export function threeWay(
+  s: LiveSim,
+  log: RecomputeLog,
+  sheet: Sheet | undefined,
+  { exact }: Comparison = { exact: false },
+): ThreeWay {
   const result: ThreeWay = { problems: [], sheetValues: 0, recomputedValues: 0 };
+  const agrees = (value: number, printed: Printed) => (exact ? value === printed.value : agreesAtPrint(value, printed));
+  const print = (value: number, decimals: number) => (exact ? String(value) : printAt(value, decimals));
+  const atPrecision = (decimals: number) => (exact ? "" : `, at the sheet's ${decimals} decimals`);
   const block = (message: string) => result.problems.push({ outcome: "block", on: "sim", message });
 
   const changed = [
@@ -99,12 +114,12 @@ export function threeWay(s: LiveSim, log: RecomputeLog, sheet: Sheet | undefined
     }
     result.sheetValues += 1;
     const d = printed.decimals;
-    if (!agreesAtPrint(fromEngine, { ...printed, value: fromRecompute })) {
+    if (!agrees(fromEngine, { ...printed, value: fromRecompute })) {
       block(
-        `${quantity} (sheet cell ${cell}): the engine gives ${printAt(fromEngine, d)} but the independent recompute gives ${printAt(fromRecompute, d)}, at the sheet's ${d} decimals; fix whichever is wrong`,
+        `${quantity} (sheet cell ${cell}): the engine gives ${print(fromEngine, d)} but the independent recompute gives ${print(fromRecompute, d)}${atPrecision(d)}; fix whichever is wrong`,
       );
-    } else if (!agreesAtPrint(fromEngine, printed) && !divergences.has(Math.abs(printed.value))) {
-      const computed = `${printAt(fromEngine, d)} (${quantity})`;
+    } else if (!agrees(fromEngine, printed) && !divergences.has(Math.abs(printed.value))) {
+      const computed = `${print(fromEngine, d)} (${quantity})`;
       result.problems.push(
         slips.has(Math.abs(printed.value))
           ? {
@@ -129,10 +144,19 @@ export function threeWay(s: LiveSim, log: RecomputeLog, sheet: Sheet | undefined
     }
     result.recomputedValues += 1;
     if (onSheet.has(quantity)) continue;
-    if (Math.abs(fromEngine - fromRecompute) > RELATIVE * Math.max(1, Math.abs(fromRecompute))) {
+    const off = exact
+      ? fromEngine !== fromRecompute
+      : Math.abs(fromEngine - fromRecompute) > RELATIVE * Math.max(1, Math.abs(fromRecompute));
+    if (off) {
       block(
         `${quantity}: the engine gives ${fromEngine} but the independent recompute gives ${fromRecompute}; fix whichever is wrong`,
       );
+    }
+  }
+  if (exact) {
+    for (const quantity of Object.keys(engine)) {
+      if (!(quantity in log.values))
+        block(`the recompute log doesn't give ${quantity}: a truth table's recompute works out every row`);
     }
   }
   return result;

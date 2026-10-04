@@ -31,7 +31,13 @@ Layout (content contract v0):
   that `add` and `ring` its elements.
 - `build-records/recompute/<NN>-<slug>/<name>.json`: a live sim's recompute log, the inputs it
   took from the Materials and every number it worked out. Here it is written by
-  `tools/recompute-gradient-descent.py`, in exact fractions, apart from the template's engine.
+  `tools/recompute-gradient-descent.py`, in exact fractions, and `tools/recompute-full-adder.py`,
+  walking each net back to its gate, both apart from the template's engines.
+- A schematic sim (`kind: logic`) also gives its Layout hints (`layout`): each part's cell on the
+  figure's coarse grid, its turn and label side, and the nets whose joints the figure dots; never a
+  coordinate. `build-records/figure/<NN>-<slug>/<name>.json` is the Blind reader's account of its
+  figure (parts by printed label, their place as fractions of the figure, turn and label side, and
+  every net, dotted or not), which the Drawing gate checks the model and the drawing against.
 - `modules/<NN>-<slug>/practice/<n>.yaml`: one Practice item each (JSON or YAML). A `numeric`
   item has an `answer` (`value`, `unit`, `tolerance`) the site checks; a `prose` item lists what
   `earns` the mark, one point per mark, for the student to mark themselves against.
@@ -66,6 +72,12 @@ Module 3 (gradient descent) carries the Fixture Course's sims, on a synthetic li
 are worked out here. `sims/descent.json` is the live sim inline in W03.1, checked three ways against
 its recompute log and the sheet. `sims/descent-steps.json` is marked `recompute: none` only to
 exercise the step-through a sim falls back to; it sits in the Lab and the Tool gallery.
+
+Module 4 (full adder) carries the logic sim, on a synthetic full adder (two XORs, two ANDs and an
+OR, the figure the sim-layout prototype drew). W04.1 fills its truth table net by net;
+`sims/adder.json` sits inline in it, checked bit for bit against its recompute log and the sheet,
+and drawn by the layout core from its hints, checked against the Blind reader's reading of the
+figure.
 
 Every string is prose: math is written between `$…$` (inline) or `$$…$$` (display), `\ce{…}`
 renders chemistry, and a literal dollar sign is written `\$`. In JSON every backslash is doubled;

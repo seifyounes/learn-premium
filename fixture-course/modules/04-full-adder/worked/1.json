@@ -1,0 +1,215 @@
+{
+  "code": "W04.1",
+  "title": "The full adder's truth table",
+  "statement": "The figure adds three bits $A$, $B$ and $C_{in}$ with two XOR gates, two AND gates and an OR gate. Fill in its truth table net by net, then read off $S$ and $C_{out}$ for $A = 1$, $B = 0$, $C_{in} = 1$.",
+  "given": [
+    "Inputs $A$, $B$, $C_{in}$, each $0$ or $1$",
+    "$G_1$, $G_3$: XOR; $G_2$, $G_4$: AND; $G_5$: OR"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "Each net in turn, every row of inputs",
+    "columns": [
+      {
+        "label": "$A$",
+        "given": true
+      },
+      {
+        "label": "$B$",
+        "given": true
+      },
+      {
+        "label": "$C_{in}$",
+        "given": true
+      },
+      {
+        "label": "$A \\oplus B$"
+      },
+      {
+        "label": "$S$"
+      },
+      {
+        "label": "$AB$"
+      },
+      {
+        "label": "$C_{in}(A \\oplus B)$"
+      },
+      {
+        "label": "$C_{out}$"
+      }
+    ],
+    "rows": [
+      [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "0",
+        "0",
+        "1",
+        "0",
+        "1",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "0",
+        "1",
+        "0",
+        "1",
+        "1",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "0",
+        "1",
+        "1",
+        "1",
+        "0",
+        "0",
+        "1",
+        "1"
+      ],
+      [
+        "1",
+        "0",
+        "0",
+        "1",
+        "1",
+        "0",
+        "0",
+        "0"
+      ],
+      [
+        "1",
+        "0",
+        "1",
+        "1",
+        "0",
+        "0",
+        "1",
+        "1"
+      ],
+      [
+        "1",
+        "1",
+        "0",
+        "0",
+        "0",
+        "1",
+        "0",
+        "1"
+      ],
+      [
+        "1",
+        "1",
+        "1",
+        "0",
+        "1",
+        "1",
+        "0",
+        "1"
+      ]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Read the circuit",
+      "note": "$G_1$ and $G_3$ make the sum, $G_2$ and $G_4$ the two ways a carry starts, and $G_5$ joins them. Work each gate's output net for every row, in the order the signals flow."
+    },
+    {
+      "title": "First XOR",
+      "note": "$G_1$ gives $A \\oplus B$: $1$ when exactly one of $A$ and $B$ is $1$.",
+      "fill": [
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8"
+      ]
+    },
+    {
+      "title": "The sum",
+      "note": "$G_3$ gives $S = (A \\oplus B) \\oplus C_{in}$: $1$ when an odd number of the three inputs is $1$.",
+      "fill": [
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+        "E6",
+        "E7",
+        "E8"
+      ]
+    },
+    {
+      "title": "First carry",
+      "note": "$G_2$ gives $AB$: a carry when $A$ and $B$ are both $1$.",
+      "fill": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8"
+      ]
+    },
+    {
+      "title": "Carry through",
+      "note": "$G_4$ gives $C_{in}(A \\oplus B)$: the incoming carry passes when exactly one of $A$ and $B$ is $1$.",
+      "fill": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7",
+        "G8"
+      ]
+    },
+    {
+      "title": "The carry out",
+      "note": "$G_5$ gives $C_{out} = AB + C_{in}(A \\oplus B)$. On the row $A = 1$, $B = 0$, $C_{in} = 1$: $S = 0$ and $C_{out} = 1$, since $1 + 0 + 1$ is binary $10$.",
+      "fill": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "H7",
+        "H8"
+      ],
+      "marks": [
+        "E6",
+        "H6"
+      ]
+    }
+  ],
+  "answer": "$S = A \\oplus B \\oplus C_{in}$ and $C_{out} = AB + C_{in}(A \\oplus B)$; for $A = 1$, $B = 0$, $C_{in} = 1$: $S = 0$, $C_{out} = 1$.",
+  "provenance": {
+    "stated": [
+      "the inputs and outputs are bits, $0$ or $1$",
+      "$G_1$ to $G_5$"
+    ],
+    "derived": [
+      "binary $10$"
+    ]
+  }
+}

@@ -4,6 +4,7 @@
 import type { z } from "astro/zod";
 import type { sim } from "../content/contract.ts";
 import * as gradientDescent from "./gradient-descent/engine.ts";
+import * as logic from "./logic/engine.ts";
 import type { Inputs } from "./tuning.ts";
 
 export type Sim = z.output<typeof sim>;
@@ -13,11 +14,21 @@ type SimOf<K extends SimKind> = Extract<Sim, { kind: K }>;
 interface Kind<K extends SimKind> {
   /** Every number the engine gives for the model at `inputs`, by the name sheets and recompute logs use. */
   quantities(model: SimOf<K>["model"], inputs: NonNullable<SimOf<K>["start"]>): Record<string, number>;
+  /**
+   * The gate that checks its numbers three ways: `sim-numbers` at the sheet's printed precision,
+   * or `truth-table` bit for bit, every row of it.
+   */
+  checkedBy: "sim-numbers" | "truth-table";
 }
 
 export const KINDS: { [K in SimKind]: Kind<K> } = {
   "gradient-descent": {
     quantities: (model, inputs) => gradientDescent.quantities(gradientDescent.descend(model, inputs)),
+    checkedBy: "sim-numbers",
+  },
+  logic: {
+    quantities: (model) => logic.quantities(model),
+    checkedBy: "truth-table",
   },
 };
 
@@ -30,5 +41,14 @@ export const isLive = (s: Sim): s is LiveSim =>
 
 /** Runs a sim's engine at `inputs` (the example's values by default). */
 export function engineQuantities(s: LiveSim, inputs: Inputs = s.start): Record<string, number> {
-  return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
+  switch (s.kind) {
+    case "gradient-descent":
+      return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
+    case "logic":
+      return KINDS[s.kind].quantities(s.model, s.start);
+  }
 }
+
+/** A sim drawn as a schematic by the layout core: its model and the Layout hints read off its figure. */
+export type SchematicSim = Extract<Sim, { layout: unknown }>;
+export const isSchematic = (s: Sim): s is SchematicSim => "layout" in s;

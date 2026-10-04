@@ -1,6 +1,7 @@
 // The Agent-built sim gates, per job. `sim-numbers` checks every number a live sim gives three
 // ways (`src/sims/three-way.ts`): the engine replayed here in Node, the independent recompute's
 // log in the Course's build records, and the Worked example's sheet at its printed precision.
+// `truth-table` does the same for a logic sim, bit for bit over every row of its truth table.
 // `tools` holds every sim to the five eligibility checks a tool must pass to ship.
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
@@ -9,7 +10,7 @@ import { SIM_KINDS, sim as simSchema, worked as workedSchema } from "../src/cont
 import { moduleOf } from "../src/content/layout.ts";
 import { readStructured } from "../src/content/loaders.ts";
 import { numbersIn } from "../src/provenance/values.ts";
-import { engineQuantities, isLive, type LiveSim, type Sim, type SimKind } from "../src/sims/kinds.ts";
+import { engineQuantities, isLive, KINDS, type LiveSim, type Sim, type SimKind } from "../src/sims/kinds.ts";
 import { printAt, readPrinted } from "../src/sims/precision.ts";
 import { recomputeLog, threeWay } from "../src/sims/three-way.ts";
 import { snap } from "../src/sims/tuning.ts";
@@ -61,65 +62,77 @@ function readSim(
 const writeStructured = (path: string, data: unknown) =>
   writeFileSync(path, extname(path) === ".json" ? JSON.stringify(data) : stringify(data));
 
+type ThreeWayGate = (typeof KINDS)[SimKind]["checkedBy"];
+
+/**
+ * The three-way check over the sims `gate` checks: each live one's engine against its recompute
+ * log and its Worked example's sheet. A sim no recompute can check ships as its step-through.
+ */
+async function threeWayRun(input: GateInput, gate: ThreeWayGate) {
+  const { files, sims: all, modules } = simsInScope(input);
+  const sims = all.filter((file) => {
+    const kind = readSim(file).raw?.kind;
+    return typeof kind !== "string" || !(kind in KINDS) || KINDS[kind as SimKind].checkedBy === gate;
+  });
+  const coverage = { modules, sims: sims.length, sheetValues: 0, recomputedValues: 0, stepThroughs: 0 };
+  const findings: Finding[] = [];
+  for (const file of sims) {
+    const block = (message: string) => findings.push({ outcome: "block", at: file.entry, message });
+    const { sim: s, problem } = readSim(file);
+    if (!s) {
+      block(problem);
+      continue;
+    }
+    // A sim no recompute can check never ships live: the page shows its step-through.
+    if (!isLive(s)) {
+      coverage.stepThroughs += 1;
+      continue;
+    }
+    const module = moduleOf(file.entry) ?? "";
+    const logEntry = recomputeLogEntry(module, nameOf(file.entry));
+    const logPath = join(input.contentDir, logEntry);
+    if (!existsSync(logPath)) {
+      block(
+        `no recompute log at ${logEntry}: a sim ships live only when an independent recompute checks it; if its model can't be recomputed, mark it recompute: none`,
+      );
+      continue;
+    }
+    let log;
+    try {
+      log = recomputeLog.safeParse(JSON.parse(readFileSync(logPath, "utf8")));
+    } catch (error) {
+      block(`can't read the recompute log ${logEntry}: ${(error as Error).message}`);
+      continue;
+    }
+    if (!log.success) {
+      block(`the recompute log ${logEntry} isn't one: ${problems(log.error)}`);
+      continue;
+    }
+    const example = s.worked === undefined ? undefined : workedExample(files, module, s.worked);
+    if (typeof example === "string") {
+      block(example);
+      continue;
+    }
+    const result = threeWay(s, log.data, example?.sheet, { exact: gate === "truth-table" });
+    coverage.sheetValues += result.sheetValues;
+    coverage.recomputedValues += result.recomputedValues;
+    for (const p of result.problems) {
+      findings.push({
+        outcome: p.outcome,
+        at: p.on === "sheet" && example ? example.entry : file.entry,
+        message: p.message,
+      });
+    }
+  }
+  return { coverage, findings };
+}
+
 export const simNumbers: Gate = {
   id: "sim-numbers",
   checks:
     "every number a live sim's sheet shows agrees three ways (engine, independent recompute, the sheet at its printed precision)",
   points: ["job", "deploy"],
-  async run(input) {
-    const { files, sims, modules } = simsInScope(input);
-    const coverage = { modules, sims: sims.length, sheetValues: 0, recomputedValues: 0, stepThroughs: 0 };
-    const findings: Finding[] = [];
-    for (const file of sims) {
-      const block = (message: string) => findings.push({ outcome: "block", at: file.entry, message });
-      const { sim: s, problem } = readSim(file);
-      if (!s) {
-        block(problem);
-        continue;
-      }
-      // A sim no recompute can check never ships live: the page shows its step-through.
-      if (!isLive(s)) {
-        coverage.stepThroughs += 1;
-        continue;
-      }
-      const module = moduleOf(file.entry) ?? "";
-      const logEntry = recomputeLogEntry(module, nameOf(file.entry));
-      const logPath = join(input.contentDir, logEntry);
-      if (!existsSync(logPath)) {
-        block(
-          `no recompute log at ${logEntry}: a sim ships live only when an independent recompute checks it; if its model can't be recomputed, mark it recompute: none`,
-        );
-        continue;
-      }
-      let log;
-      try {
-        log = recomputeLog.safeParse(JSON.parse(readFileSync(logPath, "utf8")));
-      } catch (error) {
-        block(`can't read the recompute log ${logEntry}: ${(error as Error).message}`);
-        continue;
-      }
-      if (!log.success) {
-        block(`the recompute log ${logEntry} isn't one: ${problems(log.error)}`);
-        continue;
-      }
-      const example = s.worked === undefined ? undefined : workedExample(files, module, s.worked);
-      if (typeof example === "string") {
-        block(example);
-        continue;
-      }
-      const result = threeWay(s, log.data, example?.sheet);
-      coverage.sheetValues += result.sheetValues;
-      coverage.recomputedValues += result.recomputedValues;
-      for (const p of result.problems) {
-        findings.push({
-          outcome: p.outcome,
-          at: p.on === "sheet" && example ? example.entry : file.entry,
-          message: p.message,
-        });
-      }
-    }
-    return { coverage, findings };
-  },
+  run: (input) => threeWayRun(input, "sim-numbers"),
   controls: [
     {
       defect: "a recompute log that disagrees with the engine on a sheet value",
@@ -173,6 +186,86 @@ export const simNumbers: Gate = {
   ],
 };
 
+/** A truth table's sheet cell, read back as the bit it prints. */
+const bitIn = (text: string) => {
+  const printed = readPrinted(text);
+  if (typeof printed === "string") throw new Error(printed);
+  return printed.value;
+};
+
+export const truthTableGate: Gate = {
+  id: "truth-table",
+  checks:
+    "every row of a logic sim's truth table agrees bit for bit three ways (engine, independent recompute, the Worked example's sheet)",
+  points: ["job", "deploy"],
+  run: (input) => threeWayRun(input, "truth-table"),
+  controls: [
+    {
+      defect: "a recompute log that disagrees with the engine on one row of the sheet",
+      plant: (good, scratch) =>
+        plantInLiveSim(
+          good,
+          scratch,
+          ({ contentDir, logEntry, sim }) => {
+            const path = join(contentDir, logEntry);
+            const log = JSON.parse(readFileSync(path, "utf8")) as { values: Record<string, number> };
+            const quantity = firstSheetQuantity(sim);
+            log.values[quantity] = 1 - (log.values[quantity] ?? 0);
+            writeFileSync(path, JSON.stringify(log));
+          },
+          "truth-table",
+        ),
+    },
+    {
+      defect: "a sheet bit the engine and the recompute agree against, which only the Owner can rule",
+      expect: "checkpoint",
+      plant: (good, scratch) =>
+        plantInLiveSim(
+          good,
+          scratch,
+          ({ contentDir, workedEntry, sim }) => {
+            if (!workedEntry) throw new Error("the live sim names no Worked example to plant a sheet bit in");
+            const path = join(contentDir, workedEntry);
+            const example = readStructured(readFileSync(path, "utf8"), workedEntry, ignoreMath) as {
+              artefact: { rows: string[][] };
+            };
+            const [cell] = Object.keys(sim.sheet);
+            if (!cell) throw new Error("the live sim maps no sheet cell");
+            const { row, col } = parseCell(cell);
+            const rowCells = example.artefact.rows[row] as string[];
+            rowCells[col] = String(1 - bitIn(rowCells[col] ?? ""));
+            writeStructured(path, example);
+          },
+          "truth-table",
+        ),
+    },
+    {
+      defect: "a recompute log that leaves out a row of the truth table",
+      plant: (good, scratch) =>
+        plantInLiveSim(
+          good,
+          scratch,
+          ({ contentDir, logEntry, sim }) => {
+            const path = join(contentDir, logEntry);
+            const log = JSON.parse(readFileSync(path, "utf8")) as { values: Record<string, number> };
+            // A row off the sheet, so only the completeness check can catch it.
+            const onSheet = new Set(Object.values(sim.sheet));
+            const dropped = Object.keys(log.values).find((q) => !onSheet.has(q));
+            if (!dropped) throw new Error("every row of the recompute log is on the sheet");
+            const values = Object.fromEntries(Object.entries(log.values).filter(([q]) => q !== dropped));
+            writeFileSync(path, JSON.stringify({ ...log, values }));
+          },
+          "truth-table",
+        ),
+    },
+    {
+      defect: "a live logic sim with no recompute log",
+      plant: (good, scratch) =>
+        plantInLiveSim(good, scratch, ({ contentDir, logEntry }) => rmSync(join(contentDir, logEntry)), "truth-table"),
+    },
+  ],
+};
+
 const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
 
 /**
@@ -182,6 +275,7 @@ const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
  */
 export const TOOLKIT: Record<SimKind, readonly string[]> = {
   "gradient-descent": ["src/islands/GradientDescentSim.tsx", "src/islands/sim/descent-boards.ts"],
+  logic: ["src/islands/LogicSim.tsx", "src/islands/sim/Schematic.tsx"],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 
@@ -371,12 +465,17 @@ interface PlantSite {
  * A scratch copy of the Course with `plant` run on its first live sim that checks a sheet. Throws
  * when there is none, so a control can't silently check nothing.
  */
-function plantInLiveSim(good: GateInput, scratch: string, plant: (site: PlantSite) => void): GateInput {
+function plantInLiveSim(
+  good: GateInput,
+  scratch: string,
+  plant: (site: PlantSite) => void,
+  gate: ThreeWayGate = "sim-numbers",
+): GateInput {
   const copy = courseCopy(good, scratch);
   const { files, sims } = simsInScope(copy);
   for (const file of sims) {
     const { sim } = readSim(file);
-    if (!sim || !isLive(sim) || Object.keys(sim.sheet).length === 0) continue;
+    if (!sim || !isLive(sim) || Object.keys(sim.sheet).length === 0 || KINDS[sim.kind].checkedBy !== gate) continue;
     const module = moduleOf(file.entry) ?? "";
     const example = sim.worked && workedExample(files, module, sim.worked);
     plant({
@@ -388,7 +487,9 @@ function plantInLiveSim(good: GateInput, scratch: string, plant: (site: PlantSit
     });
     return copy;
   }
-  throw new Error(`no live sim checking a sheet in ${good.contentDir} to plant a negative control in`);
+  throw new Error(
+    `no live sim the ${gate} gate checks on a sheet in ${good.contentDir} to plant a negative control in`,
+  );
 }
 
 /** A small gradient-descent sim that keeps the contract; tests and controls break one rule of it. */

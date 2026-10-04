@@ -2,6 +2,9 @@
 // major Template release, because every Course's content is checked against it.
 import { z } from "astro/zod";
 import { isPadKey, PAD_COLOUR, PAD_KEYS } from "../pads/catalogue.ts";
+import { SIDES, TURNS, type Turn } from "../sims/layout/symbols.ts";
+import { schematicProblems } from "../sims/layout/validate.ts";
+import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
 import { CELL_REF, parseCell } from "../worked/cells.ts";
 
 /** A Module's folder name is its route: a two-digit number and a slug, e.g. `01-thermal-resistance`. */
@@ -339,11 +342,85 @@ const gradientDescentSim = z.strictObject({
   tune: z.strictObject({ theta0: tuneRange, theta1: tuneRange, alpha: tuneRange, iterations: tuneRange }).optional(),
 });
 
+/** A part as the figure names it: its printed label (R1, G4, Cin), or a kind prefix and a number. */
+const partId = z.string().regex(/^[A-Za-z][A-Za-z0-9_]*$/, "a part is named as the figure labels it, e.g. G4 or Cin");
+const pinRef = z.string().regex(/^[A-Za-z][A-Za-z0-9_]*\.[A-Za-z0-9+-]+$/, "a pin is written part.pin, e.g. G1.in2");
+/** A tenth of a coarse step at most: a cell on the figure's grid, never a drawing coordinate. */
+const cell = z
+  .number()
+  .refine(
+    (n) => Math.abs(n * 10 - Math.round(n * 10)) < 1e-9,
+    "a cell on the figure's coarse grid, to a tenth of a step",
+  );
+
+/**
+ * Layout hints (CONTEXT.md): what the builder reads off the figure for each part. There is no
+ * field for a drawing coordinate and no hand-placed override: the layout core places, straightens
+ * and routes from these alone.
+ */
+const layoutHints = z.strictObject({
+  parts: z.record(
+    partId,
+    z.strictObject({
+      /** Its cell on the figure's coarse grid, [column, row], rows growing down; one step is about one two-terminal part. */
+      at: z.tuple([cell, cell]),
+      turn: z.union(TURNS.map((t) => z.literal(t)) as [z.ZodLiteral<Turn>, ...z.ZodLiteral<Turn>[]]).optional(),
+      flip: z.boolean().optional(),
+      /** The side the figure prints its label on. */
+      label: z.enum(SIDES).optional(),
+    }),
+  ),
+  /** The nets whose joints the figure dots; every other net's joints are drawn undotted, as the figure has them. */
+  dots: z.array(z.string().min(1)).default([]),
+});
+
+const bit = z.union([z.literal(0), z.literal(1)]);
+
+/**
+ * A logic circuit (`src/sims/logic/engine.ts`): the figure's gates as a netlist, drawn by the
+ * layout core from its hints. Students set the inputs, by tapping a truth-table row or an input;
+ * each net carrying a 1 is inked.
+ */
+const logicSim = z.strictObject({
+  kind: z.literal("logic"),
+  ...simCommon,
+  model: z.strictObject({
+    parts: z
+      .array(z.strictObject({ id: partId, kind: z.enum(LOGIC_KINDS), label: z.string().min(1).optional() }))
+      .min(1),
+    nets: z.array(z.strictObject({ id: z.string().min(1), pins: z.array(pinRef).min(1) })).min(1),
+    /** The input terminals, in the truth table's column order. */
+    inputs: z.array(partId).min(1).max(6),
+    /** The output terminals, in the truth table's column order. */
+    outputs: z.array(partId).min(1),
+  }),
+  layout: layoutHints,
+  /** The example's input bits: the sim opens on them. */
+  start: z.record(partId, bit).optional(),
+  /** Each input, 0 or 1. */
+  tune: z.record(partId, z.strictObject({ min: z.literal(0), max: z.literal(1), step: z.literal(1) })).optional(),
+});
+
 /**
  * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
  * the same way in Node at build and in the page. Students tune it, never rewire it.
  */
-export const sim = z.discriminatedUnion("kind", [gradientDescentSim]).superRefine((s, ctx) => {
+export const sim = z.discriminatedUnion("kind", [gradientDescentSim, logicSim]).superRefine((s, ctx) => {
+  if (s.kind === "logic") {
+    // The circuit is judged once its netlist holds together: a pin in no net isn't also a loop.
+    const structure = schematicProblems(s.model, s.layout);
+    for (const message of structure.length > 0 ? structure : logicProblems(s.model))
+      ctx.addIssue({ code: "custom", path: ["model"], message });
+    for (const key of ["start", "tune"] as const) {
+      const given = Object.keys(s[key] ?? {});
+      if (s[key] !== undefined && given.join() !== s.model.inputs.join())
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: `${key} gives ${given.join(", ") || "nothing"}, but the inputs are ${s.model.inputs.join(", ")}, in that order`,
+        });
+    }
+  }
   if (s.recompute === "independent") {
     for (const key of ["start", "tune"] as const) {
       if (s[key] === undefined)
@@ -390,7 +467,7 @@ export const sim = z.discriminatedUnion("kind", [gradientDescentSim]).superRefin
     step.ring.forEach(unknown(["stepThrough", "steps", i, "ring"]));
   });
 });
-export const SIM_KINDS = ["gradient-descent"] as const satisfies readonly z.infer<typeof sim>["kind"][];
+export const SIM_KINDS = ["gradient-descent", "logic"] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /** A Summary beat's frontmatter; its body is plain Markdown of at most 90 words. */
 export const beat = z.strictObject({

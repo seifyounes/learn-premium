@@ -50,11 +50,11 @@ describe("the sim on the built pages", () => {
 
   it("is in the Lab with every other tool, and in the Tool gallery once per kind beside a step-through", () => {
     const lab = build.page("lab");
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(2);
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(3);
     const gallery = build.page("tool-gallery");
     expect(
       [...gallery.matchAll(/data-sim-kind="([^"]+)" data-recompute="([^"]+)"/g)].map((m) => `${m[1]}:${m[2]}`),
-    ).toEqual(["gradient-descent:independent", "gradient-descent:none"]);
+    ).toEqual(["gradient-descent:independent", "logic:independent", "gradient-descent:none"]);
   });
 
   it("falls back to a step-through for a sim marked non-recomputable: no engine ships in it", () => {
@@ -248,5 +248,86 @@ describe("the sim in a browser", () => {
     await expect.poll(points).toBe(3);
     expect(await fallback.innerText()).toContain("Step 2");
     await context.close();
+  });
+});
+
+describe("the logic sim", () => {
+  const LOGIC = "04-full-adder";
+  const page = () => articleOf(build.page(LOGIC), "W04.1");
+
+  it("sits inline in its Worked example: the figure redrawn at build, its controls off until hydrated", () => {
+    const article = page();
+    expect(article).toMatch(/component-url="\/_astro\/LogicSim\.[^"]+\.js"[^>]*client="visible"/);
+    // The drawing is the layout core's, made at build: the server HTML already carries it.
+    expect(article).toMatch(/<svg class="schematic" width="\d+" height="\d+"/);
+    expect(article.match(/class="schematic-wire"/g)).toHaveLength(12);
+    expect(article.match(/class="schematic-dot/g)).toHaveLength(4);
+    for (const label of ["G1", "G2", "G3", "G4", "G5", "Cin", "Cout"]) expect(article).toContain(`>${label}</text>`);
+    const buttons = [...article.matchAll(/<button[^>]*>/g)]
+      .map((m) => m[0])
+      .filter((b) => /logic-(?:row|input)/.test(b));
+    // Three inputs and eight rows of the truth table, every one off until the island hydrates.
+    expect(buttons).toHaveLength(3 + 8);
+    for (const button of buttons) expect(button).toContain("disabled");
+  });
+
+  it("opens on the example's row, its high nets inked and its outputs read off", () => {
+    const article = page();
+    expect(article).toMatch(
+      /<button[^>]*class="logic-row"[^>]*aria-current="true"[^>]*aria-label="Set A = 1, B = 0, Cin = 1"/,
+    );
+    expect(article).toContain('data-net="Cin"');
+    expect(article).toContain('data-net="Cout"');
+    expect(article).not.toContain('data-net="S"');
+    const readout = /class="sim-readout"[^>]*>([\s\S]*?)<\/p>/.exec(article)?.[1]?.replace(/<[^>]*>/g, "");
+    expect(readout).toBe("S = 0, Cout = 1");
+  });
+
+  describe("in a browser", () => {
+    let site: Awaited<ReturnType<typeof serve>>;
+    let browser: Browser;
+
+    beforeAll(async () => {
+      site = await serve(build.outDir);
+      browser = await chromium.launch();
+    });
+    afterAll(async () => {
+      await browser?.close();
+      await site?.close();
+    });
+
+    it("inks the nets a tapped row drives high, and scrolls a wide circuit inside its box on a phone", async () => {
+      for (const viewport of [
+        { width: 1280, height: 800 },
+        { width: 375, height: 812 },
+      ]) {
+        const context = await browser.newContext({ viewport, hasTouch: viewport.width < 768 });
+        const tab = await context.newPage();
+        const errors: string[] = [];
+        tab.on("pageerror", (e) => errors.push(e.message));
+        await tab.goto(`${site.url}/${LOGIC}/`);
+        const sim = tab.locator('[data-sim="logic"]').first();
+        await sim.scrollIntoViewIfNeeded();
+        await tab.locator('[data-sim="logic"][data-ready="true"]').waitFor();
+        const inked = () =>
+          sim.locator(".schematic-wire.is-high").evaluateAll((w) => w.map((e) => e.getAttribute("data-net")));
+        await sim.getByRole("button", { name: "Set A = 0, B = 0, Cin = 0" }).click();
+        await expect.poll(inked).toEqual([]);
+        await sim.getByRole("button", { name: "Set A = 1, B = 1, Cin = 1" }).click();
+        await expect.poll(async () => [...new Set(await inked())].sort()).toEqual(["A", "AB", "B", "Cin", "Cout", "S"]);
+        expect(await sim.locator(".sim-readout").innerText()).toBe("S = 1, Cout = 1");
+        // An input key flips one bit: B to 0 leaves A ⊕ B high and the sum low.
+        await sim.locator(".logic-input").nth(1).click();
+        await expect.poll(() => sim.locator(".sim-readout").innerText()).toBe("S = 0, Cout = 1");
+        const overflow = await tab.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        expect(overflow, `${viewport.width}px`).toBeLessThanOrEqual(0);
+        if (viewport.width < 768) {
+          const stage = await sim.locator(".logic-stage").evaluate((e) => e.scrollWidth - e.clientWidth);
+          expect(stage).toBeGreaterThan(0);
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+      }
+    });
   });
 });

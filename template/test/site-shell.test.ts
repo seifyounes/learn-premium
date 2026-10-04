@@ -10,6 +10,7 @@ const ROUTES = [
   "01-thermal-resistance",
   "02-convection",
   "03-gradient-descent",
+  "04-full-adder",
   "rules",
   "lab",
   "about",
@@ -59,6 +60,7 @@ describe("the Study site shell", () => {
       "01-thermal-resistance": "Modules",
       "02-convection": "Modules",
       "03-gradient-descent": "Modules",
+      "04-full-adder": "Modules",
       rules: "Master Rules",
       lab: "Lab",
       about: "About",
@@ -88,7 +90,7 @@ describe("the Study site shell", () => {
 
     it("lists every Module in number order, each line linking to its page", () => {
       const lines = [...home().matchAll(/<li class="contents-line"[^>]*data-module="([^"]+)"/g)].map((m) => m[1]);
-      expect(lines).toEqual(["01-thermal-resistance", "02-convection", "03-gradient-descent"]);
+      expect(lines).toEqual(["01-thermal-resistance", "02-convection", "03-gradient-descent", "04-full-adder"]);
       expect(contentsLine(home(), "02-convection")).toContain('href="/02-convection/"');
     });
 
@@ -155,7 +157,8 @@ describe("the Study site shell", () => {
   it("lists every tool on the Lab page under the Module that uses it", () => {
     const lab = build.page("lab");
     expect(lab).toContain('href="/03-gradient-descent/"');
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(2);
+    expect(lab).toContain('href="/04-full-adder/"');
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(3);
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
 
@@ -190,7 +193,8 @@ describe("before a sitting is complete", () => {
 describe("a Course with no tools yet", () => {
   it("says so on the Lab page", () => {
     const course = fixtureWith("course.yaml", (s) => s);
-    rmSync(join(course, "modules", "03-gradient-descent"), { recursive: true });
+    for (const module of ["03-gradient-descent", "04-full-adder"])
+      rmSync(join(course, "modules", module), { recursive: true });
     const build = buildCourse(course);
     expect(build.ok, build.output).toBe(true);
     expect(build.page("lab")).toContain("No interactive tools are built for this Course yet.");

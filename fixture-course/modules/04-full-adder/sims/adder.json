@@ -1,0 +1,281 @@
+{
+  "kind": "logic",
+  "title": "The full adder in the figure",
+  "caption": "Tap a row of the truth table, or an input, to set $A$, $B$ and $C_{in}$. Every wire carrying a $1$ is inked; a $0$ stays in pencil.",
+  "recompute": "independent",
+  "worked": "1",
+  "sheet": {
+    "D1": "AxB[000]",
+    "D2": "AxB[001]",
+    "D3": "AxB[010]",
+    "D4": "AxB[011]",
+    "D5": "AxB[100]",
+    "D6": "AxB[101]",
+    "D7": "AxB[110]",
+    "D8": "AxB[111]",
+    "E1": "S[000]",
+    "E2": "S[001]",
+    "E3": "S[010]",
+    "E4": "S[011]",
+    "E5": "S[100]",
+    "E6": "S[101]",
+    "E7": "S[110]",
+    "E8": "S[111]",
+    "F1": "AB[000]",
+    "F2": "AB[001]",
+    "F3": "AB[010]",
+    "F4": "AB[011]",
+    "F5": "AB[100]",
+    "F6": "AB[101]",
+    "F7": "AB[110]",
+    "F8": "AB[111]",
+    "G1": "CinAxB[000]",
+    "G2": "CinAxB[001]",
+    "G3": "CinAxB[010]",
+    "G4": "CinAxB[011]",
+    "G5": "CinAxB[100]",
+    "G6": "CinAxB[101]",
+    "G7": "CinAxB[110]",
+    "G8": "CinAxB[111]",
+    "H1": "Cout[000]",
+    "H2": "Cout[001]",
+    "H3": "Cout[010]",
+    "H4": "Cout[011]",
+    "H5": "Cout[100]",
+    "H6": "Cout[101]",
+    "H7": "Cout[110]",
+    "H8": "Cout[111]"
+  },
+  "model": {
+    "parts": [
+      {
+        "id": "A",
+        "kind": "port",
+        "label": "A"
+      },
+      {
+        "id": "B",
+        "kind": "port",
+        "label": "B"
+      },
+      {
+        "id": "Cin",
+        "kind": "port",
+        "label": "Cin"
+      },
+      {
+        "id": "G1",
+        "kind": "xor",
+        "label": "G1"
+      },
+      {
+        "id": "G2",
+        "kind": "and",
+        "label": "G2"
+      },
+      {
+        "id": "G3",
+        "kind": "xor",
+        "label": "G3"
+      },
+      {
+        "id": "G4",
+        "kind": "and",
+        "label": "G4"
+      },
+      {
+        "id": "G5",
+        "kind": "or",
+        "label": "G5"
+      },
+      {
+        "id": "S",
+        "kind": "port",
+        "label": "S"
+      },
+      {
+        "id": "Cout",
+        "kind": "port",
+        "label": "Cout"
+      }
+    ],
+    "nets": [
+      {
+        "id": "A",
+        "pins": [
+          "A.t",
+          "G1.in1",
+          "G2.in1"
+        ]
+      },
+      {
+        "id": "B",
+        "pins": [
+          "B.t",
+          "G1.in2",
+          "G2.in2"
+        ]
+      },
+      {
+        "id": "Cin",
+        "pins": [
+          "Cin.t",
+          "G3.in2",
+          "G4.in2"
+        ]
+      },
+      {
+        "id": "AxB",
+        "pins": [
+          "G1.out",
+          "G3.in1",
+          "G4.in1"
+        ]
+      },
+      {
+        "id": "AB",
+        "pins": [
+          "G2.out",
+          "G5.in2"
+        ]
+      },
+      {
+        "id": "CinAxB",
+        "pins": [
+          "G4.out",
+          "G5.in1"
+        ]
+      },
+      {
+        "id": "S",
+        "pins": [
+          "G3.out",
+          "S.t"
+        ]
+      },
+      {
+        "id": "Cout",
+        "pins": [
+          "G5.out",
+          "Cout.t"
+        ]
+      }
+    ],
+    "inputs": [
+      "A",
+      "B",
+      "Cin"
+    ],
+    "outputs": [
+      "S",
+      "Cout"
+    ]
+  },
+  "layout": {
+    "parts": {
+      "Cin": {
+        "at": [
+          0,
+          0
+        ],
+        "label": "left"
+      },
+      "A": {
+        "at": [
+          0,
+          1.6
+        ],
+        "label": "left"
+      },
+      "B": {
+        "at": [
+          0,
+          2
+        ],
+        "label": "left"
+      },
+      "G1": {
+        "at": [
+          2.2,
+          1.8
+        ],
+        "label": "above"
+      },
+      "G2": {
+        "at": [
+          2.2,
+          3.6
+        ],
+        "label": "below"
+      },
+      "G3": {
+        "at": [
+          4.6,
+          2
+        ],
+        "label": "above"
+      },
+      "G4": {
+        "at": [
+          4.6,
+          3.2
+        ],
+        "label": "below"
+      },
+      "S": {
+        "at": [
+          5.8,
+          2
+        ],
+        "label": "right"
+      },
+      "G5": {
+        "at": [
+          6.6,
+          3.4
+        ],
+        "label": "below"
+      },
+      "Cout": {
+        "at": [
+          7.8,
+          3.4
+        ],
+        "label": "right"
+      }
+    },
+    "dots": [
+      "A",
+      "B",
+      "Cin",
+      "AxB"
+    ]
+  },
+  "start": {
+    "A": 1,
+    "B": 0,
+    "Cin": 1
+  },
+  "tune": {
+    "A": {
+      "min": 0,
+      "max": 1,
+      "step": 1
+    },
+    "B": {
+      "min": 0,
+      "max": 1,
+      "step": 1
+    },
+    "Cin": {
+      "min": 0,
+      "max": 1,
+      "step": 1
+    }
+  },
+  "provenance": {
+    "stated": [
+      "the inputs and outputs are bits, $0$ or $1$"
+    ]
+  }
+}

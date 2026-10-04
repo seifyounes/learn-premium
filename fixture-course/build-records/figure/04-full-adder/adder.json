@@ -1,0 +1,159 @@
+{
+  "reading": "learn-premium figure reading v1",
+  "by": "Blind reader, from the synthetic full-adder figure (prototype/circuit-sim fixtures/full-adder.png), never seeing a builder file",
+  "parts": {
+    "G1": {
+      "kind": "xor",
+      "at": [
+        0.262,
+        0.359
+      ],
+      "turn": 0,
+      "label": "above"
+    },
+    "G2": {
+      "kind": "and",
+      "at": [
+        0.266,
+        0.826
+      ],
+      "turn": 0,
+      "label": "below"
+    },
+    "G3": {
+      "kind": "xor",
+      "at": [
+        0.543,
+        0.398
+      ],
+      "turn": 0,
+      "label": "above"
+    },
+    "G4": {
+      "kind": "and",
+      "at": [
+        0.545,
+        0.74
+      ],
+      "turn": 0,
+      "label": "below"
+    },
+    "G5": {
+      "kind": "or",
+      "at": [
+        0.786,
+        0.778
+      ],
+      "turn": 0,
+      "label": "below"
+    },
+    "Cin": {
+      "kind": "port",
+      "at": [
+        0.057,
+        0.048
+      ],
+      "turn": 0,
+      "label": "left"
+    },
+    "A": {
+      "kind": "port",
+      "at": [
+        0.057,
+        0.321
+      ],
+      "turn": 0,
+      "label": "left"
+    },
+    "B": {
+      "kind": "port",
+      "at": [
+        0.057,
+        0.399
+      ],
+      "turn": 0,
+      "label": "left"
+    },
+    "S": {
+      "kind": "port",
+      "at": [
+        0.684,
+        0.398
+      ],
+      "turn": 0,
+      "label": "right"
+    },
+    "Cout": {
+      "kind": "port",
+      "at": [
+        0.924,
+        0.778
+      ],
+      "turn": 0,
+      "label": "right"
+    }
+  },
+  "nets": [
+    {
+      "pins": [
+        "A.t",
+        "G1.in1",
+        "G2.in1"
+      ],
+      "dotted": true
+    },
+    {
+      "pins": [
+        "B.t",
+        "G1.in2",
+        "G2.in2"
+      ],
+      "dotted": true
+    },
+    {
+      "pins": [
+        "G1.out",
+        "G3.in1",
+        "G4.in1"
+      ],
+      "dotted": true
+    },
+    {
+      "pins": [
+        "Cin.t",
+        "G3.in2",
+        "G4.in2"
+      ],
+      "dotted": true
+    },
+    {
+      "pins": [
+        "G3.out",
+        "S.t"
+      ]
+    },
+    {
+      "pins": [
+        "G4.out",
+        "G5.in1"
+      ]
+    },
+    {
+      "pins": [
+        "G2.out",
+        "G5.in2"
+      ]
+    },
+    {
+      "pins": [
+        "G5.out",
+        "Cout.t"
+      ]
+    }
+  ],
+  "doubts": [
+    "The terminals have no drawn circle: each one's position is the free wire end beside its label.",
+    "The G1 output wire crosses the Cin wire with no dot, so they don't connect; Cin joins G3.in2 at a dot and runs on down to G4.in2.",
+    "The upper input of each gate is read as in1 and the lower as in2."
+  ]
+}
