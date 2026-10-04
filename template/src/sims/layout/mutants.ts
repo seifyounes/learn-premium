@@ -1,16 +1,25 @@
 // The Drawing gate's negative control, run on every drawing at every build: each mutant breaks a
 // good drawing one known way, and the gate must fail it on the check named. A gate that passes a
 // mutant can't see what it claims to check.
+import type { CheckId } from "./check.ts";
 import { textBox, type Drawing, type PlacedPart, type Text } from "./drawing.ts";
 import { segmentsOf } from "./geometry.ts";
-import { pinsOf, symbolOf, type Point, type Turn } from "./symbols.ts";
+import { GRID, pinsOf, symbolOf, type Point, type Turn } from "./symbols.ts";
+
+export type MutantId = "short" | "open" | "reversed" | "label" | "extra" | "mirrored" | "staircase" | "no-dot";
 
 export interface Mutant {
-  id: "short" | "open" | "reversed" | "label" | "extra" | "mirrored" | "staircase" | "no-dot";
+  id: MutantId;
   what: string;
   /** The checks that must fail on it: any one catches it. */
-  expect: readonly string[];
+  expect: readonly CheckId[];
   drawing: Drawing;
+}
+
+/** A mutant the drawing has nothing to plant in (no dot to remove, no polar part), and why. */
+export interface Skipped {
+  id: MutantId;
+  why: string;
 }
 
 const clone = (d: Drawing): Drawing => structuredClone(d);
@@ -25,10 +34,11 @@ export function mutantsOf(
   nets: readonly { id: string; pins: readonly string[] }[],
 ): {
   mutants: Mutant[];
-  skipped: string[];
+  skipped: Skipped[];
 } {
   const mutants: Mutant[] = [];
-  const skipped: string[] = [];
+  const skipped: Skipped[] = [];
+  const skip = (id: MutantId, why: string) => skipped.push({ id, why });
   const netOf = (pin: string) => nets.find((n) => n.pins.includes(pin))?.id;
 
   // A short: an extra wire joins the two nearest pins of different nets.
@@ -56,7 +66,7 @@ export function mutantsOf(
       expect: ["connectivity"],
       drawing: m,
     });
-  } else skipped.push("short: no two pins on different nets");
+  } else skip("short", "no two pins on different nets");
 
   // An open: the longest wire deleted.
   if (d.wires.length > 0) {
@@ -65,7 +75,7 @@ export function mutantsOf(
     const longest = d.wires.reduce((bi, _, i) => (wireLength(i) > wireLength(bi) ? i : bi), 0);
     m.wires = m.wires.filter((_, i) => i !== longest);
     mutants.push({ id: "open", what: `wire ${longest} deleted`, expect: ["connectivity"], drawing: m });
-  } else skipped.push("open: no wire");
+  } else skip("open", "no wire");
 
   // A part with a polarity turned round, its wires left where they were.
   const polar = d.parts.findIndex((p) => {
@@ -77,7 +87,7 @@ export function mutantsOf(
     const part = m.parts[polar] as PlacedPart;
     (m.parts as PlacedPart[])[polar] = { ...part, turn: ((part.turn + 180) % 360) as Turn };
     mutants.push({ id: "reversed", what: `${part.id} turned 180°`, expect: ["connectivity", "turn"], drawing: m });
-  } else skipped.push("reversed: no part with a polarity");
+  } else skip("reversed", "no part with a polarity");
 
   // A label dropped.
   const labelled = d.parts.findIndex((p) => p.label);
@@ -87,18 +97,21 @@ export function mutantsOf(
     delete part.label;
     (m.parts as PlacedPart[])[labelled] = part;
     mutants.push({ id: "label", what: `${part.id}'s label dropped`, expect: ["labels"], drawing: m });
-  } else skipped.push("label: no labelled part");
+  } else skip("label", "no labelled part");
 
   // A part the model doesn't have, drawn clear of everything.
   {
     const m = clone(d);
     const x = d.width + 60;
+    // A name no part of the drawing has, so the extra part can't pass as one the model names.
+    let id = "RX";
+    for (let n = 1; d.parts.some((p) => p.id === id); n++) id = `RX${n}`;
     m.parts = [
       ...m.parts,
-      { id: "RX", kind: "resistor", x, y: 60, turn: 0, flip: false, label: { text: "RX", x: x - 8, y: 40 } },
+      { id, kind: "resistor", x, y: 60, turn: 0, flip: false, label: { text: id, x: x - 8, y: 40 } },
     ];
     m.width = d.width + 160;
-    mutants.push({ id: "extra", what: "an extra resistor RX drawn", expect: ["parts"], drawing: m });
+    mutants.push({ id: "extra", what: `an extra resistor ${id} drawn`, expect: ["parts"], drawing: m });
   }
 
   // The whole drawing mirrored: every net intact, every pair in the wrong order.
@@ -109,26 +122,19 @@ export function mutantsOf(
     drawing: mirrored(d),
   });
 
-  // A staircase: the longest straight run wobbled sideways twice, nets intact.
+  // A staircase: the longest straight run stepped aside a grid step and back, twice, on the grid
+  // and with no jog under 20px, as a router bug would draw it: nets intact, too many bends.
   const run = d.wires
     .flatMap((w, i) => segmentsOf(w).map((s, j) => ({ i, j, s })))
-    .filter(({ s }) => length(s) >= 80)
+    .filter(({ s }) => length(s) >= 5 * GRID)
     .sort((a, b) => length(b.s) - length(a.s))[0];
   if (run) {
     const m = clone(d);
     const [a, b] = run.s;
-    const vertical = a[0] === b[0];
-    const along = (t: number): Point => [Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t)];
-    const aside = ([x, y]: Point): Point => (vertical ? [x + 10, y] : [x, y + 10]);
-    const steps = [
-      [0.2, 0.35],
-      [0.6, 0.75],
-    ].flatMap(([t0, t1]) => [
-      along(t0 as number),
-      aside(along(t0 as number)),
-      aside(along(t1 as number)),
-      along(t1 as number),
-    ]);
+    const [ux, uy] = [Math.sign(b[0] - a[0]), Math.sign(b[1] - a[1])];
+    const along = (n: number): Point => [a[0] + ux * n * GRID, a[1] + uy * n * GRID];
+    const aside = ([x, y]: Point): Point => [x + uy * GRID, y + ux * GRID];
+    const steps = [1, 3].flatMap((n) => [along(n), aside(along(n)), aside(along(n + 1)), along(n + 1)]);
     const w = m.wires[run.i];
     if (w) {
       const points = [...w.points];
@@ -136,14 +142,14 @@ export function mutantsOf(
       (m.wires as { points: Point[] }[])[run.i] = { points };
     }
     mutants.push({ id: "staircase", what: `wire ${run.i} redrawn as a staircase`, expect: ["tidiness"], drawing: m });
-  } else skipped.push("staircase: no straight run of 80px or more");
+  } else skip("staircase", `no straight run of ${5 * GRID}px or more`);
 
   // A junction dot removed.
   if (d.dots.length > 0) {
     const m = clone(d);
     m.dots = m.dots.slice(1);
     mutants.push({ id: "no-dot", what: `the dot at (${d.dots[0]?.join(", ")}) removed`, expect: ["dots"], drawing: m });
-  } else skipped.push("no-dot: the figure dots no joint");
+  } else skip("no-dot", "the figure dots no joint");
 
   return { mutants, skipped };
 }

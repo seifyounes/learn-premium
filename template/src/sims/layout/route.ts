@@ -4,7 +4,7 @@
 // over it (a crossing never connects), never runs along one, and pays to run beside one. A branch
 // meets its tree at a T; the figure's dotted nets get a dot there.
 import { splitPin, textBox, type ModelNet, type PlacedPart, type Text, type Wire } from "./drawing.ts";
-import { boxOf, GRID, orient, pinsOf, symbolOf, type Point, type Side } from "./symbols.ts";
+import { boxOf, GRID, orient, pinsOf, SIDES, symbolOf, type Point, type Side } from "./symbols.ts";
 
 /** E, S, W, N: the four ways a wire runs, as unit steps. */
 const STEPS = [
@@ -271,7 +271,9 @@ function nearness([x, y]: [number, number], tree: Set<string>) {
   return best;
 }
 
-const awayFrom = (side: Side): Dir => ({ left: 0, above: 1, right: 2, below: 3 })[side] as Dir;
+/** The way a terminal's wire leaves it, by the side its label sits on (in `SIDES` order). */
+const AWAY_FROM: readonly Dir[] = [0, 2, 1, 3];
+const awayFrom = (side: Side): Dir => AWAY_FROM[SIDES.indexOf(side)] ?? 0;
 
 function markText(t: Text, soft: Map<string, number>) {
   const [tx0, ty0, tx1, ty1] = textBox(t);

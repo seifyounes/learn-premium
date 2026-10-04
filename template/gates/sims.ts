@@ -20,12 +20,14 @@ import type { Finding, Gate, GateInput } from "./runner.ts";
 
 const ignoreMath = () => {};
 const read = (file: CourseFile) => readStructured(readFileSync(file.path, "utf8"), file.entry, ignoreMath);
-const problems = (error: { issues: { path: PropertyKey[]; message: string }[] }) =>
+/** A Zod error's issues, one `path: message` each. */
+export const problems = (error: { issues: { path: PropertyKey[]; message: string }[] }) =>
   error.issues.map((i) => `${i.path.join(".") || "(file)"}: ${i.message}`).join("; ");
 
 /** Where the independent recompute logs one sim: in the Course's build records, by Module and name. */
 export const recomputeLogEntry = (module: string, name: string) => `build-records/recompute/${module}/${name}.json`;
-const nameOf = (entry: string) => basename(entry, extname(entry));
+/** A content file's name without its folder or extension: a sim's name. */
+export const nameOf = (entry: string) => basename(entry, extname(entry));
 
 /**
  * The sims in scope, and how many Modules were looked in. A Module with no sim has nothing to
@@ -70,15 +72,19 @@ type ThreeWayGate = (typeof KINDS)[SimKind]["checkedBy"];
  */
 async function threeWayRun(input: GateInput, gate: ThreeWayGate) {
   const { files, sims: all, modules } = simsInScope(input);
-  const sims = all.filter((file) => {
-    const kind = readSim(file).raw?.kind;
-    return typeof kind !== "string" || !(kind in KINDS) || KINDS[kind as SimKind].checkedBy === gate;
-  });
+  // Each file is read once. One whose kind can't be read is the number gate's to report, once.
+  const sims = all
+    .map((file) => ({ file, read: readSim(file) }))
+    .filter(({ read }) => {
+      const kind = read.raw?.kind;
+      const known = typeof kind === "string" && kind in KINDS;
+      return known ? KINDS[kind as SimKind].checkedBy === gate : gate === "sim-numbers";
+    });
   const coverage = { modules, sims: sims.length, sheetValues: 0, recomputedValues: 0, stepThroughs: 0 };
   const findings: Finding[] = [];
-  for (const file of sims) {
+  for (const { file, read } of sims) {
     const block = (message: string) => findings.push({ outcome: "block", at: file.entry, message });
-    const { sim: s, problem } = readSim(file);
+    const { sim: s, problem } = read;
     if (!s) {
       block(problem);
       continue;

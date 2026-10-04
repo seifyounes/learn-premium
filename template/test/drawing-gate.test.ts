@@ -17,12 +17,15 @@ describe("the Drawing gate", () => {
   it("passes the full adder, every check run and every mutant of the negative control caught", async () => {
     const result = await drawing(FIXTURE_COURSE);
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toEqual({ modules: 1, drawings: 1, checks: 12, mutantsCaught: 8 });
+    expect(result.coverage).toEqual({ modules: 1, drawings: 1, checks: 12, mutantsCaught: 8, mutantsSkipped: 0 });
   });
 
   it("covers a Module with no schematic sim without checking anything in it", async () => {
     const result = await drawingGate.run({ contentDir: FIXTURE_COURSE, module: "03-gradient-descent" });
-    expect(result).toEqual({ coverage: { modules: 1, drawings: 0, checks: 0, mutantsCaught: 0 }, findings: [] });
+    expect(result).toEqual({
+      coverage: { modules: 1, drawings: 0, checks: 0, mutantsCaught: 0, mutantsSkipped: 0 },
+      findings: [],
+    });
   });
 
   it("blocks a figure the Blind reader read differently from the model", async () => {

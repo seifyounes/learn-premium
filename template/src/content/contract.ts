@@ -2,7 +2,8 @@
 // major Template release, because every Course's content is checked against it.
 import { z } from "astro/zod";
 import { isPadKey, PAD_COLOUR, PAD_KEYS } from "../pads/catalogue.ts";
-import { SIDES, TURNS, type Turn } from "../sims/layout/symbols.ts";
+import { turnSchema } from "../sims/layout/check.ts";
+import { SIDES } from "../sims/layout/symbols.ts";
 import { schematicProblems } from "../sims/layout/validate.ts";
 import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
 import { CELL_REF, parseCell } from "../worked/cells.ts";
@@ -364,7 +365,7 @@ const layoutHints = z.strictObject({
     z.strictObject({
       /** Its cell on the figure's coarse grid, [column, row], rows growing down; one step is about one two-terminal part. */
       at: z.tuple([cell, cell]),
-      turn: z.union(TURNS.map((t) => z.literal(t)) as [z.ZodLiteral<Turn>, ...z.ZodLiteral<Turn>[]]).optional(),
+      turn: turnSchema.optional(),
       flip: z.boolean().optional(),
       /** The side the figure prints its label on. */
       label: z.enum(SIDES).optional(),
