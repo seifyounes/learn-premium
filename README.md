@@ -13,6 +13,7 @@ Pipeline for this effort: wayfinder → spec → tickets → implement → code 
 
 - `v1-reference/` — frozen snapshot of the `/crash-course` v1 skill (read-only reference).
 - `docs/agents/` — issue-tracker and domain-doc conventions for the agent skills.
+- `docs/deploy.md` — the Fixture Course's Vercel project: deploy gates, live gates, rollback.
 - `CONTEXT.md` — domain glossary.
 - `template/` — the Site template (Astro 7) that every Study site is built from.
 - `fixture-course/` — the synthetic Fixture Course the template builds on every change.

@@ -3,6 +3,7 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 import { buildContentDir } from "./src/content/layout.ts";
+import { licencesFile } from "./src/licences/integration.ts";
 import { paperMathProcessor } from "./src/math/markdown.ts";
 import { moduleMedia } from "./src/media/integration.ts";
 import { padLog } from "./src/pads/integration.ts";
@@ -18,6 +19,7 @@ export default defineConfig({
     moduleMedia(buildContentDir()),
     pyodideFiles(buildContentDir()),
     trapPage(),
+    licencesFile(),
   ],
   markdown: {
     processor: paperMathProcessor(),

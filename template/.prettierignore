@@ -1,4 +1,5 @@
 dist/
+dist-production/
 .astro/
 .test-out/
 node_modules/

@@ -4,8 +4,11 @@ import { BROWSER_GATES } from "./browser.ts";
 import { padGate, redHueRule } from "./colour.ts";
 import { contentContract, katexGate } from "./content.ts";
 import { drawingGate } from "./drawing.ts";
+import { licencesFileGate, licencesGate } from "./licences.ts";
+import { liveHeaders, livePrivatePaths, liveRoutes } from "./live.ts";
 import { masterRules } from "./master-rules.ts";
 import { renderedPageScan } from "./pages.ts";
+import { noBuildEvidence, noindexGate, noMaterials } from "./private-files.ts";
 import { provenanceGate } from "./provenance.ts";
 import { pyodideGate } from "./pyodide.ts";
 import { simNumbers, toolsGate, truthTableGate } from "./sims.ts";
@@ -27,4 +30,12 @@ export const GATES: readonly Gate[] = [
   padGate,
   redHueRule,
   ...BROWSER_GATES,
+  noMaterials,
+  noBuildEvidence,
+  noindexGate,
+  licencesGate,
+  licencesFileGate,
+  liveRoutes,
+  liveHeaders,
+  livePrivatePaths,
 ];

@@ -107,6 +107,11 @@ describe("the first gates on the Fixture Course", () => {
       "pyodide",
       "pad",
       "red-hue-rule",
+      "no-materials",
+      "no-build-evidence",
+      "noindex",
+      "licences",
+      "licences-file",
     ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
     // Home, five Modules, Master Rules, Lab, About, the complete sitting's Revision and the Tool gallery.

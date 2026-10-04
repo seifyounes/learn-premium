@@ -1,5 +1,5 @@
 // The gate runner: every gate plugs in here, and every gate point (per job, per Module, per
-// deploy) runs through `runGates`. A gate has two outcomes on a finding, block or Checkpoint item;
+// deploy, and live: per deploy again, after it, on the live URL) runs through `runGates`. A gate has two outcomes on a finding, block or Checkpoint item;
 // there is no warning level. A gate that didn't run, crashed or saw nothing counts as failed.
 //
 // The run leaves a Gate report bound to the exact commit it checked. `verifyReport` is the only
@@ -9,7 +9,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "astro/zod";
 
-export const GATE_POINTS = ["job", "module", "deploy"] as const;
+/**
+ * `deploy` checks the build before it merges; `live` checks the live site after Vercel deploys it,
+ * and a red `live` run rolls Vercel back (`deploy/`).
+ */
+export const GATE_POINTS = ["job", "module", "deploy", "live"] as const;
 export type GatePoint = (typeof GATE_POINTS)[number];
 
 const OUTCOMES = ["block", "checkpoint"] as const;
@@ -36,6 +40,11 @@ export interface GateInput {
   siteUrl?: string;
   /** Scope the check to one Module (its folder name); the whole Course when absent. */
   module?: string;
+  /**
+   * The Site template the site was built with, for the files the deploy gates read from it
+   * (`vercel.json`, the committed `public/licences.txt`); the gates' own template when absent.
+   */
+  templateDir?: string;
 }
 
 export interface GateRun {
@@ -96,6 +105,8 @@ const gateReport = z.strictObject({
   dirty: z.boolean(),
   point: z.enum(GATE_POINTS),
   module: z.string().optional(),
+  /** Where the gates opened the site (a Vercel preview, the live URL), when they were given one. */
+  url: z.string().optional(),
   ranAt: z.string(),
   green: z.boolean(),
   gates: z.array(gateResult),
@@ -121,6 +132,7 @@ export async function runGates({ point, commit, dirty = false, input, gates }: R
     dirty,
     point,
     ...(input.module === undefined ? {} : { module: input.module }),
+    ...(input.siteUrl === undefined ? {} : { url: input.siteUrl }),
     ranAt: new Date().toISOString(),
     green: !dirty && results.length > 0 && results.every((r) => GREEN_STATUSES.includes(r.status)),
     gates: results,
