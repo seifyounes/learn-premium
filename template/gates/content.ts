@@ -9,6 +9,7 @@ import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
 import { where, type MathError } from "../src/math/katex.ts";
 import { paperMathProcessor } from "../src/math/markdown.ts";
 import { missingMediaFiles, notInMediaFolder, type Media } from "../src/media/media.ts";
+import { notInPythonFolder, pythonSource } from "../src/python/tools.ts";
 import { courseFiles, courseWith, slashes, type CourseFile } from "./course-files.ts";
 import type { Finding, Gate, GateRun } from "./runner.ts";
 import type { z } from "astro/zod";
@@ -74,6 +75,15 @@ export const contentContract: Gate = {
           });
         }
       }
+      if (parsed.success && file.collection === "python" && folder !== undefined) {
+        const { source } = parsed.data as { source: string };
+        if (!existsSync(pythonSource(input.contentDir, folder, source)))
+          findings.push({
+            outcome: "block",
+            at: file.entry,
+            message: notInPythonFolder(source),
+          });
+      }
     }
     return { coverage, findings };
   },
@@ -120,6 +130,19 @@ export const contentContract: Gate = {
       defect: "a media.yaml naming a video its media/ folder doesn't hold",
       plant: (good, scratch) =>
         courseWith(good, scratch, { "media.yaml": "video: { file: planted.mp4, duration: '1:00' }\n" }),
+    },
+    {
+      defect: "a Pyodide tool naming a .py file its folder doesn't hold",
+      plant: (good, scratch) =>
+        courseWith(good, scratch, {
+          "python/900.yaml": [
+            "title: Planted",
+            "caption: Planted.",
+            "source: planted.py",
+            "figure: { caption: Planted, x: { label: x, min: 0, max: 1, step: 1 }, y: { label: y, min: 0, max: 1, step: 1 } }",
+            "",
+          ].join("\n"),
+        }),
     },
   ],
 };

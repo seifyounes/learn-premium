@@ -14,6 +14,11 @@ const TYPES: Record<string, string> = {
   ".mp4": "video/mp4",
   ".mp3": "audio/mpeg",
   ".vtt": "text/vtt",
+  ".mjs": "text/javascript",
+  ".json": "application/json",
+  ".wasm": "application/wasm",
+  ".zip": "application/zip",
+  ".whl": "application/zip",
 };
 
 /** Serves a built site's static files on a free local port, the way a static host would. */

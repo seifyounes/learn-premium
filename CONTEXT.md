@@ -78,6 +78,13 @@ Professor's figure only; students tune it but never rewire it. It ships only if 
 independently at build; otherwise the figure gets a step-through animation instead.
 _Avoid_: custom widget, demo, generated sim
 
+**Pyodide tool**:
+A tool that runs real Python in the page, used only where real Python is the point (the
+Professor's own code, scikit-learn, SciPy). It opens on a preview, its code run at build, beside
+a "Run live · NN MB" button that names the real download; Pyodide, self-hosted in the Course
+project, loads only on that tap.
+_Avoid_: Python sim, notebook, REPL
+
 **Layout hints**:
 What a sim builder reads off the Professor's figure so the layout engine can redraw it: each part's
 coarse grid cell, turn and label side (for a state diagram, each state's cell and self-loop side).

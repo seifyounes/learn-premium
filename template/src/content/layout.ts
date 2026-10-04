@@ -61,6 +61,12 @@ export const COLLECTIONS = {
     generateId: moduleEntryId,
     schema: contract.sim,
   },
+  python: {
+    pattern: "modules/*/python/*.{json,yaml,yml}",
+    format: "structured",
+    generateId: moduleEntryId,
+    schema: contract.pythonTool,
+  },
 } as const satisfies Record<string, CollectionLayout & { schema: unknown }>;
 
 /** The Module a content file belongs to (its folder name), or undefined for Course-level files. */

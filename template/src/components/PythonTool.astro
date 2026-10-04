@@ -1,0 +1,68 @@
+---
+import { prose, type PythonRef } from "../content/course";
+import { buildContentDir } from "../content/layout";
+import PythonToolIsland from "../islands/PythonTool";
+import { provenanceNotes } from "../provenance/notes";
+import { downloadOf, PYODIDE_PATH } from "../python/download";
+import { readPlot } from "../python/plot";
+import { previewRun } from "../python/preview";
+import { toFigure } from "../worked/sheet";
+
+/**
+ * A Pyodide tool where it is used: a Worked example, the Lab or the Tool gallery. It opens on its
+ * preview, its code run at build on the Pyodide the page downloads, beside a Run-live button that
+ * prints the tap's real download. A tool whose code fails, or leaves no plot, fails the build.
+ * `timing` shows each part of a live run's time: the Tool gallery's timing run.
+ */
+interface Props {
+  tool: PythonRef;
+  heading: "h3" | "h4";
+  timing?: boolean;
+}
+
+const { tool, heading: Heading, timing = false } = Astro.props;
+const t = tool.entry.data;
+const where = tool.entry.filePath ?? tool.entry.id;
+const contentDir = buildContentDir();
+const { inputsHtml, outputsHtml } = provenanceNotes(t.provenance, prose);
+const plainText = (html: string) => html.replace(/<[^>]*>/g, "");
+
+let download, outcome;
+try {
+  download = downloadOf(contentDir, t.packages);
+  outcome = await previewRun(contentDir, t.packages, tool.code);
+} catch (error) {
+  throw new Error(`${where}: ${(error as Error).message}`, { cause: error });
+}
+if ("error" in outcome) throw new Error(`${where}: its code fails at build, so it has no preview:\n${outcome.error}`);
+const labels = Object.fromEntries(Object.entries(t.labels).map(([id, label]) => [id, prose(label)]));
+const elements = readPlot(outcome.plot, labels);
+if (typeof elements === "string")
+  throw new Error(`${where}: its code's plot can't be drawn, so it has no preview: ${elements}`);
+const figure = { ...toFigure({ kind: "plot", ...t.figure, elements: [] }, prose), elements };
+---
+
+<article class="sim-card" id={`python-${tool.module}-${tool.name}`} data-tool="python">
+  <div class="sim-head">
+    <span class="field-label">Python</span>
+    <Heading
+      class="font-print text-sheet-title font-semibold text-graphite [font-variation-settings:'wdth'_87]"
+      set:html={prose(t.title)}
+    />
+    <p class="max-w-[68ch] text-body-small text-muted" set:html={prose(t.caption)} />
+  </div>
+  {inputsHtml && <div class="mbe-3" set:html={inputsHtml} />}
+  <PythonToolIsland
+    client:visible
+    figure={figure}
+    labels={labels}
+    code={tool.code}
+    packages={t.packages}
+    printout={outcome.printout}
+    base={PYODIDE_PATH}
+    bytes={download.bytes}
+    label={plainText(prose(t.title))}
+    timing={timing}
+  />
+  {outputsHtml && <div class="mbs-3" set:html={outputsHtml} />}
+</article>

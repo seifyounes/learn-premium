@@ -516,6 +516,33 @@ export const SIM_KINDS = ["gradient-descent", "logic", "tangent", "plane-wall"] 
   typeof sim
 >["kind"][];
 
+/**
+ * A Pyodide tool (CONTEXT.md): real Python where real Python is the point (the Professor's own
+ * code, scikit-learn, SciPy). Its code runs at build for the preview the page opens on; Pyodide
+ * downloads only when the student taps Run live, and then runs the code as they edit it.
+ */
+export const pythonTool = z.strictObject({
+  title: z.string().min(1),
+  caption: z.string().min(1),
+  /**
+   * The code, a `.py` file beside this one in the Module's `python/` folder, run as written. It
+   * ends by setting `plot` to the elements it draws (each a dict like a plot element: `id`, `kind`
+   * `point` with `at`, `line` with `through`, or `guide` with `x`); what it prints is shown too.
+   */
+  source: z.string().regex(/^[\w-][\w.-]*\.py$/, "a .py file in the Module's python/ folder, named with no folder"),
+  /** The Pyodide packages it imports, by their name in Pyodide's lock (numpy, scikit-learn…). */
+  packages: z
+    .array(z.string().regex(/^[a-z0-9][a-z0-9._-]*$/, "a Pyodide package name, e.g. numpy or scikit-learn"))
+    .default([]),
+  /** The frame its plot is drawn in. */
+  figure: z.strictObject({ caption: z.string().min(1), x: axis, y: axis }),
+  /** Labels for the plot's elements, by the id the code gives them. */
+  labels: z.record(elementId, z.string().min(1)).default({}),
+  /** The Worked example it sits in, by its file number in the Module's `worked/` folder. */
+  worked: z.string().regex(/^\d+$/, "a Worked example's file number, e.g. 1").optional(),
+  ...tagged,
+});
+
 /** A Summary beat's frontmatter; its body is plain Markdown of at most 90 words. */
 export const beat = z.strictObject({
   title: z.string().min(1),

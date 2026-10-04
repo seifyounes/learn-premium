@@ -29,6 +29,12 @@ Layout (content contract v0):
   sits in (`worked`) and maps that sheet's cells to the engine's quantities (`sheet`). A sim no
   recompute can check (`none`) gives a `stepThrough` instead: a plotted `figure` and `steps`
   that `add` and `ring` its elements.
+- `modules/<NN>-<slug>/python/<name>.yaml` (JSON or YAML): one Pyodide tool each. `source` names
+  its code, a `.py` file beside it that ends by setting `plot` to the elements it draws; `packages`
+  lists the Pyodide packages it imports, `figure` the frame (caption and axes) its plot is drawn
+  in, `labels` its elements' labels by id, and `worked` the Worked example it sits in.
+- `pyodide/`: the Pyodide package files the tools load (here numpy's wheel), fetched with
+  `npm run wheels` in the template and committed, so the site serves them itself.
 - `build-records/recompute/<NN>-<slug>/<name>.json`: a live sim's recompute log, the inputs it
   took from the Materials and every number it worked out. Here each is written by a script in
   `tools/`, apart from the template's engines: `recompute-gradient-descent.py` and
@@ -76,7 +82,9 @@ the sheet, on synthetic numbers worked out here:
   checked against the Fourier series. It is the Fixture Course's heatmap.
 - Module 3 (gradient descent): `sims/descent.json`, in W03.1, a line fit to three points.
   `sims/descent-steps.json` is marked `recompute: none` only to exercise the step-through a sim
-  falls back to; it sits in the Lab and the Tool gallery.
+  falls back to; it sits in the Lab and the Tool gallery. `python/normal-equation.yaml` is its
+  Pyodide tool, below W03.1: numpy solves the same line by the normal equation, and it is the Tool
+  gallery's Pyodide timing run.
 - Module 5 (derivatives): `sims/tangent.json` (tangent), in W05.1, the secants of a cubic closing
   on its tangent, checked by direct evaluation.
 

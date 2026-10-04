@@ -7,6 +7,7 @@ import { drawingGate } from "./drawing.ts";
 import { masterRules } from "./master-rules.ts";
 import { renderedPageScan } from "./pages.ts";
 import { provenanceGate } from "./provenance.ts";
+import { pyodideGate } from "./pyodide.ts";
 import { simNumbers, toolsGate, truthTableGate } from "./sims.ts";
 import type { Gate } from "./runner.ts";
 import { teachingMethod } from "./teaching.ts";
@@ -22,6 +23,7 @@ export const GATES: readonly Gate[] = [
   drawingGate,
   toolsGate,
   renderedPageScan,
+  pyodideGate,
   padGate,
   redHueRule,
   ...BROWSER_GATES,
