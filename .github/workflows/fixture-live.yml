@@ -67,9 +67,19 @@ jobs:
         env:
           VERCEL_ENV: production
       - name: Live gates
+        id: gates
         if: steps.await.outputs.state == 'live'
         continue-on-error: true
         run: npm run gates -- run --point live --url "$LIVE_URL" --report "$RUNNER_TEMP/live-report.json"
+      # Before the verdict, so it measures this deployment: a rollback moves the live URL. Only on
+      # green gates, so a red deploy's rollback isn't held up. Chromium installs here, not up front:
+      # the report never blocks, and neither may its setup.
+      - name: Performance (reported, never blocking)
+        if: steps.gates.outcome == 'success'
+        continue-on-error: true
+        run: |
+          npx playwright install --with-deps chromium
+          npm run deploy -- performance --url "$LIVE_URL" --lighthouse
       # Once production serves the commit, the verdict always runs: gates that couldn't run (a
       # failed build included) count as failed, and fail the live site back to the last green. It
       # settles nothing if production moved to a newer deployment meanwhile.
@@ -113,10 +123,18 @@ jobs:
           } > "$RUNNER_TEMP/never-live.md"
           gh issue create --title "Deploy of ${SHA::7} never went live" \
             --body-file "$RUNNER_TEMP/never-live.md" --assignee "$GITHUB_REPOSITORY_OWNER"
-      # Chromium is installed here, not up front: the report never blocks, and neither may its setup.
-      - name: Performance (reported, never blocking)
-        if: always() && steps.await.outputs.state == 'live'
-        continue-on-error: true
+      # npm ci (or anything else before await-live) failed: the deploy went out unchecked.
+      - name: Tell the Owner the live check couldn't start
+        if: failure() && steps.await.outcome == 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          npx playwright install --with-deps chromium
-          npm run deploy -- performance --url "$LIVE_URL" --lighthouse
+          {
+            echo "The live check of $SHA failed before it could wait for the deploy, so production"
+            echo "was neither checked nor rolled back. Re-run the workflow once the failing step is fixed."
+            echo
+            echo "Run: $RUN_URL"
+          } > "$RUNNER_TEMP/not-started.md"
+          gh issue create --title "Live check of ${SHA::7} couldn't start" \
+            --body-file "$RUNNER_TEMP/not-started.md" --assignee "$GITHUB_REPOSITORY_OWNER"

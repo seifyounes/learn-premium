@@ -40,12 +40,33 @@ async function withLiveSite<T>(input: GateInput, check: (url: string) => Promise
   }
 }
 
-/** A request as a browser makes it: compression accepted, redirects not followed. */
-const get = (url: string) =>
-  fetch(url, {
-    redirect: "manual",
-    headers: { "accept-encoding": "br, gzip", "user-agent": "learn-premium live gates" },
-  });
+/** How long one live request may take, headers and body, before it counts as failed. */
+const REQUEST_MS = 20_000;
+
+interface Answer {
+  status: number;
+  headers: Headers;
+  body: string;
+}
+
+/**
+ * A request as a browser makes it: compression accepted, redirects not followed. A request that
+ * errors or takes longer than `REQUEST_MS` gives why instead, for the gate to block on: a stalled
+ * site must not hold the verdict (and the rollback) back.
+ */
+async function get(url: string): Promise<Answer | string> {
+  try {
+    const response = await fetch(url, {
+      redirect: "manual",
+      headers: { "accept-encoding": "br, gzip", "user-agent": "learn-premium live gates" },
+      signal: AbortSignal.timeout(REQUEST_MS),
+    });
+    return { status: response.status, headers: response.headers, body: await response.text() };
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") return `didn't answer within ${REQUEST_MS / 1000}s`;
+    return `couldn't be fetched: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
 
 /** Every page the build made, by route, with its title: the whole Course, whatever the scope. */
 function builtPages(input: GateInput) {
@@ -78,18 +99,22 @@ export const liveRoutes: Gate = {
 
     await withLiveSite(input, async (url) => {
       for (const page of pages) {
-        const response = await get(`${url}${page.route}`);
-        const body = await response.text();
-        if (response.status !== 200) {
-          const to = response.headers.get("location");
-          block(page.route, `answers ${response.status}${to ? ` (to ${to})` : ""}, not 200`);
-        } else if (titleOf(body) !== page.title) {
-          block(page.route, `serves "${titleOf(body) ?? "a page with no title"}", not the build's "${page.title}"`);
+        const answer = await get(`${url}${page.route}`);
+        if (typeof answer === "string") {
+          block(page.route, answer);
+        } else if (answer.status !== 200) {
+          const to = answer.headers.get("location");
+          block(page.route, `answers ${answer.status}${to ? ` (to ${to})` : ""}, not 200`);
+        } else if (titleOf(answer.body) !== page.title) {
+          block(
+            page.route,
+            `serves "${titleOf(answer.body) ?? "a page with no title"}", not the build's "${page.title}"`,
+          );
         }
       }
       const licences = await get(`${url}${LICENCES_ROUTE}`);
-      await licences.arrayBuffer();
-      if (licences.status !== 200) block(LICENCES_ROUTE, `answers ${licences.status}, not 200`);
+      if (typeof licences === "string") block(LICENCES_ROUTE, licences);
+      else if (licences.status !== 200) block(LICENCES_ROUTE, `answers ${licences.status}, not 200`);
     });
     return { coverage: { routes: pages.length + 1, hubs: hubs.length }, findings };
   },
@@ -110,6 +135,9 @@ export const liveRoutes: Gate = {
   ],
 };
 
+/** The scripts (classic and ES modules) and stylesheets the live site serves. */
+const SCRIPT_OR_STYLE = /\.(js|mjs|css)$/;
+
 /** Files at least this big must come Brotli-compressed; a CDN may send a smaller one as it is. */
 const BROTLI_FLOOR = 1024;
 
@@ -121,7 +149,7 @@ export const liveHeaders: Gate = {
   async run(input) {
     if (input.distDir === undefined) throw new Error("no built site to list the live site's files from (distDir)");
     const assets = allFiles(input.distDir)
-      .filter((f) => /\.(js|css)$/.test(f.entry))
+      .filter((f) => SCRIPT_OR_STYLE.test(f.entry))
       .map((f) => ({ route: `/${f.entry}`, path: f.path }));
     const checked = [
       ...builtPages(input),
@@ -133,7 +161,10 @@ export const liveHeaders: Gate = {
     await withLiveSite(input, async (url) => {
       for (const { route, path } of checked) {
         const response = await get(`${url}${route}`);
-        await response.arrayBuffer();
+        if (typeof response === "string") {
+          block(route, response);
+          continue;
+        }
         // An error page carries the catch-all headers too: only the file itself counts.
         if (response.status !== 200) {
           block(route, `answers ${response.status}, not 200`);
@@ -141,7 +172,7 @@ export const liveHeaders: Gate = {
         }
         if (!NOINDEX.test(response.headers.get("x-robots-tag") ?? ""))
           block(route, "the response carries no X-Robots-Tag: noindex");
-        const textual = route.endsWith("/") || /\.(js|css)$/.test(route);
+        const textual = route.endsWith("/") || SCRIPT_OR_STYLE.test(route);
         const encoding = response.headers.get("content-encoding");
         if (textual && readFileSync(path).length >= BROTLI_FLOOR && encoding !== "br")
           block(route, `served ${encoding ? `${encoding}-compressed` : "uncompressed"}, not Brotli`);
@@ -223,9 +254,9 @@ export const livePrivatePaths: Gate = {
     await withLiveSite(input, async (url) => {
       for (const path of paths) {
         const response = await get(`${url}${path}`);
-        await response.arrayBuffer();
-        if (response.status !== 404)
-          findings.push({ outcome: "block", at: decodeURI(path), message: `answers ${response.status}; it must 404` });
+        const status = typeof response === "string" ? response : `answers ${response.status}`;
+        if (typeof response === "string" || response.status !== 404)
+          findings.push({ outcome: "block", at: decodeURI(path), message: `${status}; it must 404` });
       }
     });
     return { coverage: { probes: paths.length }, findings };

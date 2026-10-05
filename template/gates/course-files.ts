@@ -34,7 +34,12 @@ export function filesIn(dir: string, pattern: string, keep: (entry: string) => b
 
 /** Every file under `dir`, in a stable order. */
 export function allFiles(dir: string): CheckedFile[] {
-  return filesIn(dir, "**/*", () => true).filter((file) => statSync(file.path).isFile());
+  // Not a glob: `**/*` skips dot-prefixed files and folders, and a privacy scan must see them.
+  return readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .map(slashes)
+    .sort()
+    .map((entry) => ({ entry, path: join(dir, entry) }))
+    .filter((file) => statSync(file.path).isFile());
 }
 
 /** `dir` and each folder above it, nearest first. */

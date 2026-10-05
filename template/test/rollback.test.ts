@@ -171,7 +171,7 @@ describe("the API clients", () => {
       projectId: "prj_1",
       teamId: "team_1",
       fetch: async (url, init) => {
-        calls.push(`${init?.method} ${String(url)}`);
+        calls.push(`${init?.method} ${String(url)}${init?.body === undefined ? "" : ` ${String(init.body)}`}`);
         if (init?.method === "POST") return new Response("{}");
         return Response.json({
           deployments: [
@@ -190,7 +190,7 @@ describe("the API clients", () => {
     await vercel.rollBack("dpl_a", "live gates red");
     expect(calls).toEqual([
       "GET https://api.vercel.com/v7/deployments?projectId=prj_1&target=production&limit=20&sha=aaa&teamId=team_1",
-      "POST https://api.vercel.com/v1/projects/prj_1/rollback/dpl_a?description=live+gates+red&teamId=team_1",
+      "POST https://api.vercel.com/v9/projects/prj_1/rollback/dpl_a?description=live+gates+red&teamId=team_1 {}",
     ]);
   });
 

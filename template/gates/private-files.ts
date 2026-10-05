@@ -119,6 +119,10 @@ export const noMaterials: Gate = {
       plant: (good, scratch) => siteFilesWith(good, scratch, { "01-planted/lecture-03.pdf": "%PDF-1.7 planted\n" }),
     },
     {
+      defect: "a lecture PDF in a dot-prefixed folder of the output",
+      plant: (good, scratch) => siteFilesWith(good, scratch, { ".well-known/lecture-03.pdf": "%PDF-1.7 planted" }),
+    },
+    {
       defect: "a text Material with CRLF line endings, shipped with LF ones under another name",
       plant: (good, scratch) => {
         const notes = "Lecture 2 notes\r\nplanted line\r\n";
