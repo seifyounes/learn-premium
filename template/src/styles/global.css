@@ -1931,6 +1931,8 @@
     margin: 0;
     padding-inline-start: 10px;
     max-inline-size: 68ch;
+    /* A failed load names the address it couldn't fetch, which has nowhere to break. */
+    overflow-wrap: anywhere;
   }
 }
 

@@ -300,6 +300,8 @@ the run opens every page in scope:
   The plane wall's map is the slowest tap the Fixture Course has: Plotly holds a 4×-throttled phone
   for about 4.5s while it starts (the Owner accepted the wait on #51), so its tab answers first,
   saying the map is loading.
+  The touch run refuses `/pyodide/`: a Run-live tap answers at once, and a dozen Pyodide
+  starts behind it would starve every other page's taps (`test/python-tool.test.ts` runs it for real).
 
 An island turns its controls on once it hydrates, but some stay off by design (Prev at the first
 step, Check before an answer), so an island fails the after-hydration check only when every control
