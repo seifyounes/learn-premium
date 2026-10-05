@@ -126,6 +126,8 @@ jobs:
       # npm ci (or anything else before await-live) failed: the deploy went out unchecked.
       - name: Tell the Owner the live check couldn't start
         if: failure() && steps.await.outcome == 'skipped'
+        # Not the job's template/ folder: if the checkout failed, it doesn't exist.
+        working-directory: ${{ runner.temp }}
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -136,5 +138,5 @@ jobs:
             echo
             echo "Run: $RUN_URL"
           } > "$RUNNER_TEMP/not-started.md"
-          gh issue create --title "Live check of ${SHA::7} couldn't start" \
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "Live check of ${SHA::7} couldn't start" \
             --body-file "$RUNNER_TEMP/not-started.md" --assignee "$GITHUB_REPOSITORY_OWNER"

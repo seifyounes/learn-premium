@@ -172,8 +172,13 @@ async function main(argv: string[]): Promise<number> {
       const outcome = await rollBackFrom(
         commit,
         drill ? "learn-premium rollback drill" : "learn-premium live gates red",
-        { vercel: api, passedLiveGates: (s) => github.passedLiveGates(s) },
+        { vercel: api, passedLiveGates: (s) => github.passedLiveGates(s), failing: deployment },
       );
+      if (outcome.kind === "superseded") {
+        console.log(`superseded: production moved to ${outcome.current ?? "another deployment"}; nothing rolled back`);
+        output("state", "superseded");
+        return 0;
+      }
       const issue = ownerReport({ sha: commit, liveUrl, report, outcome, drill, ...(runUrl ? { runUrl } : {}) });
       const body =
         unmarked === undefined

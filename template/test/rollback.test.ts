@@ -19,9 +19,12 @@ const dep = (n: number, overrides: Partial<Deployment> = {}): Deployment => ({
  * A fake Vercel holding `deployments`, recording what it was asked to roll back to. Production
  * moves to the target once asked, unless `job` says the rollback stalls or fails.
  */
-function fakeVercel(deployments: Deployment[], { refuse, job = "succeeded" }: { refuse?: string; job?: string } = {}) {
+function fakeVercel(
+  deployments: Deployment[],
+  { refuse, job = "succeeded", serving = "dpl_5" }: { refuse?: string; job?: string; serving?: string } = {},
+) {
   const rolledBackTo: string[] = [];
-  let current = [...deployments].sort((a, b) => b.created - a.created)[0]?.uid;
+  let current: string | undefined = serving;
   return {
     rolledBackTo,
     productionDeployments: async () => [...deployments].sort((a, b) => b.created - a.created),
@@ -47,6 +50,7 @@ describe("rolling back a red live deploy", () => {
     const green = new Set([dep(2).sha, dep(3).sha]);
     const outcome = await rollBackFrom(failing.sha ?? "", "live gates red", {
       vercel,
+      failing: "dpl_5",
       passedLiveGates: async (sha) => green.has(sha),
     });
     expect(outcome).toMatchObject({ kind: "rolled-back", target: { uid: "dpl_3" }, skipped: [{ uid: "dpl_4" }] });
@@ -64,6 +68,7 @@ describe("rolling back a red live deploy", () => {
     ]);
     const outcome = await rollBackFrom(failing.sha ?? "", "live gates red", {
       vercel,
+      failing: "dpl_5",
       passedLiveGates: async () => true,
     });
     expect(outcome).toMatchObject({ kind: "rolled-back", target: { uid: "dpl_1" } });
@@ -71,7 +76,11 @@ describe("rolling back a red live deploy", () => {
 
   it("reports when nothing earlier is green, and touches nothing", async () => {
     const vercel = fakeVercel([dep(1), failing]);
-    const outcome = await rollBackFrom(failing.sha ?? "", "red", { vercel, passedLiveGates: async () => false });
+    const outcome = await rollBackFrom(failing.sha ?? "", "red", {
+      vercel,
+      failing: "dpl_5",
+      passedLiveGates: async () => false,
+    });
     expect(outcome).toMatchObject({ kind: "no-green", skipped: [{ uid: "dpl_1" }] });
     expect(vercel.rolledBackTo).toEqual([]);
   });
@@ -82,14 +91,27 @@ describe("rolling back a red live deploy", () => {
     });
     const outcome = await rollBackFrom(failing.sha ?? "", "red", {
       vercel,
+      failing: "dpl_5",
       passedLiveGates: async (sha) => sha === dep(1).sha,
     });
     expect(outcome).toMatchObject({ kind: "refused", target: { uid: "dpl_1" }, error: expect.stringMatching(/Hobby/) });
   });
 
+  it("rolls nothing back when a newer deployment took production over meanwhile", async () => {
+    const vercel = fakeVercel([dep(1), failing, dep(6)], { serving: "dpl_6" });
+    const outcome = await rollBackFrom(failing.sha ?? "", "red", {
+      vercel,
+      failing: "dpl_5",
+      passedLiveGates: async () => true,
+    });
+    expect(outcome).toEqual({ kind: "superseded", current: "dpl_6" });
+    expect(vercel.rolledBackTo).toEqual([]);
+  });
+
   it("counts a rollback only once production serves the target", async () => {
     const failedJob = await rollBackFrom(failing.sha ?? "", "red", {
       vercel: fakeVercel([dep(1), failing], { job: "failed" }),
+      failing: "dpl_5",
       passedLiveGates: async () => true,
       wait: noWait,
     });
@@ -100,6 +122,7 @@ describe("rolling back a red live deploy", () => {
     });
     const stalled = await rollBackFrom(failing.sha ?? "", "red", {
       vercel: fakeVercel([dep(1), failing], { job: "pending" }),
+      failing: "dpl_5",
       passedLiveGates: async () => true,
       wait: noWait,
     });
