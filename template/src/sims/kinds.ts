@@ -5,6 +5,8 @@ import type { z } from "astro/zod";
 import type { sim } from "../content/contract.ts";
 import * as gradientDescent from "./gradient-descent/engine.ts";
 import * as logic from "./logic/engine.ts";
+import * as planeWall from "./plane-wall/engine.ts";
+import * as tangent from "./tangent/engine.ts";
 import type { Inputs } from "./tuning.ts";
 
 export type Sim = z.output<typeof sim>;
@@ -30,6 +32,8 @@ export const KINDS: { [K in SimKind]: Kind<K> } = {
     quantities: (model) => logic.quantities(model),
     checkedBy: "truth-table",
   },
+  tangent: { quantities: tangent.quantities, checkedBy: "sim-numbers" },
+  "plane-wall": { quantities: planeWall.quantities, checkedBy: "sim-numbers" },
 };
 
 /** A sim an independent recompute checks, which ships live: it opens on `start`, tuned over `tune`. */
@@ -46,6 +50,10 @@ export function engineQuantities(s: LiveSim, inputs: Inputs = s.start): Record<s
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
     case "logic":
       return KINDS[s.kind].quantities(s.model, s.start);
+    case "tangent":
+      return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
+    case "plane-wall":
+      return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
   }
 }
 

@@ -69,12 +69,13 @@ describe("the first gates on the Fixture Course", () => {
       media: 1,
       rules: 1,
       beats: 1,
-      worked: 1,
+      worked: 2,
       practice: 3,
+      sims: 1,
     });
-    // Module 1 has no sim: the sim gates looked in it, found nothing to check, and pass.
-    expect(gate(job, "sim-numbers")?.coverage).toMatchObject({ modules: 1, sims: 0 });
-    expect(gate(job, "katex")?.coverage.files).toBe(8);
+    // Module 1's plate cooling, checked three ways against the Fourier series and W01.2's sheet.
+    expect(gate(job, "sim-numbers")?.coverage).toMatchObject({ modules: 1, sims: 1, sheetValues: 5 });
+    expect(gate(job, "katex")?.coverage.files).toBe(10);
     expect(gate(job, "katex")?.coverage.formulas).toBeGreaterThan(10);
 
     const module = await run("module", { ...input, module: MODULE });
@@ -88,7 +89,7 @@ describe("the first gates on the Fixture Course", () => {
     expect(gate(module, "rendered-page-scan")?.coverage.formulas).toBeGreaterThanOrEqual(
       (gate(job, "katex")?.coverage.formulas ?? Infinity) - statedFormulas(FIXTURE_COURSE, MODULE),
     );
-    expect(gate(module, "rendered-page-scan")?.coverage.islands).toBe(4);
+    expect(gate(module, "rendered-page-scan")?.coverage.islands).toBe(6);
 
     const deploy = await run("deploy", input);
     expect(deploy.green, JSON.stringify(deploy.gates, null, 2)).toBe(true);
@@ -107,8 +108,8 @@ describe("the first gates on the Fixture Course", () => {
       "red-hue-rule",
     ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
-    // Home, four Modules, Master Rules, Lab, About, the complete sitting's Revision and the Tool gallery.
-    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(10);
+    // Home, five Modules, Master Rules, Lab, About, the complete sitting's Revision and the Tool gallery.
+    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(11);
   });
 
   it("each ship a negative control that they catch, and pass their positive fixture", async () => {

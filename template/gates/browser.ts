@@ -105,6 +105,12 @@ export const layoutSweep = browserGate(
       ),
     },
     {
+      defect: "a value chip positioned over a figure drawn in layers",
+      plant: plantInMain(
+        '<figure data-figure-layers style="position: relative"><svg viewBox="0 0 240 80" width="240" height="80"><path d="M10 40H230" fill="none" stroke="currentColor" stroke-width="2"/></svg><span style="position: absolute; inset-block-start: 28px; inset-inline-start: 72px">7.2 kW</span></figure>',
+      ),
+    },
+    {
       defect: "content lifted above the top of the page",
       plant: plantInMain('<p style="position: relative; inset-block-start: -4000px">Lifted off the page.</p>'),
     },

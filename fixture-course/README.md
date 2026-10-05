@@ -30,9 +30,10 @@ Layout (content contract v0):
   recompute can check (`none`) gives a `stepThrough` instead: a plotted `figure` and `steps`
   that `add` and `ring` its elements.
 - `build-records/recompute/<NN>-<slug>/<name>.json`: a live sim's recompute log, the inputs it
-  took from the Materials and every number it worked out. Here it is written by
-  `tools/recompute-gradient-descent.py`, in exact fractions, and `tools/recompute-full-adder.py`,
-  walking each net back to its gate, both apart from the template's engines.
+  took from the Materials and every number it worked out. Here each is written by a script in
+  `tools/`, apart from the template's engines: `recompute-gradient-descent.py` and
+  `recompute-tangent.py` in exact fractions, `recompute-full-adder.py` walking each net back to its
+  gate, and `recompute-plane-wall.py` from the Fourier series.
 - A schematic sim (`kind: logic`) also gives its Layout hints (`layout`): each part's cell on the
   figure's coarse grid, its turn and label side, and the nets whose joints the figure dots; never a
   coordinate. `build-records/figure/<NN>-<slug>/<name>.json` is the Blind reader's account of its
@@ -68,10 +69,16 @@ The teaching-method gate holds them to it: the artefact is declared and shipped,
 is declared and every worked-out value is written exactly once, the first step shows the figure
 as the question sets it, and nothing is ringed before it is on the sheet.
 
-Module 3 (gradient descent) carries the Fixture Course's sims, on a synthetic line fit whose numbers
-are worked out here. `sims/descent.json` is the live sim inline in W03.1, checked three ways against
-its recompute log and the sheet. `sims/descent-steps.json` is marked `recompute: none` only to
-exercise the step-through a sim falls back to; it sits in the Lab and the Tool gallery.
+Each live sim sits inline in its Worked example, checked three ways against its recompute log and
+the sheet, on synthetic numbers worked out here:
+
+- Module 1: `sims/plate.json` (plane wall), in W01.2, a 40 mm plate cooling from both faces,
+  checked against the Fourier series. It is the Fixture Course's heatmap.
+- Module 3 (gradient descent): `sims/descent.json`, in W03.1, a line fit to three points.
+  `sims/descent-steps.json` is marked `recompute: none` only to exercise the step-through a sim
+  falls back to; it sits in the Lab and the Tool gallery.
+- Module 5 (derivatives): `sims/tangent.json` (tangent), in W05.1, the secants of a cubic closing
+  on its tangent, checked by direct evaluation.
 
 Module 4 (full adder) carries the logic sim, on a synthetic full adder (two XORs, two ANDs and an
 OR, the figure the sim-layout prototype drew). W04.1 fills its truth table net by net;

@@ -17,6 +17,7 @@ const BROWSERS = 2;
 const CAUGHT_BY: Record<string, RegExp> = {
   "a block wider than the viewport, so the page scrolls sideways": /the page scrolls sideways/,
   "a value chip positioned over a figure's line": /"9\.6 kW" covers its path/,
+  "a value chip positioned over a figure drawn in layers": /"7\.2 kW" covers its path/,
   "content lifted above the top of the page": /"Lifted off the page\." sits \d+px above the page/,
   "two paragraphs drawn on the same pixels":
     /"Heat flows from hot to cold\." and .*"Resistances in series add\." overlap/,
@@ -251,7 +252,8 @@ describe("the hydration check", () => {
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }
-  }, 600_000);
+    // Module 1 carries the plate sim, whose map loads Plotly in every throttled touch run.
+  }, 900_000);
 });
 
 describe("the touch check", () => {

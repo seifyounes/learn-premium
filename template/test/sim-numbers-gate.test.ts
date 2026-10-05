@@ -145,6 +145,14 @@ describe("the sim-numbers gate", () => {
     expect(result.coverage.stepThroughs).toBe(1);
   });
 
+  it("passes a Module with no sim, having looked in it, and covers nothing in one that doesn't exist", async () => {
+    const empty = await simNumbers.run({ contentDir: FIXTURE_COURSE, module: "02-convection" });
+    expect(empty.findings).toEqual([]);
+    expect(empty.coverage).toMatchObject({ modules: 1, sims: 0 });
+    const missing = await simNumbers.run({ contentDir: FIXTURE_COURSE, module: "09-missing" });
+    expect(missing.coverage).toMatchObject({ modules: 0, sims: 0 });
+  });
+
   it("catches every negative control: blocks, and the Checkpoint item for a sheet the two agree against", async () => {
     const result = await runControls({ input: { contentDir: FIXTURE_COURSE, module: MODULE }, gates: [simNumbers] });
     expect(result.gates[0]?.positive).toBe("pass");

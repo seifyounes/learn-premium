@@ -179,8 +179,10 @@ export const simNumbers: Gate = {
       plant: (good, scratch) =>
         plantInLiveSim(good, scratch, ({ contentDir, simEntry, sim }) => {
           const path = join(contentDir, simEntry);
-          const { min, max } = sim.tune.theta0;
-          const raw = { ...sim, start: { ...sim.start, theta0: sim.start.theta0 === max ? min : max } };
+          const [input, range] = Object.entries(sim.tune)[0] ?? [];
+          if (!input || !range) throw new Error("the live sim tunes nothing");
+          const opens = (sim.start as Record<string, number>)[input];
+          const raw = { ...sim, start: { ...sim.start, [input]: opens === range.max ? range.min : range.max } };
           writeStructured(path, raw);
         }),
     },
@@ -279,9 +281,17 @@ const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
  * The tools gate reads them: a view draws only with the pad's tokens, and handles pointers, never
  * a mouse alone.
  */
+const SHARED_VIEW = ["src/islands/sim/board.ts", "src/islands/sim/controls.tsx"];
 export const TOOLKIT: Record<SimKind, readonly string[]> = {
-  "gradient-descent": ["src/islands/GradientDescentSim.tsx", "src/islands/sim/descent-boards.ts"],
+  "gradient-descent": ["src/islands/GradientDescentSim.tsx", "src/islands/sim/descent-boards.ts", ...SHARED_VIEW],
   logic: ["src/islands/LogicSim.tsx", "src/islands/sim/Schematic.tsx"],
+  tangent: ["src/islands/TangentSim.tsx", "src/islands/sim/tangent-board.ts", ...SHARED_VIEW],
+  "plane-wall": [
+    "src/islands/PlaneWallSim.tsx",
+    "src/islands/sim/wall-board.ts",
+    "src/islands/sim/heatmap.ts",
+    ...SHARED_VIEW,
+  ],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 

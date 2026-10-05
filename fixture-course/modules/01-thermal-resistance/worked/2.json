@@ -1,0 +1,74 @@
+{
+  "code": "W01.2",
+  "title": "A plate cooling from both faces",
+  "statement": "A plate $40\\ \\text{mm}$ thick is at $200\\ ^\\circ\\text{C}$ throughout when both its faces are suddenly held at $20\\ ^\\circ\\text{C}$. Its diffusivity is $\\alpha = 12\\ \\text{mm}^2/\\text{s}$. Find the temperatures across it after $t = 30\\ \\text{s}$.",
+  "given": [
+    "$L = 40\\ \\text{mm}$",
+    "$T_i = 200\\ ^\\circ\\text{C}$",
+    "$T_s = 20\\ ^\\circ\\text{C}$ on both faces",
+    "$\\alpha = 12\\ \\text{mm}^2/\\text{s}$",
+    "$t = 30\\ \\text{s}$"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "The plate at $t = 30\\ \\text{s}$, face to face",
+    "columns": [
+      { "label": "$x$", "unit": "mm", "given": true },
+      { "label": "$T$", "unit": "$^\\circ\\text{C}$" }
+    ],
+    "rows": [
+      ["0", "20.0"],
+      ["10", "37.6"],
+      ["20", "44.9"],
+      ["30", "37.6"],
+      ["40", "20.0"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Read the problem",
+      "note": "The plate cools from both faces alike, so it stays symmetric about its mid-plane, $x = 20\\ \\text{mm}$. Work in $\\theta = \\frac{T - T_s}{T_i - T_s}$, which falls from $1$ towards $0$."
+    },
+    {
+      "title": "The faces",
+      "note": "Both faces are held at $T_s$ from the start: $T = 20.0\\ ^\\circ\\text{C}$ at $x = 0$ and at $x = 40\\ \\text{mm}$.",
+      "fill": ["B1", "B5"]
+    },
+    {
+      "title": "Fourier number",
+      "note": "$\\mathrm{Fo} = \\frac{\\alpha t}{L^2} = \\frac{12 \\times 30}{40^2} = 0.225$. Past $0.2$ the series' first term is enough: $\\theta = \\frac{4}{\\pi} \\sin\\left(\\frac{\\pi x}{L}\\right) e^{-\\pi^2 \\mathrm{Fo}}$."
+    },
+    {
+      "title": "The mid-plane",
+      "note": "At $x = 20\\ \\text{mm}$ the sine is $1$: $\\theta = \\frac{4}{\\pi} e^{-2.2207} = 0.1382$, so $T = 20 + 180 \\times 0.1382 = 44.9\\ ^\\circ\\text{C}$.",
+      "fill": ["B3"],
+      "marks": ["B3"]
+    },
+    {
+      "title": "The quarter points",
+      "note": "At $x = 10$ and $30\\ \\text{mm}$ the sine is $0.7071$: $\\theta = 0.0977$, so $T = 20 + 180 \\times 0.0977 = 37.6\\ ^\\circ\\text{C}$.",
+      "fill": ["B2", "B4"]
+    }
+  ],
+  "answer": "$T = 20.0$, $37.6$, $44.9$, $37.6$ and $20.0\\ ^\\circ\\text{C}$ at $x = 0$, $10$, $20$, $30$ and $40\\ \\text{mm}$: after $30\\ \\text{s}$ the mid-plane is still $24.9\\ ^\\circ\\text{C}$ above the faces",
+  "provenance": {
+    "stated": [
+      "$L = 40\\ \\text{mm}$, the mid-plane at $x = 20\\ \\text{mm}$",
+      "$T_i = 200\\ ^\\circ\\text{C}$",
+      "$T_s = 20\\ ^\\circ\\text{C}$, written $20.0$",
+      "$\\alpha = 12\\ \\text{mm}^2/\\text{s}$",
+      "$t = 30\\ \\text{s}$",
+      "the probes at $x = 0$, $10$, $20$, $30$, $40\\ \\text{mm}$",
+      "$\\theta$ from $1$ towards $0$",
+      "$\\mathrm{Fo} = \\frac{12 \\times 30}{40^2} = 0.225$",
+      "the one-term series past $\\mathrm{Fo} = 0.2$, with its $\\frac{4}{\\pi}$",
+      "$e^{-2.2207}$, $\\theta = 0.1382$",
+      "$T_i - T_s = 180$",
+      "$T = 44.9\\ ^\\circ\\text{C}$",
+      "the sine $0.7071$, $\\theta = 0.0977$",
+      "$T = 37.6\\ ^\\circ\\text{C}$",
+      "$24.9\\ ^\\circ\\text{C}$ above the faces"
+    ]
+  }
+}

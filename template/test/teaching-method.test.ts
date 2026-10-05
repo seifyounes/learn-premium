@@ -25,7 +25,7 @@ describe("the teaching-method gate", () => {
   it("passes the Fixture Course's Worked example, reporting what it covered", async () => {
     const run = await teachingMethod.run({ contentDir: FIXTURE_COURSE, module: MODULE });
     expect(run.findings).toEqual([]);
-    expect(run.coverage).toEqual({ examples: 1, steps: 6, beats: 1 });
+    expect(run.coverage).toEqual({ examples: 2, steps: 11, beats: 1 });
   });
 
   it("passes its own planted example before a control breaks it", async () => {

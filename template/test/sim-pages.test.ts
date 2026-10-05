@@ -1,7 +1,9 @@
-// The Agent-built sim where students meet it: inline in its Worked example, in the Lab and in the
-// Tool gallery, on the built Fixture Course. Then in a real browser (Chromium): it hydrates, loads
-// JSXGraph only once it is on screen, holds its layout at every slider's min, mid and max, and
-// takes a drag by touch on a phone without trapping the page's scroll.
+// The Agent-built sims where students meet them: inline in their Worked examples, in the Lab and in
+// the Tool gallery, on the built Fixture Course. Then in a real browser (Chromium): each hydrates,
+// loads JSXGraph only once it is on screen, holds its layout at every slider's min, mid and max,
+// and takes a drag by touch on a phone without trapping the page's scroll. Plotly, for the plane
+// wall's heatmap, loads only on that sim's pages and only once its map is opened, and every plot
+// label is set in screen pixels, 12px or more at 320px.
 import { chromium, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -50,11 +52,17 @@ describe("the sim on the built pages", () => {
 
   it("is in the Lab with every other tool, and in the Tool gallery once per kind beside a step-through", () => {
     const lab = build.page("lab");
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(3);
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(5);
     const gallery = build.page("tool-gallery");
     expect(
       [...gallery.matchAll(/data-sim-kind="([^"]+)" data-recompute="([^"]+)"/g)].map((m) => `${m[1]}:${m[2]}`),
-    ).toEqual(["gradient-descent:independent", "logic:independent", "gradient-descent:none"]);
+    ).toEqual([
+      "gradient-descent:independent",
+      "logic:independent",
+      "tangent:independent",
+      "plane-wall:independent",
+      "gradient-descent:none",
+    ]);
   });
 
   it("falls back to a step-through for a sim marked non-recomputable: no engine ships in it", () => {
@@ -329,5 +337,295 @@ describe("the logic sim", () => {
         await context.close();
       }
     });
+  });
+});
+
+// The maths and heat-transfer sims: the tangent (W05.1) and the plane wall (W01.2), on JSXGraph,
+// and the plane wall's map of the wall over time, the one heatmap, on Plotly.
+const MATHS = "05-derivatives";
+const HEAT = "01-thermal-resistance";
+/** Every page the built site has, by route, the Trap page aside (the page gates never read it). */
+const ROUTES = [
+  "",
+  "01-thermal-resistance",
+  "02-convection",
+  "03-gradient-descent",
+  "04-full-adder",
+  MATHS,
+  "lab",
+  "rules",
+  "about",
+  "tool-gallery",
+  "revision/midterm",
+];
+
+/** The `/_astro/` file an island's chunk imports lazily, picked by what its code holds. */
+function lazyChunk(island: RegExp, holds: RegExp, page: string): { island: string; lazy: string[]; static: string[] } {
+  const file = island.exec(page)?.[1] ?? "";
+  const code = readFileSync(join(build.outDir, "_astro", file), "utf8");
+  const statics = [...code.matchAll(/^import[^;]*from["'`]\.\/([^"'`]+)["'`]/gm)].map((m) => m[1] ?? "");
+  const lazy = [...code.matchAll(/import\(["'`]\.\/([^"'`]+)["'`]\)/g)].map((m) => m[1] ?? "");
+  return {
+    island: file,
+    static: statics,
+    lazy: lazy.filter((f) => holds.test(readFileSync(join(build.outDir, "_astro", f), "utf8"))),
+  };
+}
+const PLOTLY = /\bPlotly\b[\s\S]*\bnewPlot\b/;
+
+describe("the maths and heat sims on the built pages", () => {
+  it("sits each inline in its Worked example, opened on the example's values, its controls off until hydrated", () => {
+    const tangent = articleOf(build.page(MATHS), "W05.1");
+    expect(tangent).toMatch(/component-url="\/_astro\/TangentSim\.[^"]+\.js"[^>]*client="visible"/);
+    const rows = (article: string) =>
+      [...article.matchAll(/<tr class="h-\[29px\]" data-row="(\d+)">([\s\S]*?)<\/tr>/g)].map((m) =>
+        [...(m[2] ?? "").matchAll(/>([−\d.]+)<\/td>/g)].map((c) => c[1]),
+      );
+    // Its runs as the sheet writes them, the computed values at the sheet's 4 decimals.
+    expect(rows(tangent)).toEqual([
+      ["1", "7.0000", "6.0000"],
+      ["0.1", "1.2310", "2.3100"],
+      ["0.01", "1.0203", "2.0301"],
+    ]);
+    expect(tangent).toMatch(/data-row="limit"[\s\S]*?>1\.0000<\/td>[\s\S]*?>2\.0000<svg/);
+
+    const wall = articleOf(build.page(HEAT), "W01.2");
+    expect(wall).toMatch(/component-url="\/_astro\/PlaneWallSim\.[^"]+\.js"[^>]*client="visible"/);
+    // The Crank–Nicolson march at the sheet's one decimal, as the Fourier series gives it.
+    expect(rows(wall)).toEqual([
+      ["0", "20.0"],
+      ["10", "37.6"],
+      ["20", "44.9"],
+      ["30", "37.6"],
+      ["40", "20.0"],
+    ]);
+    for (const article of [tangent, wall]) {
+      // The sim's own controls, after the sheet's.
+      const card = article.slice(article.indexOf('class="sim-card"'));
+      const controls = [...card.matchAll(/<(?:input[^>]*type="range"|button)[^>]*>/g)].map((m) => m[0]);
+      expect(controls.length).toBeGreaterThan(2);
+      for (const control of controls) expect(control).toContain("disabled");
+    }
+  });
+
+  it("keeps Plotly out of every page: only the map's own chunk imports it, and only once it is opened", () => {
+    const wall = lazyChunk(/component-url="\/_astro\/(PlaneWallSim\.[^"]+\.js)"/, PLOTLY, build.page(HEAT));
+    expect(wall.lazy).toHaveLength(1);
+    const [plotly] = wall.lazy;
+    expect(plotly).toMatch(/^heatmap\./);
+    expect(wall.static).not.toContain(plotly);
+    for (const route of ROUTES) expect(build.page(route), route || "home").not.toContain(plotly);
+    // No other island takes Plotly in, eagerly or lazily.
+    const tangent = lazyChunk(/component-url="\/_astro\/(TangentSim\.[^"]+\.js)"/, PLOTLY, build.page(MATHS));
+    expect(tangent.lazy).toEqual([]);
+    expect(tangent.static).not.toContain(plotly);
+  });
+});
+
+describe("the maths and heat sims in a browser", () => {
+  let site: Awaited<ReturnType<typeof serve>>;
+  let browser: Browser;
+
+  beforeAll(async () => {
+    site = await serve(build.outDir);
+    browser = await chromium.launch();
+  });
+  afterAll(async () => {
+    await browser?.close();
+    await site?.close();
+  });
+
+  async function open(context: BrowserContext, route: string) {
+    const page = await context.newPage();
+    const errors: string[] = [];
+    const requests: string[] = [];
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("request", (r) => requests.push(r.url()));
+    await page.goto(`${site.url}/${route}${route ? "/" : ""}`);
+    return { page, errors, requests };
+  }
+  const sim = (page: Page, kind: string) => page.locator(`[data-sim="${kind}"]`).first();
+  const hydrated = async (page: Page, kind: string) => {
+    await sim(page, kind).scrollIntoViewIfNeeded();
+    await page.locator(`[data-sim="${kind}"][data-ready="true"] [data-board] svg`).first().waitFor();
+  };
+  const openMap = async (page: Page) => {
+    await sim(page, "plane-wall").getByRole("tab", { name: "Map over time" }).click();
+    await page.locator('[data-sim="plane-wall"] [data-map] .main-svg').first().waitFor();
+  };
+
+  it("loads Plotly on the heatmap's pages alone, and there only once the map is opened", async () => {
+    const plotly = lazyChunk(/component-url="\/_astro\/(PlaneWallSim\.[^"]+\.js)"/, PLOTLY, build.page(HEAT)).lazy[0];
+    if (!plotly) throw new Error("the plane-wall sim imports no Plotly chunk");
+    const loadedOn: string[] = [];
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    for (const route of ROUTES) {
+      const { page, errors, requests } = await open(context, route);
+      await page.waitForLoadState("networkidle");
+      // Every sim on the page scrolled to and hydrated: still no Plotly.
+      for (const el of await page.locator("[data-sim]").all()) {
+        await el.scrollIntoViewIfNeeded();
+        await expect.poll(() => el.getAttribute("data-ready")).toBe("true");
+      }
+      await page.waitForLoadState("networkidle");
+      expect(
+        requests.filter((u) => u.includes(plotly)),
+        `${route || "home"} before the map is opened`,
+      ).toEqual([]);
+      if ((await page.locator('[data-sim="plane-wall"]').count()) > 0) {
+        await openMap(page);
+        if (requests.some((u) => u.includes(plotly))) loadedOn.push(route);
+      }
+      expect(errors, route || "home").toEqual([]);
+      await page.close();
+    }
+    expect(loadedOn).toEqual([HEAT, "lab", "tool-gallery"]);
+    await context.close();
+  });
+
+  it("draws both boards in the pad's inks, the tangent in the pad's print", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const { page, errors } = await open(context, "tool-gallery");
+    for (const kind of ["tangent", "plane-wall"]) {
+      await hydrated(page, kind);
+      const inks = await sim(page, kind).evaluate((root) => {
+        const style = getComputedStyle(document.documentElement);
+        const tokens = ["graphite", "pencil", "sheet", "grid-major", "print"].map((t) =>
+          style.getPropertyValue(`--color-${t}`).trim().toLowerCase(),
+        );
+        const drawn = [...root.querySelectorAll("[data-board] svg *")].filter(
+          (e) => e.getAttribute("display") !== "none" && getComputedStyle(e).visibility !== "hidden",
+        );
+        const paint = (e: Element, attribute: "stroke" | "fill") =>
+          Number(e.getAttribute(`${attribute}-opacity`) ?? 1) > 0 ? (e.getAttribute(attribute) ?? "") : "";
+        const used = drawn
+          .flatMap((e) => [paint(e, "stroke"), paint(e, "fill")])
+          .map((c) => c.toLowerCase())
+          .filter((c) => c !== "" && c !== "none" && c !== "transparent");
+        return { tokens, used: [...new Set(used)] };
+      });
+      expect(inks.used.length, kind).toBeGreaterThan(0);
+      for (const colour of inks.used) expect(inks.tokens, kind).toContain(colour);
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  /** Every text on a sim's plots and their axis names, by its drawn size in screen pixels (an SVG's scale included). */
+  const plotText = (page: Page, kind: string) =>
+    sim(page, kind).evaluate((root) => {
+      const sizes: { text: string; px: number }[] = [];
+      for (const el of root.querySelectorAll("[data-board] *, [data-map] *, .sim-axis-name, .sim-axis-name *")) {
+        const own = [...el.childNodes].some(
+          (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim() !== "",
+        );
+        if (!own || !el.checkVisibility()) continue;
+        const svg = el instanceof SVGElement ? el.closest("svg") : null;
+        const scale = svg ? (svg.getScreenCTM()?.a ?? 1) : 1;
+        sizes.push({ text: (el.textContent ?? "").trim(), px: parseFloat(getComputedStyle(el).fontSize) * scale });
+      }
+      return sizes;
+    });
+
+  it("sets every plot label in screen pixels: the same size at 1280px and at 320px, never under 12px", async () => {
+    const measured: Record<string, number[]> = {};
+    for (const width of [1280, 320]) {
+      const context = await browser.newContext({ viewport: { width, height: 760 } });
+      const { page, errors } = await open(context, "tool-gallery");
+      for (const kind of ["tangent", "plane-wall"]) {
+        await hydrated(page, kind);
+        const sizes = await plotText(page, kind);
+        if (kind === "plane-wall") {
+          await openMap(page);
+          sizes.push(...(await plotText(page, kind)));
+        }
+        expect(sizes.length, `${kind} at ${width}px`).toBeGreaterThan(5);
+        for (const { text, px } of sizes)
+          expect(px, `"${text}" on the ${kind} sim at ${width}px`).toBeGreaterThanOrEqual(12);
+        measured[`${kind}@${width}`] = sizes.map((s) => Math.round(s.px * 10) / 10).sort((a, b) => a - b);
+      }
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, `${width}px`).toBeLessThanOrEqual(0);
+      expect(errors).toEqual([]);
+      await context.close();
+    }
+    for (const kind of ["tangent", "plane-wall"]) {
+      expect([...new Set(measured[`${kind}@320`])], kind).toEqual([...new Set(measured[`${kind}@1280`])]);
+    }
+  });
+
+  it("holds both layouts at every slider's min, mid and max, the map open", async () => {
+    for (const viewport of [
+      { width: 1280, height: 800 },
+      { width: 375, height: 812 },
+    ]) {
+      const context = await browser.newContext({ viewport });
+      const { page, errors } = await open(context, "tool-gallery");
+      for (const kind of ["tangent", "plane-wall"]) {
+        await hydrated(page, kind);
+        if (kind === "plane-wall") await openMap(page);
+        const sliders = sim(page, kind).locator('input[type="range"]');
+        for (let i = 0; i < (await sliders.count()); i++) {
+          const input = sliders.nth(i);
+          const [min, max, step] = await Promise.all(["min", "max", "step"].map((a) => input.getAttribute(a)));
+          const mid = Number(min) + Math.round((Number(max) - Number(min)) / 2 / Number(step)) * Number(step);
+          for (const value of [Number(min), mid, Number(max)]) {
+            await input.fill(String(value));
+            const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            expect(overflow, `${kind} at ${viewport.width}px, slider ${i} at ${value}`).toBeLessThanOrEqual(0);
+            expect(await sim(page, kind).locator("tbody").innerText()).not.toMatch(/NaN|Infinity/);
+          }
+          await sim(page, kind).getByRole("button", { name: "Back to the example" }).click();
+        }
+      }
+      // The wall cools: by 120 s its mid-plane is within a tenth of a degree of its faces.
+      await sim(page, "plane-wall").locator('input[type="range"]').first().fill("120");
+      await expect
+        .poll(() => sim(page, "plane-wall").locator('tbody tr[data-row="2"] td').nth(1).innerText())
+        .toBe("20.0");
+      expect(errors).toEqual([]);
+      await context.close();
+    }
+  });
+
+  it("slides P along the curve by touch on a phone, and lets a swipe off it scroll the page", async () => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 2,
+    });
+    const { page, errors } = await open(context, MATHS);
+    await hydrated(page, "tangent");
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    const touch = async (type: "touchStart" | "touchMove" | "touchEnd", x: number, y: number) =>
+      cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+    const swipe = async (from: [number, number], to: [number, number]) => {
+      await touch("touchStart", ...from);
+      for (let i = 1; i <= 8; i++)
+        await touch("touchMove", from[0] + ((to[0] - from[0]) * i) / 8, from[1] + ((to[1] - from[1]) * i) / 8);
+      await touch("touchEnd", ...to);
+    };
+
+    const p = sim(page, "tangent").locator(".sim-handle").first();
+    await p.scrollIntoViewIfNeeded();
+    const box = await p.boundingBox();
+    if (!box) throw new Error("P isn't drawn");
+    const at: [number, number] = [box.x + box.width / 2, box.y + box.height / 2];
+    const scrolled = await page.evaluate(() => window.scrollY);
+    await swipe(at, [at[0] - 50, at[1]]);
+    const a = sim(page, "tangent").locator('input[type="range"]').first();
+    await expect.poll(async () => Number(await a.inputValue())).toBeLessThan(2);
+    expect(await page.evaluate(() => window.scrollY), "sliding P doesn't scroll the page").toBe(scrolled);
+
+    const board = await sim(page, "tangent").locator('[data-board="tangent"]').boundingBox();
+    if (!board) throw new Error("the board isn't drawn");
+    const empty: [number, number] = [board.x + 12, board.y + 12];
+    await swipe(empty, [empty[0], empty[1] - 200]);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrolled + 50);
+    expect(errors).toEqual([]);
+    await context.close();
   });
 });

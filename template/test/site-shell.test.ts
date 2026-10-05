@@ -11,6 +11,7 @@ const ROUTES = [
   "02-convection",
   "03-gradient-descent",
   "04-full-adder",
+  "05-derivatives",
   "rules",
   "lab",
   "about",
@@ -61,6 +62,7 @@ describe("the Study site shell", () => {
       "02-convection": "Modules",
       "03-gradient-descent": "Modules",
       "04-full-adder": "Modules",
+      "05-derivatives": "Modules",
       rules: "Master Rules",
       lab: "Lab",
       about: "About",
@@ -90,7 +92,13 @@ describe("the Study site shell", () => {
 
     it("lists every Module in number order, each line linking to its page", () => {
       const lines = [...home().matchAll(/<li class="contents-line"[^>]*data-module="([^"]+)"/g)].map((m) => m[1]);
-      expect(lines).toEqual(["01-thermal-resistance", "02-convection", "03-gradient-descent", "04-full-adder"]);
+      expect(lines).toEqual([
+        "01-thermal-resistance",
+        "02-convection",
+        "03-gradient-descent",
+        "04-full-adder",
+        "05-derivatives",
+      ]);
       expect(contentsLine(home(), "02-convection")).toContain('href="/02-convection/"');
     });
 
@@ -119,7 +127,10 @@ describe("the Study site shell", () => {
         unknown
       >;
       expect(shapes["01-thermal-resistance"]).toEqual({
-        worked: [{ code: "W01.1", steps: 6 }],
+        worked: [
+          { code: "W01.1", steps: 6 },
+          { code: "W01.2", steps: 5 },
+        ],
         practice: ["1", "2", "3"],
       });
       expect(shapes["02-convection"]).toEqual({ worked: [], practice: ["1"] });
@@ -158,7 +169,8 @@ describe("the Study site shell", () => {
     const lab = build.page("lab");
     expect(lab).toContain('href="/03-gradient-descent/"');
     expect(lab).toContain('href="/04-full-adder/"');
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(3);
+    expect(lab).toContain('href="/05-derivatives/"');
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(5);
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
 
@@ -193,8 +205,8 @@ describe("before a sitting is complete", () => {
 describe("a Course with no tools yet", () => {
   it("says so on the Lab page", () => {
     const course = fixtureWith("course.yaml", (s) => s);
-    for (const module of ["03-gradient-descent", "04-full-adder"])
-      rmSync(join(course, "modules", module), { recursive: true });
+    for (const sims of ["01-thermal-resistance/sims", "03-gradient-descent", "04-full-adder", "05-derivatives/sims"])
+      rmSync(join(course, "modules", sims), { recursive: true });
     const build = buildCourse(course);
     expect(build.ok, build.output).toBe(true);
     expect(build.page("lab")).toContain("No interactive tools are built for this Course yet.");

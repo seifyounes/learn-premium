@@ -403,72 +403,118 @@ const logicSim = z.strictObject({
 });
 
 /**
+ * The derivative as the tangent's slope (`src/sims/tangent/engine.ts`): the Professor's polynomial,
+ * the tangent at a point, and secants over runs shrinking by tenths closing on it. The polynomial
+ * is fixed; students tune the point and the first secant's run.
+ */
+const tangentSim = z.strictObject({
+  kind: z.literal("tangent"),
+  ...simCommon,
+  /** f(x) = c0 + c1·x + c2·x² + …, lowest power first. */
+  model: z.strictObject({ coefficients: z.array(z.number()).min(2).max(8) }),
+  start: z.strictObject({ a: z.number(), h: z.number().positive() }).optional(),
+  tune: z
+    .strictObject({
+      a: tuneRange,
+      h: tuneRange.refine((r) => r.min > 0, "a secant's run is never 0: start h's range above 0"),
+    })
+    .optional(),
+});
+
+/**
+ * Transient conduction through a plane wall whose faces are suddenly held at another temperature,
+ * marched by Crank–Nicolson (`src/sims/plane-wall/engine.ts`). The wall is fixed; students tune
+ * the time and the material's diffusivity. Lengths are in the model's one unit, the diffusivity in
+ * that unit squared per second.
+ */
+const planeWallSim = z.strictObject({
+  kind: z.literal("plane-wall"),
+  ...simCommon,
+  model: z
+    .strictObject({ thickness: z.number().positive(), initial: z.number(), surface: z.number() })
+    .refine((m) => m.initial !== m.surface, "the faces change temperature: initial and surface differ"),
+  /** The units the Materials write the wall in: time is in seconds, the diffusivity in length² per second. */
+  units: z.strictObject({ length: z.string().min(1), temperature: z.string().min(1) }),
+  start: z.strictObject({ time: z.number().nonnegative(), diffusivity: z.number().positive() }).optional(),
+  tune: z
+    .strictObject({
+      time: tuneRange.refine((r) => r.min >= 0, "time runs from 0: its range starts at 0 or later"),
+      diffusivity: tuneRange.refine((r) => r.min > 0, "a diffusivity is above 0"),
+    })
+    .optional(),
+});
+
+/**
  * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
  * the same way in Node at build and in the page. Students tune it, never rewire it.
  */
-export const sim = z.discriminatedUnion("kind", [gradientDescentSim, logicSim]).superRefine((s, ctx) => {
-  if (s.kind === "logic") {
-    // The circuit is judged once its netlist holds together: a pin in no net isn't also a loop.
-    const structure = schematicProblems(s.model, s.layout);
-    for (const message of structure.length > 0 ? structure : logicProblems(s.model))
-      ctx.addIssue({ code: "custom", path: ["model"], message });
-    for (const key of ["start", "tune"] as const) {
-      const given = Object.keys(s[key] ?? {});
-      if (s[key] !== undefined && given.join() !== s.model.inputs.join())
+export const sim = z
+  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim])
+  .superRefine((s, ctx) => {
+    if (s.kind === "logic") {
+      // The circuit is judged once its netlist holds together: a pin in no net isn't also a loop.
+      const structure = schematicProblems(s.model, s.layout);
+      for (const message of structure.length > 0 ? structure : logicProblems(s.model))
+        ctx.addIssue({ code: "custom", path: ["model"], message });
+      for (const key of ["start", "tune"] as const) {
+        const given = Object.keys(s[key] ?? {});
+        if (s[key] !== undefined && given.join() !== s.model.inputs.join())
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: `${key} gives ${given.join(", ") || "nothing"}, but the inputs are ${s.model.inputs.join(", ")}, in that order`,
+          });
+      }
+    }
+    if (s.recompute === "independent") {
+      for (const key of ["start", "tune"] as const) {
+        if (s[key] === undefined)
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: `a live sim opens on the example's values (start) and says what students tune over (tune)`,
+          });
+      }
+    }
+    for (const [input, range] of Object.entries(s.tune ?? {})) {
+      const value = (s.start as Record<string, number> | undefined)?.[input];
+      if (value !== undefined && (value < range.min || value > range.max)) {
         ctx.addIssue({
           code: "custom",
-          path: [key],
-          message: `${key} gives ${given.join(", ") || "nothing"}, but the inputs are ${s.model.inputs.join(", ")}, in that order`,
+          path: ["start", input],
+          message: `${value} is outside the range students tune it over (${range.min} to ${range.max})`,
         });
+      }
     }
-  }
-  if (s.recompute === "independent") {
-    for (const key of ["start", "tune"] as const) {
-      if (s[key] === undefined)
-        ctx.addIssue({
-          code: "custom",
-          path: [key],
-          message: `a live sim opens on the example's values (start) and says what students tune over (tune)`,
-        });
-    }
-  }
-  for (const [input, range] of Object.entries(s.tune ?? {})) {
-    const value = (s.start as Record<string, number> | undefined)?.[input];
-    if (value !== undefined && (value < range.min || value > range.max)) {
+    if (Object.keys(s.sheet).length > 0 && s.worked === undefined) {
       ctx.addIssue({
         code: "custom",
-        path: ["start", input],
-        message: `${value} is outside the range students tune it over (${range.min} to ${range.max})`,
+        path: ["sheet"],
+        message: "the sim checks sheet cells but names no Worked example (worked)",
       });
     }
-  }
-  if (Object.keys(s.sheet).length > 0 && s.worked === undefined) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["sheet"],
-      message: "the sim checks sheet cells but names no Worked example (worked)",
+    if (s.recompute === "none" && s.stepThrough === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stepThrough"],
+        message: "a sim that can't be recomputed ships as a step-through: give its figure and steps",
+      });
+    }
+    const figure = s.stepThrough?.figure;
+    const ids = new Set(figure?.elements.map((e) => e.id));
+    const unknown = (path: (string | number)[]) => (id: string, i: number) => {
+      if (!ids.has(id))
+        ctx.addIssue({ code: "custom", path: [...path, i], message: `the figure has no element "${id}"` });
+    };
+    figure?.question.forEach(unknown(["stepThrough", "figure", "question"]));
+    s.stepThrough?.steps.forEach((step, i) => {
+      step.add.forEach(unknown(["stepThrough", "steps", i, "add"]));
+      step.ring.forEach(unknown(["stepThrough", "steps", i, "ring"]));
     });
-  }
-  if (s.recompute === "none" && s.stepThrough === undefined) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["stepThrough"],
-      message: "a sim that can't be recomputed ships as a step-through: give its figure and steps",
-    });
-  }
-  const figure = s.stepThrough?.figure;
-  const ids = new Set(figure?.elements.map((e) => e.id));
-  const unknown = (path: (string | number)[]) => (id: string, i: number) => {
-    if (!ids.has(id))
-      ctx.addIssue({ code: "custom", path: [...path, i], message: `the figure has no element "${id}"` });
-  };
-  figure?.question.forEach(unknown(["stepThrough", "figure", "question"]));
-  s.stepThrough?.steps.forEach((step, i) => {
-    step.add.forEach(unknown(["stepThrough", "steps", i, "add"]));
-    step.ring.forEach(unknown(["stepThrough", "steps", i, "ring"]));
   });
-});
-export const SIM_KINDS = ["gradient-descent", "logic"] as const satisfies readonly z.infer<typeof sim>["kind"][];
+export const SIM_KINDS = ["gradient-descent", "logic", "tangent", "plane-wall"] as const satisfies readonly z.infer<
+  typeof sim
+>["kind"][];
 
 /** A Summary beat's frontmatter; its body is plain Markdown of at most 90 words. */
 export const beat = z.strictObject({

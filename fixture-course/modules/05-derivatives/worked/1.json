@@ -1,0 +1,68 @@
+{
+  "code": "W05.1",
+  "title": "The slope of a cubic from its secants",
+  "statement": "For $f(x) = x^3 - 3x^2 + 2x + 1$, find the slope of the secant from $x = 2$ over the runs $h = 1$, $0.1$ and $0.01$, then the slope they close on, $f'(2)$, and the tangent line at $x = 2$.",
+  "given": ["$f(x) = x^3 - 3x^2 + 2x + 1$", "the point $a = 2$", "the runs $h = 1$, $0.1$, $0.01$"],
+  "artefact": {
+    "kind": "table",
+    "caption": "Each run: the secant's slope $\\frac{f(2 + h) - f(2)}{h}$",
+    "columns": [
+      { "label": "$h$", "given": true },
+      { "label": "$f(2 + h)$" },
+      { "label": "$\\frac{f(2 + h) - f(2)}{h}$" }
+    ],
+    "rows": [
+      ["1", "7", "6"],
+      ["0.1", "1.231", "2.31"],
+      ["0.01", "1.0203", "2.0301"],
+      ["$\\to 0$", "1", "2"]
+    ]
+  },
+  "fillOrder": "rows",
+  "steps": [
+    {
+      "title": "Read the problem",
+      "note": "A secant from $x = 2$ over a run $h$ rises $f(2 + h) - f(2)$, so its slope is $\\frac{f(2 + h) - f(2)}{h}$. As $h$ shrinks, the secant turns onto the tangent, and its slope onto $f'(2)$."
+    },
+    {
+      "title": "Run $h = 1$",
+      "note": "$f(3) = 27 - 27 + 6 + 1 = 7$ and $f(2) = 8 - 12 + 4 + 1 = 1$, so the secant's slope is $\\frac{7 - 1}{1} = 6$.",
+      "fill": ["B1", "C1"]
+    },
+    {
+      "title": "Run $h = 0.1$",
+      "note": "$f(2.1) = 9.261 - 13.23 + 4.2 + 1 = 1.231$, so the slope is $\\frac{0.231}{0.1} = 2.31$: much closer to the tangent's.",
+      "fill": ["B2", "C2"]
+    },
+    {
+      "title": "Run $h = 0.01$",
+      "note": "$f(2.01) = 1.020301$, written $1.0203$, so the slope is $\\frac{0.020301}{0.01} = 2.0301$.",
+      "fill": ["B3", "C3"]
+    },
+    {
+      "title": "The slope they close on",
+      "note": "The slopes $6$, $2.31$, $2.0301$ close on $f'(2) = 3(2)^2 - 6(2) + 2 = 2$, from the power rule $f'(x) = 3x^2 - 6x + 2$. The tangent through $(2, 1)$ is $y = 1 + 2(x - 2) = 2x - 3$.",
+      "fill": ["B4", "C4"],
+      "marks": ["C4"]
+    }
+  ],
+  "answer": "$f'(2) = 2$, so the tangent at $x = 2$ is $y = 2x - 3$",
+  "provenance": {
+    "stated": [
+      "$f(x) = x^3 - 3x^2 + 2x + 1$",
+      "the point $a = 2$",
+      "the runs $h = 1$, $0.1$, $0.01$",
+      "$f(3) = 27 - 27 + 6 + 1 = 7$",
+      "$f(2) = 8 - 12 + 4 + 1 = 1$",
+      "the slope $6$",
+      "$f(2.1) = 9.261 - 13.23 + 4.2 + 1 = 1.231$",
+      "the slope $\\frac{0.231}{0.1} = 2.31$",
+      "$f(2.01) = 1.020301$, written $1.0203$",
+      "the slope $\\frac{0.020301}{0.01} = 2.0301$",
+      "$f'(2) = 3(2)^2 - 6(2) + 2 = 2$",
+      "$f'(x) = 3x^2 - 6x + 2$",
+      "the tangent $y = 1 + 2(x - 2) = 2x - 3$",
+      "the limit $h \\to 0$"
+    ]
+  }
+}
