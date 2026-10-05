@@ -103,8 +103,8 @@ const CONTROLS_ON_MS = 5_000;
  */
 const TAP_TAKES_MS = 15_000;
 const TAP_ANSWERS_MS = 10_000;
-/** For a resized viewport to reach the page. */
-const WIDTH_ARRIVES_MS = 10_000;
+/** For a resized viewport to reach the page (exported for its tests). */
+export const WIDTH_ARRIVES_MS = 10_000;
 /** The lines of Playwright's call log that say why a tap didn't land. */
 const UNTAPPABLE_BECAUSE = /intercepts|not visible|not stable|not enabled|outside|detached/;
 /** At most this many taps on a page: a control that keeps adding controls can't loop forever. */
@@ -424,8 +424,16 @@ async function hydrate(page: Page): Promise<string[]> {
   return never;
 }
 
-/** The page's width must be the one asked for, or nothing measured at it can be trusted. */
-async function assertWidth(page: Page, name: BrowserName, width: number, of: "viewport" | "screen" = "viewport") {
+/**
+ * The page's width must be the one asked for, or nothing measured at it can be trusted (exported
+ * for its tests).
+ */
+export async function assertWidth(
+  page: Page,
+  name: BrowserName,
+  width: number,
+  of: "viewport" | "screen" = "viewport",
+) {
   // A resize reaches the page a moment after it is asked for; a width that never arrives can't.
   // An emulated phone is judged by its screen: there, a page wider than the screen widens the
   // viewport itself (the phone zooms out), which is the page's defect, not the emulation's.
