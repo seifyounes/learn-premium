@@ -11,10 +11,21 @@ export type RollbackOutcome =
   /** Vercel took the request, but production never moved to the target. */
   | { kind: "unconfirmed"; failed: Deployment | undefined; target: Deployment; skipped: Deployment[]; error: string };
 
+/** Production moved to another deployment before the rollback was asked for, so nothing was. */
+export interface Superseded {
+  kind: "superseded";
+  current: string | undefined;
+}
+
 export interface RollbackDeps {
   vercel: Pick<Vercel, "productionDeployments" | "rollBack" | "production">;
   /** Whether the live gates passed on a commit. */
   passedLiveGates(sha: string): Promise<boolean>;
+  /**
+   * The deployment the live gates failed. Production is checked against it right before the
+   * rollback is asked for, so a newer deployment promoted meanwhile is never rolled back.
+   */
+  failing: string;
   /** How to wait between checks that the rollback landed; tests pass one that doesn't. */
   wait?: (ms: number) => Promise<void>;
 }
@@ -24,7 +35,11 @@ const CONFIRM_EVERY_MS = 10_000;
 const CONFIRM_TRIES = 18;
 
 /** Rolls production back from the deployment of `failedSha` to the last green one before it. */
-export async function rollBackFrom(failedSha: string, why: string, deps: RollbackDeps): Promise<RollbackOutcome> {
+export async function rollBackFrom(
+  failedSha: string,
+  why: string,
+  deps: RollbackDeps,
+): Promise<RollbackOutcome | Superseded> {
   const deployments = await deps.vercel.productionDeployments({ limit: 50 });
   const failed = deployments.find((d) => d.sha === failedSha);
   const before = failed?.created ?? Infinity;
@@ -36,6 +51,8 @@ export async function rollBackFrom(failedSha: string, why: string, deps: Rollbac
       skipped.push(candidate);
       continue;
     }
+    const { current } = await deps.vercel.production();
+    if (current !== deps.failing) return { kind: "superseded", current };
     try {
       await deps.vercel.rollBack(candidate.uid, why);
     } catch (error) {
