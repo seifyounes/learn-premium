@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GATES } from "../gates/index.ts";
+import { pagesOf } from "../gates/pages.ts";
 import { runControls, runGates, type GateInput, type GatePoint } from "../gates/runner.ts";
 import { readLicences } from "../src/licences/file.ts";
 import { HAND_WRITTEN_NOTICES } from "../src/licences/hand-written.ts";
@@ -20,6 +21,8 @@ describe("the deploy and live gates on the Fixture Course's production build", (
   // What Vercel's production deploy builds: no Trap page.
   const build = buildCourse(FIXTURE_COURSE, { VERCEL_ENV: "production" });
   const input: GateInput = { contentDir: FIXTURE_COURSE, distDir: build.outDir };
+  /** Every page the production build made: the gates must cover each one. */
+  const pageCount = () => pagesOf(build.outDir).length;
 
   it("builds, with the Licences file at /licences.txt", () => {
     expect(build.ok, build.output).toBe(true);
@@ -74,7 +77,8 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     expect(report.green, JSON.stringify(report.gates, null, 2)).toBe(true);
     expect(report.gates.map((g) => g.id)).toEqual(DEPLOY_ONLY);
     const coverage = Object.fromEntries(report.gates.map((g) => [g.id, g.coverage]));
-    expect(coverage["noindex"]).toEqual({ pages: 9, configs: 1 });
+    expect(pageCount()).toBeGreaterThanOrEqual(9);
+    expect(coverage["noindex"]).toEqual({ pages: pageCount(), configs: 1 });
     expect(coverage["licences"]).toEqual({ packages: 14 });
     expect(coverage["no-build-evidence"]?.["buildRecords"]).toBeGreaterThan(0);
   });
@@ -84,7 +88,8 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     expect(report.green, JSON.stringify(report.gates, null, 2)).toBe(true);
     expect(report.gates.map((g) => g.id)).toEqual(LIVE);
     const coverage = Object.fromEntries(report.gates.map((g) => [g.id, g.coverage]));
-    expect(coverage["live-routes"]).toEqual({ routes: 10, hubs: 5 });
+    // Every page, and the Licences file.
+    expect(coverage["live-routes"]).toEqual({ routes: pageCount() + 1, hubs: 5 });
     expect(coverage["live-private-paths"]?.["probes"]).toBeGreaterThan(40);
   });
 
