@@ -237,7 +237,9 @@ the run opens every page in scope:
   (`gates/browser/in-page.js`);
 - it taps every control with emulated phone touch at 375 and 390px, typing into fields first, and
   sweeps the state that leaves. Chromium runs with a 4× slower CPU; WebKit has no CPU throttling, so
-  its touch run is at full speed.
+  its touch run is at full speed. A control blocks when it never takes a tap (15s, naming why) or a
+  tap never changes the page (10s), not when it is slow: the gate reports its slowest tap and
+  answer.
 
 An island turns its controls on once it hydrates, but some stay off by design (Prev at the first
 step, Check before an answer), so an island fails the after-hydration check only when every control

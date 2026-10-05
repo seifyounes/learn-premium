@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "playwright";
@@ -205,6 +205,45 @@ describe("the hydration check", () => {
       writeFileSync(path, page.replace(/renderer-url="[^"]+"/, 'renderer-url="/_astro/slow-renderer.js"'));
       const run = await browserRun({ contentDir: FIXTURE_COURSE, distDir: site, module: "01-thermal-resistance" });
       expect(run.gates.hydration.findings).toEqual([]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 600_000);
+});
+
+describe("the touch check", () => {
+  const build = buildCourse(FIXTURE_COURSE);
+
+  it("waits out a control slow to take a tap or to answer it: only one that never does fails", async () => {
+    // Under a CI runner's load, the first taps after hydration took up to 4.2s to land and some
+    // answered past the 2s the check waited, on controls that work. A button busy for 6s as it is
+    // touched (past the old 5s), and one that answers 4s after its tap, stand in for them.
+    expect(build.ok, build.output).toBe(true);
+    const scratch = mkdtempSync(join(tmpdir(), "lp-slow-tap-"));
+    try {
+      const site = join(scratch, "site");
+      cpSync(build.outDir, site, { recursive: true });
+      // On a copy of the home page, quiet enough that nothing else answers for the buttons.
+      const route = "planted-negative-control";
+      const slow = [
+        `<p><button type="button" id="held">Held</button></p>`,
+        `<p><button type="button" onclick="setTimeout(() => { this.textContent = 'Answered'; }, 4000)">Answers late</button></p>`,
+        `<script>`,
+        `const held = document.getElementById("held");`,
+        `held.addEventListener("touchstart", () => { const end = Date.now() + 6000; while (Date.now() < end); });`,
+        `held.addEventListener("click", () => { held.textContent = "Tapped"; });`,
+        `</script>`,
+      ].join("");
+      const home = readFileSync(join(site, "index.html"), "utf8");
+      mkdirSync(join(site, route));
+      writeFileSync(
+        join(site, route, "index.html"),
+        home.replace(/<main[^>]*>/, (main) => `${main}${slow}`),
+      );
+      const run = await browserRun({ contentDir: FIXTURE_COURSE, distDir: site, module: route });
+      expect(run.gates.touch.findings.filter((f) => /Held|Answers late/.test(f.message))).toEqual([]);
+      expect(run.gates.touch.coverage.slowestTapMs).toBeGreaterThanOrEqual(5000);
+      expect(run.gates.touch.coverage.slowestAnswerMs).toBeGreaterThanOrEqual(4000);
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }

@@ -99,12 +99,14 @@ const CONTROLS_ON_MS = 5_000;
  * For a control to take a tap (Playwright retries while something else would take it), and for
  * the page to answer it. Like hydration, these wait out a slow page and catch a dead one: on CI's
  * runner, with both browsers and 4× slower phone CPUs at once, live controls on the Module pages
- * and the Lab missed 5s and 2s limits on main.
+ * and the Lab missed 5s and 2s limits on main. The touch gate reports its slowest tap and answer.
  */
 const TAP_TAKES_MS = 15_000;
 const TAP_ANSWERS_MS = 10_000;
 /** For a resized viewport to reach the page. */
 const WIDTH_ARRIVES_MS = 10_000;
+/** The lines of Playwright's call log that say why a tap didn't land. */
+const UNTAPPABLE_BECAUSE = /intercepts|not visible|not stable|not enabled|outside|detached/;
 /** At most this many taps on a page: a control that keeps adding controls can't loop forever. */
 const MOST_TAPS = 200;
 /** Pages a browser has open at once. */
@@ -200,7 +202,7 @@ async function execute(input: GateInput): Promise<BrowserRun> {
     layout: { sweeps: 0, collapsibles: 0, views: 0, texts: 0, figures: 0 },
     live: { sweeps: 0, texts: 0, formulas: 0 },
     hydration: { pages: 0, islands: 0, controls: 0 },
-    touch: { pages: new Set<string>(), widths: new Set<number>(), taps: 0 },
+    touch: { pages: new Set<string>(), widths: new Set<number>(), taps: 0, slowestTapMs: 0, slowestAnswerMs: 0 },
     initial: { pages: 0, requests: 0 },
     trap: { sweeps: 0, defects: 0 },
   };
@@ -274,6 +276,8 @@ async function execute(input: GateInput): Promise<BrowserRun> {
       coverage.touch.pages.add(result.route);
       coverage.touch.widths.add(result.width);
       coverage.touch.taps += result.taps;
+      coverage.touch.slowestTapMs = Math.max(coverage.touch.slowestTapMs, result.slowest.tapMs);
+      coverage.touch.slowestAnswerMs = Math.max(coverage.touch.slowestAnswerMs, result.slowest.answerMs);
     }
   }
 
@@ -327,7 +331,14 @@ async function execute(input: GateInput): Promise<BrowserRun> {
       "live-page-scan": { coverage: { pages: swept.pages.size, ...live }, findings: findingsOf("live-page-scan") },
       hydration: { coverage: hydration, findings: findingsOf("hydration") },
       touch: {
-        coverage: { pages: touch.pages.size, widths: touch.widths.size, taps: touch.taps },
+        // The slowest tap and answer: how close the runner's load came to the waits (reported, never gated).
+        coverage: {
+          pages: touch.pages.size,
+          widths: touch.widths.size,
+          taps: touch.taps,
+          slowestTapMs: touch.slowestTapMs,
+          slowestAnswerMs: touch.slowestAnswerMs,
+        },
         findings: findingsOf("touch"),
       },
       "initial-load": { coverage: initial, findings: findingsOf("initial-load") },
@@ -611,8 +622,15 @@ async function touchPage(
   width: number,
   url: string,
   route: string,
-): Promise<{ route: string; width: number; observations: Observation[]; taps: number }> {
+): Promise<{
+  route: string;
+  width: number;
+  observations: Observation[];
+  taps: number;
+  slowest: { tapMs: number; answerMs: number };
+}> {
   const observations: Observation[] = [];
+  const slowest = { tapMs: 0, answerMs: 0 };
   const observe = (o: Observation) => observations.push(o);
   const where = `${name} ${width}px touch`;
   const context = await siteContext(browser, url, {
@@ -673,10 +691,13 @@ async function touchPage(
       const named = `<${next.tag}> ${quote(next.label, 32)}`;
       const before = await page.evaluate(() => window.__lpMutations);
       taps += 1;
+      const tapping = Date.now();
       try {
         await control.tap({ timeout: TAP_TAKES_MS });
+        slowest.tapMs = Math.max(slowest.tapMs, Date.now() - tapping);
       } catch (error) {
-        const why = (error as Error).message.split("\n").find((line) => /intercepts|not visible|outside/.test(line));
+        // The call log's last reason is the one the tap ran out of time on.
+        const why = (error as Error).message.split("\n").findLast((line) => UNTAPPABLE_BECAUSE.test(line));
         observe({
           gate: "touch",
           route,
@@ -702,10 +723,12 @@ async function touchPage(
       // A slider is dragged, not tapped (a tap on its track moves nothing on an iPhone): touch holds
       // it to taking the tap, which the tap above proved.
       if (next.slider) continue;
+      const answering = Date.now();
       const changed = await page
         .waitForFunction((count) => window.__lpMutations > count, before, { timeout: TAP_ANSWERS_MS })
         .then(() => true)
         .catch(() => false);
+      if (changed) slowest.answerMs = Math.max(slowest.answerMs, Date.now() - answering);
       if (!changed)
         observe({ gate: "touch", route, where, kind: "dead-tap", detail: `a tap on ${named} changed nothing` });
     }
@@ -729,7 +752,7 @@ async function touchPage(
   } finally {
     await context.close();
   }
-  return { route, width, observations, taps };
+  return { route, width, observations, taps, slowest };
 }
 
 /** The outermost islands in a page's server HTML. */
