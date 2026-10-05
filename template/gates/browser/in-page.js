@@ -22,6 +22,19 @@
   const FLOOR_PX = 12;
   /** Deliberate overlays opt out with this attribute, as pairs never as containers. */
   const ALLOW_OVERLAP = "[data-allow-overlap]";
+  /**
+   * A box whose SVGs are layers of one figure, stacked by the tool that drew them (Plotly). An SVG
+   * layer isn't laid over its sibling layers, it is part of them: the covers check skips that pair
+   * alone. Anything else positioned over the figure is still checked, and every text check still
+   * reads the layers' labels.
+   */
+  const FIGURE_LAYERS = "[data-figure-layers]";
+  const sameFigure = (a, b) =>
+    a instanceof SVGSVGElement &&
+    b instanceof SVGSVGElement &&
+    a.parentElement !== null &&
+    a.parentElement === b.parentElement &&
+    a.parentElement.closest(FIGURE_LAYERS) !== null;
   // The copy checks are shared with the rendered-page scan (`gates/copy-checks.ts`), prepended
   // to this script as `__lpChecks`.
   const checks = window.__lpChecks;
@@ -209,7 +222,13 @@
       .filter((g) => !g.closest(BACKDROP) && !g.closest("defs, clipPath, mask, marker") && visible(g))
       .map((g) => {
         const style = getComputedStyle(g);
-        return { g, stroke: paints(style.stroke), fill: paints(style.fill), m: g.getScreenCTM()?.inverse() };
+        // A paint at zero opacity draws nothing: JSXGraph leaves a curve's fill black at opacity 0.
+        return {
+          g,
+          stroke: paints(style.stroke) && Number(style.strokeOpacity) > 0,
+          fill: paints(style.fill) && Number(style.fillOpacity) > 0,
+          m: g.getScreenCTM()?.inverse(),
+        };
       })
       .filter(({ g, stroke, fill, m }) => (stroke || fill) && m && near(g.getBoundingClientRect()));
     let hits = 0;
@@ -319,7 +338,7 @@
       else for (const m of marks) if (el.contains(m.node.parentElement) && !m.el.closest(ALLOW_OVERLAP)) ink.push(m.r);
       if (ink.length === 0) continue;
       for (const figure of figures) {
-        if (figure === el || figure.contains(el) || el.contains(figure)) continue;
+        if (figure === el || figure.contains(el) || el.contains(figure) || sameFigure(el, figure)) continue;
         const covered = ink.map((r) => inkCovered(r, figure, visible)).find((c) => c);
         if (covered) {
           add(layout, "covers-figure", `${describe(el)} covers ${covered} of ${describe(figure)}`, el);

@@ -51,7 +51,7 @@ describe("the Module page on the Fixture Course", () => {
     expect(rail(page)).toEqual(["watch:Watch", "summary:Summary", "worked:Worked examples", "practice:Practice"]);
     // The rail marks done sections from what this page holds.
     expect(page).toMatch(
-      /data-module-page data-module="01-thermal-resistance" data-shape="\{&quot;worked&quot;:\[&quot;W01\.1&quot;\],&quot;practice&quot;:\[&quot;1&quot;,&quot;2&quot;,&quot;3&quot;\]\}"/,
+      /data-module-page data-module="01-thermal-resistance" data-shape="\{&quot;worked&quot;:\[&quot;W01\.1&quot;,&quot;W01\.2&quot;\],&quot;practice&quot;:\[&quot;1&quot;,&quot;2&quot;,&quot;3&quot;\]\}"/,
     );
   });
 

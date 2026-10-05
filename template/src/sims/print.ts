@@ -4,6 +4,12 @@
 /** How many decimals a number is written with: 0.01 has 2, 30 has 0. */
 export const decimalsOf = (n: number) => (String(n).split(".")[1] ?? "").length;
 
+/**
+ * A given number as the sheet writes it, never padded to the sheet's places: 1, 0.1, 0.01, 7.5.
+ * For a sim's own inputs (a run, a probe's position), not for values it computes.
+ */
+export const asWritten = (n: number) => String(Number(n.toPrecision(10)));
+
 /** Past this, a value is printed in powers of ten so it fits its column. */
 const LARGE = 1e6;
 

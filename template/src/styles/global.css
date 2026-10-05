@@ -1601,8 +1601,30 @@
       aspect-ratio: 3 / 2;
     }
   }
+  /* One board (or one board's tabs), beside the table on a wide sheet. */
+  .sim-grid-single {
+    grid-template-areas: "contours" "controls" "table";
+  }
+  @container sim (width >= 760px) {
+    .sim-grid-single {
+      grid-template-areas:
+        "contours table"
+        "controls table";
+    }
+  }
   .sim-contours {
     grid-area: contours;
+  }
+  /* Printed tabs on a pencil baseline, like a Worked example's Table | Plot. */
+  .sim-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    margin-block-end: 8px;
+    border-block-end: 1.5px solid var(--color-pencil);
+  }
+  /* The map: Plotly sizes itself to the box, a picture that takes no drag. */
+  .sim-map {
+    aspect-ratio: 4 / 3;
   }
   .sim-fit {
     grid-area: fit;
@@ -1663,6 +1685,13 @@
     inset-inline-end: 4px;
     padding: 1px 3px;
     background: var(--color-sheet);
+  }
+  .sim-axis-name[data-below] {
+    position: static;
+    display: block;
+    padding: 2px 0 0;
+    text-align: end;
+    background: none;
   }
   .sim-caption {
     display: flex;

@@ -3,7 +3,9 @@ import { getEntry } from "astro:content";
 import { prose, type SimRef } from "../content/course";
 import GradientDescentSim from "../islands/GradientDescentSim";
 import LogicSim from "../islands/LogicSim";
+import PlaneWallSim from "../islands/PlaneWallSim";
 import StepThrough from "../islands/StepThrough";
+import TangentSim from "../islands/TangentSim";
 import { provenanceNotes } from "../provenance/notes";
 import { isLive } from "../sims/kinds";
 import { inkNets } from "../sims/layout/geometry";
@@ -38,6 +40,9 @@ const sheetCells = Object.keys(s.sheet).map((cell) => {
 // A sim on no sheet prints to four places, the sheets' usual precision.
 const decimals = printedDecimals(sheetCells) ?? 4;
 const math = (tex: string) => prose(`$${tex}$`);
+/** A quantity's symbol with its unit, as the Materials write it: `x (mm)`. */
+const withUnit = (tex: string, unit: string) => prose(`$${tex}$ (${unit})`);
+const label = plainText(prose(s.title));
 // The content contract gives every sim it can't recompute a step-through.
 const stepThrough = s.stepThrough && toStepThrough(s.stepThrough, prose);
 // A schematic is laid out here, at build, exactly as the Drawing gate checked it: the page gets
@@ -63,7 +68,7 @@ const drawing = logic && layOut(logic.model, logic.layout);
       drawing={drawing}
       nets={inkNets(drawing, logic.model.nets)}
       start={logic.start}
-      label={plainText(prose(s.title))}
+      label={label}
     />
   ) : live?.kind === "gradient-descent" ? (
     <GradientDescentSim
@@ -72,7 +77,7 @@ const drawing = logic && layOut(logic.model, logic.layout);
       start={live.start}
       tune={live.tune}
       decimals={decimals}
-      label={plainText(prose(s.title))}
+      label={label}
       mathHtml={{
         k: math("k"),
         theta0: math("\\theta_0"),
@@ -84,10 +89,55 @@ const drawing = logic && layOut(logic.model, logic.layout);
         y: math("y"),
       }}
     />
+  ) : live?.kind === "tangent" ? (
+    <TangentSim
+      client:visible
+      model={live.model}
+      start={live.start}
+      tune={live.tune}
+      decimals={decimals}
+      label={label}
+      mathHtml={{
+        a: math("a"),
+        h: math("h"),
+        x: math("x"),
+        y: math("y"),
+        f: math("f(x)"),
+        fa: math("f(a)"),
+        fah: math("f(a + h)"),
+        secant: math("\\frac{f(a + h) - f(a)}{h}"),
+        slope: math("f'(a)"),
+        toZero: math("h \\to 0"),
+        p: math("P"),
+        q: math("Q"),
+      }}
+    />
+  ) : live?.kind === "plane-wall" ? (
+    <PlaneWallSim
+      client:visible
+      model={live.model}
+      start={live.start}
+      tune={live.tune}
+      decimals={decimals}
+      label={label}
+      temperatureUnit={live.units.temperature}
+      mathHtml={{
+        x: withUnit("x", live.units.length),
+        T: withUnit("T", live.units.temperature),
+        time: withUnit("t", "s"),
+        diffusivity: withUnit("\\alpha", `${live.units.length}²/s`),
+        Fo: math("\\mathrm{Fo} = \\frac{\\alpha t}{L^2}"),
+      }}
+      mapLabels={{
+        x: `x (${live.units.length})`,
+        t: "t (s)",
+        T: `T (${live.units.temperature})`,
+      }}
+    />
   ) : (
     stepThrough && (
       <>
-        <StepThrough client:visible data={stepThrough} label={plainText(prose(s.title))} />
+        <StepThrough client:visible data={stepThrough} label={label} />
         <p class="mbs-2 max-w-[68ch] text-body-small text-muted">
           A step-through, not a live sim: no independent recompute could check a model of this figure, so it steps
           through the Materials' own values.

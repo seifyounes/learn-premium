@@ -122,13 +122,39 @@ Students tune the inputs, never the model: the contract has no way to name anyth
 
 A kind's engine is a pure function of model and inputs (`src/sims/<kind>/engine.ts`, registered in
 `src/sims/kinds.ts`). The number gate runs it in Node, and the page runs the same code. Its view
-draws in the pad's inks, read from the page's tokens. The first kind is gradient descent
-(`src/islands/GradientDescentSim.tsx`), which draws on JSXGraph, loaded only once the sim is on
-screen. Its table fills in hand order and the red pen rings each new θ. The path moves on the
-contours of J, the start drags, and α can diverge. A swipe on a board scrolls the page; only the
-start handle takes a drag.
+draws in the pad's inks, read from the page's tokens. A plot kind draws on JSXGraph
+(`src/islands/sim/board.ts`), loaded only once the sim is on screen, with its labels set in screen
+pixels (ticks at 12px, names at 15px) so the 12px floor holds at 320px; a schematic kind is drawn
+by the layout core (below). A swipe on a board scrolls the page; only a handle takes a drag. The
+kinds:
 
-The second kind is the logic sim (`src/sims/logic/engine.ts`, `src/islands/LogicSim.tsx`): the
+| Kind               | Discipline    | Engine                                                       | Students tune            | Independent check                     |
+| ------------------ | ------------- | ------------------------------------------------------------ | ------------------------ | ------------------------------------- |
+| `gradient-descent` | ML            | batch gradient descent on the half mean squared error        | start (drags), α, steps  | exact fractions                       |
+| `tangent`          | maths         | a polynomial's tangent, and secants over runs h, h/10, h/100 | a (P drags), h (Q drags) | direct evaluation, in exact fractions |
+| `plane-wall`       | heat transfer | transient conduction, Crank–Nicolson on 80 intervals         | time, diffusivity        | the Fourier series                    |
+| `logic`            | logic         | every net's level on every truth-table row                   | the input bits           | each net walked back to its gate      |
+
+- **Gradient descent** (`src/islands/GradientDescentSim.tsx`): its table fills in hand order and
+  the red pen rings each new θ. The path moves on the contours of J, and α can diverge.
+- **Tangent** (`src/islands/TangentSim.tsx`): the derivative as the tangent's slope. P and Q slide
+  along the Professor's curve; the table's secant slopes close on f′(a), which the red pen rings.
+- **Plane wall** (`src/islands/PlaneWallSim.tsx`): a wall whose faces are suddenly held at another
+  temperature. The Profile tab draws T across the wall at the chosen time; the Map tab draws the
+  whole wall over time as a heatmap (`src/islands/sim/heatmap.ts`). Plotly draws the map, and is
+  the shared core's tool for heatmaps and 3D surfaces only: the sim imports it only when the Map
+  tab is opened, so Plotly loads only on a page with a heatmap, and only once it is wanted. The
+  map is a static picture, so a swipe on it scrolls the page. Its `units` name the Materials'
+  length and temperature units; time is in seconds.
+
+A recompute by another method than the engine's (the Fourier series against a Crank–Nicolson
+march) agrees with it at the sheet's printed precision, not to the last float, so its log gives
+the sheet's quantities and only the exact ones off it (the Fourier number). The plane-wall engine
+stays within 0.03 °C of the series on the Fixture Course's plate once its Fourier number passes
+0.015; it is coarser in the first instants, before the change at the faces has spread over a few
+grid intervals.
+
+The logic sim (`src/sims/logic/engine.ts`, `src/islands/LogicSim.tsx`): the
 figure's gates as a netlist (`model`: `parts`, `nets`, and the `inputs` and `outputs` terminals in the
 truth table's column order), its input bits as `start`, each input tuned from 0 to 1. Tapping a row
 of its truth table, or an input key, sets the inputs; every wire carrying a 1 inks in over its
@@ -240,6 +266,9 @@ the run opens every page in scope:
   its touch run is at full speed. A control blocks when it never takes a tap (15s, naming why) or a
   tap never changes the page (10s), not when it is slow: the gate reports its slowest tap and
   answer.
+  The plane wall's map is the slowest tap the Fixture Course has: Plotly holds a 4×-throttled phone
+  for about 4.5s while it starts (the Owner accepted the wait on #51), so its tab answers first,
+  saying the map is loading.
 
 An island turns its controls on once it hydrates, but some stay off by design (Prev at the first
 step, Check before an answer), so an island fails the after-hydration check only when every control
@@ -249,7 +278,10 @@ Each check exists because v1 shipped its defect. A figure is covered when someth
 over it lies on its ink: an SVG's strokes, fills and text, sampled every pixel, never its blank
 ground. An element marked `data-backdrop` is ground: the sheet's grid, and a plot's dashed guides,
 which a label may break as dimension text breaks a construction line (the Owner's call on #46). One
-marked `data-allow-overlap` is a deliberate overlay (the red pen's rings).
+marked `data-allow-overlap` is a deliberate overlay (the red pen's rings). The SVGs inside an element
+marked `data-figure-layers` are layers of one figure, stacked by the tool that drew them (Plotly's
+heatmap). The covers check doesn't set sibling SVG layers against each other. Anything else
+positioned over them is still checked, and every text check still reads their labels.
 
 **The Trap page** (`/trap/`, `src/trap/`) is a hidden page of seeded defects in every build except
 Vercel's production deploy: a figure labelled under 12px inside a collapsed section, a KaTeX error,
@@ -302,12 +334,16 @@ out exactly as the page does and blocks on any failed check:
   an open, a part turned round, a label dropped, an extra part, the drawing mirrored, a staircase
   wire, a dot removed), and each must fail its check, or the gate blocks.
 
-`test/sim-pages.test.ts` drives the built Tool gallery, Lab and Module page in Chromium (Playwright):
-JSXGraph loads only once the sim is on screen, every drawn colour is a pad ink, the layout holds at
-375 and 1280px at each slider's min, mid and max, and on a touch phone the start drags while a
-swipe elsewhere on the board scrolls the page. The logic sim inks the nets a tapped row drives
-high, and its circuit scrolls inside its box on a phone. `test/layout-core.test.ts` holds the
-layout core to its public interface: hints in, drawing out.
+`test/sim-pages.test.ts` drives the built Tool gallery, Lab and Module pages in Chromium
+(Playwright): JSXGraph loads only once a sim is on screen, every drawn colour is a pad ink, the
+layout holds at 375 and 1280px at each slider's min, mid and max, and on a touch phone a handle
+drags while a swipe elsewhere on the board scrolls the page. The logic sim inks the nets a tapped
+row drives high, and its circuit scrolls inside its box on a phone. Every page is opened with every
+sim hydrated: Plotly is fetched only on the plane wall's pages (its Module, the Lab and the Tool
+gallery), and only once its map is opened. Every label on a sim's plots is drawn at the same size
+at 1280 and 320px, and never under 12px. `test/maths-heat-sims.test.ts` holds the tangent and the
+plane wall to the sim gates. `test/layout-core.test.ts` holds the layout core to its public
+interface: hints in, drawing out.
 
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).

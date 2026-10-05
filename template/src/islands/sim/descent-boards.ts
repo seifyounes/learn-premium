@@ -1,95 +1,14 @@
-// The gradient-descent sim's two JSXGraph boards, drawn in the pad's inks: the cost's contours
-// with the descent path and the draggable start, and the data with the fitted line. Every colour is
-// read from the page's tokens when the board is made, so the boards wear the Course's pad and
-// nothing here names a colour. A board doesn't capture the page's scroll: a swipe that starts off
-// the start handle scrolls the page, and only the handle takes a drag.
+// The gradient-descent sim's two JSXGraph boards, drawn in the pad's inks (`board.ts`): the cost's
+// contours with the descent path and the draggable start, and the data with the fitted line. A
+// board doesn't capture the page's scroll: a swipe that starts off the start handle scrolls the
+// page, and only the handle takes a drag.
 import type JXGModule from "jsxgraph";
 import { contour, type Iterate, type Model, type Trace } from "../../sims/gradient-descent/engine.ts";
 import type { Range } from "../../sims/tuning.ts";
+import { asBackdrop, makeBoard, pointLabel, type Board, type Box, type Inks, type JXG } from "./board.ts";
 
-type JXG = typeof JXGModule;
-type Board = JXGModule.Board;
 type Point = JXGModule.Point;
 type Curve = JXGModule.Curve;
-
-/** The fixed inks and the pad's slots a board draws with. */
-export interface Inks {
-  graphite: string;
-  pencil: string;
-  sheet: string;
-  gridMajor: string;
-}
-
-export function readInks(el: Element): Inks {
-  const style = getComputedStyle(el);
-  const token = (name: string) => style.getPropertyValue(`--color-${name}`).trim();
-  return {
-    graphite: token("graphite"),
-    pencil: token("pencil"),
-    sheet: token("sheet"),
-    gridMajor: token("grid-major"),
-  };
-}
-
-/** JSXGraph's bounding box, in board coordinates. */
-type Box = [xMin: number, yMax: number, xMax: number, yMin: number];
-
-/** Tick spacing giving about five labelled ticks: 1, 2 or 5 times a power of ten. */
-function tickSpacing(span: number): number {
-  const rough = span / 5;
-  const power = 10 ** Math.floor(Math.log10(rough));
-  return ([1, 2, 5, 10].find((m) => m * power >= rough) ?? 10) * power;
-}
-
-/** No zooming: the board shows the ranges students tune over. (JSXGraph's types lack `enabled`.) */
-const NO_ZOOM = { enabled: false, wheel: false };
-
-function makeBoard(JXG: JXG, el: HTMLElement, box: Box, inks: Inks): Board {
-  const board = JXG.JSXGraph.initBoard(el, {
-    boundingBox: box,
-    axis: false,
-    keepAspectRatio: false,
-    showCopyright: false,
-    showNavigation: false,
-    showInfobox: false,
-    pan: { enabled: false },
-    zoom: NO_ZOOM,
-  });
-  const axis = (from: [number, number], to: [number, number], span: number) =>
-    board.create("axis", [from, to], {
-      strokeColor: inks.pencil,
-      strokeWidth: 1.2,
-      highlight: false,
-      lastArrow: false,
-      ticks: {
-        strokeColor: inks.pencil,
-        majorHeight: 6,
-        minorTicks: 0,
-        insertTicks: false,
-        ticksDistance: tickSpacing(span),
-        // The axes' crossing marks the origin; both zeros there would sit on each other, and under
-        // the start handle when it starts at the origin.
-        drawZero: false,
-        label: {
-          cssClass: "sim-tick",
-          highlightCssClass: "sim-tick",
-          fontSize: 12,
-          strokeColor: inks.pencil,
-          highlight: false,
-          display: "html",
-        },
-      },
-    });
-  axis([0, 0], [1, 0], box[2] - box[0]);
-  axis([0, 0], [0, 1], box[1] - box[3]);
-  return board;
-}
-
-/** Pixels inside the board's box for a point in its coordinates. */
-export function screenOf(JXG: JXG, board: Board, x: number, y: number): [number, number] {
-  const c = new JXG.Coords(JXG.COORDS_BY_USER, [x, y], board).scrCoords;
-  return [c[1] ?? 0, c[2] ?? 0];
-}
 
 export interface ContourBoard {
   board: Board;
@@ -135,25 +54,6 @@ export function contourBoard(
     tune.theta1.min - pad(tune.theta1),
   ];
   const board = makeBoard(JXG, el, box, inks);
-  /** A point's label, above and right of it unless `place` hangs it elsewhere. */
-  const label = (
-    html: string,
-    colour: string,
-    place: { offset: [number, number]; anchorX?: "left" | "right"; anchorY?: "top" | "bottom" } = { offset: [9, 9] },
-  ) => ({
-    name: html,
-    withLabel: true,
-    label: {
-      cssClass: "sim-board-label",
-      highlightCssClass: "sim-board-label",
-      fontSize: 15,
-      strokeColor: colour,
-      highlight: false,
-      display: "html" as const,
-      ...place,
-    },
-  });
-
   board.suspendUpdate();
   // The contours: the start's level, one above it, and levels closing in on the minimum.
   for (const share of [1.8, 1, 0.55, 0.28, 0.12, 0.04]) {
@@ -166,7 +66,7 @@ export function contourBoard(
     );
     // A contour is the plot's field, like the sheet's grid: a label may cross it (the layout
     // sweep's figure check reads it as ground).
-    (level.rendNode as Element | undefined)?.setAttribute("data-backdrop", "");
+    asBackdrop(level);
   }
   board.create("point", [minimum.theta0, minimum.theta1], {
     face: "x",
@@ -177,7 +77,7 @@ export function contourBoard(
     fixed: true,
     highlight: false,
     showInfobox: false,
-    ...label(minimumLabelHtml, inks.pencil),
+    ...pointLabel(minimumLabelHtml, inks.pencil),
   });
 
   const path: Curve = board.create("curve", [[], []], {
@@ -215,7 +115,7 @@ export function contourBoard(
     cssClass: "sim-handle",
     highlightCssClass: "sim-handle",
     // Below and left of the start: the descent path leaves it up and right, towards the minimum.
-    ...label(startLabelHtml, inks.graphite, { offset: [-12, -12], anchorX: "right", anchorY: "top" }),
+    ...pointLabel(startLabelHtml, inks.graphite, { offset: [-12, -12], anchorX: "right", anchorY: "top" }),
   });
   handle.on("drag", () => onDrag(handle.X(), handle.Y()));
   board.unsuspendUpdate();

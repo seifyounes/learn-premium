@@ -10,7 +10,7 @@ describe("the provenance gate", () => {
   it("passes the Fixture Course, where every value is tagged, reporting what it covered", async () => {
     const run = await provenanceGate.run({ contentDir: FIXTURE_COURSE, module: MODULE });
     expect(run.findings).toEqual([]);
-    expect(run.coverage.entries).toBe(6);
+    expect(run.coverage.entries).toBe(8);
     expect(run.coverage.values).toBeGreaterThan(80);
   });
 

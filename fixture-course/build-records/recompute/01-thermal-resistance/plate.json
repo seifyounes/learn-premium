@@ -1,0 +1,23 @@
+{
+  "recompute": "learn-premium recompute log v1",
+  "by": "fixture-course/tools/recompute-plane-wall.py: the Fourier series, apart from the engine",
+  "inputs": {
+    "model": {
+      "thickness": 40,
+      "initial": 200,
+      "surface": 20
+    },
+    "start": {
+      "time": 30,
+      "diffusivity": 12
+    }
+  },
+  "values": {
+    "T(0)": 20.0,
+    "T(L/4)": 37.589229457126955,
+    "T(L/2)": 44.87492653058399,
+    "T(3L/4)": 37.589229457126955,
+    "T(L)": 20.000000000000004,
+    "Fo": 0.225
+  }
+}

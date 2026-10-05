@@ -8,7 +8,9 @@ import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { descend, type Model } from "../sims/gradient-descent/engine.ts";
 import { decimalsOf, printAt } from "../sims/print.ts";
 import { startTuning, tuning, type Range, type TuningAction } from "../sims/tuning.ts";
-import { contourBoard, fitBoard, readInks, screenOf, type ContourBoard, type FitBoard } from "./sim/descent-boards.ts";
+import { fitOnResize, readInks, screenOf } from "./sim/board.ts";
+import { AxisName, Slider } from "./sim/controls.tsx";
+import { contourBoard, fitBoard, type ContourBoard, type FitBoard } from "./sim/descent-boards.ts";
 import { PenRing } from "./worked/pen.tsx";
 import { MARK_PAUSE, MARK_STAGGER, VALUE_LAND, valueStagger } from "./worked/timing.ts";
 
@@ -92,17 +94,13 @@ export default function GradientDescentSim({ model, start, tune, decimals, mathH
   // The boards keep their coordinates when the column they sit in changes width.
   useEffect(() => {
     if (!boards) return;
-    const observer = new ResizeObserver(() => {
-      for (const [board, el] of [
+    return fitOnResize(
+      [
         [boards.contours.board, contourEl.current],
         [boards.fit.board, fitEl.current],
-      ] as const) {
-        if (el) board.resizeContainer(el.clientWidth, el.clientHeight, true);
-      }
-      setSize((n) => n + 1);
-    });
-    if (contourEl.current) observer.observe(contourEl.current);
-    return () => observer.disconnect();
+      ],
+      () => setSize((n) => n + 1),
+    );
   }, [boards]);
 
   useEffect(() => {
@@ -297,48 +295,5 @@ export default function GradientDescentSim({ model, start, tune, decimals, mathH
         </div>
       </section>
     </MotionConfig>
-  );
-}
-
-/** An axis's name, beside the board rather than on it. */
-function AxisName({ html, where }: { html: string; where: "x" | "y" }) {
-  return (
-    <span className="sim-axis-name" data-axis={where}>
-      <span dangerouslySetInnerHTML={{ __html: html }} />
-    </span>
-  );
-}
-
-interface SliderProps {
-  /** The input's name, as paper math or words. */
-  name: string;
-  range: Range;
-  value: number;
-  ready: boolean;
-  onChange(value: number): void;
-}
-
-/** One tunable input: its name and value printed above a slider that snaps to its step. */
-function Slider({ name, range, value, ready, onChange }: SliderProps) {
-  const id = useId();
-  return (
-    <div className="sim-slider">
-      <label htmlFor={id} className="sim-slider-head">
-        <span dangerouslySetInnerHTML={{ __html: name }} />
-        <output htmlFor={id} className="font-quantity text-graphite tabular-nums">
-          {printAt(value, decimalsOf(range.step))}
-        </output>
-      </label>
-      <input
-        id={id}
-        type="range"
-        min={range.min}
-        max={range.max}
-        step={range.step}
-        value={value}
-        disabled={!ready}
-        onChange={(event) => onChange(Number(event.currentTarget.value))}
-      />
-    </div>
   );
 }
