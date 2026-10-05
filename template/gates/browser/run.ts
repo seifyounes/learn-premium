@@ -95,12 +95,16 @@ const LOAD_SETTLES_MS = 300;
 const HYDRATES_MS = 60_000;
 /** For a hydrated island to turn its controls on (it does so in an effect, just after). */
 const CONTROLS_ON_MS = 5_000;
-/** For a control to take a tap (Playwright retries while something else would take it). */
-const TAP_TAKES_MS = 5_000;
+/**
+ * For a control to take a tap (Playwright retries while something else would take it), and for
+ * the page to answer it. Like hydration, these wait out a slow page and catch a dead one: on CI's
+ * runner, with both browsers and 4× slower phone CPUs at once, live controls on the Module pages
+ * and the Lab missed 5s and 2s limits on main.
+ */
+const TAP_TAKES_MS = 15_000;
+const TAP_ANSWERS_MS = 10_000;
 /** For a resized viewport to reach the page. */
-const WIDTH_ARRIVES_MS = 2_000;
-/** For the page to answer a tap. */
-const TAP_ANSWERS_MS = 2_000;
+const WIDTH_ARRIVES_MS = 10_000;
 /** At most this many taps on a page: a control that keeps adding controls can't loop forever. */
 const MOST_TAPS = 200;
 /** Pages a browser has open at once. */
@@ -424,7 +428,9 @@ async function assertWidth(page: Page, name: BrowserName, width: number, of: "vi
     .then(() => true)
     .catch(() => false);
   if (arrived) return;
+  // The poll can time out on a busy page just as the width lands: what counts is the width it has.
   const actual = await page.evaluate(measure);
+  if (actual === width) return;
   throw new Error(`asked ${name} for a ${width}px ${of} and the page has ${actual}px, so the sweep can't be trusted`);
 }
 
