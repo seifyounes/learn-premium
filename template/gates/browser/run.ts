@@ -17,6 +17,7 @@ import { join } from "node:path";
 import type { Element as HastElement } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { chromium, webkit, type Browser, type Page } from "playwright";
+import { PYODIDE_PATH } from "../../src/python/download.ts";
 import { TRAP_DEFECTS, TRAP_ROUTE, type TrapDefect } from "../../src/trap/route.ts";
 import { COPY_DEFECTS, quote, RAW_TEX, type CopyDefect } from "../copy-checks.ts";
 import { sitePages, textIn } from "../pages.ts";
@@ -647,6 +648,14 @@ async function touchPage(
     isMobile: true,
     deviceScaleFactor: 2,
   });
+  // Run live answers its tap at once ("Loading Python…"); the 16 MB download and Python's start
+  // behind it would starve every other page's taps on the slowed CPU, so the touch run refuses
+  // them and the tool says Python didn't load. test/python-tool.test.ts and the real-phone pass
+  // run Pyodide for real.
+  await context.route(
+    (address) => address.pathname.startsWith(PYODIDE_PATH),
+    (route) => route.abort(),
+  );
   let taps = 0;
   try {
     const page = await context.newPage();
