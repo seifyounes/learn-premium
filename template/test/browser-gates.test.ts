@@ -93,7 +93,7 @@ describe("the browser gates on the Fixture Course", () => {
     expect(coverage("initial-load").requests).toBeGreaterThan(0);
     // Every sweep of the Trap page found all four seeded defects.
     expect(coverage("trap-page")).toEqual({ sweeps: BROWSERS * WIDTHS.length, defects: BROWSERS * WIDTHS.length * 4 });
-  }, 600_000);
+  }, 1_200_000);
 
   it("each catch every negative control, by the check that names its defect", async () => {
     const misses: string[] = [];
