@@ -32,9 +32,22 @@
 
   const trapOf = (el) => el?.closest?.("[data-trap]")?.getAttribute("data-trap") ?? undefined;
   const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  /** A task posted now runs once the frame being drawn is done. */
+  const nextTask = () =>
+    new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => resolve();
+      channel.port2.postMessage(undefined);
+    });
+  // A frame runs its animation callbacks before its layout and its ResizeObservers, so a settle
+  // that ended in one measured a layout no ResizeObserver had answered yet: on a loaded runner, the
+  // gradient-descent sim's tick labels still placed for the board's old size. Each frame is waited
+  // out to its end.
   const settle = async () => {
-    await nextFrame();
-    await nextFrame();
+    for (let i = 0; i < 2; i++) {
+      await nextFrame();
+      await nextTask();
+    }
   };
 
   /** Short, stable name for an element in a finding. */

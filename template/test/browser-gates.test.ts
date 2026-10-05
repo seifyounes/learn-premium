@@ -183,6 +183,49 @@ describe("the layout sweep's figure check", () => {
   }, 60_000);
 });
 
+describe("the layout sweep's settle", () => {
+  it("measures a figure after its ResizeObserver redraws it, not before", async () => {
+    // A frame runs its animation callbacks before its layout and its ResizeObservers. The settle
+    // used to end in one, so a width that first reached the layout in that frame (a resize that
+    // reached the page late, on a loaded runner) was measured before the gradient-descent sim's
+    // ResizeObserver redrew its board: a tick label still placed for the old size sat on the
+    // caption. A figure that places its label from a ResizeObserver, resized in the frame the
+    // settle's last wait falls in, stands in for it.
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 400, height: 200 } });
+      await page.setContent(
+        `<body style="margin: 0"><figure id="figure" style="position: relative; margin: 0">
+          <svg width="100%" height="100" viewBox="0 0 100 100" preserveAspectRatio="none" style="display: block">
+            <path d="M50 0V100" fill="none" stroke="black" stroke-width="1" vector-effect="non-scaling-stroke"/>
+          </svg>
+          <span id="label" style="position: absolute; top: 30px; font: 16px/20px monospace">T3</span>
+        </figure>
+        <script>
+          const figure = document.getElementById("figure");
+          const label = document.getElementById("label");
+          // 50px left of the line: clear of it, until the line moves and the label hasn't yet.
+          new ResizeObserver(() => (label.style.left = figure.clientWidth / 2 - 50 + "px")).observe(figure);
+        </script></body>`,
+      );
+      await page.addScriptTag({ content: IN_PAGE });
+      type Sweep = { settle(): Promise<void>; scan(): { layout: { detail: string }[] } };
+      const found = await page.evaluate(async () => {
+        const sweep = (window as unknown as { __lpSweep: Sweep }).__lpSweep;
+        await sweep.settle();
+        const figure = document.getElementById("figure") as HTMLElement;
+        // Two frames on: the frame the settle's last wait falls in.
+        requestAnimationFrame(() => requestAnimationFrame(() => (figure.style.width = "320px")));
+        await sweep.settle();
+        return sweep.scan().layout.map((f) => f.detail);
+      });
+      expect(found).toEqual([]);
+    } finally {
+      await browser.close();
+    }
+  }, 60_000);
+});
+
 describe("the hydration check", () => {
   const build = buildCourse(FIXTURE_COURSE);
 
