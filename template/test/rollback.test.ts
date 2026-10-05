@@ -15,18 +15,29 @@ const dep = (n: number, overrides: Partial<Deployment> = {}): Deployment => ({
   ...overrides,
 });
 
-/** A fake Vercel holding `deployments`, recording what it was asked to roll back to. */
-function fakeVercel(deployments: Deployment[], refuse?: string) {
+/**
+ * A fake Vercel holding `deployments`, recording what it was asked to roll back to. Production
+ * moves to the target once asked, unless `job` says the rollback stalls or fails.
+ */
+function fakeVercel(deployments: Deployment[], { refuse, job = "succeeded" }: { refuse?: string; job?: string } = {}) {
   const rolledBackTo: string[] = [];
+  let current = [...deployments].sort((a, b) => b.created - a.created)[0]?.uid;
   return {
     rolledBackTo,
     productionDeployments: async () => [...deployments].sort((a, b) => b.created - a.created),
     rollBack: async (uid: string) => {
       if (refuse !== undefined) throw new VercelError(402, refuse);
       rolledBackTo.push(uid);
+      if (job === "succeeded") current = uid;
     },
+    production: async () => ({
+      current,
+      lastRequest: rolledBackTo.length === 0 ? undefined : { to: rolledBackTo.at(-1) ?? "", status: job },
+    }),
   };
 }
+
+const noWait = async () => {};
 
 describe("rolling back a red live deploy", () => {
   const failing = dep(5);
@@ -66,12 +77,36 @@ describe("rolling back a red live deploy", () => {
   });
 
   it("reports Vercel's refusal (Hobby rolls back only one deployment)", async () => {
-    const vercel = fakeVercel([dep(1), dep(2), failing], "Hobby teams can only roll back to the previous deployment");
+    const vercel = fakeVercel([dep(1), dep(2), failing], {
+      refuse: "Hobby teams can only roll back to the previous deployment",
+    });
     const outcome = await rollBackFrom(failing.sha ?? "", "red", {
       vercel,
       passedLiveGates: async (sha) => sha === dep(1).sha,
     });
     expect(outcome).toMatchObject({ kind: "refused", target: { uid: "dpl_1" }, error: expect.stringMatching(/Hobby/) });
+  });
+
+  it("counts a rollback only once production serves the target", async () => {
+    const failedJob = await rollBackFrom(failing.sha ?? "", "red", {
+      vercel: fakeVercel([dep(1), failing], { job: "failed" }),
+      passedLiveGates: async () => true,
+      wait: noWait,
+    });
+    expect(failedJob).toMatchObject({
+      kind: "unconfirmed",
+      target: { uid: "dpl_1" },
+      error: "Vercel's rollback job failed",
+    });
+    const stalled = await rollBackFrom(failing.sha ?? "", "red", {
+      vercel: fakeVercel([dep(1), failing], { job: "pending" }),
+      passedLiveGates: async () => true,
+      wait: noWait,
+    });
+    expect(stalled).toMatchObject({
+      kind: "unconfirmed",
+      error: expect.stringMatching(/^production still served dpl_5 \d+s later$/),
+    });
   });
 });
 
@@ -157,6 +192,19 @@ describe("the API clients", () => {
       "GET https://api.vercel.com/v7/deployments?projectId=prj_1&target=production&limit=20&sha=aaa&teamId=team_1",
       "POST https://api.vercel.com/v1/projects/prj_1/rollback/dpl_a?description=live+gates+red&teamId=team_1",
     ]);
+  });
+
+  it("read which deployment production serves now, and the last rollback's job status", async () => {
+    const vercel = new Vercel({
+      token: "t",
+      projectId: "prj_1",
+      fetch: async () =>
+        Response.json({
+          targets: { production: { id: "dpl_b" } },
+          lastAliasRequest: { toDeploymentId: "dpl_a", jobStatus: "pending", type: "rollback" },
+        }),
+    });
+    expect(await vercel.production()).toEqual({ current: "dpl_b", lastRequest: { to: "dpl_a", status: "pending" } });
   });
 
   it("surface Vercel's error message and status", async () => {

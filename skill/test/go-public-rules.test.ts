@@ -39,7 +39,7 @@ describe("evidence-shaped paths", () => {
 
   test.each([
     "src/components/Quote.astro",
-    "public/licences.txt",
+    "template/public/licences.txt",
     "src/crop-marks.css",
     "skill/scripts/reader/pdf.py",
     "src/islands/transcript-panel.tsx",

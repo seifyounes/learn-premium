@@ -116,7 +116,7 @@ const BROTLI_FLOOR = 1024;
 export const liveHeaders: Gate = {
   id: "live-headers",
   checks:
-    "every page, script, stylesheet and the Licences file on the live site carries X-Robots-Tag: noindex, and pages, scripts and stylesheets of 1 KiB or more come Brotli-compressed",
+    "every page, script, stylesheet and the Licences file on the live site answers 200 with X-Robots-Tag: noindex, and pages, scripts and stylesheets of 1 KiB or more come Brotli-compressed",
   points: ["live"],
   async run(input) {
     if (input.distDir === undefined) throw new Error("no built site to list the live site's files from (distDir)");
@@ -134,6 +134,11 @@ export const liveHeaders: Gate = {
       for (const { route, path } of checked) {
         const response = await get(`${url}${route}`);
         await response.arrayBuffer();
+        // An error page carries the catch-all headers too: only the file itself counts.
+        if (response.status !== 200) {
+          block(route, `answers ${response.status}, not 200`);
+          continue;
+        }
         if (!NOINDEX.test(response.headers.get("x-robots-tag") ?? ""))
           block(route, "the response carries no X-Robots-Tag: noindex");
         const textual = route.endsWith("/") || /\.(js|css)$/.test(route);

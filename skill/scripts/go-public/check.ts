@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { hashTree } from "../ledger/hash.ts";
-import type { Ledger } from "../ledger/model.ts";
+import { TEMPLATE_DIR, type Ledger } from "../ledger/model.ts";
 import { readLedger } from "../ledger/store.ts";
 import { evidenceShape } from "./evidence.ts";
 import {
@@ -22,10 +22,11 @@ import {
 import { findSecrets, secretPath, type SecretMatch, type Severity } from "./secrets.ts";
 
 /**
- * Where a Course project keeps its Licences file: served at /licences.txt, a URL the UI never links
- * to. Chosen here; the ticket that generates the file (#47) confirms or moves it.
+ * Where a Course project keeps its Licences file: the Site template's committed `public/licences.txt`
+ * (served at /licences.txt, a URL the UI never links to), inside the project's template layer. The
+ * template's `licences-file` deploy gate keeps it the same as the build's.
  */
-export const LICENCES_FILE = "public/licences.txt";
+export const LICENCES_FILE = `${TEMPLATE_DIR}/public/licences.txt`;
 
 /** A file GitHub would show as the repo's own licence. A public Course project carries none. */
 const OWN_LICENCE = /^(un)?licen[cs]e|^copying/i;

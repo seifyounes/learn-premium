@@ -24,7 +24,9 @@ the live site, and every other branch gets a preview. Vercel builds the Site tem
 
    Green marks the commit with the `learn-premium/live-gates` status. Red rolls Vercel back to the
    newest earlier production deployment whose commit carries a green status, and opens an issue
-   assigned to the Owner. The performance report (initial JS against the ~300 KB reference, LCP,
+   assigned to the Owner. The issue says the rollback is done only once production actually
+   serves the target. A run whose deployment a newer one has already replaced in production
+   settles nothing: the newer deployment's own run checks the site. The performance report (initial JS against the ~300 KB reference, LCP,
    Lighthouse mobile) goes in the run's summary and never blocks.
 
 The project is on Vercel's **Hobby** plan, where Instant Rollback only goes back to the deployment

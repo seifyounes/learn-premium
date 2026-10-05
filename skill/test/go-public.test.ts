@@ -64,7 +64,7 @@ function course() {
   ledger("map", "--project", project, "--holder", "run", "--input", jsonInput({ ...map, unmapped: [] }));
   commit(project, "chore: start the Course project", {
     "README.md": "# Heat Transfer\n",
-    "public/licences.txt": LICENCES,
+    "template/public/licences.txt": LICENCES,
     "modules/01-conduction/module.yaml": "title: Conduction\n",
   });
   return { project, materials };
@@ -86,7 +86,7 @@ describe("Go-public check", () => {
     expect(out.scanned.commits).toBe(2);
     expect(out.scanned.blobs).toBeGreaterThanOrEqual(5);
     expect(out.materials).toMatchObject({ ledgerRows: 2, materialsFolder: expect.any(String) });
-    expect(out.licencesFile).toEqual({ path: "public/licences.txt", present: true });
+    expect(out.licencesFile).toEqual({ path: "template/public/licences.txt", present: true });
   });
 
   test("finds a Materials file committed deep in history under another name, and since deleted", async () => {
@@ -301,18 +301,18 @@ describe("Go-public check", () => {
 
   test("fails without the Licences file at HEAD, even when history had it", async () => {
     const { project } = course();
-    commit(project, "chore: tidy", {}, ["public/licences.txt"]);
+    commit(project, "chore: tidy", {}, ["template/public/licences.txt"]);
 
     const { code, out } = await check("--project", project);
 
     expect(code).toBe(1);
-    expect(out.licencesFile).toEqual({ path: "public/licences.txt", present: false });
+    expect(out.licencesFile).toEqual({ path: "template/public/licences.txt", present: false });
     expect(findings(out, "licences-file")).toEqual([expect.objectContaining({ severity: "block" })]);
   });
 
   test("fails an empty Licences file", async () => {
     const { project } = course();
-    commit(project, "chore: regenerate", { "public/licences.txt": "" });
+    commit(project, "chore: regenerate", { "template/public/licences.txt": "" });
 
     expect((await check("--project", project)).out.licencesFile.present).toBe(false);
   });

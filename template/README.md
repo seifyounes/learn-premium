@@ -405,11 +405,12 @@ setup are in `../docs/deploy.md`.
   serves it (`gates/live/vercel-like.ts`), which checks `vercel.json` before anything deploys.
 - **After the deploy**, the `live` gates run on the live URL. `deploy/` holds what runs around
   them (`npm run deploy -- <command>`):
-  - `await-live` waits until Vercel's production deployment of a commit holds the production
-    domains;
-  - `verdict` settles the run. Green marks the commit with the `learn-premium/live-gates` GitHub
-    status. Red (or `--drill`) rolls Vercel back to the newest earlier production deployment whose
-    commit is green (`deploy/rollback.ts`) and writes the Owner's issue.
+  - `await-live` waits until production serves Vercel's deployment of a commit, or reports it
+    `superseded` when a newer deployment already took production over;
+  - `verdict` settles the run, only while production still serves that deployment. Green marks the
+    commit with the `learn-premium/live-gates` GitHub status. Red (or `--drill`) rolls Vercel back
+    to the newest earlier production deployment whose commit is green (`deploy/rollback.ts`),
+    waits until production serves it, and writes the Owner's issue.
 - `performance` reports each page's initial JavaScript against the ~300 KB reference, its LCP on
   a phone-sized Chromium and, with `--lighthouse`, Lighthouse's mobile score
   (`deploy/performance.ts`). It never blocks.
