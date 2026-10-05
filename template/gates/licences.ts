@@ -9,6 +9,7 @@ import {
   COMMITTED_LICENCES,
   LICENCES_FILE,
   LICENCES_ROUTE,
+  NO_TEXT,
   readLicences,
   renderEntries,
   type LicencesFile,
@@ -39,19 +40,22 @@ function licencesWith(good: GateInput, scratch: string, pkg: PackageNotice) {
 
 export const licencesGate: Gate = {
   id: "licences",
-  checks: `every npm package the build ships is under ${[...ALLOWED_LICENCES].join(", ")}; anything else is a Checkpoint item`,
+  checks: `every npm package the build ships is under ${[...ALLOWED_LICENCES].join(", ")} and ships its licence text; anything else is a Checkpoint item`,
   points: ["deploy"],
   async run(input) {
     const { packages } = builtLicences(input).file;
     const findings: Finding[] = [];
-    for (const { name, version, licence } of packages) {
+    for (const { name, version, licence, hasText } of packages) {
+      const ask = (why: string) =>
+        findings.push({
+          outcome: "checkpoint",
+          at: `${name}@${version}`,
+          message: `${name} ships in the site and ${why}: the Owner decides whether it ships`,
+        });
       const verdict = licenceVerdict(licence);
-      if (verdict.allowed) continue;
-      findings.push({
-        outcome: "checkpoint",
-        at: `${name}@${version}`,
-        message: `${name} ships in the site and ${verdict.reason}: the Owner decides whether it ships`,
-      });
+      if (!verdict.allowed) ask(verdict.reason);
+      // Its notice can't be reproduced without the text (an MIT licence asks for its copyright line).
+      else if (!hasText) ask("ships no licence text for the Licences file to carry");
     }
     return { coverage: { packages: packages.length }, findings };
   },
@@ -69,8 +73,14 @@ export const licencesGate: Gate = {
           name: "planted-unlicensed",
           version: "0.0.1",
           licence: undefined,
-          text: "(The package ships no licence text.)",
+          text: NO_TEXT,
         }),
+    },
+    {
+      defect: "an MIT package that ships no licence text",
+      expect: "checkpoint",
+      plant: (good, scratch) =>
+        licencesWith(good, scratch, { name: "planted-textless", version: "0.0.1", licence: "MIT", text: NO_TEXT }),
     },
   ],
 };

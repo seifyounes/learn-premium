@@ -8,6 +8,8 @@ on:
     paths:
       - "template/**"
       - "fixture-course/**"
+      # The deploy gates' evidence rules: test/evidence-rules.test.ts holds this copy to the template's.
+      - "skill/scripts/go-public/evidence.ts"
       - ".github/workflows/template-ci.yml"
   workflow_dispatch:
 

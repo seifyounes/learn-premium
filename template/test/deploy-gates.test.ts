@@ -48,7 +48,13 @@ describe("the deploy and live gates on the Fixture Course's production build", (
       "react-dom",
       "scheduler",
     ]);
-    expect(file.packages.find((p) => p.name === "react")).toEqual({ name: "react", version: "19.3.0", licence: "MIT" });
+    expect(file.packages.find((p) => p.name === "react")).toEqual({
+      name: "react",
+      version: "19.3.0",
+      licence: "MIT",
+      hasText: true,
+    });
+    expect(file.packages.filter((p) => !p.hasText)).toEqual([]);
     expect(file.notices.map((n) => `${n.id} ${n.licence}`)).toEqual([
       "mhchem Apache-2.0",
       "katex-fonts OFL-1.1",
