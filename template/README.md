@@ -205,13 +205,15 @@ the sheet's plot elements as dicts (`point` with `at`, `line` with `through`, `g
   file.
 - **Run live.** The printed button says what the tap downloads (`Run live · 16.5 MB`): the real
   bytes of Pyodide's core files and every package file the tool loads (with what they depend on,
-  from Pyodide's lock), rounded up to the next 0.1 MB, uncompressed. Nothing of Pyodide is imported
+  from Pyodide's lock), rounded up to the next 0.1 MB, uncompressed: an upper bound on what the phone
+  downloads if Vercel compresses them (the Owner's ruling on #50). Nothing of Pyodide is imported
   until the tap: the island (`src/islands/PythonTool.tsx`) imports `src/python/live.ts` then,
   which loads the self-hosted loader. The student can then edit the code and run it again; a
   Python error shows its traceback in red pen.
 - **Self-hosted.** `src/python/integration.ts` serves Pyodide at `/pyodide/`: the core from the
-  template's pinned `pyodide` package, and each package file a tool loads from the Course's
-  `pyodide/` folder, committed in the Course project (ADR 0003). The build checks each against
+  template's pinned `pyodide` package (never committed per Course), and each package file a tool
+  loads from the Course's `pyodide/` folder, committed in the Course project (ADR 0003, as amended
+  on #50). The build checks each against
   the SHA-256 in Pyodide's lock. `npm run wheels` fetches the files the Course's tools need into
   that folder from Pyodide's CDN, once. A Course with no Pyodide tool ships no Pyodide.
 - **Timing run.** In the Tool gallery, a live run shows how long Python took to start, to load
