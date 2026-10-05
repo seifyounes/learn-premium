@@ -19,7 +19,21 @@ function siteOf({ distDir }: GateInput): string {
   return distDir;
 }
 
-const sha256 = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
+const hashOf = (bytes: Buffer | string) => createHash("sha256").update(bytes).digest("hex");
+const sha256 = (path: string) => hashOf(readFileSync(path));
+
+/**
+ * The hashes a file can match a Materials file by: its bytes, and for text its LF and CRLF forms,
+ * since git's line-ending normalisation can change a text Material's bytes on its way into the
+ * site (the Go-public check matches the same way).
+ */
+function materialsHashes(path: string): string[] {
+  const bytes = readFileSync(path);
+  if (bytes.includes(0)) return [hashOf(bytes)];
+  const lf = bytes.toString("latin1").replace(/\r\n/g, "\n");
+  const crlf = lf.replace(/\n/g, "\r\n");
+  return [hashOf(bytes), hashOf(Buffer.from(lf, "latin1")), hashOf(Buffer.from(crlf, "latin1"))];
+}
 
 /**
  * File types a Study site never ships but Materials come in: documents, decks, sheets and camera
@@ -89,7 +103,12 @@ export const noMaterials: Gate = {
       const block = (message: string) => findings.push({ outcome: "block", at: `/${entry}`, message });
       if (MATERIALS_TYPES.has(extname(entry).toLowerCase()))
         block(`a ${extname(entry).slice(1).toUpperCase()} file in the output: Materials never ship`);
-      const material = known.size > 0 ? known.get(sha256(path)) : undefined;
+      const material =
+        known.size > 0
+          ? materialsHashes(path)
+              .map((h) => known.get(h))
+              .find(Boolean)
+          : undefined;
       if (material !== undefined) block(`is the Materials file ${material} (its hash is in the Build ledger)`);
     }
     return { coverage: { files: files.length, materialsHashes: known.size }, findings };
@@ -98,6 +117,18 @@ export const noMaterials: Gate = {
     {
       defect: "a lecture PDF in the build output",
       plant: (good, scratch) => siteFilesWith(good, scratch, { "01-planted/lecture-03.pdf": "%PDF-1.7 planted\n" }),
+    },
+    {
+      defect: "a text Material with CRLF line endings, shipped with LF ones under another name",
+      plant: (good, scratch) => {
+        const notes = "Lecture 2 notes\r\nplanted line\r\n";
+        const course = courseCopy(good, scratch);
+        writeFileSync(
+          join(course.contentDir, LEDGER_FILE),
+          JSON.stringify({ materials: [{ path: "Lecture 2/notes.txt", hash: hashOf(notes) }] }),
+        );
+        return siteFilesWith(course, scratch, { "_astro/notes.planted.txt": notes.replace(/\r\n/g, "\n") });
+      },
     },
     {
       defect: "a board photo the Build ledger lists, shipped under a figure's name",

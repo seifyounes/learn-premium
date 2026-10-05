@@ -1,7 +1,7 @@
 // Which npm package a bundled module came from, and what that package says about its licence.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { PackageNotice } from "./file.ts";
+import { NO_TEXT, type PackageNotice } from "./file.ts";
 
 /**
  * The folder of the package a bundled module id sits in (the innermost `node_modules/<name>` or
@@ -47,7 +47,7 @@ export function readPackage(dir: string): PackageNotice {
     version: json.version,
     licence: licenceOf(json),
     ...(source === undefined ? {} : { source }),
-    text: texts.length > 0 ? texts.join("\n\n") : "(The package ships no licence text.)",
+    text: texts.length > 0 ? texts.join("\n\n") : NO_TEXT,
   };
 }
 

@@ -39,6 +39,8 @@ export const COMMITTED_LICENCES = `public/${LICENCES_FILE}`;
 const RULE = "=".repeat(78);
 const UNDER = "-".repeat(78);
 const NO_LICENCE = "(none declared)";
+/** What a package's entry says when it ships no licence or notice file to reproduce. */
+export const NO_TEXT = "(The package ships no licence text.)";
 
 const PREAMBLE = `Third-party notices
 
@@ -83,11 +85,12 @@ export function renderEntries(packages: readonly PackageNotice[], notices: reado
 const block = (header: string[], text: string) => `\n${RULE}\n${header.join("\n")}\n${UNDER}\n${text.trimEnd()}\n`;
 
 export interface LicencesFile {
-  packages: { name: string; version: string; licence: string | undefined }[];
+  /** `hasText`: the entry carries the package's own licence text, not `NO_TEXT`. */
+  packages: { name: string; version: string; licence: string | undefined; hasText: boolean }[];
   notices: { id: string; licence: string }[];
 }
 
-/** Reads back what `renderLicences` wrote: each entry's header, never its licence text. */
+/** Reads back what `renderLicences` wrote: each entry's header, and whether a package's has text. */
 export function readLicences(text: string): LicencesFile {
   const file: LicencesFile = { packages: [], notices: [] };
   const lines = text.replace(/\r\n/g, "\n").split("\n");
@@ -107,6 +110,7 @@ export function readLicences(text: string): LicencesFile {
         name: split > 0 ? pkg.slice(0, split) : pkg,
         version: split > 0 ? pkg.slice(split + 1) : "",
         licence: licence === NO_LICENCE ? undefined : licence,
+        hasText: (lines[at + 1] ?? "") !== NO_TEXT,
       });
     } else if (notice !== undefined) file.notices.push({ id: notice, licence: licence ?? "" });
   }
