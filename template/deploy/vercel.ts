@@ -40,9 +40,14 @@ export class Vercel {
   async #call(method: "GET" | "POST", path: string, query: Record<string, string> = {}): Promise<unknown> {
     const { token, teamId, fetch: send = fetch } = this.#options;
     const params = new URLSearchParams({ ...query, ...(teamId === undefined ? {} : { teamId }) });
+    // A POST always sends a JSON body: Vercel's rollback endpoint requires one, even an empty one.
     const response = await send(`https://api.vercel.com${path}?${params}`, {
       method,
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(method === "POST" ? { "content-type": "application/json" } : {}),
+      },
+      ...(method === "POST" ? { body: "{}" } : {}),
     });
     const text = await response.text();
     if (!response.ok) {
@@ -74,7 +79,8 @@ export class Vercel {
    * asynchronously, so `production()` says when it's done. Vercel then stops promoting new pushes.
    */
   async rollBack(deploymentId: string, description: string): Promise<void> {
-    await this.#call("POST", `/v1/projects/${this.#options.projectId}/rollback/${deploymentId}`, { description });
+    // The endpoint and empty body Vercel's own CLI uses (packages/cli/src/commands/rollback).
+    await this.#call("POST", `/v9/projects/${this.#options.projectId}/rollback/${deploymentId}`, { description });
   }
 
   /**
