@@ -69,10 +69,40 @@ export class Vercel {
     return body.deployments.map(toDeployment).sort((a, b) => b.created - a.created);
   }
 
-  /** Points production at `deploymentId` (Instant Rollback). Vercel then stops promoting new pushes. */
+  /**
+   * Asks Vercel to point production at `deploymentId` (Instant Rollback). Vercel does it
+   * asynchronously, so `production()` says when it's done. Vercel then stops promoting new pushes.
+   */
   async rollBack(deploymentId: string, description: string): Promise<void> {
     await this.#call("POST", `/v1/projects/${this.#options.projectId}/rollback/${deploymentId}`, { description });
   }
+
+  /**
+   * What production serves now (a deployment can have held the domains once and been superseded
+   * since), and the state of the last promotion or rollback Vercel was asked for.
+   */
+  async production(): Promise<ProductionState> {
+    const body = (await this.#call("GET", `/v9/projects/${this.#options.projectId}`)) as {
+      targets?: { production?: { id?: unknown } };
+      lastAliasRequest?: { toDeploymentId?: unknown; jobStatus?: unknown } | null;
+    };
+    const current = body.targets?.production?.id;
+    const request = body.lastAliasRequest;
+    return {
+      current: typeof current === "string" ? current : undefined,
+      lastRequest:
+        request && typeof request.toDeploymentId === "string" && typeof request.jobStatus === "string"
+          ? { to: request.toDeploymentId, status: request.jobStatus }
+          : undefined,
+    };
+  }
+}
+
+export interface ProductionState {
+  /** The deployment serving the production domains now. */
+  current: string | undefined;
+  /** The last promotion or rollback asked for: its target and Vercel's job status (pending, succeeded, failed…). */
+  lastRequest: { to: string; status: string } | undefined;
 }
 
 interface RawDeployment {

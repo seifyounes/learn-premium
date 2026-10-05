@@ -55,26 +55,31 @@ jobs:
           cache: npm
           cache-dependency-path: template/package-lock.json
       - run: npm ci
-      - name: Playwright Chromium (the performance report)
-        run: npx playwright install --with-deps chromium
+      # `state` is `live` once production serves this commit's deployment, or `superseded` when a
+      # newer deployment already took production over; that one's own run checks it.
       - name: Wait until production serves this commit
         id: await
         run: npm run deploy -- await-live --sha "$SHA"
       # The pages to expect come from the same build Vercel made.
       - name: Build what Vercel built
+        if: steps.await.outputs.state == 'live'
         run: npm run build
         env:
           VERCEL_ENV: production
       - name: Live gates
+        if: steps.await.outputs.state == 'live'
         continue-on-error: true
         run: npm run gates -- run --point live --url "$LIVE_URL" --report "$RUNNER_TEMP/live-report.json"
       # Once production serves the commit, the verdict always runs: gates that couldn't run (a
-      # failed build included) count as failed, and fail the live site back to the last green.
+      # failed build included) count as failed, and fail the live site back to the last green. It
+      # settles nothing if production moved to a newer deployment meanwhile.
       - name: Verdict (red rolls Vercel back)
         id: verdict
-        if: always() && steps.await.outcome == 'success'
+        if: always() && steps.await.outputs.state == 'live'
+        env:
+          DEPLOYMENT: ${{ steps.await.outputs.deployment }}
         run: >-
-          npm run deploy -- verdict --sha "$SHA" --live-url "$LIVE_URL"
+          npm run deploy -- verdict --sha "$SHA" --deployment "$DEPLOYMENT" --live-url "$LIVE_URL"
           --report "$RUNNER_TEMP/live-report.json" --out "$RUNNER_TEMP/owner"
           --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           ${{ inputs.drill && '--drill' || '' }}
@@ -82,9 +87,16 @@ jobs:
         if: failure() && steps.verdict.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh issue create --title "$(cat "$RUNNER_TEMP/owner/issue-title.txt")"
-          --body-file "$RUNNER_TEMP/owner/issue-body.md" --assignee "$GITHUB_REPOSITORY_OWNER"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          owner="$RUNNER_TEMP/owner"
+          if [ ! -s "$owner/issue-title.txt" ]; then
+            mkdir -p "$owner"
+            echo "Live verdict for ${SHA::7} crashed" > "$owner/issue-title.txt"
+            printf 'The verdict step failed before it could roll back or report. Production may still serve %s.\n\nRun: %s\n' "$SHA" "$RUN_URL" > "$owner/issue-body.md"
+          fi
+          gh issue create --title "$(cat "$owner/issue-title.txt")" \
+            --body-file "$owner/issue-body.md" --assignee "$GITHUB_REPOSITORY_OWNER"
       - name: Tell the Owner the deploy never went live
         if: failure() && steps.await.outcome == 'failure'
         env:
@@ -101,7 +113,10 @@ jobs:
           } > "$RUNNER_TEMP/never-live.md"
           gh issue create --title "Deploy of ${SHA::7} never went live" \
             --body-file "$RUNNER_TEMP/never-live.md" --assignee "$GITHUB_REPOSITORY_OWNER"
+      # Chromium is installed here, not up front: the report never blocks, and neither may its setup.
       - name: Performance (reported, never blocking)
-        if: always() && steps.await.outcome == 'success'
+        if: always() && steps.await.outputs.state == 'live'
         continue-on-error: true
-        run: npm run deploy -- performance --url "$LIVE_URL" --lighthouse
+        run: |
+          npx playwright install --with-deps chromium
+          npm run deploy -- performance --url "$LIVE_URL" --lighthouse

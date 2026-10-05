@@ -1,18 +1,27 @@
 // What a red live run does: roll Vercel's production back to the last green deployment (the newest
 // earlier production deployment whose commit passed the live gates), and write the Owner's report.
+import { setTimeout as sleep } from "node:timers/promises";
 import type { GateReport } from "../gates/runner.ts";
 import { VercelError, type Deployment, type Vercel } from "./vercel.ts";
 
 export type RollbackOutcome =
   | { kind: "rolled-back"; failed: Deployment | undefined; target: Deployment; skipped: Deployment[] }
   | { kind: "no-green"; failed: Deployment | undefined; skipped: Deployment[] }
-  | { kind: "refused"; failed: Deployment | undefined; target: Deployment; skipped: Deployment[]; error: string };
+  | { kind: "refused"; failed: Deployment | undefined; target: Deployment; skipped: Deployment[]; error: string }
+  /** Vercel took the request, but production never moved to the target. */
+  | { kind: "unconfirmed"; failed: Deployment | undefined; target: Deployment; skipped: Deployment[]; error: string };
 
 export interface RollbackDeps {
-  vercel: Pick<Vercel, "productionDeployments" | "rollBack">;
+  vercel: Pick<Vercel, "productionDeployments" | "rollBack" | "production">;
   /** Whether the live gates passed on a commit. */
   passedLiveGates(sha: string): Promise<boolean>;
+  /** How to wait between checks that the rollback landed; tests pass one that doesn't. */
+  wait?: (ms: number) => Promise<void>;
 }
+
+/** Vercel rolls back asynchronously: how long to watch for production to move before saying so. */
+const CONFIRM_EVERY_MS = 10_000;
+const CONFIRM_TRIES = 18;
 
 /** Rolls production back from the deployment of `failedSha` to the last green one before it. */
 export async function rollBackFrom(failedSha: string, why: string, deps: RollbackDeps): Promise<RollbackOutcome> {
@@ -29,13 +38,30 @@ export async function rollBackFrom(failedSha: string, why: string, deps: Rollbac
     }
     try {
       await deps.vercel.rollBack(candidate.uid, why);
-      return { kind: "rolled-back", failed, target: candidate, skipped };
     } catch (error) {
       if (!(error instanceof VercelError)) throw error;
       return { kind: "refused", failed, target: candidate, skipped, error: error.message };
     }
+    const problem = await landed(candidate.uid, deps);
+    return problem === undefined
+      ? { kind: "rolled-back", failed, target: candidate, skipped }
+      : { kind: "unconfirmed", failed, target: candidate, skipped, error: problem };
   }
   return { kind: "no-green", failed, skipped };
+}
+
+/** Undefined once production serves `target`; otherwise why it doesn't. */
+async function landed(target: string, { vercel, wait = sleep }: RollbackDeps): Promise<string | undefined> {
+  let state = await vercel.production();
+  for (let tries = 1; state.current !== target; tries++) {
+    if (state.lastRequest?.to === target && state.lastRequest.status === "failed")
+      return "Vercel's rollback job failed";
+    if (tries >= CONFIRM_TRIES)
+      return `production still served ${state.current ?? "an unknown deployment"} ${(CONFIRM_TRIES * CONFIRM_EVERY_MS) / 1000}s later`;
+    await wait(CONFIRM_EVERY_MS);
+    state = await vercel.production();
+  }
+  return undefined;
 }
 
 export interface OwnerReport {
@@ -96,6 +122,13 @@ export function ownerReport({
           "On the Hobby plan Instant Rollback only goes back to the deployment just before the current one.",
           "Production still serves the failing deployment: promote the green one by hand (Vercel dashboard,",
           "Deployments, its menu, **Promote**; or `vercel promote <deployment>`), or fix forward.",
+        ];
+      case "unconfirmed":
+        return [
+          `Vercel accepted the rollback to ${named(outcome.target)}, but ${outcome.error}.`,
+          "",
+          "Production may still serve the failing deployment. Check the project's production tile, and",
+          "promote the green deployment by hand if it didn't move (`vercel promote <deployment>`).",
         ];
       case "no-green":
         return [
