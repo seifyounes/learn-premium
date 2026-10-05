@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 import { describe, expect, it } from "vitest";
 import { BROWSER_GATES } from "../gates/browser.ts";
 import { sitePages } from "../gates/pages.ts";
-import { browserRun, IN_PAGE, WIDTHS } from "../gates/browser/run.ts";
+import { assertWidth, browserRun, IN_PAGE, WIDTH_ARRIVES_MS, WIDTHS } from "../gates/browser/run.ts";
 import { GATES } from "../gates/index.ts";
 import { runGates, type Gate, type GateInput } from "../gates/runner.ts";
 import { buildCourse, FIXTURE_COURSE } from "./build-course";
@@ -291,4 +291,34 @@ describe("the touch check", () => {
       rmSync(scratch, { recursive: true, force: true });
     }
   }, 600_000);
+});
+
+describe("the width check", () => {
+  it(
+    "waits out a page too busy to say its width: only a wrong width fails",
+    async () => {
+      const browser = await chromium.launch();
+      try {
+        const page = await browser.newPage({ viewport: { width: 400, height: 800 } });
+        await page.setViewportSize({ width: 375, height: 800 });
+        // The width has arrived, but the page is at work past the wait (on CI's runner a sim still
+        // drawing held it past the 2s the wait once had) and can't say so till it's done.
+        await page.evaluate(
+          (ms) =>
+            setTimeout(() => {
+              const end = Date.now() + ms;
+              while (Date.now() < end);
+            }),
+          WIDTH_ARRIVES_MS + 2_000,
+        );
+        await assertWidth(page, "chromium", 375);
+        await expect(assertWidth(page, "chromium", 390)).rejects.toThrow(
+          "asked chromium for a 390px viewport and the page has 375px, so the sweep can't be trusted",
+        );
+      } finally {
+        await browser.close();
+      }
+    },
+    WIDTH_ARRIVES_MS * 2 + 60_000,
+  );
 });
