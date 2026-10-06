@@ -36,7 +36,7 @@ describe("the tangent sim through the gates", () => {
   it("passes the five eligibility checks, its engine run at both sliders' min, mid and max", async () => {
     const result = await toolsGate.run({ contentDir: FIXTURE_COURSE, module: MATHS });
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toEqual({ modules: 1, sims: 1, kinds: 1, checks: 5, engineSamples: 7 });
+    expect(result.coverage).toEqual({ modules: 1, sims: 1, pythonTools: 0, kinds: 1, checks: 5, engineSamples: 7 });
   });
 });
 
@@ -63,7 +63,7 @@ describe("the plane-wall sim through the gates", () => {
   it("passes the five eligibility checks, Plotly's heatmap view included", async () => {
     const result = await toolsGate.run({ contentDir: FIXTURE_COURSE, module: HEAT });
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toEqual({ modules: 1, sims: 1, kinds: 1, checks: 5, engineSamples: 7 });
+    expect(result.coverage).toEqual({ modules: 1, sims: 1, pythonTools: 0, kinds: 1, checks: 5, engineSamples: 7 });
   });
 
   it("catches every planted defect on the plane-wall sim, the first live sim of the Course", async () => {
