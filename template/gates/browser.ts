@@ -121,6 +121,14 @@ export const layoutSweep = browserGate(
       ),
     },
     {
+      // Text scrolled out of a scroll box isn't drawn, so the check cuts text to its box; what the
+      // box shows is still checked.
+      defect: "two lines drawn on the same pixels inside a scroll box",
+      plant: plantInMain(
+        '<div style="max-block-size: 6em; overflow: auto"><p>Heat flows from hot to cold.</p><p style="margin-block-start: -1.4em">Resistances in series add.</p><p style="block-size: 20em">Below.</p></div>',
+      ),
+    },
+    {
       defect: "a height-locked box whose content is taller than it",
       plant: plantInMain('<div style="block-size: 24px"><p>One line.</p><p>Two lines.</p><p>Three lines.</p></div>'),
     },
