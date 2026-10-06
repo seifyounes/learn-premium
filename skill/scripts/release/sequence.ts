@@ -24,6 +24,8 @@ export interface WorkflowRun {
   status: string;
   conclusion: string | null;
   createdAt: string;
+  /** When its latest attempt started: a re-run keeps the run's createdAt but moves this. */
+  startedAt: string;
   url: string;
 }
 
@@ -83,7 +85,7 @@ export interface Steps {
 
 const workflowFile = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
-/** Step 1: the newest run of every required workflow on the candidate is green. */
+/** Step 1: the latest attempt of every required workflow on the candidate is green. */
 export async function ciStep(forge: Forge, sha: string, onMainTip: boolean): Promise<Step> {
   const runs = await forge.runs(sha);
   const lines: string[] = [];
@@ -91,7 +93,7 @@ export async function ciStep(forge: Forge, sha: string, onMainTip: boolean): Pro
   for (const workflow of REQUIRED_WORKFLOWS) {
     const newest = runs
       .filter((r) => r.workflow === workflow)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt) || b.createdAt.localeCompare(a.createdAt))[0];
     const file = workflowFile(workflow);
     if (newest === undefined) {
       ok = false;

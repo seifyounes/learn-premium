@@ -74,7 +74,8 @@ class FakeForge implements Forge {
       workflow,
       status: conclusion === null ? "in_progress" : "completed",
       conclusion,
-      createdAt: new Date(Date.UTC(2026, 9, 7, 0, 0, this.clock++)).toISOString(),
+      createdAt: new Date(Date.UTC(2026, 9, 7, 0, 0, this.clock)).toISOString(),
+      startedAt: new Date(Date.UTC(2026, 9, 7, 0, 0, this.clock++)).toISOString(),
       url: `https://github.example/runs/${this.clock}`,
     });
     this.runsBySha.set(sha, list);
@@ -183,6 +184,23 @@ describe("status", () => {
     const { stdout } = await r.release("status");
     expect(stdout).toMatch(/1\. CI green: no/);
     expect(stdout).toMatch(/skill-ci\.yml: failure/);
+  });
+
+  test("counts a re-run's latest attempt, though the run was created before a newer green one", async () => {
+    const r = repo();
+    const sha = r.commit("the template");
+    r.forge.addRun(sha, REQUIRED_WORKFLOWS[0] ?? "", "success");
+    r.forge.ciGreen(sha);
+    r.forge.liveGreen(sha);
+    r.forge.ownerPass(sha);
+    // The first Template CI run is re-run after the second one went green, and its new attempt fails.
+    const first = r.forge.runsBySha.get(sha)?.[0];
+    if (first === undefined) throw new Error("no run");
+    Object.assign(first, { conclusion: "failure", startedAt: "2026-10-08T00:00:00.000Z" });
+    const { code, stdout } = await r.release("tag", "--bump", "minor");
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/template-ci\.yml: failure/);
+    expect(r.originTags()).toBe("");
   });
 
   test("points the Owner at the Tool gallery and the command that records the pass once 1 and 2 are green", async () => {
@@ -392,6 +410,22 @@ describe("notes", () => {
     writeFileSync(file, readFileSync(file, "utf8").replace("## Fixed", "## Gate gaps closed\n\nNone, said the Owner."));
     expect((await r.release("tag", "--bump", "minor", "--notes", file)).code).toBe(0);
     expect(git(r.origin, "tag", "-l", "--format=%(contents)", "v0.1.0")).toContain("None, said the Owner.");
+  });
+
+  test("a notes file written for another version or commit is refused", async () => {
+    const r = repo();
+    const drafted = readyButForThePass(r, "the drafted candidate");
+    const file = join(tempDir("notes"), "notes.md");
+    expect((await r.release("notes", "--bump", "minor", "--out", file)).code).toBe(0);
+    const later = readyButForThePass(r, "a later merge");
+    r.forge.ownerPass(later);
+    const stale = await r.release("tag", "--bump", "minor", "--notes", file);
+    expect(stale.code).toBe(1);
+    expect(stale.stdout).toContain(`is written for commit ${drafted}, not ${later}`);
+    const otherVersion = await r.release("tag", "--bump", "major", "--notes", file);
+    expect(otherVersion.code).toBe(1);
+    expect(otherVersion.stdout).toMatch(/is written for v0\.1\.0, not v1\.0\.0/);
+    expect(r.originTags()).toBe("");
   });
 });
 

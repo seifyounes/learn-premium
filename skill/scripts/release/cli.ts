@@ -186,7 +186,12 @@ async function main(argv: string[], deps: CliDeps, out: string[]): Promise<numbe
         if (values.notes !== undefined) {
           notes = readFileSync(values.notes, "utf8");
           try {
-            parseNotes(notes);
+            // A draft made for another version or commit would advertise the wrong release.
+            const parsed = parseNotes(notes);
+            if (parsed.version !== p.version)
+              refusals.push(`${values.notes} is written for ${parsed.version ?? "no version"}, not ${p.version}`);
+            if (parsed.sha !== sha)
+              refusals.push(`${values.notes} is written for commit ${parsed.sha ?? "(none)"}, not ${sha}`);
           } catch (error) {
             if (!(error instanceof NotesError)) throw error;
             refusals.push(`${values.notes}: ${error.message}`);

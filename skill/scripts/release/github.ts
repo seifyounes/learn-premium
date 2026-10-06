@@ -45,6 +45,7 @@ export class GhForge implements Forge {
         status: string;
         conclusion: string | null;
         created_at: string;
+        run_started_at: string | null;
         html_url: string;
       }[];
     }[];
@@ -55,6 +56,7 @@ export class GhForge implements Forge {
         status: r.status,
         conclusion: r.conclusion,
         createdAt: r.created_at,
+        startedAt: r.run_started_at ?? r.created_at,
         url: r.html_url,
       })),
     );
