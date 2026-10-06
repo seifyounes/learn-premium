@@ -4,7 +4,7 @@
 // answers, the Private folder beside the Materials and a place in the Course registry. GitHub and
 // Vercel come after, in the host step, only on the Owner's word.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { LedgerError } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
@@ -117,7 +117,7 @@ export function createProject(options: CreateOptions) {
       `the Materials folder ${materials} is inside the Course project's folder ${project}`,
     );
   }
-  const repo = enclosingRepo(dirname(privateFolder));
+  const repo = enclosingRepo(privateFolder);
   if (repo !== null) {
     throw new LedgerError(
       "refused",
@@ -137,8 +137,8 @@ export function createProject(options: CreateOptions) {
   );
 
   // Made in a staging folder and moved into place whole, so a failure leaves nothing half-made.
-  const stage = join(workspace, `.${answers.slug}.creating`);
-  rmSync(stage, { recursive: true, force: true });
+  // A fresh, uniquely named one: a leftover or another run's staging folder is never touched.
+  const stage = mkdtempSync(join(workspace, `.${answers.slug}.creating-`));
   let commit: string;
   try {
     for (const [path, content] of template) write(stage, join(TEMPLATE_DIR, path), content);

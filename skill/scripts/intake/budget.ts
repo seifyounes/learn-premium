@@ -4,6 +4,7 @@
 import { LedgerError } from "../ledger/file.ts";
 import { current } from "../ledger/model.ts";
 import { readLedger } from "../ledger/store.ts";
+import { capacity as capacityOf } from "../media/quota.ts";
 import { MEDIA_KINDS, MODULE_MEDIA, type MediaKind, type Usage } from "../media/model.ts";
 import { readMediaFile, readRegistry, readUsage } from "../media/store.ts";
 import type { Answers } from "./answers.ts";
@@ -102,14 +103,19 @@ export function budget(stateDir: string, answers: Answers) {
     }
   }
 
+  // What the weekly cap makes over the window, less what the last 7 days already spent: those
+  // generations still count against it until they leave the rolling window.
   const weeklyLimit = usage.limits.weekly;
-  const units = weeklyLimit === null || days === null ? null : round((weeklyLimit * days) / 7);
+  const used = capacityOf(usage, Date.now()).weekly.used;
+  const units =
+    weeklyLimit === null || days === null || used === null ? null : round(Math.max(0, (weeklyLimit * days) / 7 - used));
   const committed = others.reduce<number | null>(
     (sum, o) => (sum === null || o.units === null ? null : sum + o.units),
     0,
   );
   const capacity = {
     weeklyLimit,
+    used: weeklyLimit === null ? null : used,
     units,
     committed: weeklyLimit === null ? null : committed,
     remaining: units === null || committed === null ? null : round(units - committed),
@@ -120,6 +126,9 @@ export function budget(stateDir: string, answers: Answers) {
   if (window === null) {
     verdict = "unknown";
     reason = "no dated Exam sitting ahead, so there is no window to fit the media in; add a date when it is known";
+  } else if (skipped.length > 0) {
+    verdict = "unknown";
+    reason = `${skipped.length} registered Course(s) couldn't be read, so their demand is unknown: see skipped`;
   } else if (course.units === null || capacity.remaining === null) {
     verdict = "unknown";
     reason =

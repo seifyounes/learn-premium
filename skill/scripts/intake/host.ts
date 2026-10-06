@@ -70,11 +70,13 @@ export async function host(projectPath: string, hosting: Hosting) {
   }
 
   if (visibility === null) {
+    // The origin is recorded first, so a run that stops after GitHub made the repo knows it's this
+    // project's when it's run again.
+    if (!origin.ok) git(project, "remote", "add", "origin", remote);
     await hosting.createPrivateRepo(repo, `Study site for ${ledger.intake.courseName} (learn-premium)`);
     if ((await hosting.repoVisibility(repo)) !== "private") {
       throw new LedgerError("refused", `GitHub didn't make ${repo} private; nothing was pushed`);
     }
-    if (!origin.ok) git(project, "remote", "add", "origin", remote);
   }
   await hosting.pushMain(project, repo);
   const commit = git(project, "rev-parse", "HEAD").out;
