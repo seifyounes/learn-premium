@@ -74,7 +74,8 @@ function findings(out: Result["out"], kind: string): Result["out"][] {
   return out.findings.filter((finding: { check: string }) => finding.check === kind);
 }
 
-describe("Go-public check", () => {
+// Each test makes git repos and clones; under a loaded machine or a 4-core run they pass 5 s.
+describe("Go-public check", { timeout: 30_000 }, () => {
   test("a clean Course project is clear, and the report says what it scanned", async () => {
     const { project } = course();
     commit(project, "feat: Module 01", { "modules/01-conduction/summary/1.md": "Heat flows from hot to cold.\n" });
