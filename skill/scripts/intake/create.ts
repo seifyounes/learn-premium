@@ -11,6 +11,7 @@ import { hashTree } from "../ledger/hash.ts";
 import { init } from "../ledger/ledger.ts";
 import { TEMPLATE_DIR } from "../ledger/model.ts";
 import { register } from "../media/media.ts";
+import { readRegistry } from "../media/store.ts";
 import { ledgerIntake, type Answers } from "./answers.ts";
 import { requireFolder } from "./propose.ts";
 import { templateAt } from "./release.ts";
@@ -126,6 +127,7 @@ export function createProject(options: CreateOptions) {
   if (existsSync(project))
     throw new LedgerError("refused", `${project} already exists; a Course project is never made over it`);
   readCatalog(workspace);
+  readRegistry(stateDir);
   const author = authorOf(options.source);
   const template = templateAt(options.source, release);
   const materialsByHash = new Map(
@@ -169,13 +171,13 @@ export function createProject(options: CreateOptions) {
     git(stage, "add", "-A");
     git(stage, "commit", "-q", "-m", `chore: create the ${answers.courseName} Course project`);
     commit = git(stage, "rev-parse", "HEAD");
+    mkdirSync(privateFolder, { recursive: true });
     renameRetrying(stage, project);
   } catch (error) {
     rmSync(stage, { recursive: true, force: true });
     throw error;
   }
 
-  mkdirSync(privateFolder, { recursive: true });
   const registry = register(stateDir, project);
   const catalog = withCatalogRow(readCatalog(workspace), answers.slug, [
     `${answers.courseName} study site`,

@@ -44,9 +44,16 @@ interface Other {
  * What a registered Course still has to make this semester: its expected Modules (or, with none
  * recorded, its mapped ones) and its Exam sittings, less every item already started, made or dropped.
  */
-function outstanding(project: string, usage: Usage): Omit<Other, "project"> & { materialsPath: string } {
+function outstanding(
+  project: string,
+  usage: Usage,
+  today: string,
+): Omit<Other, "project"> & { materialsPath: string; ended: boolean } {
   const ledger = readLedger(project);
   if (ledger === null) throw new LedgerError("refused", `no Build ledger in ${project}`);
+  const { sittings } = ledger.intake;
+  // A Course whose every Exam sitting is dated and past has had its semester: it wants nothing more.
+  const ended = sittings.length > 0 && sittings.every((s) => s.date !== null && s.date < today);
   const modules = ledger.intake.expectedModules ?? current(ledger.modules).length;
   const items = demandOf(modules, ledger.intake.sittings.length);
   for (const item of readMediaFile(project)?.items ?? []) {
@@ -55,6 +62,7 @@ function outstanding(project: string, usage: Usage): Omit<Other, "project"> & { 
   return {
     course: ledger.intake.courseName,
     materialsPath: ledger.intake.materialsPath,
+    ended,
     items,
     units: unitsOf(items, usage),
   };
@@ -79,12 +87,15 @@ export function budget(stateDir: string, answers: Answers) {
   const window = last === undefined || days === null ? null : { from: today, to: last, weeks: round(days / 7) };
 
   const others: Other[] = [];
+  const ended: { project: string; course: string }[] = [];
   const skipped: { project: string; course: string; error: string }[] = [];
   for (const { project, course: registered } of readRegistry(stateDir).courses) {
     try {
-      const { materialsPath, ...rest } = outstanding(project, usage);
+      const { materialsPath, ended: over, ...rest } = outstanding(project, usage, today);
       // The same Course checked again after it joined the registry isn't its own competition.
-      if (!samePath(materialsPath, answers.materialsPath)) others.push({ project, ...rest });
+      if (samePath(materialsPath, answers.materialsPath)) continue;
+      if (over) ended.push({ project, course: rest.course });
+      else others.push({ project, ...rest });
     } catch (error) {
       if (!(error instanceof LedgerError)) throw error;
       skipped.push({ project, course: registered, error: error.message });
@@ -115,7 +126,7 @@ export function budget(stateDir: string, answers: Answers) {
       "NotebookLM's usage isn't measured yet (or a registered Course can't be priced): record the costs and the weekly limit with `media.ts quota` after the first real media run";
   } else verdict = course.units <= capacity.remaining ? "fits" : "over";
 
-  return { course, window, others, skipped, capacity, verdict, reason };
+  return { course, window, others, ended, skipped, capacity, verdict, reason };
 }
 
 function round(n: number): number {
