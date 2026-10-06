@@ -98,6 +98,8 @@ export function runLive(
   code: string,
   signal?: AbortSignal,
 ): Promise<LiveOutcome> {
+  // Stopped before it was even asked for (while this module loaded): nothing to queue.
+  if (signal?.aborted) return Promise.resolve(stopped());
   const run = queue.then(() => runOne(base, packages, code, signal));
   queue = run.catch(() => {});
   if (!signal) return run;

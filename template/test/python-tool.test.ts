@@ -315,4 +315,32 @@ describe("two Pyodide tools on one page", () => {
     expect(await second.locator(".python-output pre").textContent()).toBe("echo");
     await page.close();
   });
+
+  it("stop a run at once when Stop comes before Python's module has even loaded", async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // Hold the module a tap imports, so Stop lands while that import is still pending.
+    let holding: () => void = () => {};
+    const held = new Promise<void>((resolve) => (holding = resolve));
+    await page.route("**/_astro/live.*.js", async (route) => {
+      holding();
+      await new Promise((resolve) => setTimeout(resolve, 4_000));
+      await route.continue();
+    });
+    await page.goto(`${site.url}/${MODULE}/`);
+    const first = page.locator(`#python-${MODULE}-normal-equation [data-python-tool]`);
+    const second = page.locator(`#python-${MODULE}-echo [data-python-tool]`);
+    for (const tool of [first, second]) {
+      await tool.scrollIntoViewIfNeeded();
+      await tool.and(page.locator('[data-ready="true"]')).waitFor();
+    }
+    // The first tool's run never finishes, so nothing queued behind it ever gets a turn.
+    await first.locator("textarea").fill("while True:\n    pass");
+    await first.locator("[data-run-live]").click();
+    await second.locator("[data-run-live]").click();
+    await held;
+    await second.getByRole("button", { name: "Stop" }).click();
+    await second.and(page.locator('[data-state="stopped"]')).waitFor({ timeout: 10_000 });
+    await first.getByRole("button", { name: "Stop" }).click();
+    await page.close();
+  });
 });
