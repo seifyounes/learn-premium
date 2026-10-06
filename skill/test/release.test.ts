@@ -352,6 +352,18 @@ describe("majors and migrations", () => {
     expect(stdout).toMatch(/ships template\/migrations\/v1\.ts, so it must be a major release/);
   });
 
+  test("the first release can't carry a migration for a later major", async () => {
+    const r = repo();
+    const sha = r.commit("the template", { "template/migrations/v1.ts": MIGRATION });
+    r.forge.ciGreen(sha);
+    r.forge.liveGreen(sha);
+    r.forge.ownerPass(sha);
+    const { code, stdout } = await r.release("tag", "--bump", "minor");
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/ships template\/migrations\/v1\.ts, so it must be a major release/);
+    expect(r.originTags()).toBe("");
+  });
+
   test("a later release keeps every migration an earlier one shipped", async () => {
     const r = await afterFirstRelease({ "template/migrations/v1.ts": MIGRATION });
     expect((await r.release("tag", "--bump", "major")).code).toBe(0);
@@ -450,9 +462,9 @@ describe("notes", () => {
     const stale = await r.release("tag", "--bump", "minor", "--notes", file);
     expect(stale.code).toBe(1);
     expect(stale.stdout).toContain(`is written for commit ${drafted}, not ${later}`);
-    const otherVersion = await r.release("tag", "--bump", "major", "--notes", file);
+    const otherVersion = await r.release("tag", "--version", "v0.2.0", "--notes", file);
     expect(otherVersion.code).toBe(1);
-    expect(otherVersion.stdout).toMatch(/is written for v0\.1\.0, not v1\.0\.0/);
+    expect(otherVersion.stdout).toMatch(/is written for v0\.1\.0, not v0\.2\.0/);
     expect(r.originTags()).toBe("");
   });
 });
