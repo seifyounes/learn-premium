@@ -21,6 +21,8 @@ const CAUGHT_BY: Record<string, RegExp> = {
   "content lifted above the top of the page": /"Lifted off the page\." sits \d+px above the page/,
   "two paragraphs drawn on the same pixels":
     /"Heat flows from hot to cold\." and .*"Resistances in series add\." overlap/,
+  "two lines drawn on the same pixels inside a scroll box":
+    /"Heat flows from hot to cold\." and .*"Resistances in series add\." overlap/,
   "a height-locked box whose content is taller than it": /holds \d+px of content in a 24px box/,
   "text set under the 12px floor": /"Small print under the floor\." is drawn at 10\.0px, under the 12px floor/,
   "a KaTeX error span on the page": /a KaTeX error on the page: ParseError: planted/,

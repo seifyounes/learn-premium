@@ -111,9 +111,50 @@
     return ctm ? size * Math.hypot(ctm.b, ctm.d) : size;
   }
 
+  /**
+   * The part of the screen an element's own scroll boxes show: the intersection of every ancestor
+   * that scrolls (overflow auto or scroll). Text scrolled out of such a box (a long listing kept on
+   * its current line) isn't drawn, and the student scrolls the box to read it.
+   */
+  function scrollWindow(el, cache) {
+    if (!el || el === document.body) return null;
+    if (cache.has(el)) return cache.get(el);
+    let clip = scrollWindow(el.parentElement, cache);
+    const style = getComputedStyle(el);
+    if (/(auto|scroll)/.test(style.overflowX + style.overflowY)) {
+      const r = el.getBoundingClientRect();
+      clip = clip
+        ? {
+            left: Math.max(clip.left, r.left),
+            top: Math.max(clip.top, r.top),
+            right: Math.min(clip.right, r.right),
+            bottom: Math.min(clip.bottom, r.bottom),
+          }
+        : { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    }
+    cache.set(el, clip);
+    return clip;
+  }
+  /** A text rect cut to what its scroll boxes show; `null` when they show none of it. */
+  function shown(r, clip) {
+    if (!clip) return r;
+    const left = Math.max(r.left, clip.left);
+    const top = Math.max(r.top, clip.top);
+    const right = Math.min(r.right, clip.right);
+    const bottom = Math.min(r.bottom, clip.bottom);
+    if (right - left <= 1 || bottom - top <= 1) return null;
+    return { left, top, right, bottom, width: right - left, height: bottom - top, x: left, y: top };
+  }
+
   /** Ink: rectangles of text (KaTeX by its rendered pieces), every text-bearing element once. */
   function textMarks(visible) {
     const marks = [];
+    const windows = new Map();
+    const push = (el, r, node) => {
+      if (r.width <= 1 || r.height <= 1) return;
+      const cut = shown(r, scrollWindow(el, windows));
+      if (cut) marks.push({ el, r: cut, node });
+    };
     const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const seenKatex = new Set();
     let node;
@@ -127,13 +168,13 @@
         if (el.closest(".katex-mathml") || seenKatex.has(katex)) continue;
         seenKatex.add(katex);
         for (const base of katex.querySelectorAll(".katex-html > .base")) {
-          for (const r of base.getClientRects()) if (r.width > 1 && r.height > 1) marks.push({ el: katex, r, node });
+          for (const r of base.getClientRects()) push(katex, r, node);
         }
         continue;
       }
       const range = document.createRange();
       range.selectNodeContents(node);
-      for (const r of range.getClientRects()) if (r.width > 1 && r.height > 1) marks.push({ el, r, node });
+      for (const r of range.getClientRects()) push(el, r, node);
     }
     return marks;
   }

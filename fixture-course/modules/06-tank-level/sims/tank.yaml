@@ -190,3 +190,5 @@ provenance:
     - "PIW 256: $0$ to $27648$ is empty to full"
     - the zero-point offset, $200$
     - the set-points $1000$, $3000$, $10000$ and $12000$ litres
+    - the raw value $13624$, the tank half full
+    - an INT runs from $-32768$ to $32767$

@@ -61,6 +61,7 @@ describe("the first gates on the Fixture Course", () => {
       "master-rules",
       "sim-numbers",
       "truth-table",
+      "stl",
       "drawing",
       "tools",
     ]);
@@ -101,6 +102,7 @@ describe("the first gates on the Fixture Course", () => {
       "master-rules",
       "sim-numbers",
       "truth-table",
+      "stl",
       "drawing",
       "tools",
       "rendered-page-scan",
@@ -274,7 +276,7 @@ describe("the content gates", () => {
 
   it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
-    expect(report.gates.map((g) => g.status)).toEqual(Array(9).fill("failed"));
+    expect(report.gates.map((g) => g.status)).toEqual(Array(10).fill("failed"));
   });
 });
 
