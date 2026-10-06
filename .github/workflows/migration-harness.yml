@@ -1,0 +1,40 @@
+# The migration harness: upgrades a copy of the previous Template release's Fixture Course with
+# every newer major's migration, in order, and checks it against this template's content contract
+# and build. A red run means a Course on the previous release couldn't upgrade to this one, so the
+# template may not be released (docs/release.md).
+name: Migration harness
+
+on:
+  push:
+    paths:
+      - "template/**"
+      - "fixture-course/**"
+      - ".github/workflows/migration-harness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-harness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: template
+    steps:
+      # The whole history and its tags: the previous release is the latest tag behind this commit.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: template/.node-version
+          cache: npm
+          cache-dependency-path: template/package-lock.json
+      - run: npm ci
+      - name: Upgrade the previous release's Fixture Course
+        run: npm run migrations -- prove
