@@ -212,13 +212,13 @@ export function plan(git: Git, sha: string, wanted: { bump?: Bump; version?: str
     problems.push(`${version} is not newer than the latest release ${latest.name}`);
   }
   if (tags.has(version)) problems.push(`origin already has a tag ${version}`);
+  const carried = git.migrations(sha);
   if (latest !== null) {
     const released = tags.get(latest.name) ?? "";
     if (!git.isAncestor(released, sha))
       problems.push(`the candidate isn't on top of the latest release ${latest.name}`);
     // A release keeps every migration an earlier one shipped: a Course on an older release still
     // upgrades through them.
-    const carried = git.migrations(sha);
     for (const old of git.migrations(released)) {
       if (!carried.some((m) => m.file === old.file)) {
         problems.push(
@@ -226,16 +226,17 @@ export function plan(git: Git, sha: string, wanted: { bump?: Bump; version?: str
         );
       }
     }
-    // A major ships the migration for every major it crosses; nothing else ships one.
-    const shipped = carried.filter((m) => m.major > base[0]);
-    for (let major = base[0] + 1; major <= next[0]; major++) {
-      if (!shipped.some((m) => m.major === major)) {
-        problems.push(`${version} is a major release but ships no template/migrations/v${major}.ts`);
-      }
+  }
+  // A major ships the migration for every major it crosses; nothing else ships one. Before the
+  // first release the base is v0.0.0, so a first release can't carry a migration for a later major.
+  const shipped = carried.filter((m) => m.major > base[0]);
+  for (let major = base[0] + 1; major <= next[0]; major++) {
+    if (!shipped.some((m) => m.major === major)) {
+      problems.push(`${version} is a major release but ships no template/migrations/v${major}.ts`);
     }
-    for (const m of shipped.filter((m) => m.major > next[0])) {
-      problems.push(`the candidate ships ${m.file}, so it must be a major release (v${m.major}.0.0)`);
-    }
+  }
+  for (const m of shipped.filter((m) => m.major > next[0])) {
+    problems.push(`the candidate ships ${m.file}, so it must be a major release (v${m.major}.0.0)`);
   }
   return { previous: latest?.name ?? null, version, kind, problems };
 }
