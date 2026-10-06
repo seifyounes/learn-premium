@@ -1,5 +1,6 @@
 // The Build ledger commands. Callers (the skill and its subagents) use only these, through the CLI;
 // nothing else reads or writes the ledger file.
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { MediaItem } from "../media/model.ts";
 import { readMediaFile } from "../media/store.ts";
@@ -128,6 +129,26 @@ export function diff(project: string): MaterialsDiff {
   return diffMaterials(requireLedger(project));
 }
 
+/**
+ * The template layer's files and their hashes, leaving out the folders its own .gitignore names
+ * (`node_modules/`, `dist/`…): a local install or build in the template layer is not an edit to it.
+ * The .gitignore is itself a pinned template file, so widening it shows as an edit.
+ */
+function templateHashes(project: string): Record<string, string> {
+  const root = join(project, TEMPLATE_DIR);
+  let ignore = "";
+  try {
+    ignore = readFileSync(join(root, ".gitignore"), "utf8");
+  } catch {
+    // no .gitignore: nothing is left out
+  }
+  const folders = ignore
+    .split(/\r?\n/)
+    .map((line) => /^\/?([\w.-]+)\/$/.exec(line.trim())?.[1])
+    .filter((name): name is string => name !== undefined);
+  return hashTree(root, folders);
+}
+
 /** Creates the ledger at intake: the Owner's answers, the pinned release and its template hashes. The caller holds the lock from here on. */
 export function init(project: string, holder: string, release: string, intake: Intake): void {
   updateLedger(project, (existing) => {
@@ -135,7 +156,7 @@ export function init(project: string, holder: string, release: string, intake: I
     const ledger: Ledger = {
       schema: SCHEMA_VERSION,
       intake,
-      template: { release, files: hashTree(join(project, TEMPLATE_DIR)), overrides: [] },
+      template: { release, files: templateHashes(project), overrides: [] },
       materials: [],
       modules: [],
       waves: [],
@@ -305,7 +326,7 @@ export function checkpointAnswer(project: string, key: string): Checkpoint | nul
 export function verifyIntegrity(project: string) {
   const ledger = requireLedger(project);
   const pinned = ledger.template.files;
-  const onDisk = hashTree(join(project, TEMPLATE_DIR));
+  const onDisk = templateHashes(project);
   const modified = Object.keys(pinned).filter((path) => path in onDisk && onDisk[path] !== pinned[path]);
   const added = Object.keys(onDisk).filter((path) => !(path in pinned));
   const missing = Object.keys(pinned).filter((path) => !(path in onDisk));

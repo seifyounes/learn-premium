@@ -48,6 +48,16 @@ The Build ledger is read and written only through its commands (`scripts/ledger/
 edit `build-ledger.json` or the pages generated from it. Pick a holder id for this run (for example
 `run-<date>-<time>`) and use it on every write.
 
+The Course project is found from the Materials path through the Course registry:
+
+```bash
+I="$HOME/.claude/skills/learn-premium/scripts/intake.ts"
+node "$I" find --materials "<Materials path>"
+```
+
+`project` null means no Course project has these Materials yet: that's intake (below), with nothing
+to lock. Otherwise:
+
 ```bash
 L="$HOME/.claude/skills/learn-premium/scripts/ledger.ts"
 node "$L" next --project <Course project>
@@ -69,9 +79,47 @@ node "$L" lock claim --project <Course project> --holder <id>
 ### 3. Pick the path
 
 `next` says which: `intake` (no ledger), `resume` (an unfinished wave), or `waves` (new Materials
-to map and the Module waves the hash diff implies). Intake, the Module wave and the Upgrade wave
-offer aren't built yet (tickets #67, #68, #75): until they land, report what `next` returned, tell
-the Owner which ticket the run is waiting on, and release the lock.
+to map and the Module waves the hash diff implies). The Module wave and the Upgrade wave offer
+aren't built yet (tickets #68, #75): until they land, report what `next` returned, tell the Owner
+which ticket the run is waiting on, and release the lock.
+
+## Intake
+
+A new Course gets one interview up front, so later questions come only at the step that needs them.
+The commands are in `scripts/intake/README.md`; `$I` is `intake.ts` as above.
+
+1. **Read the Materials first.** `node "$I" propose --materials "<Materials path>"` gives the hashed
+   Materials inventory and a proposed Module map. Look at the file names and first pages (through the
+   Materials reader) enough to suggest the Course's Disciplines from the starting list (ML, maths,
+   electric circuits, logic circuits, heat transfer, machinery, engineering chemistry, automation and
+   control) and to give the proposed Modules real titles.
+2. **Ask once, in one batch:** Course name and code, the Professor and University (for the Credit
+   line), the Owner's name as the About page should show it, the Disciplines you suggest (the Owner
+   confirms or edits; the main one first), the Arabic-notes toggle, the known Exam sittings (name,
+   and date if known), and how many Modules the Owner expects this semester. Propose the project
+   folder name (`slug`, lower-case-dashes). A Discipline off the starting list waits for ticket #79:
+   record it as the Owner names it.
+3. **The pad:** `node "$I" pad --discipline "<main Discipline>"`; suggest it (say when it's the
+   nearest listed Discipline's, or the Graphite-grey fallback) and the Owner confirms or swaps it,
+   from the catalogue or by naming any colour (`#RRGGBB`).
+4. Write the confirmed answers to a JSON file in the scratchpad (the README's shape) and run the
+   **media budget check**: `node "$I" budget --answers <file>`. Report this Course's demand against
+   the remaining capacity in a line or two; on `over` or `unknown`, say why, and go on only on the
+   Owner's word.
+5. **Create the Course project:** `node "$I" create --answers <file> --workspace "<workspace>"
+   --release <installed_release> --holder <id>`. The workspace is the folder holding the Owner's
+   projects and the MEMORY.md project catalog (`D:\Claude Os`). Report the project and Private
+   folder paths.
+6. **The Module map:** show the refined proposal (each Module with its Materials, and the unmapped
+   files). Once the Owner confirms or edits it, write it with `ledger.ts map --project <Course
+   project> --holder <id> --input <file>`, and commit `build-ledger.json` and `build-records/` in the
+   Course project (`chore: map the Modules`).
+7. **GitHub and Vercel (Owner step):** say what `host` will make (the private repo `<owner>/<slug>`,
+   the Vercel project `<slug>` building `template/` from `content/`, the first deploy of `main`) and
+   run `node "$I" host --project <Course project>` only on the Owner's yes, with `VERCEL_TOKEN` set.
+   Report the live URL, or each finding when the site isn't noindex (exit 1), and never retry by
+   deleting anything: a re-run makes nothing twice.
+8. Release the ledger lock. The next run's `next` picks up Module 01.
 
 ## Media pass
 

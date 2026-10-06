@@ -697,6 +697,54 @@ describe("template integrity", () => {
       out: { ok: false, release: "v2.0.0", modified: ["a.ts"], added: ["c.ts"], missing: ["b.ts"] },
     });
   });
+
+  test("a local install or build in the template layer is not an edit, but an edit next to it still is", () => {
+    const project = tempDir("project");
+    writeFiles(project, { "template/a.ts": "a", "template/.gitignore": "node_modules/\n/dist/\n.astro/\n" });
+    ledger(
+      "init",
+      "--project",
+      project,
+      "--holder",
+      "session-a",
+      "--release",
+      "v2.0.0",
+      "--intake",
+      jsonInput(intake(tempDir("materials"))),
+    );
+    writeFiles(project, {
+      "template/node_modules/pkg/index.js": "installed",
+      "template/dist/index.html": "built",
+      "template/.astro/types.d.ts": "generated",
+    });
+
+    expect(ledger("integrity", "--project", project).code).toBe(0);
+
+    writeFiles(project, { "template/node_modules.ts": "not an install", "template/.gitignore": "*\n" });
+
+    const { out } = ledger("integrity", "--project", project);
+    expect(out.modified).toEqual([".gitignore"]);
+    expect(out.added).toContain("node_modules.ts");
+  });
+
+  test("git's internals in the template layer are never hashed", () => {
+    const project = tempDir("project");
+    writeFiles(project, { "template/a.ts": "a", "template/.git/HEAD": "ref: refs/heads/main" });
+
+    ledger(
+      "init",
+      "--project",
+      project,
+      "--holder",
+      "s",
+      "--release",
+      "v2.0.0",
+      "--intake",
+      jsonInput(intake(tempDir("materials"))),
+    );
+
+    expect(Object.keys(ledger("status", "--project", project).out.template.files)).toEqual(["a.ts"]);
+  });
 });
 
 describe("status page and build report", () => {

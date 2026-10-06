@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach } from "vitest";
 import { run } from "../scripts/ledger/cli.ts";
+import { run as runIntake, type Deps } from "../scripts/intake/cli.ts";
 import { run as runMedia } from "../scripts/media/cli.ts";
 
 const made: string[] = [];
@@ -42,6 +43,14 @@ export function ledger(...args: string[]): Result {
 /** Runs one media command exactly as the CLI would, returning its exit code and JSON output. */
 export function media(...args: string[]): Result {
   const { code, stdout } = runMedia(args);
+  return { code, out: JSON.parse(stdout) };
+}
+
+/** Runs one intake command exactly as the CLI would (with `deps` standing in for GitHub and Vercel). */
+export async function intake(...args: [...string[]] | [...string[], Partial<Deps>]): Promise<Result> {
+  const last = args.at(-1);
+  const deps = typeof last === "object" ? (args.pop() as Partial<Deps>) : {};
+  const { code, stdout } = await runIntake(args as string[], deps);
   return { code, out: JSON.parse(stdout) };
 }
 
