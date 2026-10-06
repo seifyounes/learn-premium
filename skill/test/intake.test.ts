@@ -218,6 +218,22 @@ describe("budget", () => {
     ]);
   });
 
+  test("a registered Course whose every sitting is past wants nothing more, and isn't counted", async () => {
+    const state = tempDir("state");
+    measured(state);
+    const past = fixtureCourse("Last term", {
+      planned: ["01"],
+      sittings: [{ id: "final", name: "Final", date: daysFromNow(-30) }],
+    });
+    registered(state, past);
+
+    const { out } = await intake("budget", "--answers", jsonInput(answers(tempDir("materials"))), "--state", state);
+
+    expect(out.others).toEqual([]);
+    expect(out.ended).toEqual([{ project: past, course: "Last term" }]);
+    expect(out.capacity.committed).toBe(0);
+  });
+
   test("more demand than the plan has left before the last sitting is over budget", async () => {
     const state = tempDir("state");
     measured(state);
