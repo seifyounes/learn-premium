@@ -15,7 +15,7 @@ import { readStructured } from "../src/content/loaders.ts";
 import { AREAS, S7Memory } from "../src/sims/s7/core.ts";
 import { instructionKey, unsupportedStatements, watchValues } from "../src/sims/stl/engine.ts";
 import { runControls } from "../src/sims/stl/mutants.ts";
-import { compareWithOracle, oracleLog, type OracleLog } from "../src/sims/stl/oracle.ts";
+import { compareWithOracle, logShapeProblem, oracleLog, type OracleLog } from "../src/sims/stl/oracle.ts";
 import { parseStl } from "../src/sims/stl/parse.ts";
 import { isLive, type LiveSim } from "../src/sims/kinds.ts";
 import { RECOMPUTE_LOG, threeWay } from "../src/sims/three-way.ts";
@@ -97,7 +97,8 @@ export const stlGate: Gate = {
         }
         // The step-through plays awlsim's own trace: its log must be there and current.
         const log = readLog(listing, logEntry);
-        if (typeof log === "string") block(log);
+        const shape = typeof log === "string" ? log : logShapeProblem(listing.cases, log);
+        if (shape) block(shape);
         else coverage.stepThroughs += 1;
         continue;
       }

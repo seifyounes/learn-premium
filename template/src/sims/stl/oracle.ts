@@ -134,6 +134,22 @@ export function inputWrites(model: StlModel, inputs: Inputs): InputWrite[] {
   return writes;
 }
 
+/**
+ * Why a log doesn't hold the listing's cases as they are, scan for scan, or `undefined` when it does.
+ * A log with the right request hash can still have been cut short.
+ */
+export function logShapeProblem(cases: readonly GateCase[], log: OracleLog): string | undefined {
+  if (cases.length !== log.cases.length || cases.some((c, i) => c.name !== log.cases[i]?.name))
+    return `the log ran other cases (${log.cases.length}) than the listing has (${cases.length}): run \`npm run oracle -- write\``;
+  for (const [i, c] of cases.entries()) {
+    const ran = log.cases[i]?.scans ?? [];
+    if (ran.length !== c.scans.length)
+      return `${c.name}: awlsim ran ${ran.length} scans, the case has ${c.scans.length}`;
+    if (ran.some((scan) => scan.steps.length === 0)) return `${c.name}: a scan in the log ran no statements`;
+  }
+  return undefined;
+}
+
 // ---- the comparison ----------------------------------------------------------------------------
 
 const h = (n: number) => `16#${(n >>> 0).toString(16).toUpperCase().padStart(8, "0")}`;
@@ -182,14 +198,12 @@ export function compareWithOracle(
 ): Agreement {
   const result: Agreement = { mismatches: [], values: 0, statements: 0, leftBehind: 0, ran: new Set() };
   const miss = (m: string) => result.mismatches.push(m);
-  if (cases.length !== log.cases.length || cases.some((c, i) => c.name !== log.cases[i]?.name))
-    miss(`the log ran other cases than the listing has: run \`npm run oracle -- write\``);
+  const shape = logShapeProblem(cases, log);
+  if (shape) miss(shape);
   for (const [i, c] of log.cases.entries()) {
     const scans = cases[i]?.scans;
-    if (!scans || scans.length !== c.scans.length) {
-      miss(`${c.name}: awlsim ran ${c.scans.length} scans, the case has ${scans?.length ?? 0}`);
-      continue;
-    }
+    // A case the log holds otherwise is reported once, by logShapeProblem.
+    if (!scans || scans.length !== c.scans.length) continue;
     let ours;
     try {
       ours = run(scans);
