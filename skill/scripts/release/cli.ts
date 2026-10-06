@@ -9,7 +9,7 @@
 // Exit codes: 0 done (or ready), 1 refused (or not ready), 2 bad usage.
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { NotesError, parseNotes, renderNotes, type Bump } from "./notes.ts";
+import { NotesError, parseNotes, renderNotes, withPhonePass, type Bump } from "./notes.ts";
 import { draftNotes, PHONE_PASS_CONTEXT, plan, steps, type Deps, type Plan, type Steps } from "./sequence.ts";
 
 export interface CliDeps extends Deps {
@@ -184,7 +184,8 @@ async function main(argv: string[], deps: CliDeps, out: string[]): Promise<numbe
       let notes: string | null = null;
       if (refusals.length === 0 && p.version !== null && p.kind !== null) {
         if (values.notes !== undefined) {
-          notes = readFileSync(values.notes, "utf8");
+          // The Owner words the notes; the pass section always states the pass as recorded.
+          notes = withPhonePass(readFileSync(values.notes, "utf8"), s.pass.pass);
           try {
             // A draft made for another version or commit would advertise the wrong release.
             const parsed = parseNotes(notes);

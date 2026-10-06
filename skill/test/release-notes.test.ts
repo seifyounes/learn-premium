@@ -1,7 +1,7 @@
 // Release notes: what a Template release closes and retires, written for the Owner and read back by
 // the Upgrade wave's offer.
 import { describe, expect, test } from "vitest";
-import { overridesOnIssue, parseNotes, renderNotes, type NotesInput } from "../scripts/release/notes.ts";
+import { overridesOnIssue, parseNotes, renderNotes, withPhonePass, type NotesInput } from "../scripts/release/notes.ts";
 
 const INPUT: NotesInput = {
   version: "v0.2.0",
@@ -81,6 +81,24 @@ describe("release notes", () => {
     expect(() => parseNotes(notes.replace("## Course overrides retired", "## Overrides"))).toThrow(
       /Course overrides retired/,
     );
+  });
+});
+
+describe("withPhonePass", () => {
+  const pass = INPUT.phonePass;
+  test("rewrites the pass section of an edited draft, keeping everything around it", () => {
+    const draft = renderNotes({ ...INPUT, phonePass: null });
+    const edited = `${draft.trimEnd()}\n\n## Thanks\n\nTo the Professor.\n`;
+    const result = withPhonePass(edited, pass);
+    expect(result).toContain("## Real-phone pass\n\niPhone 13 Safari, Pixel 7 Chrome · Pyodide 14 s\n\nRecorded by");
+    expect(result).not.toContain("Not recorded yet.");
+    expect(result).toContain("## Gate gaps closed\n\n- #12");
+    expect(result.trimEnd().endsWith("## Thanks\n\nTo the Professor.")).toBe(true);
+  });
+
+  test("adds the section when an edit dropped it", () => {
+    const draft = renderNotes(INPUT).replace(/## Real-phone pass[\s\S]*$/, "");
+    expect(withPhonePass(draft, pass)).toContain("## Real-phone pass\n\niPhone 13 Safari");
   });
 });
 
