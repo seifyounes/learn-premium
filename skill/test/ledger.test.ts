@@ -243,6 +243,34 @@ describe("waves", () => {
     expect(next.out.waves).toEqual([{ kind: "module", target: "02", reasons: ["planned"] }]);
   });
 
+  test("Module 1 builds alone first: no other Module's wave starts until its wave merges the Course style sheet", () => {
+    const { project } = mappedCourse();
+    const start = (target: string) =>
+      ledger(
+        "wave",
+        "start",
+        ...["--project", project, "--holder", "session-a", "--kind", "module", "--target", target],
+        ...["--branch", `module/${target}`],
+      );
+
+    const early = start("02");
+    const first = start("01");
+    const alongside = start("02");
+    ledger(
+      "wave",
+      "end",
+      ...["--project", project, "--holder", "session-a", "--wave", first.out.wave, "--result", "merged"],
+      ...["--commit", COMMIT],
+    );
+    const after = start("02");
+
+    expect(early.code).toBe(3);
+    expect(early.out.error).toMatch(/Module 01 builds alone first.*Course style sheet/);
+    expect(first.code).toBe(0);
+    expect(alongside.code).toBe(3);
+    expect(after.code).toBe(0);
+  });
+
   test("a failed wave sends its Module back to be built again", () => {
     const { project } = mappedCourse();
     const { out: started } = ledger(
@@ -914,7 +942,7 @@ describe("edge cases", () => {
       "--kind",
       "module",
       "--target",
-      "02",
+      "01",
       "--branch",
       "b",
     );
@@ -928,7 +956,7 @@ describe("edge cases", () => {
       "--row",
       "module",
       "--id",
-      "02",
+      "01",
       "--reason",
       "r",
     );
