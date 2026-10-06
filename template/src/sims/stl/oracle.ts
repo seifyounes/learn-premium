@@ -186,7 +186,10 @@ export function compareWithOracle(
     miss(`the log ran other cases than the listing has: run \`npm run oracle -- write\``);
   for (const [i, c] of log.cases.entries()) {
     const scans = cases[i]?.scans;
-    if (!scans || scans.length !== c.scans.length) continue;
+    if (!scans || scans.length !== c.scans.length) {
+      miss(`${c.name}: awlsim ran ${c.scans.length} scans, the case has ${scans?.length ?? 0}`);
+      continue;
+    }
     let ours;
     try {
       ours = run(scans);

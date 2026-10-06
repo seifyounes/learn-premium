@@ -1,6 +1,8 @@
 // What the STL sim's page reads off a trace: each accumulator as the type its last writer gave it,
 // AR 1 as a pointer, the status word bit by bit with what FC105 left as "?", and a statement's writes.
 import { describe, expect, it } from "vitest";
+import { courseListings } from "../oracle/listings.ts";
+import { FIXTURE_COURSE } from "./build-course";
 import { StlRun, type StlModel } from "../src/sims/stl/engine.ts";
 import { accumulatorTypes, describeWrites, pointer, readAccumulator, statusBits } from "../src/sims/stl/view.ts";
 
@@ -41,6 +43,19 @@ describe("the STL sim's readings", () => {
     expect(readAccumulator(trace[2]?.accu1 ?? 0, "REAL")).toEqual({ hex: "16#4120_0000", value: "10.0", type: "REAL" });
     expect(readAccumulator(trace[6]?.accu1 ?? 0, "DINT").value).toBe("L#-3");
     expect(readAccumulator(0xfffd, "INT").value).toBe("-3");
+  });
+
+  it("reads a load by the type last transferred to its address, an indirect one through AR 1 (Codex review)", () => {
+    const [tank] = courseListings(FIXTURE_COURSE, "06-tank-level").listings;
+    if (!tank) throw new Error("no tank listing");
+    const run = new StlRun(tank.model);
+    const trace = run.scan(tank.cases[0]?.scans[0] ?? {});
+    const types = accumulatorTypes(trace, tank.model);
+    const read = (i: number) => readAccumulator(trace[i]?.accu1 ?? 0, types[i]?.accu1 ?? "INT").value;
+    const temporary = trace.findIndex((t) => t.op === "L" && t.text.replace(/\s+/g, " ") === "MD 12");
+    expect(read(temporary)).toBe("1.0");
+    const setPoints = trace.flatMap((t, i) => (t.op === "L" && t.text.includes("[AR1") ? [read(i)] : []));
+    expect(setPoints).toEqual(["1000.0", "3000.0", "10000.0", "12000.0"]);
   });
 
   it("shows AR 1 as a pointer, a bit FC105 left as ?, and a statement's writes byte by byte", () => {
