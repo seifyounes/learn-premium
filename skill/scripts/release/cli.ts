@@ -26,6 +26,12 @@ class UsageError extends Error {}
 
 const BUMPS = ["major", "minor", "patch"] as const;
 
+/** GitHub keeps at most this much of a commit status's description. */
+const STATUS_DESCRIPTION_MAX = 140;
+
+/** The pass as a commit status records it: the phones, then the Pyodide timing. */
+const passDescription = (devices: string, seconds: string) => `${devices} · Pyodide ${seconds} s`;
+
 function stepLines(s: Steps): string[] {
   const block = (n: number, title: string, step: { ok: boolean; lines: string[] }) => [
     `${n}. ${title}: ${step.ok ? "yes" : "no"}`,
@@ -90,6 +96,11 @@ async function main(argv: string[], deps: CliDeps, out: string[]): Promise<numbe
       throw new UsageError("record-phone-pass takes --sha SHA --devices TEXT --pyodide-seconds N");
     if (!/^\d+(\.\d+)?$/.test(values["pyodide-seconds"]))
       throw new UsageError("--pyodide-seconds is the Pyodide run's time on the phone, in seconds");
+    const description = passDescription(values.devices, values["pyodide-seconds"]);
+    if (description.length > STATUS_DESCRIPTION_MAX)
+      throw new UsageError(
+        `the pass record "${description}" is over GitHub's ${STATUS_DESCRIPTION_MAX} characters; shorten --devices`,
+      );
   } else if (command === "notes" || command === "tag") needVersion();
   else if (command !== "status")
     throw new UsageError(`unknown command "${command ?? ""}"; use status, notes, record-phone-pass or tag`);
@@ -161,7 +172,7 @@ async function main(argv: string[], deps: CliDeps, out: string[]): Promise<numbe
         return 1;
       }
       const url = values.url ?? s.gallery.url;
-      const description = `${values.devices} · Pyodide ${values["pyodide-seconds"]} s`.slice(0, 140);
+      const description = passDescription(values.devices ?? "", values["pyodide-seconds"] ?? "");
       const yes = await deps.confirm(
         `Did you go through the Tool gallery at ${url ?? "(no URL)"} on a real phone (${values.devices}), ` +
           `and did every tool work by touch? Type yes to record the pass on ${sha.slice(0, 7)}`,

@@ -216,8 +216,18 @@ export function plan(git: Git, sha: string, wanted: { bump?: Bump; version?: str
     const released = tags.get(latest.name) ?? "";
     if (!git.isAncestor(released, sha))
       problems.push(`the candidate isn't on top of the latest release ${latest.name}`);
+    // A release keeps every migration an earlier one shipped: a Course on an older release still
+    // upgrades through them.
+    const carried = git.migrations(sha);
+    for (const old of git.migrations(released)) {
+      if (!carried.some((m) => m.file === old.file)) {
+        problems.push(
+          `the candidate drops ${old.file}, which ${latest.name} shipped; a Course upgrading through it needs it`,
+        );
+      }
+    }
     // A major ships the migration for every major it crosses; nothing else ships one.
-    const shipped = git.migrations(sha).filter((m) => m.major > base[0]);
+    const shipped = carried.filter((m) => m.major > base[0]);
     for (let major = base[0] + 1; major <= next[0]; major++) {
       if (!shipped.some((m) => m.major === major)) {
         problems.push(`${version} is a major release but ships no template/migrations/v${major}.ts`);
