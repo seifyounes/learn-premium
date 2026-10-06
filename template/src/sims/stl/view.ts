@@ -4,18 +4,21 @@
 
 import {
   bitsToReal,
+  formatAddress,
   formatReal,
   formatRegister,
   formatValue,
   int16,
+  parseAddress,
   S7Memory,
   STATUS_BITS,
+  type Address,
   type ByteWrite,
   type StatusBit,
 } from "../s7/core.ts";
 import { applyInputs, operandAddress, type Inputs, type StlModel, type TraceEntry } from "./engine.ts";
 import type { OracleLog } from "./oracle.ts";
-import { parseStl } from "./parse.ts";
+import { decodeOperand, parseStl } from "./parse.ts";
 
 /** A status bit as the trace shows it: its value, or `?` where a library block left it undefined. */
 export interface ShownBit {
@@ -49,33 +52,62 @@ const KEEPS_ACCUMULATORS =
 
 export type AccumulatorType = Reading["type"];
 
-/** The type a statement's result in ACCU 1 has. */
-function resultType(op: string, text: string, model: StlModel): AccumulatorType {
-  const loads = op === "L" ? declaredType(text, model) : undefined;
-  const literal = op === "L" ? text.trim() : "";
-  if (REAL_OPS.test(op) || loads === "REAL" || /^[+-]?(\d+\.\d*|\.\d+|\d+e[+-]?\d+)(e[+-]?\d+)?$/i.test(literal))
-    return "REAL";
-  if (DINT_OPS.test(op) || loads === "DINT" || loads === "DWORD" || /^(L#|DW#|P#)/i.test(literal)) return "DINT";
-  return "INT";
+/** A REAL constant as STEP 7 writes one. */
+const REAL_LITERAL = /^[+-]?(\d+\.\d*|\.\d+|\d+e[+-]?\d+)(e[+-]?\d+)?$/i;
+
+/** The memory a load or transfer names: its address (an indirect one resolved through AR 1), or none. */
+function addressOf(op: string, text: string, ar1: number): Address | undefined {
+  const o = decodeOperand(op, text);
+  if (o.kind === "address") return o.address;
+  if (o.kind === "indirect") {
+    const bits = (ar1 & 0x7ffff) + o.offset;
+    return { area: o.area, width: o.width, byte: bits >> 3, bit: bits & 7 };
+  }
+  return undefined;
+}
+
+/** What a load puts in ACCU 1: a constant's type, the model's type for its operand, or the type last transferred there. */
+function loadType(
+  text: string,
+  a: Address | undefined,
+  model: StlModel,
+  stored: Map<string, AccumulatorType>,
+): AccumulatorType {
+  const literal = text.trim();
+  if (REAL_LITERAL.test(literal)) return "REAL";
+  if (/^(L#|DW#|P#)/i.test(literal)) return "DINT";
+  if (!a) return "INT";
+  const declared = declaredType(a, model);
+  if (declared === "REAL") return "REAL";
+  if (declared === "DINT" || declared === "DWORD") return "DINT";
+  if (declared) return "INT";
+  return stored.get(formatAddress(a)) ?? (a.width === "dword" ? "DINT" : "INT");
 }
 
 /**
  * What each accumulator holds after each statement of a scan, as a type: set by the statement that
  * last wrote it (a load carries ACCU 1's type into ACCU 2), so a REAL reads as a REAL after the
- * logic and jumps that follow it.
+ * logic and jumps that follow it. A load reads the model's type for its operand, or else the type
+ * last transferred to that address (an indirect address resolved through AR 1).
  */
 export function accumulatorTypes(
-  trace: readonly Pick<TraceEntry, "op" | "text">[],
+  trace: readonly Pick<TraceEntry, "op" | "text" | "ar1">[],
   model: StlModel,
 ): { accu1: AccumulatorType; accu2: AccumulatorType }[] {
   let accu1: AccumulatorType = "INT";
   let accu2: AccumulatorType = "INT";
-  return trace.map(({ op, text }) => {
-    if (op === "L" || op === "PUSH" || (op === "TAR1" && !text)) [accu2, accu1] = [accu1, resultType(op, text, model)];
+  const stored = new Map<string, AccumulatorType>();
+  return trace.map(({ op, text, ar1 }) => {
+    const a = op === "L" || op === "T" ? addressOf(op, text, ar1) : undefined;
+    if (op === "L") [accu2, accu1] = [accu1, loadType(text, a, model, stored)];
+    else if (op === "T") {
+      if (a && a.width !== "bit") stored.set(formatAddress(a), accu1);
+    } else if (op === "PUSH") accu2 = accu1;
+    else if (op === "TAR1" && !text) [accu2, accu1] = [accu1, "DINT"];
     else if (op === "TAK") [accu1, accu2] = [accu2, accu1];
     else if (op === "POP") accu1 = accu2;
-    else if (!KEEPS_ACCUMULATORS.test(op) && op !== "TAR1") accu1 = resultType(op, text, model);
-    if (op === "PUSH") accu1 = accu2;
+    else if (!KEEPS_ACCUMULATORS.test(op) && op !== "TAR1")
+      accu1 = REAL_OPS.test(op) ? "REAL" : DINT_OPS.test(op) ? "DINT" : "INT";
     return { accu1, accu2 };
   });
 }
@@ -87,11 +119,14 @@ export function readAccumulator(value: number, type: AccumulatorType): Reading {
   return { hex, value: String(int16(value)), type };
 }
 
-/** The type the model declares for an operand, if it names one. */
-function declaredType(operand: string, model: StlModel) {
-  const key = operand.replace(/\s+/g, " ").trim().toUpperCase();
+/** The type the model declares for an address, if its inputs or watch table name it. */
+function declaredType(a: Address, model: StlModel) {
+  const key = formatAddress(a);
   for (const table of [model.inputs, model.watch])
-    for (const [name, type] of Object.entries(table)) if (name.replace(/\s+/g, " ").toUpperCase() === key) return type;
+    for (const [name, type] of Object.entries(table)) {
+      const named = parseAddress(name);
+      if (named && formatAddress(named) === key) return type;
+    }
   return undefined;
 }
 

@@ -98,6 +98,21 @@ describe("the stl gate", () => {
     ]);
   });
 
+  it("blocks an oracle log missing a scan of a case, though its request still matches (Codex review)", async () => {
+    const log = `build-records/oracle/${MODULE}/tank.json`;
+    const course = fixtureWith(log, (s) => {
+      const parsed = JSON.parse(s) as { cases: { scans: unknown[] }[] };
+      parsed.cases.at(-1)?.scans.pop();
+      return JSON.stringify(parsed);
+    });
+    const result = await run(course);
+    expect(result.findings.map((f) => f.message)).toEqual([
+      expect.stringMatching(
+        /^the interpreter disagrees with awlsim: a ramp across the set-points, bipolar at the end: awlsim ran 8 scans, the case has 9/,
+      ),
+    ]);
+  });
+
   it("blocks a listing with no oracle log", async () => {
     const course = fixtureWith(SIM, (s) => s);
     rmSync(join(course, "build-records", "oracle", MODULE, "tank.json"));
