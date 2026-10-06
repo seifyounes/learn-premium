@@ -9,7 +9,8 @@ Layout (content contract v0):
 - `course.yaml`: the course config (name, pad, Credit line, `owner` for the About page) and the
   Exam `sittings`, in exam order: each has an `id` (its route), a `name`, an optional `date`
   (`YYYY-MM-DD`), the `modules` it covers by folder name, and `complete`, which only the Owner sets.
-  A complete sitting gets its Revision page.
+  A complete sitting gets its Revision page. `arabicNotes: true` (the Arabic-notes toggle, off when
+  absent) shows the Arabic notes; the Fixture Course has it on.
 - `modules/<NN>-<slug>/module.yaml`: one Module; the folder name is its route. `highYield: true`
   rings it in red pen on the contents sheet.
 - `modules/<NN>-<slug>/rules.yaml` (optional): the Module's rules for Master Rules and Revision,
@@ -21,8 +22,10 @@ Layout (content contract v0):
   or better). Every slot is optional; an empty one renders nothing. The Fixture Course's media are
   synthetic, made by `tools/make-media.py`.
 - `modules/<NN>-<slug>/summary/<n>.md`: one Summary beat each, plain Markdown of at most 90 words,
-  with an optional `figure` (a plot) in its frontmatter. A Module has at most five beats.
-- `modules/<NN>-<slug>/worked/<n>.json`: one Worked example each (JSON or YAML).
+  with an optional `figure` (a plot) in its frontmatter. A Module has at most five beats. An
+  optional `arabic` is the beat's Arabic note (Module 1's first beat has one).
+- `modules/<NN>-<slug>/worked/<n>.json`: one Worked example each (JSON or YAML). A step's
+  optional `arabic` is its Arabic note (steps 1 and 5 of `01-thermal-resistance/worked/1.json`).
 - `modules/<NN>-<slug>/sims/<name>.json`: one Agent-built sim each (JSON or YAML): its `kind`, the
   `model` students never change, the Worked example's values it opens on (`start`), the ranges
   students tune (`tune`), and `recompute`. A live sim (`independent`) names the Worked example it

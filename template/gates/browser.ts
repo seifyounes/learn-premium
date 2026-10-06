@@ -92,7 +92,7 @@ const defuseTrap =
 
 export const layoutSweep = browserGate(
   "layout-sweep",
-  `at ${WIDTHS.join("/")}px on Chromium and WebKit, every collapsible open: no sideways page scroll, nothing over a figure, nothing above the page, no colliding text, no height-locked overflow, no text under 12px`,
+  `at ${WIDTHS.join("/")}px on Chromium and WebKit, left to right and right to left, every collapsible open: no sideways page scroll, nothing over a figure, nothing above the page, no colliding text, no height-locked overflow, no text under 12px, and every Arabic note right to left with its numbers and formulas left to right`,
   [
     {
       defect: "a block wider than the viewport, so the page scrolls sideways",
@@ -135,6 +135,23 @@ export const layoutSweep = browserGate(
     {
       defect: "text set under the 12px floor",
       plant: plantInMain('<p style="font-size: 10px">Small print under the floor.</p>'),
+    },
+    {
+      // A physical offset: left to right it hangs off the unscrollable side, unseen.
+      defect: "a block pushed past the page's left edge, which scrolls the page sideways only right to left",
+      plant: plantInMain('<p style="position: relative; left: -2400px">Pushed past the left edge.</p>'),
+    },
+    {
+      defect: "a number in an Arabic note left to run right to left",
+      plant: plantInMain('<p lang="ar" dir="rtl">الوجه الخارجي عند −5 درجات</p>'),
+    },
+    {
+      defect: "an Arabic note laid out left to right",
+      plant: plantInMain('<p lang="ar" dir="ltr">ملاحظة بالعربية</p>'),
+    },
+    {
+      defect: "a formula in an Arabic note left to run right to left",
+      plant: plantInMain('<p lang="ar" dir="rtl">المقاومة <span class="katex">R</span> ثابتة</p>'),
     },
   ],
 );

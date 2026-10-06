@@ -2,7 +2,8 @@
 // One Summary beat beside its one figure: the Module page's Summary and a sitting's Revision both
 // place it. Scaled and assumed values are noted after the text, derived ones after that.
 import { render, type CollectionEntry } from "astro:content";
-import { prose } from "../content/course";
+import { arabicProse } from "../arabic/notes";
+import { getCourse, prose } from "../content/course";
 import { provenanceNotes } from "../provenance/notes";
 import { toFigure } from "../worked/sheet";
 import BeatFigure from "./BeatFigure";
@@ -17,6 +18,8 @@ const { beat, figureId } = Astro.props;
 const { Content } = await render(beat);
 const { inputsHtml, outputsHtml } = provenanceNotes(beat.data.provenance, prose);
 const figure = beat.data.figure && toFigure(beat.data.figure, prose);
+// The Arabic note shows only with the Course's Arabic-notes toggle on.
+const arabic = (await getCourse()).arabicNotes ? beat.data.arabic : undefined;
 ---
 
 <article class="beat" data-has-figure={figure !== undefined}>
@@ -28,6 +31,7 @@ const figure = beat.data.figure && toFigure(beat.data.figure, prose);
     <div class="space-y-3">
       <Content />
     </div>
+    {arabic && <div class="arabic-note mbs-3" lang="ar" dir="rtl" set:html={arabicProse(arabic)} />}
     {inputsHtml && <div class="mbs-3" set:html={inputsHtml} />}
     {outputsHtml && <div class="mbs-3" set:html={outputsHtml} />}
   </div>

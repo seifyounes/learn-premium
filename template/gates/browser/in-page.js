@@ -10,6 +10,8 @@
 //   text-collision  two elements' text on the same pixels (static flow stacks too)
 //   height-overflow a height-locked box whose content is taller than it
 //   tiny-text       text rendered under the 12px floor, SVG labels at their drawn size included
+//   note-direction  an Arabic note not set right to left, or a number or formula in one not kept
+//                   left to right (in a right-to-left line "−5" reads "5−")
 // and, on the live page's text:
 //   katex-error     a formula KaTeX couldn't render
 //   raw-tex         TeX that reached the page untypeset
@@ -294,7 +296,7 @@
     const text = [];
     const add = (list, kind, detail, el) => list.push({ kind, detail, trap: trapOf(el) });
     const root = document.documentElement;
-    const coverage = { texts: 0, figures: 0, formulas: document.querySelectorAll(".katex").length };
+    const coverage = { texts: 0, figures: 0, formulas: document.querySelectorAll(".katex").length, notes: 0 };
 
     // page-scroll
     if (root.scrollWidth > root.clientWidth + 1)
@@ -407,6 +409,46 @@
       );
     }
 
+    // note-direction: an Arabic note (any element whose lang is Arabic) is set right to left, and
+    // every number and formula in it left to right. Its direction is the one the browser lays it
+    // out in, whatever the attributes say.
+    const notes = [...document.querySelectorAll('[lang|="ar"]')].filter(
+      (note) => visible(note) && !note.parentElement?.closest('[lang|="ar"]'),
+    );
+    coverage.notes = notes.length;
+    const direction = (el) => getComputedStyle(el).direction;
+    for (const note of notes) {
+      if (direction(note) !== "rtl")
+        add(
+          layout,
+          "note-direction",
+          `an Arabic note is laid out left to right: ${quote(note.textContent || "")}`,
+          note,
+        );
+      for (const formula of note.querySelectorAll(".katex")) {
+        if (visible(formula) && direction(formula) !== "ltr")
+          add(
+            layout,
+            "note-direction",
+            `a formula in an Arabic note runs right to left: ${quote(note.textContent || "")}`,
+            formula,
+          );
+      }
+      const inNote = document.createTreeWalker(note, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = inNote.nextNode())) {
+        const el = node.parentElement;
+        if (!el || el.closest(".katex") || !/[0-9\u0660-\u0669\u06F0-\u06F9]/.test(node.nodeValue || "")) continue;
+        if (visible(el) && direction(el) !== "ltr")
+          add(
+            layout,
+            "note-direction",
+            `a number in an Arabic note runs right to left: ${quote(node.nodeValue || "")}`,
+            el,
+          );
+      }
+    }
+
     // The live page's text: what the islands rendered once they hydrated, not the server's HTML.
     for (const el of document.querySelectorAll(".katex-error")) {
       if (visible(el))
@@ -451,9 +493,10 @@
         await settle();
       }
     }
-    const coverage = { collapsibles: opened, views, texts: 0, figures: 0, formulas: 0 };
+    const coverage = { collapsibles: opened, views, texts: 0, figures: 0, formulas: 0, notes: 0 };
     for (const r of results)
-      for (const key of ["texts", "figures", "formulas"]) coverage[key] = Math.max(coverage[key], r.coverage[key]);
+      for (const key of ["texts", "figures", "formulas", "notes"])
+        coverage[key] = Math.max(coverage[key], r.coverage[key]);
     return {
       layout: results.flatMap((r) => r.layout),
       text: results.flatMap((r) => r.text),

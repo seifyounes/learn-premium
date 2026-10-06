@@ -89,14 +89,27 @@ function findClosing(text: string, fence: string, from: number): number {
   return -1;
 }
 
-const escapeHtml = (s: string) =>
+export const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** How a prose field's pieces become HTML: its plain text, and each formula as KaTeX rendered it. */
+export interface ProsePieces {
+  text(raw: string): string;
+  math(html: string): string;
+}
+const PLAIN: ProsePieces = { text: escapeHtml, math: (html) => html };
 
 /**
  * Renders one prose field (plain text with math) to HTML. `locate` maps an offset in the string
- * back to where it sits in the source file, so an error names the real line.
+ * back to where it sits in the source file, so an error names the real line. `pieces` changes how
+ * its text and its formulas are set (an Arabic note isolates its numbers and formulas).
  */
-export function renderProse(text: string, locate: (offset: number) => SourceLocation, onFormula?: OnFormula): string {
+export function renderProse(
+  text: string,
+  locate: (offset: number) => SourceLocation,
+  onFormula?: OnFormula,
+  pieces: ProsePieces = PLAIN,
+): string {
   const segments = splitProse(text);
   if (!Array.isArray(segments)) {
     const error = new MathError(locate(segments.unclosedAt), text.slice(segments.unclosedAt), "unclosed $");
@@ -108,15 +121,16 @@ export function renderProse(text: string, locate: (offset: number) => SourceLoca
   let carried = "";
   for (const [i, s] of segments.entries()) {
     if (s.kind === "text") {
-      html += escapeHtml(s.text.slice(carried.length));
+      html += pieces.text(s.text.slice(carried.length));
       carried = "";
       continue;
     }
-    const math = checkedTex(s.tex, s.display, locate(s.offset), onFormula);
+    const tex = checkedTex(s.tex, s.display, locate(s.offset), onFormula);
+    const math = tex && pieces.math(tex);
     // Punctuation written straight after inline math stays on its line, as it would on paper.
     const next = segments[i + 1];
     carried = (!s.display && next?.kind === "text" && TRAILING_PUNCTUATION.exec(next.text)?.[0]) || "";
-    html += carried ? `<span class="whitespace-nowrap">${math}${escapeHtml(carried)}</span>` : math;
+    html += carried ? `<span class="whitespace-nowrap">${math}${pieces.text(carried)}</span>` : math;
   }
   return html;
 }

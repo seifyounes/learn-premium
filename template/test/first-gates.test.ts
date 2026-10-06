@@ -248,7 +248,7 @@ describe("the content gates", () => {
     );
     const katex = gate(await run("job", { contentDir: course, module: MODULE }), "katex");
     expect(katex?.status).toBe("block");
-    expect(katex?.findings[0]?.at).toMatch(new RegExp(`^modules/${MODULE}/summary/1\\.md:25:\\d+$`));
+    expect(katex?.findings[0]?.at).toMatch(new RegExp(`^modules/${MODULE}/summary/1\\.md:26:\\d+$`));
   });
 
   it("block content that breaks the content contract, naming the file and field", async () => {

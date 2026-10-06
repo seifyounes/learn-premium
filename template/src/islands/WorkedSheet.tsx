@@ -257,10 +257,20 @@ export default function WorkedSheet({ sheet, topicHtml, module, outputsHtml, chi
                 Work this step on paper first, then press <span className="font-semibold text-graphite">Show</span>.
               </p>
             ) : (
-              <div
-                className="mbs-2 max-w-[68ch] leading-[1.55]"
-                dangerouslySetInnerHTML={{ __html: current?.noteHtml ?? "" }}
-              />
+              <>
+                <div
+                  className="mbs-2 max-w-[68ch] leading-[1.55]"
+                  dangerouslySetInnerHTML={{ __html: current?.noteHtml ?? "" }}
+                />
+                {current?.arabicHtml && (
+                  <div
+                    className="arabic-note mbs-3 max-w-[68ch]"
+                    lang="ar"
+                    dir="rtl"
+                    dangerouslySetInnerHTML={{ __html: current.arabicHtml }}
+                  />
+                )}
+              </>
             )}
             {state.last && !hidden && (
               <div className="answer-frame m-1 mbs-4 inline-block bg-sheet px-3.5 pbs-[7px] pbe-[9px]">
