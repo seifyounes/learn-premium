@@ -54,13 +54,7 @@ export function renderNotes(input: NotesInput): string {
     input.migrations.length === 0
       ? "None: Course content from the previous release upgrades as it is."
       : input.migrations.map((m) => `- v${m.major}: ${m.describe}`).join("\n");
-  const pass = input.phonePass
-    ? [
-        input.phonePass.description,
-        "",
-        `Recorded by @${input.phonePass.by} at ${input.phonePass.at}${input.phonePass.url ? ` on ${input.phonePass.url}` : ""}.`,
-      ].join("\n")
-    : "Not recorded yet.";
+  const pass = passText(input.phonePass);
   return [
     `# Template release ${input.version}`,
     "",
@@ -78,11 +72,34 @@ export function renderNotes(input: NotesInput): string {
     "",
     migrations,
     "",
-    "## Real-phone pass",
+    PASS_HEADING,
     "",
     pass,
     "",
   ].join("\n");
+}
+
+const PASS_HEADING = "## Real-phone pass";
+
+function passText(pass: PhonePass | null): string {
+  if (pass === null) return "Not recorded yet.";
+  return [pass.description, "", `Recorded by @${pass.by} at ${pass.at}${pass.url ? ` on ${pass.url}` : ""}.`].join(
+    "\n",
+  );
+}
+
+/**
+ * The notes with their real-phone pass section rewritten from the recorded pass, whatever an
+ * Owner-edited draft said there: the pass is evidence, not wording.
+ */
+export function withPhonePass(notes: string, pass: PhonePass | null): string {
+  const lines = notes.replace(/\r\n/g, "\n").replace(/\n+$/, "").split("\n");
+  const start = lines.findIndex((line) => line.trim() === PASS_HEADING);
+  const block = [PASS_HEADING, "", passText(pass)];
+  if (start === -1) return [...lines, "", ...block, ""].join("\n");
+  const after = lines.slice(start + 1).findIndex((line) => line.startsWith("## "));
+  const rest = after === -1 ? [] : ["", ...lines.slice(start + 1 + after)];
+  return [...lines.slice(0, start), ...block, ...rest, ""].join("\n");
 }
 
 /** The lines of one `## ` section, or undefined when the notes lack it. */

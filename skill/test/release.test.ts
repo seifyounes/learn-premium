@@ -412,6 +412,19 @@ describe("notes", () => {
     expect(git(r.origin, "tag", "-l", "--format=%(contents)", "v0.1.0")).toContain("None, said the Owner.");
   });
 
+  test("a draft made before the phone pass is tagged with the pass as recorded", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r);
+    const file = join(tempDir("notes"), "notes.md");
+    expect((await r.release("notes", "--bump", "minor", "--out", file)).code).toBe(0);
+    expect(readFileSync(file, "utf8")).toContain("Not recorded yet.");
+    r.forge.ownerPass(sha);
+    expect((await r.release("tag", "--bump", "minor", "--notes", file)).code).toBe(0);
+    const message = git(r.origin, "tag", "-l", "--format=%(contents)", "v0.1.0");
+    expect(message).toContain("## Real-phone pass\n\niPhone 13 Safari · Pyodide 14 s\n\nRecorded by @seifyounes");
+    expect(message).not.toContain("Not recorded yet.");
+  });
+
   test("a notes file written for another version or commit is refused", async () => {
     const r = repo();
     const drafted = readyButForThePass(r, "the drafted candidate");
