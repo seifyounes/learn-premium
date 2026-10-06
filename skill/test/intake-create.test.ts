@@ -454,6 +454,19 @@ describe("find", { timeout: 30_000 }, () => {
     expect(other.out).toEqual({ ok: true, project: null, course: null, skipped: [] });
   });
 
+  test("a registered Course whose project has lost its ledger can't be ruled out, so it's listed as skipped", async () => {
+    const s = setup();
+    must(await create(s));
+    rmSync(join(s.project, "build-ledger.json"));
+
+    const { out } = await intake("find", "--materials", s.materials, "--state", s.state);
+
+    expect(out).toMatchObject({
+      project: null,
+      skipped: [{ project: s.project, error: expect.stringMatching(/no Build ledger/) }],
+    });
+  });
+
   test("once registered, the Course isn't counted against itself when its budget is checked again", async () => {
     const s = setup();
     must(await create(s));

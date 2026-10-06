@@ -144,6 +144,8 @@ export function realHosting(options: RealHostingOptions): Hosting {
         name,
         framework: "astro",
         rootDirectory,
+        // The build reads the Course's content beside the template layer (CONTENT_DIR=../content).
+        sourceFilesOutsideRootDirectory: true,
         gitRepository: { type: "github", repo },
         environmentVariables: Object.entries(env).map(([key, value]) => ({
           key,
