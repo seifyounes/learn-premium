@@ -1,7 +1,28 @@
 // The plot a Pyodide tool's code leaves behind, read the same way at build (the preview) and in the
 // page (a live run): the sheet's plot elements, or one sentence saying what is wrong with it.
 import { describe, expect, it } from "vitest";
-import { readPlot } from "../src/python/plot.ts";
+import { readPlot, strayLabels } from "../src/python/plot.ts";
+
+describe("strayLabels", () => {
+  const drawn = readPlot(
+    [
+      { id: "p1", kind: "point", at: [0, 1] },
+      { id: "fit", kind: "guide", x: 1 },
+    ],
+    {},
+  );
+  if (typeof drawn === "string") throw new Error(drawn);
+
+  it("is nothing when every label names an element the plot draws", () => {
+    expect(strayLabels(drawn, { fit: "fit", p1: "a point" })).toBeUndefined();
+  });
+
+  it("names each label whose id the plot doesn't draw: a typo or a stale id", () => {
+    expect(strayLabels(drawn, { fti: "fit", p1: "a point", old: "gone" })).toBe(
+      'labels names "fti" and "old", which the plot doesn\'t draw (it draws "p1" and "fit")',
+    );
+  });
+});
 
 describe("readPlot", () => {
   it("reads points, lines and guides, giving each label from the tool's labels by id", () => {

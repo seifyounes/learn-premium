@@ -136,7 +136,7 @@ export interface ValueFound extends NumberFound {
 }
 
 /** The kinds of entry that show values. */
-export type ValueCollection = "worked" | "practice" | "beats" | "rules" | "sims";
+export type ValueCollection = "worked" | "practice" | "beats" | "rules" | "sims" | "python";
 
 type Raw = Record<string, unknown>;
 export const asObject = (value: unknown): Raw => (value && typeof value === "object" ? (value as Raw) : {});
@@ -244,6 +244,15 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
       const stepped = asObject(entry.stepThrough);
       figure(stepped.figure, "stepThrough.figure");
       asArray(stepped.steps).forEach((step, i) => prose(asObject(step).caption, `stepThrough.steps.${i}.caption`));
+      break;
+    }
+    case "python": {
+      // A Pyodide tool's prose: what the page prints around its plot. Its code's numbers are the
+      // run's, shown as the code gives them.
+      prose(entry.title, "title");
+      prose(entry.caption, "caption");
+      figure(entry.figure, "figure");
+      for (const [id, label] of Object.entries(asObject(entry.labels))) prose(label, `labels.${id}`);
       break;
     }
   }
