@@ -371,6 +371,15 @@ keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.
   whose defect only the Owner can settle (`expect: "checkpoint"`) must raise a Checkpoint item,
   and blocking it is a miss too.
 
+A Checkpoint item in a Gate report carries its `spot`: the page and anchor it shows at
+(`/01-slug/#worked-W01.1`), so the batched Checkpoint links to the exact place on the preview.
+
+**Pre-commit.** `gates/hooks/pre-commit` (intake makes it the Course project's `core.hooksPath`)
+runs `gates/pre-commit.ts` on every commit: a staged file that hashes to a Materials file (the
+Build ledger's inventory, or the Materials folder itself, line endings either way) or sits in an
+evidence-shaped path blocks it, and so does a check that can't run. Node built-ins only, so it works
+before `npm ci`; its negative control (`test/pre-commit-gate.test.ts`) plants a Materials file.
+
 Every finding either blocks or raises a Checkpoint item; there is no warning level. Every gate
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
 The one exception is a Course with no Modules yet (nothing under `modules/` but a `.gitkeep`), as
@@ -382,9 +391,11 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | --------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `content-contract`    | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists                                                                                                                                                                                       |
 | `katex`               | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                                                                                                                                                                                                        |
+| `notation`            | job, deploy    | every content file writes the Course style sheet's notation and units (its machine-readable part, `style-sheet.yaml`); a Course without a style sheet blocks                                                                                                                                                           |
 | `teaching-method`     | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words                                                                                                                                                                                      |
 | `provenance`          | job, deploy    | every number an entry shows (Master Rules and a Pyodide tool's prose included), and every constant a sim is built from, carries a Provenance tag                                                                                                                                                                       |
 | `master-rules`        | job, deploy    | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name`, `use` and the printed provenance notes, inside their math); no emoji                                                                                                                                                 |
+| `worked-numbers`      | job, deploy    | every number a Worked example's sheet works out against the independent recompute's log (`worked-<n>.json`) at the printed precision: a missing recompute blocks; sheet ≠ recompute is a Checkpoint item                                                                                                               |
 | `sim-numbers`         | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                                                                                                                                                                                         |
 | `truth-table`         | job, deploy    | a logic sim's truth table three ways, bit for bit: engine ≠ recompute blocks, a row the recompute leaves out blocks; both ≠ sheet is a Checkpoint item                                                                                                                                                                 |
 | `stl`                 | job, deploy    | every STL listing agrees with its awlsim log bit for bit after every statement of every case; every instruction it uses runs in a case; nine broken interpreters, each caught wherever the cases reach its defect; the sheet three ways; an unsupported instruction needs a Gate gap                                   |

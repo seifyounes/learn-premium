@@ -1,0 +1,4 @@
+#!/bin/sh
+# learn-premium's pre-commit gate (template/gates/pre-commit.ts): blocks a commit that stages a
+# Materials file or an evidence-shaped path. Intake points the Course project's core.hooksPath here.
+exec node template/gates/pre-commit-cli.ts

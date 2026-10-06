@@ -56,9 +56,11 @@ describe("the first gates on the Fixture Course", () => {
     expect(job.gates.map((g) => g.id)).toEqual([
       "content-contract",
       "katex",
+      "notation",
       "teaching-method",
       "provenance",
       "master-rules",
+      "worked-numbers",
       "sim-numbers",
       "truth-table",
       "stl",
@@ -98,9 +100,11 @@ describe("the first gates on the Fixture Course", () => {
     expect(deploy.gates.map((g) => g.id)).toEqual([
       "content-contract",
       "katex",
+      "notation",
       "teaching-method",
       "provenance",
       "master-rules",
+      "worked-numbers",
       "sim-numbers",
       "truth-table",
       "stl",
@@ -278,7 +282,7 @@ describe("the content gates", () => {
 
   it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
-    expect(report.gates.map((g) => g.status)).toEqual(Array(11).fill("failed"));
+    expect(report.gates.map((g) => g.status)).toEqual(Array(13).fill("failed"));
   });
 });
 

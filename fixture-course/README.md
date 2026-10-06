@@ -11,6 +11,10 @@ Layout (content contract v0):
   (`YYYY-MM-DD`), the `modules` it covers by folder name, and `complete`, which only the Owner sets.
   A complete sitting gets its Revision page. `arabicNotes: true` (the Arabic-notes toggle, off when
   absent) shows the Arabic notes; the Fixture Course has it on.
+- `style-sheet.yaml`: the Course style sheet, written from Module 1 before any other Module: the
+  Professor's voice, table forms, pinned definitions and idealised models, and its machine-readable
+  part, `notation` (each symbol as written, what it means, the variants `not` to write) and `units`.
+  The notation lint holds every content file to that part.
 - `modules/<NN>-<slug>/module.yaml`: one Module; the folder name is its route. `highYield: true`
   rings it in red pen on the contents sheet.
 - `modules/<NN>-<slug>/rules.yaml` (optional): the Module's rules for Master Rules and Revision,
@@ -43,6 +47,9 @@ Layout (content contract v0):
   `tools/`, apart from the template's engines: `recompute-gradient-descent.py` and
   `recompute-tangent.py` in exact fractions, `recompute-full-adder.py` walking each net back to its
   gate, and `recompute-plane-wall.py` from the Fourier series.
+- `build-records/recompute/<NN>-<slug>/worked-<n>.json`: a Worked example's recompute log, every
+  number its sheet works out by cell (`cells`), for the cells no live sim maps; the worked-numbers
+  gate compares the sheet with it. W01.1's is written by `tools/recompute-composite-wall.py`.
 - A schematic sim (`kind: logic`) also gives its Layout hints (`layout`): each part's cell on the
   figure's coarse grid, its turn and label side, and the nets whose joints the figure dots; never a
   coordinate. `build-records/figure/<NN>-<slug>/<name>.json` is the Blind reader's account of its

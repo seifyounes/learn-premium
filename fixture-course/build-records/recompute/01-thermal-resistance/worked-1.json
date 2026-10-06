@@ -1,0 +1,14 @@
+{
+  "recompute": "learn-premium worked recompute v1",
+  "by": "fixture-course/tools/recompute-composite-wall.py: R = L/(kA) in series, exact fractions, apart from the sheet",
+  "cells": {
+    "D1": 0.04,
+    "E1": 0.6493506493506493,
+    "D2": 0.25,
+    "E2": 4.058441558441558,
+    "D3": 1.25,
+    "E3": 20.292207792207794,
+    "D4": 1.54,
+    "E4": 25.0
+  }
+}

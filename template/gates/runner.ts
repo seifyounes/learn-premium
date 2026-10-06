@@ -10,6 +10,7 @@ import { lstatSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "astro/zod";
+import { spotOf } from "./spots.ts";
 
 /**
  * `deploy` checks the build before it merges; `live` checks the live site after Vercel deploys it,
@@ -114,8 +115,11 @@ const gateReport = z.strictObject({
   ranAt: z.string(),
   green: z.boolean(),
   gates: z.array(gateResult),
-  /** Every Checkpoint item the gates raised, for the Owner's batched Checkpoint. */
-  checkpointItems: z.array(finding.extend({ gate: z.string() })),
+  /**
+   * Every Checkpoint item the gates raised, for the Owner's batched Checkpoint. `spot` is the page
+   * and anchor it shows at (`/01-slug/#worked-W01.1`), for a link to the exact place on the preview.
+   */
+  checkpointItems: z.array(finding.extend({ gate: z.string(), spot: z.string().optional() })),
 });
 export type GateReport = z.infer<typeof gateReport>;
 
@@ -141,7 +145,12 @@ export async function runGates({ point, commit, dirty = false, input, gates }: R
     green: !dirty && results.length > 0 && results.every((r) => GREEN_STATUSES.includes(r.status)),
     gates: results,
     checkpointItems: results.flatMap((r) =>
-      r.findings.filter((f) => f.outcome === "checkpoint").map((f) => ({ gate: r.id, ...f })),
+      r.findings
+        .filter((f) => f.outcome === "checkpoint")
+        .map((f) => {
+          const spot = spotOf(input.contentDir, f.at);
+          return { gate: r.id, ...f, ...(spot === undefined ? {} : { spot }) };
+        }),
     ),
   };
 }
