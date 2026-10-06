@@ -43,6 +43,16 @@ describe("the STL sim's readings", () => {
     expect(readAccumulator(trace[2]?.accu1 ?? 0, "REAL")).toEqual({ hex: "16#4120_0000", value: "10.0", type: "REAL" });
     expect(readAccumulator(trace[6]?.accu1 ?? 0, "DINT").value).toBe("L#-3");
     expect(readAccumulator(0xfffd, "INT").value).toBe("-3");
+    // A 32-bit shift fills all of ACCU 1: it reads as a DINT (Codex review).
+    expect(
+      accumulatorTypes(
+        [
+          { op: "L", text: "L#65536", ar1: 0 },
+          { op: "SLD", text: "1", ar1: 0 },
+        ],
+        model,
+      )[1]?.accu1,
+    ).toBe("DINT");
   });
 
   it("reads a load by the type last transferred to its address, an indirect one through AR 1 (Codex review)", () => {

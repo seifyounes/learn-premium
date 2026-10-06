@@ -45,7 +45,8 @@ export interface Reading {
   type: "REAL" | "INT" | "DINT";
 }
 
-const DINT_OPS = /^(\+D|-D|\*D|\/D|MOD|NEGD|INVD|ITD|\*I|RND[+-]?|TRUNC|TAR1)$/;
+/** Statements whose result fills all 32 bits of ACCU 1 as an integer. */
+const DINT_OPS = /^(\+D|-D|\*D|\/D|MOD|NEGD|INVD|ITD|\*I|RND[+-]?|TRUNC|TAR1|SLD|SRD|SSD|RLD|RRD|RLDA|RRDA|AD|OD|XOD)$/;
 /** Statements that leave both accumulators as they were. */
 const KEEPS_ACCUMULATORS =
   /^(A|AN|O|ON|X|XN|[AOX]N?\(|\)|NOT|SET|CLR|SAVE|=|S|R|FP|FN|T|J[A-Z]*|BE[UC]?|NOP|LAR1|\+AR1|[=<>]{1,2}[IDR])$/;
@@ -107,7 +108,11 @@ export function accumulatorTypes(
     else if (op === "TAK") [accu1, accu2] = [accu2, accu1];
     else if (op === "POP") accu1 = accu2;
     else if (!KEEPS_ACCUMULATORS.test(op) && op !== "TAR1")
-      accu1 = REAL_OPS.test(op) ? "REAL" : DINT_OPS.test(op) ? "DINT" : "INT";
+      accu1 = REAL_OPS.test(op)
+        ? "REAL"
+        : DINT_OPS.test(op) || (op === "+" && /^L#/i.test(text.trim()))
+          ? "DINT"
+          : "INT";
     return { accu1, accu2 };
   });
 }

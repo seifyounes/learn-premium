@@ -2,13 +2,14 @@
 // every instruction it uses is run by a case, the interpreter's negative controls each exercise
 // their defect and are caught, an unsupported instruction ships the listing as a step-through once
 // its Gate gap is named, and each of the gate's own negative controls is caught.
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse, stringify } from "yaml";
 import { runControls } from "../gates/runner.ts";
 import { stlGate } from "../gates/stl.ts";
-import { courseListings } from "../oracle/listings.ts";
+import { CORPUS_DIR, courseListings } from "../oracle/listings.ts";
 import { MUTANTS, runControls as runMutants } from "../src/sims/stl/mutants.ts";
 import { oracleLog } from "../src/sims/stl/oracle.ts";
 import { parseStl } from "../src/sims/stl/parse.ts";
@@ -89,6 +90,44 @@ describe("the stl gate", () => {
     const shipped = await run(named);
     // The step-through plays awlsim's trace, so it needs a current log: this one is stale.
     expect(shipped.findings.map((f) => f.message)).toEqual([expect.stringMatching(/another listing or other cases/)]);
+  });
+
+  it("passes a step-through with its Gate gap and a whole log, and blocks one whose log was cut short (Codex review)", async () => {
+    const corpus = parse(readFileSync(join(CORPUS_DIR, "step-through", "byte-swap.yaml"), "utf8")) as Record<
+      string,
+      unknown
+    >;
+    const listing = Object.fromEntries(Object.entries(corpus).filter(([key]) => key !== "covers"));
+    const planted = (cut: boolean) => {
+      const course = fixtureWith(`modules/${MODULE}/sims/byte-swap.yaml`, () =>
+        stringify({
+          kind: "stl",
+          title: "Byte order",
+          caption: "Swapped.",
+          recompute: "independent",
+          ...listing,
+          gateGap: 999,
+        }),
+      );
+      mkdirSync(join(course, "build-records", "oracle", MODULE), { recursive: true });
+      const log = JSON.parse(readFileSync(join(CORPUS_DIR, "step-through", "oracle", "byte-swap.json"), "utf8")) as {
+        cases: unknown[];
+      };
+      if (cut) log.cases = [];
+      writeFileSync(join(course, "build-records", "oracle", MODULE, "byte-swap.json"), JSON.stringify(log));
+      return course;
+    };
+    const whole = await run(planted(false));
+    expect(whole.findings).toEqual([]);
+    expect(whole.coverage.stepThroughs).toBe(1);
+    const cut = await run(planted(true));
+    expect(cut.findings).toEqual([
+      {
+        outcome: "block",
+        at: `modules/${MODULE}/sims/byte-swap.yaml`,
+        message: expect.stringMatching(/^the log ran other cases \(0\)/),
+      },
+    ]);
   });
 
   it("blocks a Gate gap named on a listing the interpreter runs in full", async () => {
