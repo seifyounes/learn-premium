@@ -352,6 +352,21 @@ describe("majors and migrations", () => {
     expect(stdout).toMatch(/ships template\/migrations\/v1\.ts, so it must be a major release/);
   });
 
+  test("a later release keeps every migration an earlier one shipped", async () => {
+    const r = await afterFirstRelease({ "template/migrations/v1.ts": MIGRATION });
+    expect((await r.release("tag", "--bump", "major")).code).toBe(0);
+    git(r.work, "rm", "-q", "template/migrations/v1.ts");
+    git(r.work, "commit", "-q", "-m", "drop the v1 migration");
+    git(r.work, "push", "-q", "origin", "HEAD:main");
+    const sha = git(r.work, "rev-parse", "HEAD");
+    r.forge.ciGreen(sha);
+    r.forge.liveGreen(sha);
+    r.forge.ownerPass(sha);
+    const { code, stdout } = await r.release("tag", "--bump", "patch");
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/drops template\/migrations\/v1\.ts, which v1\.0\.0 shipped/);
+  });
+
   test("a major with its migration tags, and its notes list the migration", async () => {
     const r = await afterFirstRelease({ "template/migrations/v1.ts": MIGRATION });
     const { code, stdout } = await r.release("tag", "--bump", "major");
@@ -522,6 +537,23 @@ describe("record-phone-pass", () => {
     expect(git(r.origin, "tag", "-l", "--format=%(contents)", "v0.1.0")).toContain(
       "iPhone 13 Safari, Pixel 7 Chrome · Pyodide 14 s",
     );
+  });
+
+  test("refuses a record too long to keep the Pyodide timing, rather than cutting it off", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r);
+    const { code, stdout } = await r.release(
+      "record-phone-pass",
+      "--sha",
+      sha,
+      "--devices",
+      "iPhone 13 mini on iOS 18.6 Safari, Pixel 7 on Android 16 Chrome, Galaxy A54 on One UI 8 Samsung Internet, iPad 10th gen Safari",
+      "--pyodide-seconds",
+      "14",
+    );
+    expect(code).toBe(2);
+    expect(stdout).toMatch(/over GitHub's 140 characters/);
+    expect(r.forge.statusesBySha.get(sha)?.some((s) => s.context === PHONE_PASS_CONTEXT)).toBe(false);
   });
 
   test("takes its commit, devices and timing explicitly", async () => {

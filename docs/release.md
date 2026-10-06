@@ -47,7 +47,9 @@ refuses to tag until every step below holds on that exact commit.
    - a version that isn't newer than the latest release, or a tag origin already has;
    - a commit that isn't on top of the latest release;
    - a major that doesn't ship the migration for each major it crosses;
-   - a non-major that ships a migration.
+   - a non-major that ships a migration;
+   - a commit that drops a migration an earlier release shipped (a Course on an older release
+     still upgrades through it).
 
    Then it writes the release notes, pushes an annotated tag carrying them to origin, and
    publishes the GitHub Release. `--dry-run` does every check and prints the notes, but tags
