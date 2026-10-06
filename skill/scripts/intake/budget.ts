@@ -148,8 +148,13 @@ function makeable(usage: Usage, limit: number, now: number, end: number): number
     if (cost === null) return null;
     spends.push({ at, cost });
   }
+  // A weekly limit NotebookLM reported holds every generation back until it lifts.
+  const stopped = usage.stops
+    .filter((s) => s.limit === "weekly")
+    .map((s) => Date.parse(s.until))
+    .reduce((latest, until) => Math.max(latest, until), now);
   let total = 0;
-  for (let t = now; t < end;) {
+  for (let t = stopped; t < end;) {
     const held = spends.filter((s) => s.at + WINDOW_MS.weekly > t).reduce((sum, s) => sum + s.cost, 0);
     const free = limit - held;
     if (free > 0) {

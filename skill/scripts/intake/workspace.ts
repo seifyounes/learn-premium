@@ -9,7 +9,10 @@ export const MEMORY_FILE = "MEMORY.md";
 /** The catalog table's lines, and where a new row goes (after its last row). */
 function locate(lines: string[], path: string): number {
   const heading = lines.findIndex((line) => /^#+\s+Project catalog\s*$/i.test(line));
-  const first = heading === -1 ? -1 : lines.findIndex((line, i) => i > heading && line.startsWith("|"));
+  // Only within that section: a table under a later heading isn't the catalog.
+  const next = lines.findIndex((line, i) => i > heading && /^#+\s/.test(line));
+  const end = heading === -1 ? -1 : next === -1 ? lines.length : next;
+  const first = lines.findIndex((line, i) => i > heading && i < end && line.startsWith("|"));
   if (first === -1)
     throw new LedgerError("invalid", `${path} has no Project catalog table to add the Course project to`);
   let last = first;

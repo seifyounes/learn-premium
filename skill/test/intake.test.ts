@@ -322,6 +322,28 @@ describe("budget", () => {
     expect(out.verdict).toBe("unknown");
   });
 
+  test("a weekly limit NotebookLM reported that lasts past the sitting leaves nothing makeable", async () => {
+    const state = tempDir("state");
+    measured(state);
+    must(
+      media(
+        "limit",
+        "--state",
+        state,
+        "--kind",
+        "weekly",
+        "--until",
+        new Date(Date.now() + 10 * 86_400_000).toISOString(),
+      ),
+    );
+    const soon = answers(tempDir("materials"), { sittings: [{ id: "final", name: "Final", date: daysFromNow(5) }] });
+
+    const { out } = await intake("budget", "--answers", jsonInput(soon), "--state", state);
+
+    expect(out.capacity.units).toBe(0);
+    expect(out.verdict).toBe("over");
+  });
+
   test("a registered Course that can't be read makes the verdict unknown: its demand isn't known", async () => {
     const state = tempDir("state");
     measured(state);

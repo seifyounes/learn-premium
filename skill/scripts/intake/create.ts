@@ -4,7 +4,8 @@
 // answers, the Private folder beside the Materials and a place in the Course registry. GitHub and
 // Vercel come after, in the host step, only on the Owner's word.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { isDeepStrictEqual } from "node:util";
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { LedgerError, withMutex } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
@@ -14,7 +15,7 @@ import { readLedger } from "../ledger/store.ts";
 import { register } from "../media/media.ts";
 import { readRegistry } from "../media/store.ts";
 import { ledgerIntake, type Answers } from "./answers.ts";
-import { samePath } from "./find.ts";
+import { findCourse, samePath } from "./find.ts";
 import { requireFolder } from "./propose.ts";
 import { templateAt } from "./release.ts";
 import { claudeMd, CONTENT_DIR, courseConfig, GITIGNORE, OVERRIDES_DIR, readme, type Paths } from "./scaffold.ts";
@@ -126,13 +127,27 @@ export function createProject(options: CreateOptions) {
       `the Private folder ${privateFolder} would be inside the repo ${repo}; it sits outside any repo`,
     );
   }
+  if (existsSync(privateFolder) && !statSync(privateFolder).isDirectory()) {
+    throw new LedgerError("refused", `${privateFolder} is a file; the Private folder goes there`);
+  }
   readCatalog(workspace);
   readRegistry(stateDir);
+  // One Course project per Materials folder: another registered one with these Materials is refused.
+  const owner = findCourse(stateDir, materials).project;
+  if (owner !== null && !samePath(owner, project)) {
+    throw new LedgerError("refused", `the Course project ${owner} already has these Materials`);
+  }
   if (existsSync(project)) {
     // This Course's own project, from a create that stopped after moving it into place: finish it.
     const ledger = madeBefore(project, answers, materials);
     if (ledger === null) {
       throw new LedgerError("refused", `${project} already exists; a Course project is never made over it`);
+    }
+    if (ledger.template.release !== release || !isDeepStrictEqual(ledger.intake, ledgerIntake(answers, materials))) {
+      throw new LedgerError(
+        "refused",
+        `${project} was made by an earlier run with other answers or another release; it is never remade`,
+      );
     }
     if (ledger.lock?.holder !== options.holder) {
       const held = ledger.lock === null ? "nobody holds it" : `${ledger.lock.holder} holds it`;
@@ -183,11 +198,9 @@ export function createProject(options: CreateOptions) {
     }
 
     git(stage, "init", "-q", "-b", "main");
-    // With no identity of its own (no global one), the Course project commits as the release repo does.
-    if (configured(stage, "user.name") === null || configured(stage, "user.email") === null) {
-      git(stage, "config", "user.name", author.name);
-      git(stage, "config", "user.email", author.email);
-    }
+    // The Course project commits as the release repo does (its own identity, else the global one).
+    git(stage, "config", "user.name", author.name);
+    git(stage, "config", "user.email", author.email);
     git(stage, "add", "-A");
     git(stage, "commit", "-q", "-m", `chore: create the ${answers.courseName} Course project`);
     commit = git(stage, "rev-parse", "HEAD");
