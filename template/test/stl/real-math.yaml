@@ -101,6 +101,7 @@ cases:
       - { MD 0: 3.5, MD 4: -2.5 }
       - { MD 0: -3.5, MD 4: 0.5 }
       - { MD 0: -0.5, MD 4: -0.5 }
+      - { MD 0: -0.0, MD 4: -0.0 }
       - { MD 0: 1.4999999, MD 4: 2.5000002 }
   - name: rounding off the end of DINT, and huge values
     scans:
