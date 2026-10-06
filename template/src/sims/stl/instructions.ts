@@ -397,6 +397,11 @@ const nanIn = (bits: number) => (isNaNBits(bits) ? NAN_BITS : undefined);
 
 /** RND, RND+, RND-, TRUNC: a REAL outside DINT keeps ACCU 1 and sets OV and OS. */
 function convert(c: Context, rounding: Rounding) {
+  // awlsim rounds −0.0 up to 1 (its RND+ tests the bits, not the value): the oracle decides.
+  if (rounding === "up" && accu1(c) === NEG_ZERO) {
+    setAccu1(c, 1);
+    return;
+  }
   const r = realToDint(real(accu1(c)), rounding);
   if (r.ov) overflow(c);
   else setAccu1(c, r.value);
