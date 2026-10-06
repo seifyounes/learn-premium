@@ -8,10 +8,11 @@
 // no URL the gates serve that build the way Vercel would under vercel.json (`live/vercel-like.ts`):
 // how their negative controls run, and how template CI checks the config before anything deploys.
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
-import { basename, join, relative } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import { course } from "../src/content/contract.ts";
 import { readStructured } from "../src/content/loaders.ts";
 import { LICENCES_FILE, LICENCES_ROUTE } from "../src/licences/file.ts";
+import { servedFiles } from "../src/python/integration.ts";
 import { navItems } from "../src/site/nav.ts";
 import type { ServedSite } from "./browser/serve.ts";
 import { allFiles, courseCopy, gitRoot, slashes, templateOf, templateWith } from "./course-files.ts";
@@ -227,11 +228,15 @@ const encodePath = (path: string) => path.split("/").map(encodeURIComponent).joi
  * Where Materials and Build evidence would be served if the deploy published more than the build:
  * every file of the Course's content (its build records included) at its path in the content
  * folder and in the repo, every Materials file the Build ledger lists, and the fixed list above.
+ * A content file the template publishes on purpose is left out: the Course's Pyodide packages,
+ * served from its `pyodide/` folder at /pyodide/.
  */
 function privatePaths(input: GateInput): string[] {
   const paths = new Set(ALWAYS_PRIVATE);
   const repoRoot = gitRoot(input.contentDir);
+  const published = new Set([...servedFiles(input.contentDir).values()].map((file) => resolve(file)));
   for (const { entry, path } of allFiles(input.contentDir)) {
+    if (published.has(resolve(path))) continue;
     paths.add(`/${entry}`);
     if (repoRoot !== undefined) paths.add(`/${slashes(relative(repoRoot, path))}`);
   }
