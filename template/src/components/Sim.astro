@@ -1,10 +1,14 @@
 ---
 import { getEntry } from "astro:content";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { prose, type SimRef } from "../content/course";
 import GradientDescentSim from "../islands/GradientDescentSim";
 import LogicSim from "../islands/LogicSim";
 import PlaneWallSim from "../islands/PlaneWallSim";
 import StepThrough from "../islands/StepThrough";
+import StlSim from "../islands/StlSim";
+import { buildContentDir } from "../content/layout";
 import TangentSim from "../islands/TangentSim";
 import { provenanceNotes } from "../provenance/notes";
 import { isLive } from "../sims/kinds";
@@ -12,6 +16,10 @@ import { inkNets } from "../sims/layout/geometry";
 import { layOut } from "../sims/layout/layout";
 import { printedDecimals } from "../sims/precision";
 import { toStepThrough } from "../sims/step-through";
+import { unsupportedStatements } from "../sims/stl/engine";
+import { oracleLog } from "../sims/stl/oracle";
+import { parseStl } from "../sims/stl/parse";
+import { replayOf } from "../sims/stl/view";
 import { parseCell } from "../worked/cells";
 
 /**
@@ -49,6 +57,21 @@ const stepThrough = s.stepThrough && toStepThrough(s.stepThrough, prose);
 // the drawing, never the router.
 const logic = live?.kind === "logic" ? live : undefined;
 const drawing = logic && layOut(logic.model, logic.layout);
+// An STL listing with an instruction the interpreter lacks plays awlsim's own trace of the example's
+// values, from its oracle log in the build records (the stl gate checked the log is current).
+const stl = s.kind === "stl" ? s : undefined;
+const stlReplay = (() => {
+  if (!stl || live) return undefined;
+  const path = join(buildContentDir(), "build-records", "oracle", ref.module, `${ref.name}.json`);
+  if (!existsSync(path)) throw new Error(`${ref.module}/${ref.name}: no oracle log for its step-through at ${path}`);
+  return replayOf(stl.model, oracleLog.parse(JSON.parse(readFileSync(path, "utf8"))), stl.start);
+})();
+const missing =
+  stl && !live
+    ? unsupportedStatements(parseStl(stl.model.source)).map(({ statement: st }) =>
+        [st.op, st.text].filter(Boolean).join(" "),
+      )
+    : [];
 ---
 
 <article class="sim-card" id={`sim-${ref.module}-${ref.name}`} data-sim-kind={s.kind} data-recompute={s.recompute}>
@@ -61,7 +84,17 @@ const drawing = logic && layOut(logic.model, logic.layout);
     <p class="max-w-[68ch] text-body-small text-muted" set:html={prose(s.caption)} />
   </div>
   {inputsHtml && <div class="mbe-3" set:html={inputsHtml} />}
-  {logic && drawing ? (
+  {live?.kind === "stl" ? (
+    <StlSim client:visible model={live.model} start={live.start} tune={live.tune} label={label} />
+  ) : stl && stlReplay ? (
+    <>
+      <StlSim client:visible model={stl.model} start={stl.start} tune={stl.tune} label={label} replay={stlReplay} />
+      <p class="mbs-2 max-w-[68ch] text-body-small text-muted">
+        A step-through, not a live sim: the interpreter doesn't run {[...new Set(missing)].join(", ")} yet, so it plays
+        the scans the build's oracle (awlsim) ran on the example's values.
+      </p>
+    </>
+  ) : logic && drawing ? (
     <LogicSim
       client:visible
       model={logic.model}

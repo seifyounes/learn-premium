@@ -1,0 +1,36 @@
+covers: a listing the interpreter can't run (CAW and CAD aren't in it yet), which ships as a step-through of awlsim's scans
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = Byte order for a drive's telegram
+    BEGIN
+    NETWORK
+    TITLE = Swap the bytes the drive expects the other way round
+          L     MW     0
+          CAW                             // change the byte order in ACCU 1's low word
+          T     MW     2
+          L     MD     4
+          CAD                             // change the byte order in all of ACCU 1
+          T     MD     8
+          A     I      0.0
+          =     Q      0.0
+    END_ORGANIZATION_BLOCK
+  inputs:
+    MW 0: INT
+    MD 4: DINT
+    I 0.0: BOOL
+  watch:
+    MW 2: WORD
+    MD 8: DWORD
+    Q 0.0: BOOL
+start:
+  MW 0: 4660
+  MD 4: 305419896
+  I 0.0: 1
+tune:
+  MW 0: { min: 0, max: 32767, step: 1 }
+cases:
+  - name: a second scan with the switch off
+    scans:
+      - { I 0.0: 1 }
+      - { I 0.0: 0, MW 0: 255 }
