@@ -21,15 +21,21 @@ export interface Timing {
 export type LiveOutcome = (RunOutcome | { error: string; stopped: true; printout: string[] }) & { timing: Timing };
 
 let worker: Worker | undefined;
+/** Whether the worker's Python has started: a run on it has answered. */
+let up = false;
 let queue: Promise<unknown> = Promise.resolve();
 let nextId = 0;
 
 const noTiming = (startMs = 0): Timing => ({ startMs, packagesMs: 0, runMs: 0, fetchedBytes: 0 });
 
+/** Whether the page's Python is running, so a run needn't start it (any tool may have stopped it). */
+export const pythonStarted = () => up;
+
 /** Ends the page's Python; the next run starts a fresh one. */
 function endWorker() {
   worker?.terminate();
   worker = undefined;
+  up = false;
 }
 
 const stopped = (startMs = 0): LiveOutcome => ({
@@ -56,6 +62,7 @@ function runOne(base: string, packages: readonly string[], code: string, signal?
       if ("failed" in data) return reject(new Error(data.failed));
       const { packagesMs, runMs, fetchedBytes } = data.timing;
       const startMs = Math.max(performance.now() - t0 - packagesMs - runMs, 0);
+      if (worker === w) up = true;
       resolve({ ...data.outcome, timing: { startMs, packagesMs, runMs, fetchedBytes } });
     };
     const onError = (event: ErrorEvent) => {

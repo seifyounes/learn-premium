@@ -70,10 +70,16 @@ export default function PythonTool({ figure, labels, code, packages, printout, b
     const controller = new AbortController();
     stop.current = controller;
     try {
-      const { runLive } = await import("../python/live.ts");
+      const { runLive, pythonStarted } = await import("../python/live.ts");
+      // Python may have been stopped since this tool last ran (by any tool on the page).
+      setPhase(pythonStarted() ? "running" : "loading");
       const outcome = await runLive(base, packages, source, controller.signal);
-      // Stopping ended Python: it may not have finished starting, and its output went with it.
-      if ("stopped" in outcome) return fail(outcome.error, false, outcome.printout, "stopped");
+      // Stopping ended Python, with its output: the next run starts it again, from the start.
+      if ("stopped" in outcome) {
+        setStarted(false);
+        setTook(undefined);
+        return fail(outcome.error, false, outcome.printout, "stopped");
+      }
       setStarted(true);
       setTook(outcome.timing);
       if ("error" in outcome) return fail(outcome.error, outcome.traceback === true, outcome.printout);
