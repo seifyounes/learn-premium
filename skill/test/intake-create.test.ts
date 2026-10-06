@@ -325,6 +325,27 @@ describe("create", { timeout: 30_000 }, () => {
     expect(existsSync(s.project)).toBe(false);
   });
 
+  test("a create that stopped after the project was in place is finished by running it again", async () => {
+    const s = setup();
+    const first = must(await create(s));
+    // As if it had stopped before the Course registry and the catalog: neither has the Course.
+    rmSync(join(s.state, "courses.json"));
+    writeFileSync(join(s.work, "MEMORY.md"), CATALOG);
+
+    const { code, out } = await create(s);
+
+    expect(code).toBe(0);
+    expect(out).toMatchObject({
+      resumed: true,
+      commit: first.commit,
+      registry: { added: true },
+      catalog: { added: true },
+    });
+    expect(git(s.project, "log", "--format=%s")).toBe("chore: create the Heat Transfer Course project");
+    expect(readFileSync(join(s.work, "MEMORY.md"), "utf8")).toContain("| `heat-transfer` |");
+    expect(JSON.parse(readFileSync(join(s.state, "courses.json"), "utf8")).courses).toHaveLength(1);
+  });
+
   test("an existing project folder is never overwritten", async () => {
     const s = setup();
     writeFiles(s.project, { "keep.txt": "mine" });

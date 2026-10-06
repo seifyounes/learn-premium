@@ -200,7 +200,13 @@ export function realHosting(options: RealHostingOptions): Hosting {
             `Vercel's deployment of ${sha} ended ${state}: ${deployment.errorMessage ?? "see its build log"}`,
           );
         }
-        if (deployment !== undefined && state === "READY" && deployment.aliasAssigned) {
+        // Built and aliased once isn't enough: production must serve it now (not a rollback or a newer push).
+        const serving =
+          deployment !== undefined && state === "READY" && Boolean(deployment.aliasAssigned)
+            ? ((await vercelOk("GET", `/v9/projects/${projectId}`)) as { targets?: { production?: { id?: unknown } } })
+                .targets?.production?.id === deployment.uid
+            : false;
+        if (deployment !== undefined && serving) {
           const { aliases = [] } = (await vercelOk("GET", `/v2/deployments/${deployment.uid}/aliases`)) as {
             aliases?: { alias: string }[];
           };

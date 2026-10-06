@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 import { must } from "./fake-notebooklm.ts";
@@ -182,8 +182,8 @@ describe("budget", () => {
     expect(out.others).toEqual([
       { project: a, course: "Course A", items: { video: 1, audio: 2, infographic: 2, "sitting-audio": 1 }, units: 34 },
     ]);
-    // The video started for Course A leaves the rolling week long before the last sitting: it holds nothing back.
-    expect(out.capacity).toEqual({ weeklyLimit: 100, held: 0, units: 400, committed: 34, remaining: 366 });
+    // Four weeks of a 100-unit cap, less the 10 the video started for Course A holds in the first.
+    expect(out.capacity).toEqual({ weeklyLimit: 100, units: 390, committed: 34, remaining: 356 });
     expect(out.verdict).toBe("fits");
   });
 
@@ -267,7 +267,7 @@ describe("budget", () => {
 
     const { out } = await intake("budget", "--answers", jsonInput(soon), "--state", state);
 
-    expect(out.capacity).toMatchObject({ weeklyLimit: 20, held: 19, units: 1, committed: 0, remaining: 1 });
+    expect(out.capacity).toEqual({ weeklyLimit: 20, units: 1, committed: 0, remaining: 1 });
     expect(out.verdict).toBe("over");
   });
 
@@ -282,8 +282,33 @@ describe("budget", () => {
     const { out } = await intake("budget", "--answers", jsonInput(tomorrow), "--state", state);
 
     expect(out.course.units).toBe(25);
-    expect(out.capacity).toEqual({ weeklyLimit: 100, held: 0, units: 100, committed: 0, remaining: 100 });
+    expect(out.capacity).toEqual({ weeklyLimit: 100, units: 100, committed: 0, remaining: 100 });
     expect(out.verdict).toBe("fits");
+  });
+
+  test("a cap used up yesterday frees once, six days on: a sitting eight days off gets one cap, not two", async () => {
+    const state = tempDir("state");
+    measured(state);
+    const usage = JSON.parse(readFileSync(join(state, "media-usage.json"), "utf8"));
+    usage.costs.video = 100;
+    usage.spends = [
+      {
+        at: new Date(Date.now() - 86_400_000).toISOString(),
+        project: "p",
+        item: "i",
+        kind: "video",
+        attempt: 1,
+        voided: null,
+      },
+    ];
+    writeFileSync(join(state, "media-usage.json"), JSON.stringify(usage));
+    const eightDays = answers(tempDir("materials"), {
+      sittings: [{ id: "final", name: "Final", date: daysFromNow(8) }],
+    });
+
+    const { out } = await intake("budget", "--answers", jsonInput(eightDays), "--state", state);
+
+    expect(out.capacity.units).toBe(100);
   });
 
   test("a registered Course that can't be read makes the verdict unknown: its demand isn't known", async () => {
@@ -314,7 +339,7 @@ describe("budget", () => {
 
     expect(code).toBe(0);
     expect(out.course.units).toBe(30 * 19 + 2 * 6);
-    expect(out.capacity).toEqual({ weeklyLimit: 100, held: 0, units: 400, committed: 0, remaining: 400 });
+    expect(out.capacity).toEqual({ weeklyLimit: 100, units: 400, committed: 0, remaining: 400 });
     expect(out.verdict).toBe("over");
   });
 
@@ -331,7 +356,7 @@ describe("budget", () => {
       items: { video: 4, audio: 4, infographic: 4, "sitting-audio": 2 },
       units: null,
     });
-    expect(out.capacity).toEqual({ weeklyLimit: null, held: null, units: null, committed: null, remaining: null });
+    expect(out.capacity).toEqual({ weeklyLimit: null, units: null, committed: null, remaining: null });
     expect(out.verdict).toBe("unknown");
     expect(out.reason).toMatch(/measured/);
   });

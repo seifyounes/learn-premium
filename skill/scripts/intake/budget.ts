@@ -102,22 +102,15 @@ export function budget(stateDir: string, answers: Answers) {
     }
   }
 
-  // The weekly cap is a rolling window: each started week of the window can spend a full cap, less
-  // what generations of the last 7 days still hold once the window ends (one that leaves the rolling
-  // window before the sitting frees its share in time).
   const weeklyLimit = usage.limits.weekly;
-  const held = last === undefined ? null : heldPast(usage, Date.parse(last));
   const units =
-    weeklyLimit === null || days === null || held === null
-      ? null
-      : round(Math.max(0, weeklyLimit * Math.max(1, Math.ceil(days / 7)) - held));
+    weeklyLimit === null || last === undefined ? null : makeable(usage, weeklyLimit, Date.now(), Date.parse(last));
   const committed = others.reduce<number | null>(
     (sum, o) => (sum === null || o.units === null ? null : sum + o.units),
     0,
   );
   const capacity = {
     weeklyLimit,
-    held: weeklyLimit === null ? null : held,
     units,
     committed: weeklyLimit === null ? null : committed,
     remaining: units === null || committed === null ? null : round(units - committed),
@@ -141,20 +134,34 @@ export function budget(stateDir: string, answers: Answers) {
 }
 
 /**
- * What the generations of the last 7 days cost that still count against the weekly cap at `end`:
- * those that leave the rolling window only after it. Null while a kind among them is unmeasured.
+ * How much the weekly cap lets NotebookLM make from `now` until `end` (the sitting's day), as the
+ * rolling window it is: spend everything free now, then again each time an earlier generation (the
+ * recent ones in the usage log, or one made here) leaves the 7-day window, as long as that is before
+ * `end`. Null while a recent generation's kind is unmeasured.
  */
-function heldPast(usage: Usage, end: number): number | null {
-  const now = Date.now();
-  let sum = 0;
+function makeable(usage: Usage, limit: number, now: number, end: number): number | null {
+  const spends: { at: number; cost: number }[] = [];
   for (const spend of usage.spends) {
-    const expires = Date.parse(spend.at) + WINDOW_MS.weekly;
-    if (spend.voided !== null || expires <= now || expires <= end) continue;
+    const at = Date.parse(spend.at);
+    if (spend.voided !== null || at + WINDOW_MS.weekly <= now) continue;
     const cost = usage.costs[spend.kind];
     if (cost === null) return null;
-    sum += cost;
+    spends.push({ at, cost });
   }
-  return sum;
+  let total = 0;
+  for (let t = now; t < end;) {
+    const held = spends.filter((s) => s.at + WINDOW_MS.weekly > t).reduce((sum, s) => sum + s.cost, 0);
+    const free = limit - held;
+    if (free > 0) {
+      spends.push({ at: t, cost: free });
+      total += free;
+    }
+    // The next moment something leaves the window.
+    const next = Math.min(...spends.map((s) => s.at + WINDOW_MS.weekly).filter((x) => x > t));
+    if (!Number.isFinite(next)) break;
+    t = next;
+  }
+  return round(total);
 }
 
 function round(n: number): number {
