@@ -1,7 +1,7 @@
-// The provenance gate, per job: every number a Worked example, Practice item, Summary beat or rule
-// shows, and every constant an Agent-built sim is built from, carries a Provenance tag (stated,
-// derived, scaled or assumed), so nothing on the page is of unknown origin. A value no list in the
-// entry's `provenance` block names blocks.
+// The provenance gate, per job: every number a Worked example, Practice item, Summary beat, rule or
+// Pyodide tool's prose shows, and every constant an Agent-built sim is built from, carries a
+// Provenance tag (stated, derived, scaled or assumed), so nothing on the page is of unknown
+// origin. A value no list in the entry's `provenance` block names blocks.
 import { readFileSync } from "node:fs";
 import { COLLECTIONS } from "../src/content/layout.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
@@ -11,14 +11,14 @@ import { plantedSim } from "./sims.ts";
 import type { Finding, Gate } from "./runner.ts";
 
 const ignoreMath = () => {};
-const TAGGED: readonly ValueCollection[] = ["worked", "practice", "beats", "rules", "sims"];
+const TAGGED: readonly ValueCollection[] = ["worked", "practice", "beats", "rules", "sims", "python"];
 const isTagged = (collection: string): collection is ValueCollection =>
   (TAGGED as readonly string[]).includes(collection);
 
 export const provenanceGate: Gate = {
   id: "provenance",
   checks:
-    "every number a Worked example, Practice item, Summary beat, rule or sim shows or is built from carries a Provenance tag",
+    "every number a Worked example, Practice item, Summary beat, rule, sim or Pyodide tool shows or is built from carries a Provenance tag",
   points: ["job", "deploy"],
   async run(input) {
     const coverage = { entries: 0, values: 0 };
@@ -82,6 +82,19 @@ export const provenanceGate: Gate = {
       plant: (good, scratch) =>
         courseWith(good, scratch, {
           "summary/900.md": "---\ntitle: Planted defect\n---\n\nA wall of $R = 0.5\\ \\text{K/W}$ resists.\n",
+        }),
+    },
+    {
+      defect: "a Pyodide tool whose caption no provenance list tags",
+      plant: (good, scratch) =>
+        courseWith(good, scratch, {
+          "python/900.yaml": [
+            "title: Planted tool",
+            "caption: 'Fits the line through $7$ points.'",
+            "source: planted.py",
+            "figure: { caption: Planted, x: { label: x, min: 0, max: 1, step: 1 }, y: { label: y, min: 0, max: 1, step: 1 } }",
+            "",
+          ].join("\n"),
         }),
     },
   ],

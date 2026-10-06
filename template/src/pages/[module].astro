@@ -50,6 +50,14 @@ const simsOf = (id: string) => sims.filter((s) => s.entry.data.worked === itemNu
 /** The Pyodide tools each Worked example carries, below its sims. */
 const pythonTools = (await getPythonTools()).filter((t) => t.module === module.id);
 const pythonOf = (id: string) => pythonTools.filter((t) => t.entry.data.worked === itemNumber(id));
+// A tool naming a Worked example the Module doesn't have would drop off this page unseen.
+for (const tool of pythonTools) {
+  const number = tool.entry.data.worked;
+  if (number !== undefined && !worked.some((w) => itemNumber(w.id) === number))
+    throw new Error(
+      `${tool.entry.filePath ?? tool.entry.id}: names Worked example ${number}, which Module ${module.id} doesn't have`,
+    );
+}
 
 // Watch → Summary → Worked examples → Practice; a section with nothing in it isn't on the page.
 const has: Record<Section, boolean> = {

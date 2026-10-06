@@ -110,6 +110,17 @@ describe("a Pyodide tool that can't make its preview fails the build", () => {
   });
 });
 
+describe("a Pyodide tool naming a Worked example its Module doesn't have", () => {
+  it("fails the build instead of dropping off the Module page", () => {
+    const course = fixtureWith(TOOL, (s) => s.replace("worked: '1'", "worked: '9'"));
+    const result = buildCourse(course);
+    expect(result.ok).toBe(false);
+    expect(result.output).toMatch(
+      /normal-equation\.yaml: names Worked example 9, which Module 03-gradient-descent doesn't have/,
+    );
+  });
+});
+
 describe("a Course's Pyodide packages", () => {
   it("must be in its pyodide/ folder, as the files Pyodide's lock names", () => {
     const course = mkdtempSync(join(tmpdir(), "lp-course-"));

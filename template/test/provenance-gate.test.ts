@@ -47,7 +47,8 @@ describe("the provenance gate on Agent-built sims", () => {
   it("passes the Fixture Course's sims, every constant tagged, the illustrative ones as assumed", async () => {
     const run = await provenanceGate.run({ contentDir: FIXTURE_COURSE, module: ML });
     expect(run.findings).toEqual([]);
-    expect(run.coverage.entries).toBe(3);
+    // The Worked example, the two sims and the Pyodide tool.
+    expect(run.coverage.entries).toBe(4);
   });
 
   it("blocks an untagged sim constant: a slider's range, the model's data, a step-through's figure", async () => {
@@ -59,6 +60,36 @@ describe("the provenance gate on Agent-built sims", () => {
       `${sim("descent-steps.json")}: 1.6 (in stepThrough.figure.elements.5.at)`,
       `${sim("descent.json")}: 4.5 (in model.data)`,
       `${sim("descent.json")}: 40 (in tune.iterations)`,
+    ]);
+  });
+});
+
+describe("the provenance gate on Pyodide tools", () => {
+  const ML = "03-gradient-descent";
+  const tool = `modules/${ML}/python/normal-equation.yaml`;
+
+  it("checks the Fixture Course's Pyodide tool, its prose tagged", async () => {
+    const run = await provenanceGate.run({ contentDir: FIXTURE_COURSE, module: ML });
+    expect(run.findings).toEqual([]);
+    expect(run.coverage.entries).toBe(4);
+  });
+
+  it("blocks an untagged number in a tool's title, caption, figure caption, axis label or element label", async () => {
+    const course = fixtureWith(tool, (s) =>
+      s
+        .replace("title: The same line", "title: The same 7 lines")
+        .replace("Edit the code and run it live.", "Edit the code and run it live in 8 seconds.")
+        .replace("The three points and", "The three points (out of 11) and")
+        .replace("x: { label: '$x$'", "x: { label: '$x$ in 12 steps'")
+        .replace("fit: '$h_\\theta(x)$'", "fit: '$h_\\theta(x)$ after 13 steps'"),
+    );
+    const run = await provenanceGate.run({ contentDir: course, module: ML });
+    expect(run.findings.map((f) => `${f.at}: ${f.message.split(" carries")[0]}`)).toEqual([
+      `${tool}: 7 (in title)`,
+      `${tool}: 8 (in caption)`,
+      `${tool}: 11 (in figure.caption)`,
+      `${tool}: 12 (in figure.x.label)`,
+      `${tool}: 13 (in labels.fit)`,
     ]);
   });
 });

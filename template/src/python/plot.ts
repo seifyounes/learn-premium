@@ -44,3 +44,17 @@ export function readPlot(plot: unknown, labels: Readonly<Record<string, string>>
   }
   return elements;
 }
+
+const quoted = (ids: string[]) =>
+  ids.map((id) => `"${id}"`).join(ids.length === 2 ? " and " : ", ").replace(/, ([^,]*)$/, ", and $1");
+
+/**
+ * The tool's labels whose id names no element the plot draws, as a sentence, or undefined when
+ * there are none. Checked at build only: a student editing the code live may rename an element.
+ */
+export function strayLabels(elements: readonly ElementData[], labels: Readonly<Record<string, string>>) {
+  const drawn = elements.map((e) => e.id);
+  const stray = Object.keys(labels).filter((id) => !drawn.includes(id));
+  if (stray.length === 0) return undefined;
+  return `labels names ${quoted(stray)}, which the plot doesn't draw (it draws ${quoted(drawn)})`;
+}

@@ -4,14 +4,15 @@ import { buildContentDir } from "../content/layout";
 import PythonToolIsland from "../islands/PythonTool";
 import { provenanceNotes } from "../provenance/notes";
 import { downloadOf, PYODIDE_PATH } from "../python/download";
-import { readPlot } from "../python/plot";
+import { readPlot, strayLabels } from "../python/plot";
 import { previewRun } from "../python/preview";
 import { toFigure } from "../worked/sheet";
 
 /**
  * A Pyodide tool where it is used: a Worked example, the Lab or the Tool gallery. It opens on its
  * preview, its code run at build on the Pyodide the page downloads, beside a Run-live button that
- * prints the tap's real download. A tool whose code fails, or leaves no plot, fails the build.
+ * prints the tap's real download. A tool whose code fails, leaves no plot, or doesn't draw an
+ * element its labels name fails the build.
  * `timing` shows each part of a live run's time: the Tool gallery's timing run.
  */
 interface Props {
@@ -39,6 +40,8 @@ const labels = Object.fromEntries(Object.entries(t.labels).map(([id, label]) => 
 const elements = readPlot(outcome.plot, labels);
 if (typeof elements === "string")
   throw new Error(`${where}: its code's plot can't be drawn, so it has no preview: ${elements}`);
+const stray = strayLabels(elements, t.labels);
+if (stray) throw new Error(`${where}: ${stray}`);
 const figure = { ...toFigure({ kind: "plot", ...t.figure, elements: [] }, prose), elements };
 ---
 
