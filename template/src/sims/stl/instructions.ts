@@ -437,21 +437,22 @@ function shift(c: Context, op: "SLW" | "SRW" | "SLD" | "SRD" | "SSI" | "SSD") {
   setBits(c, { CC1: out, CC0: 0, OV: 0 });
 }
 
-function rotate(c: Context, left: boolean) {
+function rotate(c: Context, towardHigh: boolean) {
   const count = shiftCount(c, 32);
   const v = accu1(c) >>> 0;
   if (count <= 0) return;
-  const r = count === 32 ? v : (left ? (v << count) | (v >>> (32 - count)) : (v >>> count) | (v << (32 - count))) >>> 0;
+  const r =
+    count === 32 ? v : (towardHigh ? (v << count) | (v >>> (32 - count)) : (v >>> count) | (v << (32 - count))) >>> 0;
   setAccu1(c, r);
-  setBits(c, { CC0: 0, CC1: left ? r & 1 : (r >>> 31) & 1, OV: 0 });
+  setBits(c, { CC0: 0, CC1: towardHigh ? r & 1 : (r >>> 31) & 1, OV: 0 });
 }
 
 /** RLDA, RRDA: rotate one bit through CC 1. */
-function rotateThroughCc1(c: Context, left: boolean) {
+function rotateThroughCc1(c: Context, towardHigh: boolean) {
   const cc1 = bit(c, "CC1");
   const v = accu1(c) >>> 0;
-  setBits(c, { CC0: 0, CC1: left ? (v >>> 31) & 1 : v & 1, OV: 0 });
-  setAccu1(c, left ? ((v & 0x7fffffff) << 1) | cc1 : (v >>> 1) | (cc1 << 31));
+  setBits(c, { CC0: 0, CC1: towardHigh ? (v >>> 31) & 1 : v & 1, OV: 0 });
+  setAccu1(c, towardHigh ? ((v & 0x7fffffff) << 1) | cc1 : (v >>> 1) | (cc1 << 31));
 }
 
 // ---- compares ------------------------------------------------------------------------------

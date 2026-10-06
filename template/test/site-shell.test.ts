@@ -12,6 +12,7 @@ const ROUTES = [
   "03-gradient-descent",
   "04-full-adder",
   "05-derivatives",
+  "06-tank-level",
   "rules",
   "lab",
   "about",
@@ -63,6 +64,7 @@ describe("the Study site shell", () => {
       "03-gradient-descent": "Modules",
       "04-full-adder": "Modules",
       "05-derivatives": "Modules",
+      "06-tank-level": "Modules",
       rules: "Master Rules",
       lab: "Lab",
       about: "About",
@@ -98,6 +100,7 @@ describe("the Study site shell", () => {
         "03-gradient-descent",
         "04-full-adder",
         "05-derivatives",
+        "06-tank-level",
       ]);
       expect(contentsLine(home(), "02-convection")).toContain('href="/02-convection/"');
     });
@@ -170,8 +173,8 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/03-gradient-descent/"');
     expect(lab).toContain('href="/04-full-adder/"');
     expect(lab).toContain('href="/05-derivatives/"');
-    // The five sims and the Pyodide tool.
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(6);
+    // The six sims and the Pyodide tool.
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(7);
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
 
@@ -206,7 +209,13 @@ describe("before a sitting is complete", () => {
 describe("a Course with no tools yet", () => {
   it("says so on the Lab page", () => {
     const course = fixtureWith("course.yaml", (s) => s);
-    for (const sims of ["01-thermal-resistance/sims", "03-gradient-descent", "04-full-adder", "05-derivatives/sims"])
+    for (const sims of [
+      "01-thermal-resistance/sims",
+      "03-gradient-descent",
+      "04-full-adder",
+      "05-derivatives/sims",
+      "06-tank-level/sims",
+    ])
       rmSync(join(course, "modules", sims), { recursive: true });
     const build = buildCourse(course);
     expect(build.ok, build.output).toBe(true);

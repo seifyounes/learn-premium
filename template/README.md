@@ -129,12 +129,13 @@ pixels (ticks at 12px, names at 15px) so the 12px floor holds at 320px; a schema
 by the layout core (below). A swipe on a board scrolls the page; only a handle takes a drag. The
 kinds:
 
-| Kind               | Discipline    | Engine                                                       | Students tune            | Independent check                     |
-| ------------------ | ------------- | ------------------------------------------------------------ | ------------------------ | ------------------------------------- |
-| `gradient-descent` | ML            | batch gradient descent on the half mean squared error        | start (drags), α, steps  | exact fractions                       |
-| `tangent`          | maths         | a polynomial's tangent, and secants over runs h, h/10, h/100 | a (P drags), h (Q drags) | direct evaluation, in exact fractions |
-| `plane-wall`       | heat transfer | transient conduction, Crank–Nicolson on 80 intervals         | time, diffusivity        | the Fourier series                    |
-| `logic`            | logic         | every net's level on every truth-table row                   | the input bits           | each net walked back to its gate      |
+| Kind               | Discipline    | Engine                                                             | Students tune                     | Independent check                         |
+| ------------------ | ------------- | ------------------------------------------------------------------ | --------------------------------- | ----------------------------------------- |
+| `gradient-descent` | ML            | batch gradient descent on the half mean squared error              | start (drags), α, steps           | exact fractions                           |
+| `tangent`          | maths         | a polynomial's tangent, and secants over runs h, h/10, h/100       | a (P drags), h (Q drags)          | direct evaluation, in exact fractions     |
+| `plane-wall`       | heat transfer | transient conduction, Crank–Nicolson on 80 intervals               | time, diffusivity                 | the Fourier series                        |
+| `logic`            | logic         | every net's level on every truth-table row                         | the input bits                    | each net walked back to its gate          |
+| `stl`              | automation    | the Professor's STL listing on the S7 core, statement by statement | the inputs (switches, raw values) | awlsim, bit for bit after every statement |
 
 - **Gradient descent** (`src/islands/GradientDescentSim.tsx`): its table fills in hand order and
   the red pen rings each new θ. The path moves on the contours of J, and α can diverge.
@@ -163,6 +164,39 @@ truth table's column order), its input bits as `start`, each input tuned from 0 
 of its truth table, or an input key, sets the inputs; every wire carrying a 1 inks in over its
 pencil line, and the red pen rings the row's outputs. Its engine gives every net's level on every
 row, named `net[row]` (`S[101]`), so `sheet` maps a truth-table artefact's cells to them.
+
+### The S7 core and the STL sim
+
+The automation Toolkit's shared S7 core (`src/sims/s7/core.ts`) is what the STL interpreter runs on
+today and the SCL interpreter and the ladder/FBD sim build on next: byte-addressed big-endian memory
+(I, Q, M; a peripheral input reads the input bytes), INT and DINT that wrap two's complement and
+report OV, REAL as float32 (every result rounded to the nearest float32), the status word, FC105
+SCALE and FC106 UNSCALE from Siemens' formula with the clamp and RET_VAL `W#16#0008`, and the
+watch-table display (a REAL as the shortest decimal that reads back as the same float32: `57.3`).
+
+An STL sim (`kind: stl`) holds the listing in STEP 7 source form, line for line as the Professor
+wrote it (`model.source`: one `ORGANIZATION_BLOCK OB 1`, absolute addresses, English mnemonics),
+the operands a student sets with their types (`model.inputs`), the watch table (`model.watch`), the
+example's values (`start`), the inputs students tune (`tune`) and any multi-scan `cases`. The
+interpreter (`src/sims/stl/`) runs a statement or a scan at a time with a trace entry per statement:
+ACCU 1, ACCU 2, AR 1, the status word and every byte it wrote. OB 1 starts every scan with the
+registers cleared (awlsim's choice; the manual is silent). What FC105 or FC106 leaves in the
+accumulators, the RLO, CC, OV and BR reads "left by FC105": Siemens doesn't publish it, so a
+statement that reads one stops the run, and the gate never compares one. The view
+(`src/islands/StlSim.tsx`) opens on the example's values with one scan run; students step, finish a
+scan, set inputs (taken from the next scan) or reset, and never edit the listing.
+
+Its independent check is awlsim, run at build: `npm run oracle -- write` (in the machine venv, or the
+`.oracle-venv` that `npm run oracle -- setup` makes here) runs the listing on its cases (the
+example's values, each tuned input at its slider's min, mid and max, and the written `cases`) and
+keeps awlsim's trace in `build-records/oracle/<NN-slug>/<name>.json`. awlsim has no TI-S7 library, so
+it calls FC105 and FC106 written in STL from the same formula (`oracle/fc105.awl`, `fc106.awl`).
+The `stl` gate compares the engine with that log bit for bit (below). A listing with an instruction
+the interpreter lacks names the Gate gap filed for it (`gateGap`) and ships as a step-through of
+awlsim's own scans of the example's values. The interpreter runs every instruction the template's
+corpus (`test/stl/`) runs against awlsim, each with every kind of operand it takes; where awlsim and
+the manual part (a REAL overflow is the largest REAL in awlsim, ±∞ in the manual), the engine
+follows awlsim, and `test/s7-core.test.ts` names each such point.
 
 ### The layout core
 
@@ -265,35 +299,36 @@ intake creates it: on a whole-Course run, a content gate (one that runs per job)
 nothing passes, and the Gate report records `nothingToCheck` for it. Once a Module exists, the rule
 applies again. A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
-| Gate                 | Points         | Checks                                                                                                                                                                                                      |
-| -------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists                                                                            |
-| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                                                                                             |
-| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words                                                                           |
-| `provenance`         | job, deploy    | every number an entry shows (Master Rules included), and every constant a sim is built from, carries a Provenance tag                                                                                       |
-| `master-rules`       | job, deploy    | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name`, `use` and the printed provenance notes, inside their math); no emoji                                      |
-| `sim-numbers`        | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                                                                              |
-| `truth-table`        | job, deploy    | a logic sim's truth table three ways, bit for bit: engine ≠ recompute blocks, a row the recompute leaves out blocks; both ≠ sheet is a Checkpoint item                                                      |
-| `drawing`            | job, deploy    | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                           |
-| `tools`              | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable           |
-| `pyodide`            | module, deploy | every Pyodide tool opens on its build-time preview beside a Run-live button that prints the real download, every file of it served from `/pyodide/`                                                         |
-| `rendered-page-scan` | module, deploy | no `.katex-error`, raw TeX, prose set as a fraction or hollow copy (`0/0`, NaN) on a built page, islands' props included; the content's braces render literally                                             |
-| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                                                                               |
-| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)                                                                   |
-| `layout-sweep`       | module         | browser: at 320/375/390/430/768/1024/1280/1440, every collapsible open, no sideways scroll, nothing over a figure, nothing above the page, no colliding text, no height-locked overflow, no text under 12px |
-| `live-page-scan`     | module         | browser: the live page has no KaTeX error, raw TeX, hollow copy, NaN or floating-point noise, and no uncaught error                                                                                         |
-| `hydration`          | module         | browser: island controls are disabled in the server's HTML, and on once the island hydrates                                                                                                                 |
-| `touch`              | module         | browser: with phone touch at 375 and 390px (4× slower CPU on Chromium), every control answers a tap                                                                                                         |
-| `initial-load`       | module         | browser: three.js, Pyodide and Plotly are absent from every page's initial load                                                                                                                             |
-| `trap-page`          | module         | browser: every sweep found every seeded defect on the Trap page                                                                                                                                             |
-| `no-materials`       | deploy         | no file in the build output is a document, deck, sheet or camera original, or matches a Materials hash in the Build ledger                                                                                  |
-| `no-build-evidence`  | deploy         | no evidence-shaped path (`gates/evidence.ts`, shared with the Go-public check), nothing under `build-records/`, no copy of a recompute log or Gate report                                                   |
-| `noindex`            | deploy         | every built page has a robots noindex meta tag, and `vercel.json` sends `X-Robots-Tag: noindex` on every path                                                                                               |
-| `licences`           | deploy         | every npm package the build ships is on the licence allow-list; anything else (GPL, NC, ND, unknown) is a Checkpoint item                                                                                   |
-| `licences-file`      | deploy         | the Licences file carries every hand-written notice, no page links to it, and `public/licences.txt` is the build's                                                                                          |
-| `live-routes`        | live           | every route the build made answers 200 with the build's own page; the hubs and `/licences.txt` are there                                                                                                    |
-| `live-headers`       | live           | every response carries `X-Robots-Tag: noindex`; pages, scripts and stylesheets of 1 KiB or more come Brotli-compressed                                                                                      |
-| `live-private-paths` | live           | the Course's content and build records (at their content and repo paths), the Build ledger's Materials, the evidence-shaped folders, config, `.env` and `.git` answer 404                                   |
+| Gate                 | Points         | Checks                                                                                                                                                                                                                                                                               |
+| -------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `content-contract`   | job, deploy    | every content file against the Zod schemas; every media file a `media.yaml` names is there; every Module a sitting covers exists                                                                                                                                                     |
+| `katex`              | job, deploy    | every formula through KaTeX with `throwOnError`                                                                                                                                                                                                                                      |
+| `teaching-method`    | job, deploy    | Worked examples: artefact declared and shipped, fill order, question figure first; Summaries: at most 5 beats of at most 90 words                                                                                                                                                    |
+| `provenance`         | job, deploy    | every number an entry shows (Master Rules included), and every constant a sim is built from, carries a Provenance tag                                                                                                                                                                |
+| `master-rules`       | job, deploy    | every rule is set with stacked fractions (a bare `/` outside a `\text{…}` unit blocks; in `name`, `use` and the printed provenance notes, inside their math); no emoji                                                                                                               |
+| `sim-numbers`        | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                                                                                                                                                       |
+| `truth-table`        | job, deploy    | a logic sim's truth table three ways, bit for bit: engine ≠ recompute blocks, a row the recompute leaves out blocks; both ≠ sheet is a Checkpoint item                                                                                                                               |
+| `stl`                | job, deploy    | every STL listing agrees with its awlsim log bit for bit after every statement of every case; every instruction it uses runs in a case; nine broken interpreters, each caught wherever the cases reach its defect; the sheet three ways; an unsupported instruction needs a Gate gap |
+| `drawing`            | job, deploy    | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                                                                                                    |
+| `tools`              | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable                                                                                    |
+| `pyodide`            | module, deploy | every Pyodide tool opens on its build-time preview beside a Run-live button that prints the real download, every file of it served from `/pyodide/`                                                                                                                                  |
+| `rendered-page-scan` | module, deploy | no `.katex-error`, raw TeX, prose set as a fraction or hollow copy (`0/0`, NaN) on a built page, islands' props included; the content's braces render literally                                                                                                                      |
+| `pad`                | module, deploy | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                                                                                                                                                        |
+| `red-hue-rule`       | module, deploy | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)                                                                                                                                            |
+| `layout-sweep`       | module         | browser: at 320/375/390/430/768/1024/1280/1440, every collapsible open, no sideways scroll, nothing over a figure, nothing above the page, no colliding text, no height-locked overflow, no text under 12px                                                                          |
+| `live-page-scan`     | module         | browser: the live page has no KaTeX error, raw TeX, hollow copy, NaN or floating-point noise, and no uncaught error                                                                                                                                                                  |
+| `hydration`          | module         | browser: island controls are disabled in the server's HTML, and on once the island hydrates                                                                                                                                                                                          |
+| `touch`              | module         | browser: with phone touch at 375 and 390px (4× slower CPU on Chromium), every control answers a tap                                                                                                                                                                                  |
+| `initial-load`       | module         | browser: three.js, Pyodide and Plotly are absent from every page's initial load                                                                                                                                                                                                      |
+| `trap-page`          | module         | browser: every sweep found every seeded defect on the Trap page                                                                                                                                                                                                                      |
+| `no-materials`       | deploy         | no file in the build output is a document, deck, sheet or camera original, or matches a Materials hash in the Build ledger                                                                                                                                                           |
+| `no-build-evidence`  | deploy         | no evidence-shaped path (`gates/evidence.ts`, shared with the Go-public check), nothing under `build-records/`, no copy of a recompute log or Gate report                                                                                                                            |
+| `noindex`            | deploy         | every built page has a robots noindex meta tag, and `vercel.json` sends `X-Robots-Tag: noindex` on every path                                                                                                                                                                        |
+| `licences`           | deploy         | every npm package the build ships is on the licence allow-list; anything else (GPL, NC, ND, unknown) is a Checkpoint item                                                                                                                                                            |
+| `licences-file`      | deploy         | the Licences file carries every hand-written notice, no page links to it, and `public/licences.txt` is the build's                                                                                                                                                                   |
+| `live-routes`        | live           | every route the build made answers 200 with the build's own page; the hubs and `/licences.txt` are there                                                                                                                                                                             |
+| `live-headers`       | live           | every response carries `X-Robots-Tag: noindex`; pages, scripts and stylesheets of 1 KiB or more come Brotli-compressed                                                                                                                                                               |
+| `live-private-paths` | live           | the Course's content and build records (at their content and repo paths), the Build ledger's Materials, the evidence-shaped folders, config, `.env` and `.git` answer 404                                                                                                            |
 
 ### Browser gates
 
@@ -443,17 +478,18 @@ does. Its negative control is a planted GPL-3.0 package (`gates/planted/gpl-pack
 
 ## Scripts
 
-| Script                 | What it does                                                                        |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| `npm run dev`          | Dev server on the Fixture Course                                                    |
-| `npm run build`        | Static build into `dist/`                                                           |
-| `npm run check`        | `astro check` (TypeScript strictest, `.astro` files included)                       |
-| `npm run lint`         | ESLint                                                                              |
-| `npm run format:check` | Prettier                                                                            |
-| `npm test`             | Vitest: the Fixture Course build, the gate runner, the gates, the sims in Chromium  |
-| `npm run gates -- …`   | The gate runner (see Gates)                                                         |
-| `npm run wheels`       | Fetches the Pyodide packages the Course's tools load into its `pyodide/` folder     |
-| `npm run deploy -- …`  | The deploy tooling: `licences`, `await-live`, `verdict`, `performance` (see Deploy) |
+| Script                 | What it does                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `npm run dev`          | Dev server on the Fixture Course                                                                            |
+| `npm run build`        | Static build into `dist/`                                                                                   |
+| `npm run check`        | `astro check` (TypeScript strictest, `.astro` files included)                                               |
+| `npm run lint`         | ESLint                                                                                                      |
+| `npm run format:check` | Prettier                                                                                                    |
+| `npm test`             | Vitest: the Fixture Course build, the gate runner, the gates, the sims in Chromium                          |
+| `npm run gates -- …`   | The gate runner (see Gates)                                                                                 |
+| `npm run wheels`       | Fetches the Pyodide packages the Course's tools load into its `pyodide/` folder                             |
+| `npm run oracle -- …`  | The STL oracle: `write` and `check` awlsim's logs (`--corpus` adds the template's corpus), `setup` its venv |
+| `npm run deploy -- …`  | The deploy tooling: `licences`, `await-live`, `verdict`, `performance` (see Deploy)                         |
 
 Dependencies are pinned to exact versions (`.npmrc` has `save-exact`); commit the lockfile with
 any change to them. CI (`.github/workflows/template-ci.yml`) runs all of the above. The browser

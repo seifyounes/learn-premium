@@ -45,6 +45,12 @@ Layout (content contract v0):
   coordinate. `build-records/figure/<NN>-<slug>/<name>.json` is the Blind reader's account of its
   figure (parts by printed label, their place as fractions of the figure, turn and label side, and
   every net, dotted or not), which the Drawing gate checks the model and the drawing against.
+- An STL sim (`kind: stl`, Module 06) holds its listing in STEP 7 source form (`model.source`), the
+  operands a student sets (`model.inputs`) and the watch table (`model.watch`), each with its type,
+  and multi-scan `cases`. `build-records/oracle/<NN>-<slug>/<name>.json` is awlsim's trace of it on
+  every case, written by `npm run oracle -- write` in the template; the `stl` gate checks the
+  interpreter against it bit for bit. The tank listing is the STL prototype's own (#37), no
+  Professor's text.
 - `modules/<NN>-<slug>/practice/<n>.yaml`: one Practice item each (JSON or YAML). A `numeric`
   item has an `answer` (`value`, `unit`, `tolerance`) the site checks; a `prose` item lists what
   `earns` the mark, one point per mark, for the student to mark themselves against.

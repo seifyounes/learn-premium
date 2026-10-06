@@ -87,8 +87,14 @@ export function courseListings(contentDir: string, module?: string): { listings:
 }
 
 /** The template's own awlsim corpus. */
-export function corpusListings(): Listing[] {
-  return filesIn(CORPUS_DIR, "*.yaml", () => true).map((file) => {
+/**
+ * The template's own awlsim corpus: `test/stl/*.yaml`, every one run by the interpreter too, and
+ * `test/stl/step-through/*.yaml`, listings it can't run yet, kept to test the step-through a Course
+ * listing like them ships as.
+ */
+export function corpusListings({ stepThroughs = false } = {}): Listing[] {
+  const folder = stepThroughs ? join(CORPUS_DIR, "step-through") : CORPUS_DIR;
+  return filesIn(folder, "*.yaml", () => true).map((file) => {
     const parsed = stlListing.safeParse(readStructured(readFileSync(file.path, "utf8"), file.entry, ignoreMath));
     if (!parsed.success)
       throw new Error(
@@ -96,8 +102,8 @@ export function corpusListings(): Listing[] {
       );
     const l = parsed.data;
     return {
-      entry: `test/stl/${file.entry}`,
-      logPath: join(CORPUS_DIR, "oracle", `${nameOf(file.entry)}.json`),
+      entry: `test/stl/${stepThroughs ? "step-through/" : ""}${file.entry}`,
+      logPath: join(folder, "oracle", `${nameOf(file.entry)}.json`),
       model: l.model,
       cases: gateCases(l.start, l.tune, l.cases),
     };

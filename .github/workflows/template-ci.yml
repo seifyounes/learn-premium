@@ -38,6 +38,16 @@ jobs:
       # stands in for iPhone Safari).
       - name: Playwright Chromium and WebKit
         run: npx playwright install --with-deps chromium webkit
+      # awlsim, the STL build oracle, at the version the machine venv pins (skill/uv.lock): the stl
+      # gate trusts the oracle logs committed beside each listing, so CI runs awlsim again and fails
+      # on any log that isn't what awlsim gives for the listing as it stands.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: awlsim for the STL oracle
+        run: npm run oracle -- setup
+      - name: STL oracle logs are awlsim's own (the Fixture Course and the template's corpus)
+        run: npm run oracle -- check --corpus
       - name: Format
         run: npm run format:check
       - name: Lint

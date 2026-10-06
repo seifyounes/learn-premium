@@ -1866,6 +1866,213 @@
     outline-offset: -2px;
   }
 
+  /* The STL sim: the Professor's listing in a pencil box beside the printed keys, the registers
+     of the statement being read, the watch table and the scan's trace. The listing is the student's
+     reading, so it is set in graphite mono; a line that ran this scan stays graphite, the rest pencil. */
+  .stl-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "controls" "source" "state";
+  }
+  @container sim (width >= 900px) {
+    .stl-grid {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      grid-template-areas:
+        "source controls"
+        "source state";
+      grid-template-rows: auto 1fr;
+      gap: 16px 28px;
+    }
+  }
+  .stl-source {
+    grid-area: source;
+    min-inline-size: 0;
+  }
+  .stl-controls {
+    grid-area: controls;
+    display: grid;
+    align-content: start;
+    gap: 12px;
+  }
+  .stl-state {
+    grid-area: state;
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-inline-size: 0;
+  }
+  .stl-listing {
+    max-block-size: 22rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  @container sim (width >= 900px) {
+    .stl-listing {
+      max-block-size: 40rem;
+    }
+  }
+  .stl-listing:focus-visible {
+    outline: 2px solid var(--color-print);
+    outline-offset: 2px;
+  }
+  .stl-lines {
+    margin: 0;
+    padding-block: 4px;
+    list-style: none;
+    font-family: var(--font-quantity);
+    font-size: 14px;
+    line-height: 22px;
+  }
+  .stl-line {
+    display: grid;
+    grid-template-columns: 3.4em max-content;
+  }
+  .stl-number {
+    padding-inline-end: 8px;
+    border-inline-end: 1px solid var(--color-pencil);
+    text-align: end;
+    color: var(--color-pencil);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+  }
+  .stl-code {
+    padding-inline: 10px 16px;
+    white-space: pre;
+    color: var(--color-pencil);
+  }
+  .stl-line[data-ran] .stl-code {
+    color: var(--color-graphite);
+  }
+  .stl-line[data-current] {
+    background: color-mix(in oklab, var(--color-graphite) 12%, transparent);
+  }
+  .stl-line[data-current] .stl-number {
+    background: var(--color-graphite);
+    color: var(--color-sheet);
+    font-weight: 700;
+  }
+  .stl-inputs {
+    display: grid;
+    gap: 12px;
+  }
+  .stl-number-input {
+    inline-size: 9ch;
+    min-block-size: 34px;
+    padding-inline: 6px;
+    border: 1.2px solid var(--color-pencil);
+    border-radius: 0;
+    background: var(--color-sheet);
+    color: var(--color-graphite);
+    text-align: end;
+  }
+  .stl-number-input:focus-visible {
+    outline: 2px solid var(--color-print);
+    outline-offset: 2px;
+  }
+  .stl-counter {
+    font-size: 14px;
+  }
+  .stl-error {
+    padding-inline-start: 10px;
+    border-inline-start: 2px solid var(--color-red-pen);
+  }
+  .stl-statement,
+  .stl-written {
+    display: grid;
+    gap: 2px;
+  }
+  .stl-written > .font-quantity {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .stl-registers {
+    display: grid;
+    gap: 8px;
+  }
+  .stl-accus {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-pencil);
+  }
+  .stl-register {
+    display: grid;
+    align-content: start;
+    gap: 2px;
+    padding: 6px 8px;
+    background: var(--color-sheet);
+    min-inline-size: 0;
+  }
+  .stl-register > .font-quantity {
+    overflow-wrap: anywhere;
+  }
+  .stl-hex {
+    font-size: 13px;
+  }
+  .stl-left {
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+    color: var(--color-muted);
+  }
+  .stl-bits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stl-bit {
+    display: grid;
+    justify-items: center;
+    min-inline-size: 2.9rem;
+    padding: 2px 4px 3px;
+    border: 1.2px solid var(--color-pencil);
+    color: var(--color-graphite);
+  }
+  /* A bit set to 1 is written solid in graphite; one a library block left is ruled dashed. */
+  .stl-bit[data-on] {
+    background: var(--color-graphite);
+    border-color: var(--color-graphite);
+    color: var(--color-sheet);
+  }
+  .stl-bit[data-on] .field-label {
+    color: var(--color-sheet);
+  }
+  .stl-bit[data-left] {
+    border-style: dashed;
+    color: var(--color-muted);
+  }
+  .stl-th,
+  .stl-td {
+    border: 1px solid var(--color-pencil);
+    padding: 2px 8px;
+    text-align: start;
+    white-space: nowrap;
+  }
+  .stl-th {
+    font-weight: 400;
+  }
+  .stl-watch tr[data-written] .stl-td {
+    font-weight: 600;
+  }
+  .stl-watch tr[data-written] .stl-td:first-child {
+    border-inline-start: 3px solid var(--color-graphite);
+  }
+  .stl-value {
+    text-align: end;
+  }
+  .stl-trace {
+    max-block-size: 15rem;
+  }
+  .stl-trace tr[data-current] .stl-td {
+    background: color-mix(in oklab, var(--color-graphite) 12%, transparent);
+  }
+
   /* A Pyodide tool: its plot on the sheet beside the code, the printed Run-live key and what the
      code printed. The code is the student's working, so it is written in graphite in a pencil box. */
   .python-tool {

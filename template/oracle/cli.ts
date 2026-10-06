@@ -59,7 +59,7 @@ function listings(values: { content?: string; module?: string; corpus?: boolean 
   const contentDir = resolve(values.content ?? process.env.CONTENT_DIR ?? join(TEMPLATE_DIR, "../fixture-course"));
   const { listings: course, unreadable } = courseListings(contentDir, values.module);
   if (unreadable.length > 0) throw new Error(unreadable.map((u) => `${u.entry} can't be run: ${u.problem}`).join("\n"));
-  return [...(values.corpus ? corpusListings() : []), ...course];
+  return [...(values.corpus ? [...corpusListings(), ...corpusListings({ stepThroughs: true })] : []), ...course];
 }
 
 function main(argv: string[]): number {
