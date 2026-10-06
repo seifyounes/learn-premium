@@ -24,14 +24,29 @@ export const BUILD_RECORDS_DIR = "build-records";
 
 export const SCHEMA_VERSION = 1;
 
-export const intakeSchema = obj({
+/** How many Modules the Owner expects this semester, for the media budget check: 1–99 (two-digit ids). */
+export const moduleCount: Schema<number> = (v, p) =>
+  Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 99 ? (v as number) : fail(p, "a whole number 1–99", v);
+
+const intakeShape = obj({
   courseName: nonEmpty,
   materialsPath: nonEmpty,
   disciplines: arr(nonEmpty),
   pad: nonEmpty,
   arabicNotes: bool,
   sittings: arr(obj({ id: nonEmpty, name: nonEmpty, date: nullable(isoDate) })),
+  /** Null when the intake didn't record it (a ledger made before the media budget check). */
+  expectedModules: nullable(moduleCount),
 });
+
+/** Intake answers recorded before the media budget check read as expecting no particular Module count. */
+export const intakeSchema: Schema<Infer<typeof intakeShape>> = (v, p) =>
+  intakeShape(
+    typeof v === "object" && v !== null && !Array.isArray(v) && !("expectedModules" in v)
+      ? { ...v, expectedModules: null }
+      : v,
+    p,
+  );
 
 /** The one driving session's claim on the Course. A take-over of a dead session's lock keeps who had it and why. */
 const lock = obj({

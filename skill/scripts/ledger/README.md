@@ -35,7 +35,7 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 
 | Command | Does |
 | --- | --- |
-| `init --holder H --release TAG --intake FILE` | At intake: creates the ledger with the intake answers (JSON: `courseName`, `materialsPath`, `disciplines`, `pad`, `arabicNotes`, `sittings: [{id, name, date or null}]`), the release tag and a hash of every file under `template/`. `H` holds the lock. |
+| `init --holder H --release TAG --intake FILE` | At intake: creates the ledger with the intake answers (JSON: `courseName`, `materialsPath`, `disciplines`, `pad`, `arabicNotes`, `sittings: [{id, name, date or null}]`, and `expectedModules`, the Modules expected this semester, 1–99 or null; left out, it reads as null), the release tag and a hash of every file under `template/`. `H` holds the lock. Intake's `create` (`../intake/README.md`) runs it for a new Course project. |
 | `map --holder H --input FILE` | Records the Owner-confirmed Module map, or an addition to it: `{modules: [{id: "01", slug, title, materials: [paths]}], unmapped: [paths]}`. Paths are relative to the Materials folder; each must be on disk and not mapped yet. |
 | `lock claim --holder H [--take-over REASON]` | Takes the lock. Refused (3) while another session holds it; `--take-over` breaks a dead session's lock, only on the Owner's word, and the ledger keeps who had it and why. |
 | `lock release --holder H` | Frees the lock at the end of a run. |
@@ -56,7 +56,9 @@ release, commit and measured times, and its jobs). Commit them with the ledger; 
 
 - `build-ledger.json`: the ledger.
 - `build-media.json`: its media file, written only by the Media pass (`../media/README.md`).
-- `template/`: the template layer, read-only; its hashes are pinned at `init`.
+- `template/`: the template layer, read-only; its hashes are pinned at `init`. The folders its own
+  `.gitignore` names (`node_modules/`, `dist/`…) are a local install or build, not template files,
+  so they're never hashed; nor is any `.git/` folder, in the template layer or the Materials.
 - `build-records/`: committed, never deployed.
 
 Tests: `npm test` in `skill/` (Vitest, synthetic fixture Materials only).
