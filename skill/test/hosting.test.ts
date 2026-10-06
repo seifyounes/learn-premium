@@ -137,6 +137,9 @@ describe("the real hosting adapter", () => {
           json: { aliases: [{ alias: "heat-transfer-owner.vercel.app" }, { alias: "heat-transfer.vercel.app" }] },
         };
       }
+      // Built and aliased from the third look, but production still serves an older one until the fourth.
+      if (path === "/v9/projects/prj_1")
+        return { json: { targets: { production: { id: polls < 4 ? "dpl_0" : "dpl_1" } } } };
       polls++;
       return {
         json: {
@@ -151,7 +154,7 @@ describe("the real hosting adapter", () => {
     const hosting = realHosting({ vercelToken: "tok", fetch: vercel.fetch, pollMs: 0 });
 
     expect(await hosting.awaitProduction("prj_1", "abc123")).toEqual({ url: "https://heat-transfer.vercel.app" });
-    expect(polls).toBe(3);
+    expect(polls).toBe(4);
   });
 
   test("a failed build ends the wait with Vercel's reason", async () => {

@@ -9,10 +9,12 @@ import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { LedgerError, withMutex } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
 import { init } from "../ledger/ledger.ts";
-import { TEMPLATE_DIR } from "../ledger/model.ts";
+import { TEMPLATE_DIR, type Ledger } from "../ledger/model.ts";
+import { readLedger } from "../ledger/store.ts";
 import { register } from "../media/media.ts";
 import { readRegistry } from "../media/store.ts";
 import { ledgerIntake, type Answers } from "./answers.ts";
+import { samePath } from "./find.ts";
 import { requireFolder } from "./propose.ts";
 import { templateAt } from "./release.ts";
 import { claudeMd, CONTENT_DIR, courseConfig, GITIGNORE, OVERRIDES_DIR, readme, type Paths } from "./scaffold.ts";
@@ -124,10 +126,21 @@ export function createProject(options: CreateOptions) {
       `the Private folder ${privateFolder} would be inside the repo ${repo}; it sits outside any repo`,
     );
   }
-  if (existsSync(project))
-    throw new LedgerError("refused", `${project} already exists; a Course project is never made over it`);
   readCatalog(workspace);
   readRegistry(stateDir);
+  if (existsSync(project)) {
+    // This Course's own project, from a create that stopped after moving it into place: finish it.
+    const ledger = madeBefore(project, answers, materials);
+    if (ledger === null) {
+      throw new LedgerError("refused", `${project} already exists; a Course project is never made over it`);
+    }
+    return {
+      ...finish(options, workspace, project, privateFolder, materials, ledger.template.release),
+      templateFiles: Object.keys(ledger.template.files).length,
+      commit: git(project, "rev-parse", "HEAD"),
+      resumed: true,
+    };
+  }
   const author = authorOf(options.source);
   const template = templateAt(options.source, release);
   const materialsByHash = new Map(
@@ -171,13 +184,32 @@ export function createProject(options: CreateOptions) {
     git(stage, "add", "-A");
     git(stage, "commit", "-q", "-m", `chore: create the ${answers.courseName} Course project`);
     commit = git(stage, "rev-parse", "HEAD");
-    mkdirSync(privateFolder, { recursive: true });
     renameRetrying(stage, project);
   } catch (error) {
     rmSync(stage, { recursive: true, force: true });
     throw error;
   }
 
+  return {
+    ...finish(options, workspace, project, privateFolder, materials, release),
+    templateFiles: template.size,
+    commit,
+  };
+}
+
+/**
+ * The steps after the Course project is in place, each safe to repeat: the Private folder, the Course
+ * registry, the workspace catalog. A create that stopped among them is finished by running it again.
+ */
+function finish(
+  { answers, stateDir }: CreateOptions,
+  workspace: string,
+  project: string,
+  privateFolder: string,
+  materials: string,
+  release: string,
+) {
+  mkdirSync(privateFolder, { recursive: true });
   const registry = register(stateDir, project);
   // Under a mutex, so two intakes running at once can't each write back a catalog missing the other's row.
   const memoryPath = join(workspace, MEMORY_FILE);
@@ -191,14 +223,26 @@ export function createProject(options: CreateOptions) {
     if (updated.added) writeFileSync(memoryPath, updated.memory);
     return updated;
   });
-
   return {
     project,
     privateFolder,
     release,
-    templateFiles: template.size,
-    commit,
     registry: { added: registry.added },
     catalog: { added: catalog.added },
   };
+}
+
+/** The Course project already made for these answers (same Course, same Materials), or null. */
+function madeBefore(project: string, answers: Answers, materials: string): Ledger | null {
+  let ledger: Ledger | null = null;
+  try {
+    ledger = readLedger(project);
+  } catch (error) {
+    if (!(error instanceof LedgerError)) throw error;
+  }
+  return ledger !== null &&
+    ledger.intake.courseName === answers.courseName &&
+    samePath(ledger.intake.materialsPath, materials)
+    ? ledger
+    : null;
 }
