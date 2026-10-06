@@ -182,8 +182,8 @@ describe("budget", () => {
     expect(out.others).toEqual([
       { project: a, course: "Course A", items: { video: 1, audio: 2, infographic: 2, "sitting-audio": 1 }, units: 34 },
     ]);
-    // The video started for Course A spent 10 units this week: they still count against the cap.
-    expect(out.capacity).toEqual({ weeklyLimit: 100, used: 10, units: 390, committed: 34, remaining: 356 });
+    // The video started for Course A leaves the rolling week long before the last sitting: it holds nothing back.
+    expect(out.capacity).toEqual({ weeklyLimit: 100, held: 0, units: 400, committed: 34, remaining: 366 });
     expect(out.verdict).toBe("fits");
   });
 
@@ -267,8 +267,23 @@ describe("budget", () => {
 
     const { out } = await intake("budget", "--answers", jsonInput(soon), "--state", state);
 
-    expect(out.capacity).toMatchObject({ weeklyLimit: 20, used: 19, units: 0, committed: 0, remaining: 0 });
+    expect(out.capacity).toMatchObject({ weeklyLimit: 20, held: 19, units: 1, committed: 0, remaining: 1 });
     expect(out.verdict).toBe("over");
+  });
+
+  test("a sitting tomorrow still has a whole week's cap to use, when nothing recent holds it", async () => {
+    const state = tempDir("state");
+    measured(state);
+    const tomorrow = answers(tempDir("materials"), {
+      expectedModules: 1,
+      sittings: [{ id: "final", name: "Final", date: daysFromNow(1) }],
+    });
+
+    const { out } = await intake("budget", "--answers", jsonInput(tomorrow), "--state", state);
+
+    expect(out.course.units).toBe(25);
+    expect(out.capacity).toEqual({ weeklyLimit: 100, held: 0, units: 100, committed: 0, remaining: 100 });
+    expect(out.verdict).toBe("fits");
   });
 
   test("a registered Course that can't be read makes the verdict unknown: its demand isn't known", async () => {
@@ -299,7 +314,7 @@ describe("budget", () => {
 
     expect(code).toBe(0);
     expect(out.course.units).toBe(30 * 19 + 2 * 6);
-    expect(out.capacity).toEqual({ weeklyLimit: 100, used: 0, units: 400, committed: 0, remaining: 400 });
+    expect(out.capacity).toEqual({ weeklyLimit: 100, held: 0, units: 400, committed: 0, remaining: 400 });
     expect(out.verdict).toBe("over");
   });
 
@@ -316,7 +331,7 @@ describe("budget", () => {
       items: { video: 4, audio: 4, infographic: 4, "sitting-audio": 2 },
       units: null,
     });
-    expect(out.capacity).toEqual({ weeklyLimit: null, used: null, units: null, committed: null, remaining: null });
+    expect(out.capacity).toEqual({ weeklyLimit: null, held: null, units: null, committed: null, remaining: null });
     expect(out.verdict).toBe("unknown");
     expect(out.reason).toMatch(/measured/);
   });

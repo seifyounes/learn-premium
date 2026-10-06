@@ -161,8 +161,11 @@ export function realHosting(options: RealHostingOptions): Hosting {
         target: "production",
         sha,
         limit: "1",
-      })) as { deployments?: unknown[] };
-      if (deployments.length > 0) return false;
+      })) as { deployments?: { readyState?: string; state?: string }[] };
+      // A build under way or done is kept; a failed or canceled one is replaced, so a re-run recovers.
+      const latest = deployments[0];
+      const state = latest?.readyState ?? latest?.state;
+      if (latest !== undefined && state !== "ERROR" && state !== "CANCELED") return false;
       const repoId = Number(gh(["api", `repos/${repo}`, "--jq", ".id"]));
       await vercelOk("POST", "/v13/deployments", {
         name,

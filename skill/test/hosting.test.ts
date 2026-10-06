@@ -110,6 +110,25 @@ describe("the real hosting adapter", () => {
     expect(vercel.calls[0]?.url.searchParams.get("sha")).toBe("abc123");
   });
 
+  test("a failed or canceled deployment of the commit is replaced, so a re-run recovers", async () => {
+    for (const readyState of ["ERROR", "CANCELED"]) {
+      const vercel = fakeVercel((method) =>
+        method === "GET" ? { json: { deployments: [{ uid: "dpl_0", readyState }] } } : {},
+      );
+      const gh = ghRunner({ "gh api repos/owner/heat-transfer": { status: 0, stdout: "123456\n" } });
+      const hosting = realHosting({ vercelToken: "tok", fetch: vercel.fetch, run: gh.run });
+
+      expect(
+        await hosting.ensureProductionDeployment(
+          { id: "prj_1", name: "heat-transfer" },
+          "owner/heat-transfer",
+          "abc123",
+        ),
+      ).toBe(true);
+      expect(vercel.calls.filter((c) => c.method === "POST")).toHaveLength(1);
+    }
+  });
+
   test("waits until production serves the commit's deployment, then gives its vercel.app address", async () => {
     let polls = 0;
     const vercel = fakeVercel((_, path) => {

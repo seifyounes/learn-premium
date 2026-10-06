@@ -6,7 +6,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
-import { LedgerError } from "../ledger/file.ts";
+import { LedgerError, withMutex } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
 import { init } from "../ledger/ledger.ts";
 import { TEMPLATE_DIR } from "../ledger/model.ts";
@@ -179,13 +179,18 @@ export function createProject(options: CreateOptions) {
   }
 
   const registry = register(stateDir, project);
-  const catalog = withCatalogRow(readCatalog(workspace), answers.slug, [
-    `${answers.courseName} study site`,
-    "Study site (learn-premium)",
-    "Scaffolded",
-    `learn-premium Course project at ${release}; Materials at ${materials}`,
-  ]);
-  if (catalog.added) writeFileSync(join(workspace, MEMORY_FILE), catalog.memory);
+  // Under a mutex, so two intakes running at once can't each write back a catalog missing the other's row.
+  const memoryPath = join(workspace, MEMORY_FILE);
+  const catalog = withMutex(memoryPath, () => {
+    const updated = withCatalogRow(readCatalog(workspace), answers.slug, [
+      `${answers.courseName} study site`,
+      "Study site (learn-premium)",
+      "Scaffolded",
+      `learn-premium Course project at ${release}; Materials at ${materials}`,
+    ]);
+    if (updated.added) writeFileSync(memoryPath, updated.memory);
+    return updated;
+  });
 
   return {
     project,

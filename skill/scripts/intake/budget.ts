@@ -4,8 +4,7 @@
 import { LedgerError } from "../ledger/file.ts";
 import { current } from "../ledger/model.ts";
 import { readLedger } from "../ledger/store.ts";
-import { capacity as capacityOf } from "../media/quota.ts";
-import { MEDIA_KINDS, MODULE_MEDIA, type MediaKind, type Usage } from "../media/model.ts";
+import { MEDIA_KINDS, MODULE_MEDIA, WINDOW_MS, type MediaKind, type Usage } from "../media/model.ts";
 import { readMediaFile, readRegistry, readUsage } from "../media/store.ts";
 import type { Answers } from "./answers.ts";
 import { samePath } from "./find.ts";
@@ -103,19 +102,22 @@ export function budget(stateDir: string, answers: Answers) {
     }
   }
 
-  // What the weekly cap makes over the window, less what the last 7 days already spent: those
-  // generations still count against it until they leave the rolling window.
+  // The weekly cap is a rolling window: each started week of the window can spend a full cap, less
+  // what generations of the last 7 days still hold once the window ends (one that leaves the rolling
+  // window before the sitting frees its share in time).
   const weeklyLimit = usage.limits.weekly;
-  const used = capacityOf(usage, Date.now()).weekly.used;
+  const held = last === undefined ? null : heldPast(usage, Date.parse(last));
   const units =
-    weeklyLimit === null || days === null || used === null ? null : round(Math.max(0, (weeklyLimit * days) / 7 - used));
+    weeklyLimit === null || days === null || held === null
+      ? null
+      : round(Math.max(0, weeklyLimit * Math.max(1, Math.ceil(days / 7)) - held));
   const committed = others.reduce<number | null>(
     (sum, o) => (sum === null || o.units === null ? null : sum + o.units),
     0,
   );
   const capacity = {
     weeklyLimit,
-    used: weeklyLimit === null ? null : used,
+    held: weeklyLimit === null ? null : held,
     units,
     committed: weeklyLimit === null ? null : committed,
     remaining: units === null || committed === null ? null : round(units - committed),
@@ -136,6 +138,23 @@ export function budget(stateDir: string, answers: Answers) {
   } else verdict = course.units <= capacity.remaining ? "fits" : "over";
 
   return { course, window, others, ended, skipped, capacity, verdict, reason };
+}
+
+/**
+ * What the generations of the last 7 days cost that still count against the weekly cap at `end`:
+ * those that leave the rolling window only after it. Null while a kind among them is unmeasured.
+ */
+function heldPast(usage: Usage, end: number): number | null {
+  const now = Date.now();
+  let sum = 0;
+  for (const spend of usage.spends) {
+    const expires = Date.parse(spend.at) + WINDOW_MS.weekly;
+    if (spend.voided !== null || expires <= now || expires <= end) continue;
+    const cost = usage.costs[spend.kind];
+    if (cost === null) return null;
+    sum += cost;
+  }
+  return sum;
 }
 
 function round(n: number): number {
