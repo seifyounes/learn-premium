@@ -5,7 +5,7 @@
 // Vercel come after, in the host step, only on the Owner's word.
 import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { LedgerError, withMutex } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
@@ -22,6 +22,12 @@ import { claudeMd, CONTENT_DIR, courseConfig, GITIGNORE, OVERRIDES_DIR, readme, 
 import { MEMORY_FILE, readCatalog, withCatalogRow } from "./workspace.ts";
 
 const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+/**
+ * The Site template's git hooks folder, which the Course project uses as its own: its pre-commit
+ * gate blocks a commit that stages a Materials file or an evidence-shaped path.
+ */
+export const HOOKS_PATH = `${TEMPLATE_DIR}/gates/hooks`;
 
 export interface CreateOptions {
   answers: Answers;
@@ -210,6 +216,11 @@ export function createProject(options: CreateOptions) {
     // The Course project commits as the release repo does (its own identity, else the global one).
     git(stage, "config", "user.name", author.name);
     git(stage, "config", "user.email", author.email);
+    // The pre-commit gate guards every commit from the first one on. git runs only an executable
+    // hook, and the template's files were written without their modes.
+    git(stage, "config", "core.hooksPath", HOOKS_PATH);
+    const hook = join(stage, HOOKS_PATH, "pre-commit");
+    if (existsSync(hook)) chmodSync(hook, 0o755);
     git(stage, "add", "-A");
     git(stage, "commit", "-q", "-m", `chore: create the ${answers.courseName} Course project`);
     commit = git(stage, "rev-parse", "HEAD");

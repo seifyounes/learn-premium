@@ -84,7 +84,9 @@ into place whole, so a refusal leaves nothing behind.
   Project catalog.
 
 The Materials are referenced by path only. Before the first commit, `create` refuses if any file it
-wrote matches a Materials file's hash.
+wrote matches a Materials file's hash, and from that first commit on the project's `core.hooksPath`
+is the template's `gates/hooks`: its pre-commit gate blocks any commit that stages a Materials file
+(by hash, the Build ledger's and the Materials folder's) or an evidence-shaped path.
 
 Tests: `npm test` in `skill/` (Vitest, synthetic Materials, a throwaway release repo; GitHub and
 Vercel faked).
