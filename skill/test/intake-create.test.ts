@@ -727,3 +727,34 @@ describe("host", { timeout: 30_000 }, () => {
     expect(out.error).toMatch(/uncommitted/);
   });
 });
+
+// The pre-commit gate's files as this repo's Site template carries them.
+const GATE_FILES = ["gates/pre-commit.ts", "gates/pre-commit-cli.ts", "gates/evidence.ts", "gates/hooks/pre-commit"];
+const realTemplateFiles = () => ({
+  // Node reads the template's package.json to run the gate's TypeScript, as in the real template.
+  "template/package.json": '{ "type": "module" }\n',
+  ...Object.fromEntries(
+    GATE_FILES.map((f) => [`template/${f}`, readFileSync(join(import.meta.dirname, "../../template", f), "utf8")]),
+  ),
+});
+
+describe("the Course project's pre-commit gate", { timeout: 60_000 }, () => {
+  test("is the project's hook from its first commit, and refuses a commit that stages a Materials file", async () => {
+    const lecture = "lecture one";
+    const s = setup({
+      materials: materialsFolder({ "Lectures/L01 Conduction.pdf": lecture }),
+      release: releaseRepo(realTemplateFiles()),
+    });
+    must(await create(s));
+    expect(git(s.project, "config", "core.hooksPath")).toBe("template/gates/hooks");
+    const head = git(s.project, "rev-parse", "HEAD");
+
+    writeFiles(s.project, { "content/modules/01-conduction/figure.png": lecture });
+    git(s.project, "add", "-A");
+    const commit = spawnSync("git", ["-C", s.project, "commit", "-q", "-m", "feat: planted"], { encoding: "utf8" });
+
+    expect(commit.status).not.toBe(0);
+    expect(commit.stderr).toMatch(/figure\.png: is the Materials file Lectures\/L01 Conduction\.pdf/);
+    expect(git(s.project, "rev-parse", "HEAD")).toBe(head);
+  });
+});
