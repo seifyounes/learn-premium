@@ -33,6 +33,7 @@ import {
   toPattern,
   type Address,
   type ByteWrite,
+  type LibraryBlock,
   type Rounding,
   type StatusBit,
   type StatusWord,
@@ -92,7 +93,7 @@ export interface Effect {
   call?: { block: string; inputs: Record<string, number>; outputs: Record<string, number> };
 }
 
-interface Context {
+export interface Context {
   cpu: Cpu;
   program: Program;
   statement: Statement;
@@ -101,7 +102,7 @@ interface Context {
 
 type OperandKind = Operand["kind"];
 
-interface Instruction {
+export interface Instruction {
   /** The operand kinds it takes; `none` when it may stand alone. */
   operands: readonly OperandKind[];
   run: (c: Context) => void;
@@ -532,10 +533,16 @@ function blockEnd(c: Context) {
 
 // ---- library CALLs ---------------------------------------------------------------------------
 
-function call(c: Context) {
+/** CALL, with the library blocks it may call (a negative control swaps in a broken one). */
+export const callWith =
+  (library: Readonly<Record<number, LibraryBlock>>) =>
+  (c: Context): void =>
+    call(c, library);
+
+function call(c: Context, library: Readonly<Record<number, LibraryBlock>> = LIBRARY) {
   const o = c.statement.operand;
   if (o.kind !== "block") throw new Error("CALL needs a block");
-  const block = LIBRARY[o.number];
+  const block = library[o.number];
   if (!block) throw new Error(`FC${o.number} isn't a library block this interpreter has`);
   const params = c.statement.params ?? {};
   const inputs: Record<string, number> = {};
@@ -813,7 +820,7 @@ export const INSTRUCTIONS: Readonly<Record<string, Instruction>> = {
     run: (c) => (bit(c, "RLO") ? blockEnd(c) : setBits(c, { OR: 0, STA: 1, RLO: 1, "/FC": 0 })),
   },
   NOP: { operands: ["constant"], run: () => {} },
-  CALL: { operands: ["block"], run: call },
+  CALL: { operands: ["block"], run: (c) => call(c) },
 };
 
 function constant(c: Context): number {
@@ -858,14 +865,21 @@ export function unsupported(s: Statement): string | undefined {
 }
 
 /** Runs the statement at `cpu.pc` and moves `pc` on; returns what it did. Throws on a statement it can't run. */
-export function execute(cpu: Cpu, program: Program): { statement: Statement; effect: Effect } {
+/** The instruction table an interpreter runs: this one, or a negative control's with one instruction broken. */
+export type InstructionTable = Readonly<Record<string, Instruction>>;
+
+export function execute(
+  cpu: Cpu,
+  program: Program,
+  table: InstructionTable = INSTRUCTIONS,
+): { statement: Statement; effect: Effect } {
   const statement = program.statements[cpu.pc];
   if (!statement) throw new Error("OB 1 has no statement left to run");
   const why = unsupported(statement);
   if (why) throw new Error(`line ${statement.line + 1}: ${why}`);
   const effect: Effect = { writes: [] };
   try {
-    INSTRUCTIONS[statement.op]?.run({ cpu, program, statement, effect });
+    table[statement.op]?.run({ cpu, program, statement, effect });
   } catch (error) {
     throw new Error(`line ${statement.line + 1}: ${(error as Error).message}`, { cause: error });
   }

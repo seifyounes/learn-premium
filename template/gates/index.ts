@@ -12,6 +12,7 @@ import { noBuildEvidence, noindexGate, noMaterials } from "./private-files.ts";
 import { provenanceGate } from "./provenance.ts";
 import { pyodideGate } from "./pyodide.ts";
 import { simNumbers, toolsGate, truthTableGate } from "./sims.ts";
+import { stlGate } from "./stl.ts";
 import type { Gate } from "./runner.ts";
 import { teachingMethod } from "./teaching.ts";
 
@@ -23,6 +24,7 @@ export const GATES: readonly Gate[] = [
   masterRules,
   simNumbers,
   truthTableGate,
+  stlGate,
   drawingGate,
   toolsGate,
   renderedPageScan,

@@ -462,7 +462,7 @@ export const toolsGate: Gate = {
 };
 
 /** The Worked example a sim names in its Module, with its sheet, or why it can't be read. */
-function workedExample(files: CourseFile[], module: string, number: string) {
+export function workedExample(files: CourseFile[], module: string, number: string) {
   const file = files.find(
     (f) => f.collection === "worked" && moduleOf(f.entry) === module && nameOf(f.entry) === number,
   );

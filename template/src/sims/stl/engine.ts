@@ -18,7 +18,16 @@ import {
   type ByteWrite,
   type S7Type,
 } from "../s7/core.ts";
-import { createCpu, execute, startScan, unsupported, type Cpu, type Register } from "./instructions.ts";
+import {
+  createCpu,
+  execute,
+  INSTRUCTIONS,
+  startScan,
+  unsupported,
+  type Cpu,
+  type InstructionTable,
+  type Register,
+} from "./instructions.ts";
 import { parseStl, type Program, type Statement } from "./parse.ts";
 
 /** What an STL sim's model holds: the listing, the operands students set, and the watch table. */
@@ -107,11 +116,22 @@ const entryOf = (cpu: Cpu, statement: Statement, effect: ReturnType<typeof execu
   ...(effect.call ? { call: effect.call } : {}),
 });
 
+/**
+ * How the interpreter runs: its instruction table and what OB 1's start does. Only a negative
+ * control (`mutants.ts`) changes either, to prove the gate sees the defect it plants.
+ */
+export interface Interpreter {
+  instructions: InstructionTable;
+  startScan: (cpu: Cpu) => void;
+}
+export const INTERPRETER: Interpreter = { instructions: INSTRUCTIONS, startScan };
+
 /** A listing running scan after scan: memory persists, the registers start cleared each scan. */
 export class StlRun {
   readonly model: StlModel;
   readonly program: Program;
   readonly cpu: Cpu;
+  readonly interpreter: Interpreter;
   /** Scans begun so far. */
   scans = 0;
   /** Statements run in the current scan. */
@@ -119,9 +139,10 @@ export class StlRun {
   /** A scan stops here: a listing that loops longer than this never ends its scan. */
   static readonly STEP_LIMIT = 100_000;
 
-  constructor(model: StlModel, program: Program = parseStl(model.source)) {
+  constructor(model: StlModel, program: Program = parseStl(model.source), interpreter: Interpreter = INTERPRETER) {
     this.model = model;
     this.program = program;
+    this.interpreter = interpreter;
     this.cpu = createCpu();
     this.cpu.ended = true;
   }
@@ -134,7 +155,7 @@ export class StlRun {
   /** Begins a scan: the inputs are copied in and OB 1 is called. */
   begin(inputs: Inputs): void {
     applyInputs(this.cpu.mem, this.model, inputs);
-    startScan(this.cpu);
+    this.interpreter.startScan(this.cpu);
     this.scans += 1;
     this.steps = 0;
   }
@@ -144,7 +165,7 @@ export class StlRun {
     if (this.cpu.ended) throw new Error("no scan is running: begin one first");
     if (++this.steps > StlRun.STEP_LIMIT)
       throw new Error(`the scan ran ${StlRun.STEP_LIMIT} statements without ending`);
-    const { statement, effect } = execute(this.cpu, this.program);
+    const { statement, effect } = execute(this.cpu, this.program, this.interpreter.instructions);
     return entryOf(this.cpu, statement, effect);
   }
 
@@ -216,8 +237,13 @@ export interface ScanResult {
 }
 
 /** Runs a case on a fresh CPU. Throws where the engine can't go on (an error names the line). */
-export function runCase(model: StlModel, scans: readonly Inputs[], program?: Program): ScanResult[] {
-  const run = new StlRun(model, program);
+export function runCase(
+  model: StlModel,
+  scans: readonly Inputs[],
+  program?: Program,
+  interpreter: Interpreter = INTERPRETER,
+): ScanResult[] {
+  const run = new StlRun(model, program, interpreter);
   return scans.map((inputs) => {
     const trace = run.scan(inputs);
     const m = run.cpu.mem.areas;

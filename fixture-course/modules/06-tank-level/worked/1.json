@@ -1,0 +1,68 @@
+{
+  "code": "W06.1",
+  "title": "The tank's volume from its level transmitter",
+  "statement": "An S7-300 reads a horizontal cylindrical tank's level transmitter at PIW 256 and works out the volume, network by network, in the STL listing below. For each raw value, fill in the corrected value in MW 20, the level $h$, the wetted area $A$ and the volume $V$.",
+  "given": [
+    "$r = 1.0\\ \\text{m}$, tank length $4.0\\ \\text{m}$",
+    "raw $0$ to $27648$ is empty to full",
+    "zero-point offset $200$"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "Each network in turn, three raw values",
+    "columns": [
+      { "label": "PIW 256", "given": true },
+      { "label": "MW 20" },
+      { "label": "$h$", "unit": "m" },
+      { "label": "$A$", "unit": "m²" },
+      { "label": "$V$", "unit": "l" }
+    ],
+    "rows": [
+      ["6712", "6912", "0.5000", "0.6142", "2456.7"],
+      ["13624", "13824", "1.0000", "1.5708", "6283.2"],
+      ["20536", "20736", "1.5000", "2.5274", "10109.6"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Correct the zero point",
+      "note": "Network 1 adds the offset with $+I$: $13624 + 200 = 13824$. An INT sum past $32767$ would wrap and set OV, which latches M 1.2.",
+      "fill": ["B1", "B2", "B3"]
+    },
+    {
+      "title": "Scale with FC105",
+      "note": "FC105 maps $0$ to $27648$ onto $0$ to $2.0\\ \\text{m}$: $h = \\frac{13824}{27648} \\cdot 2.0 = 1.0\\ \\text{m}$, and RET_VAL stays $0$ inside the range.",
+      "fill": ["C1", "C2", "C3"]
+    },
+    {
+      "title": "The wetted area",
+      "note": "Network 3 works out $A = r^2 \\arccos\\frac{d}{r} - d \\sqrt{2rh - h^2}$ with $d = r - h$. Half full, $d = 0$ and $A = \\frac{\\pi r^2}{2} = 1.5708\\ \\text{m}^2$.",
+      "fill": ["D1", "D2", "D3"]
+    },
+    {
+      "title": "The volume",
+      "note": "Network 4 multiplies by the length and by $1000$: $V = 1.5708 \\cdot 4.0 \\cdot 1000 = 6283.2$ litres. Every step is a REAL, so the PLC holds $6283.1855$.",
+      "fill": ["E1", "E2", "E3"],
+      "marks": ["E2"]
+    }
+  ],
+  "answer": "At the raw value $13624$ the tank is half full: MW 20 holds $13824$, $h = 1.0\\ \\text{m}$, $A = 1.5708\\ \\text{m}^2$ and $V = 6283.2$ litres.",
+  "provenance": {
+    "stated": [
+      "$r = 1.0$ m, length $4.0$ m",
+      "raw $0$ to $27648$ is empty to full",
+      "the zero-point offset, $200$",
+      "the raw values $6712$, $13624$ and $20536$",
+      "an INT ends at $32767$"
+    ],
+    "derived": [
+      "$6912$, $13824$, $20736$",
+      "$h = 0.5000$, $1.0000$, $1.5000$ m and the diameter $2.0$ m",
+      "$A = 0.6142$, $1.5708$, $2.5274$ m²",
+      "$V = 2456.7$, $6283.2$, $10109.6$ l, held as $6283.1855$",
+      "the litres per cubic metre, $1000$",
+      "RET_VAL $0$ and $d = 0$"
+    ]
+  }
+}

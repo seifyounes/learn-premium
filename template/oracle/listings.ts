@@ -11,6 +11,7 @@ import { basename, extname, join, resolve } from "node:path";
 import { sim as simSchema, stlListing } from "../src/content/contract.ts";
 import { moduleOf } from "../src/content/layout.ts";
 import { readStructured } from "../src/content/loaders.ts";
+import type { Sim } from "../src/sims/kinds.ts";
 import { gateCases, type GateCase, type StlModel } from "../src/sims/stl/engine.ts";
 import { ORACLE_LOG, oracleRequest, type OracleLog, type OracleRequest } from "../src/sims/stl/oracle.ts";
 import { courseFiles, filesIn } from "../gates/course-files.ts";
@@ -30,7 +31,13 @@ export interface Listing {
   logPath: string;
   model: StlModel;
   cases: GateCase[];
+  /** A Course's STL sim, as the content contract reads it (none for a corpus listing). */
+  sim?: StlSim;
+  /** Where the sim's log is kept, relative to the Course's content folder. */
+  logEntry?: string;
 }
+
+export type StlSim = Extract<Sim, { kind: "stl" }>;
 
 const ignoreMath = () => {};
 const nameOf = (entry: string) => basename(entry, extname(entry));
@@ -66,11 +73,14 @@ export function courseListings(contentDir: string, module?: string): { listings:
     }
     const s = parsed.data;
     if (s.kind !== "stl") continue;
+    const logEntry = oracleLogEntry(moduleOf(file.entry) ?? "", nameOf(file.entry));
     listings.push({
       entry: file.entry,
-      logPath: join(contentDir, oracleLogEntry(moduleOf(file.entry) ?? "", nameOf(file.entry))),
+      logPath: join(contentDir, logEntry),
+      logEntry,
       model: s.model,
       cases: gateCases(s.start, s.tune, s.cases),
+      sim: s,
     });
   }
   return { listings, unreadable };

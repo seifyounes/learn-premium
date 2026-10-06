@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { corpusListings, requestOf } from "../oracle/listings.ts";
 import { parseStl } from "../src/sims/stl/parse.ts";
 import { INSTRUCTIONS } from "../src/sims/stl/instructions.ts";
+import { MUTANTS, runControls } from "../src/sims/stl/mutants.ts";
 import { compareWithOracle, oracleLog } from "../src/sims/stl/oracle.ts";
 
 const listings = corpusListings();
@@ -26,6 +27,18 @@ describe("the awlsim corpus", () => {
       expect(agreement.statements).toBeGreaterThan(0);
     });
   }
+
+  it("catches every negative control wherever its defect shows, and each shows somewhere", () => {
+    const caught = new Set<string>();
+    for (const listing of listings) {
+      const log = oracleLog.parse(JSON.parse(readFileSync(listing.logPath, "utf8")));
+      for (const control of runControls(listing.model, listing.cases, log)) {
+        expect(control.outcome, `${listing.entry}: ${control.defect}: ${control.detail}`).not.toBe("missed");
+        if (control.outcome === "caught") caught.add(control.id);
+      }
+    }
+    expect(MUTANTS.filter((m) => !caught.has(m.id)).map((m) => m.defect)).toEqual([]);
+  });
 
   it("runs every instruction the interpreter has, with every kind of operand it takes", () => {
     const ran = new Set<string>();

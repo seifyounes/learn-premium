@@ -1,0 +1,192 @@
+kind: stl
+title: The tank listing, running
+caption: Set the level transmitter's raw value and the switches, then step a statement or run a whole scan. The trace shows the accumulators, AR 1, the status word and every byte each statement writes.
+recompute: independent
+worked: "1"
+sheet:
+  B2: MW 20
+  C2: MD 24
+  D2: MD 28
+  E2: MD 32
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = Horizontal cylindrical tank: level to volume
+    // Tank radius r = 1.0 m, length 4.0 m.
+    // PIW 256: level transmitter, 0..27648 = empty..full (-27648..27648 if I 0.1 = bipolar).
+    // MD 60..72: four volume set-points in litres, written by the HMI.
+    BEGIN
+    NETWORK
+    TITLE = 1 Zero-point correction
+          L     PIW  256                  // raw level from the analog module
+          L     200                       // zero-point offset found at commissioning
+          +I                              // INT add: wraps past 32767 and sets OV
+          T     MW    20                  // corrected raw level
+          A     OV                        // did the addition overflow?
+          S     M      1.2                // latch: offset overflow alarm
+    NETWORK
+    TITLE = 2 Scale to metres with FC105
+          CALL  FC   105
+           IN     :=MW20
+           HI_LIM :=2.000000e+000         // full = tank diameter, 2.0 m
+           LO_LIM :=0.000000e+000         // empty = 0.0 m
+           BIPOLAR:=I0.1
+           RET_VAL:=MW22                  // W#16#0008 = input out of range
+           OUT    :=MD24                  // level h in metres
+    NETWORK
+    TITLE = 3 Wetted cross-section: A = r2 acos(d/r) - d sqrt(2rh - h2)
+          L     1.000000e+000             // r = 1.0 m
+          T     MD    12
+          L     MD    12
+          L     MD    24
+          -R                              // d = r - h
+          T     MD    44
+          L     MD    12
+          /R                              // d / r
+          ACOS                            // half the wetted angle, rad
+          L     MD    12
+          SQR                             // r squared
+          *R
+          T     MD    48                  // r2 acos(d/r)
+          L     MD    12
+          L     2.000000e+000
+          *R                              // 2r
+          L     MD    24
+          *R                              // 2rh
+          L     MD    24
+          SQR                             // h squared
+          -R
+          ABS                             // clears -0.0 when h = 0 or h = 2r
+          SQRT                            // half the chord
+          L     MD    44
+          *R                              // d sqrt(2rh - h2)
+          T     MD    52
+          L     MD    48
+          L     MD    52
+          -R                              // wetted area A, m2
+          T     MD    28
+    NETWORK
+    TITLE = 4 Volume in litres
+          L     MD    28
+          L     4.000000e+000             // tank length 4.0 m
+          *R
+          L     1.000000e+003             // m3 to litres
+          *R
+          T     MD    32                  // volume V, litres
+    NETWORK
+    TITLE = 5 Level band: how many set-points has V passed?
+          L     0
+          T     MW    36                  // band := 0
+          LAR1  P#60.0                    // AR1 -> first set-point, MD 60
+          L     4                         // four set-points
+    NEXT: T     MW    38                  // loop counter
+          L     MD    32                  // volume
+          L     MD [AR1,P#0.0]            // set-point under AR1
+          >R
+          JCN   SKIP
+          L     MW    36
+          L     1
+          +I
+          T     MW    36                  // band := band + 1
+    SKIP: +AR1  P#4.0                     // next set-point
+          L     MW    38
+          LOOP  NEXT
+          L     MW    20
+          L     10
+          *I                              // tenths of a count, 32 bits, for the trend log
+          T     MD    40
+    NETWORK
+    TITLE = 6 Alarms, latched until I 0.0 acknowledges
+          A     I      0.0                // acknowledge button
+          R     M      1.0
+          R     M      1.1
+          R     M      1.2
+          L     MW    22                  // RET_VAL from FC105
+          L     0
+          <>I
+          S     M      1.0                // latch: level signal out of range
+          L     MW    36                  // level band
+          L     4
+          >=I
+          S     M      1.1                // latch: above the high-high set-point
+          O     M      1.0
+          O     M      1.1
+          O     M      1.2
+          =     Q      4.1                // common alarm lamp
+    NETWORK
+    TITLE = 7 High-volume lamp (exam trap)
+          A     I      0.2                // pump running: opens a logic string ...
+          L     MD    32
+          L     1.000000e+004
+          >R                              // ... but a compare writes RLO outright
+          =     Q      4.0                // so Q 4.0 = (V > 10 000 l), whatever I 0.2 is
+    END_ORGANIZATION_BLOCK
+  inputs:
+    PIW 256: INT
+    I 0.0: BOOL
+    I 0.1: BOOL
+    I 0.2: BOOL
+    MD 60: REAL
+    MD 64: REAL
+    MD 68: REAL
+    MD 72: REAL
+  watch:
+    MW 20: INT
+    MW 22: WORD
+    MD 24: REAL
+    MD 28: REAL
+    MD 32: REAL
+    MW 36: INT
+    MD 40: DINT
+    Q 4.0: BOOL
+    Q 4.1: BOOL
+    M 1.0: BOOL
+    M 1.1: BOOL
+    M 1.2: BOOL
+start:
+  PIW 256: 13624
+  I 0.0: 0
+  I 0.1: 0
+  I 0.2: 1
+  MD 60: 1000
+  MD 64: 3000
+  MD 68: 10000
+  MD 72: 12000
+tune:
+  PIW 256: { min: -32768, max: 32767, step: 1 }
+  I 0.0: { min: 0, max: 1, step: 1 }
+  I 0.1: { min: 0, max: 1, step: 1 }
+  I 0.2: { min: 0, max: 1, step: 1 }
+cases:
+  - name: an out-of-range level latches its alarm, which holds until acknowledged
+    scans:
+      - { PIW 256: 30000 }
+      - { PIW 256: 10000 }
+      - { PIW 256: 10000, I 0.0: 1 }
+      - { PIW 256: 10000, I 0.0: 0 }
+  - name: the zero-point correction wraps past 32767 and latches its alarm
+    scans:
+      - { PIW 256: 32767 }
+      - { PIW 256: 5000 }
+      - { PIW 256: 5000, I 0.0: 1 }
+  - name: the high-volume lamp lights with the pump switch off (the compare doesn't AND)
+    scans:
+      - { PIW 256: 20536, I 0.2: 0 }
+      - { PIW 256: 6712, I 0.2: 0 }
+  - name: a ramp across the set-points, bipolar at the end
+    scans:
+      - { PIW 256: 0, I 0.2: 1 }
+      - { PIW 256: 5000 }
+      - { PIW 256: 9000 }
+      - { PIW 256: 14000 }
+      - { PIW 256: 19000 }
+      - { PIW 256: 23000 }
+      - { PIW 256: 27448 }
+      - { PIW 256: -27848, I 0.1: 1 }
+      - { PIW 256: 13624, I 0.1: 1 }
+provenance:
+  stated:
+    - the tank's radius $r = 1.0$ m and length $4.0$ m
+    - "PIW 256: $0$ to $27648$ is empty to full"
+    - the zero-point offset, $200$
+    - the set-points $1000$, $3000$, $10000$ and $12000$ litres
