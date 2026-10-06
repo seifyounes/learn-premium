@@ -416,6 +416,14 @@ describe("ready, the Module wave's merge gate", () => {
     expect(problems.some((p) => p.includes("job writer"))).toBe(true);
   });
 
+  test("with no template layer to verify with, every Gate report counts as not green", () => {
+    const { project, waveId } = waveAtCheckpoint();
+
+    const problems = ready(project, waveId, {}).out.problems as string[];
+
+    expect(problems.filter((p) => p.includes("no gate runner"))).toHaveLength(3);
+  });
+
   test("the merge gate trusts no report's own verdict: it asks the template's verify for HEAD", () => {
     const { project, waveId, holder } = waveAtCheckpoint();
     for (const key of (must(checkpointOf(project)).open as { key: string }[]).map((i) => i.key))
