@@ -18,18 +18,44 @@ export function tracebackOf(error: unknown): string {
   return own < 0 ? (lines.at(-1) ?? message) : ["Traceback (most recent call last):", ...lines.slice(own)].join("\n");
 }
 
+/** Printed text as the lines it shows, the last one kept even without its newline. */
+const linesOf = (text: string) => (text === "" ? [] : text.replace(/\n$/, "").split("\n"));
+
+/**
+ * Runs `code` as a script (`__name__` is `"__main__"`) in a fresh namespace. Everything it printed
+ * comes back, flushed, even a last line with no newline, so none of it is left for the next run.
+ */
 export async function runCode(py: PyodideAPI, code: string): Promise<RunOutcome> {
-  const printout: string[] = [];
-  const print = { batched: (line: string) => printout.push(line) };
-  py.setStdout(print);
-  py.setStderr(print);
+  let text = "";
+  const decoder = new TextDecoder();
+  const write = (bytes: Uint8Array) => {
+    text += decoder.decode(bytes, { stream: true });
+    return bytes.length;
+  };
+  py.setStdout({ write });
+  py.setStderr({ write });
+  const printout = () => {
+    const sys = py.pyimport("sys");
+    try {
+      sys.stdout.flush();
+      sys.stderr.flush();
+    } finally {
+      sys.destroy();
+    }
+    return linesOf(text + decoder.decode());
+  };
   const globals = py.globals.get("dict")();
+  globals.set("__name__", "__main__");
   try {
-    await py.runPythonAsync(code, { globals });
-    if (!globals.has("plot")) return { error: "the code leaves no plot: end it by setting plot = [...]", printout };
-    return { plot: JSON.parse(py.runPython(DUMP, { globals }) as string), printout };
+    const last: unknown = await py.runPythonAsync(code, { globals });
+    // The value of a last expression (a NumPy array, say) is a proxy holding WASM memory.
+    if (last instanceof py.ffi.PyProxy) last.destroy();
+    if (!globals.has("plot"))
+      return { error: "the code leaves no plot: end it by setting plot = [...]", printout: printout() };
+    const plot: unknown = JSON.parse(py.runPython(DUMP, { globals }) as string);
+    return { plot, printout: printout() };
   } catch (error) {
-    return { error: tracebackOf(error), traceback: true, printout };
+    return { error: tracebackOf(error), traceback: true, printout: printout() };
   } finally {
     globals.destroy();
   }
