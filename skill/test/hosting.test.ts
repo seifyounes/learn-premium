@@ -62,6 +62,7 @@ describe("the real hosting adapter", () => {
       name: "heat-transfer",
       framework: "astro",
       rootDirectory: "template",
+      sourceFilesOutsideRootDirectory: true,
       gitRepository: { type: "github", repo: "owner/heat-transfer" },
       environmentVariables: [
         { key: "CONTENT_DIR", value: "../content", type: "plain", target: ["production", "preview", "development"] },

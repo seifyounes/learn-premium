@@ -24,7 +24,11 @@ export function findCourse(stateDir: string, materials: string): Found {
   for (const { project } of readRegistry(stateDir).courses) {
     try {
       const ledger = readLedger(project);
-      if (ledger !== null && samePath(ledger.intake.materialsPath, materials)) {
+      if (ledger === null) {
+        skipped.push({ project, error: `no Build ledger in ${project}` });
+        continue;
+      }
+      if (samePath(ledger.intake.materialsPath, materials)) {
         return { project, course: ledger.intake.courseName, skipped };
       }
     } catch (error) {
