@@ -15,7 +15,14 @@ describe("the worked-numbers gate", () => {
     const result = await run(FIXTURE_COURSE);
     expect(result.findings).toEqual([]);
     // W01.1's eight worked-out cells against its log; W01.2's five are the plate sim's.
-    expect(result.coverage).toEqual({ workedExamples: 2, cells: 8, simCells: 5 });
+    expect(result.coverage).toEqual({ modules: 1, workedExamples: 2, cells: 8, simCells: 5 });
+  });
+
+  it("passes a Module with no Worked example, having looked in it, and covers nothing for a Module that doesn't exist", async () => {
+    const none = await workedNumbers.run({ contentDir: FIXTURE_COURSE, module: "02-convection" });
+    expect(none).toEqual({ coverage: { modules: 1, workedExamples: 0, cells: 0, simCells: 0 }, findings: [] });
+    const missing = await workedNumbers.run({ contentDir: FIXTURE_COURSE, module: "09-missing" });
+    expect(Object.values(missing.coverage).every((n) => n === 0)).toBe(true);
   });
 
   it("checks the whole Course: only cells no live sim maps need a Worked example's log", async () => {
