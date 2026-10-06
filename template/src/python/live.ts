@@ -1,56 +1,102 @@
-// Pyodide in the page, imported only when the student taps Run live: the self-hosted loader from
-// the site's own `/pyodide/`, one Pyodide shared by every tool on the page, and how long each part
-// took, for the Tool gallery's timing run on a real phone. Never imported with the page, so neither
-// the loader nor the runtime is in the initial load.
-import type { PyodideAPI } from "pyodide";
-import { runCode, type RunOutcome } from "./run.ts";
+// Pyodide for the page, imported only when the student taps Run live. Python runs in a Web Worker
+// (`live-worker.ts`), loading from the site's own `/pyodide/`, one shared by every tool on the
+// page, so the page stays responsive however long the code runs, and Stop ends the worker. Runs
+// go one at a time: a second tool's run waits for the first's to answer. Each run reports how long
+// each part took and what it fetched, for the Tool gallery's timing run on a real phone. Never
+// imported with the page, so neither the loader nor the runtime is in the initial load.
+import type { LiveJob, LiveReply } from "./live-worker.ts";
+import type { RunOutcome } from "./run.ts";
 
 export interface Timing {
-  /** From the tap to Python ready: the loader, the runtime and the standard library. */
+  /** From the run's turn to Python ready: the loader, the runtime and the standard library. */
   startMs: number;
   /** Loading the tool's packages, once Python is ready. */
   packagesMs: number;
   runMs: number;
-  /** Bytes the browser fetched from `/pyodide/` over the network (0 when all came from its cache). */
+  /** Bytes this run fetched from `/pyodide/` over the network (0 when all came from the cache). */
   fetchedBytes: number;
 }
 
-let started: Promise<PyodideAPI> | undefined;
+/** `stopped`: the student stopped the run, so Python was ended and starts again on the next. */
+export type LiveOutcome = (RunOutcome | { error: string; stopped: true; printout: string[] }) & { timing: Timing };
 
-/** Starts Pyodide from `base` (once per page); a failed start can be tried again. */
-function start(base: string): Promise<PyodideAPI> {
-  started ??= (async () => {
-    const url = `${base}pyodide.mjs`;
-    const { loadPyodide } = (await import(/* @vite-ignore */ url)) as typeof import("pyodide");
-    return loadPyodide({ indexURL: base, stdout: () => {}, stderr: () => {} });
-  })().catch((error: unknown) => {
-    started = undefined;
-    throw error;
-  });
-  return started;
+let worker: Worker | undefined;
+let queue: Promise<unknown> = Promise.resolve();
+let nextId = 0;
+
+const noTiming = (startMs = 0): Timing => ({ startMs, packagesMs: 0, runMs: 0, fetchedBytes: 0 });
+
+/** Ends the page's Python; the next run starts a fresh one. */
+function endWorker() {
+  worker?.terminate();
+  worker = undefined;
 }
 
-const fetchedFrom = (base: string) =>
-  performance
-    .getEntriesByType("resource")
-    .filter((e) => new URL(e.name, location.href).pathname.startsWith(base))
-    .reduce((sum, e) => sum + ((e as PerformanceResourceTiming).transferSize || 0), 0);
+const stopped = (startMs = 0): LiveOutcome => ({
+  error: "Stopped. Python starts again on the next run.",
+  stopped: true,
+  printout: [],
+  timing: noTiming(startMs),
+});
 
-/** Starts Python if it isn't yet, loads `packages` and runs `code`, timing each part. */
-export async function runLive(
+function runOne(base: string, packages: readonly string[], code: string, signal?: AbortSignal): Promise<LiveOutcome> {
+  if (signal?.aborted) return Promise.resolve(stopped());
+  const w = (worker ??= new Worker(new URL("./live-worker.ts", import.meta.url), { type: "module" }));
+  const id = ++nextId;
+  const t0 = performance.now();
+  return new Promise<LiveOutcome>((resolve, reject) => {
+    const done = () => {
+      w.removeEventListener("message", onMessage);
+      w.removeEventListener("error", onError);
+      signal?.removeEventListener("abort", onAbort);
+    };
+    const onMessage = ({ data }: MessageEvent<LiveReply>) => {
+      if (data.id !== id) return;
+      done();
+      if ("failed" in data) return reject(new Error(data.failed));
+      const { packagesMs, runMs, fetchedBytes } = data.timing;
+      const startMs = Math.max(performance.now() - t0 - packagesMs - runMs, 0);
+      resolve({ ...data.outcome, timing: { startMs, packagesMs, runMs, fetchedBytes } });
+    };
+    const onError = (event: ErrorEvent) => {
+      done();
+      if (worker === w) endWorker();
+      reject(new Error(event.message || "Python's worker failed"));
+    };
+    const onAbort = () => {
+      done();
+      if (worker === w) endWorker();
+      resolve(stopped(performance.now() - t0));
+    };
+    w.addEventListener("message", onMessage);
+    w.addEventListener("error", onError);
+    signal?.addEventListener("abort", onAbort);
+    w.postMessage({
+      id,
+      base: new URL(base, location.href).href,
+      packages: [...packages],
+      code,
+    } satisfies LiveJob);
+  });
+}
+
+/**
+ * Starts Python if it isn't yet, loads `packages` and runs `code`, timing each part, once every
+ * run asked for before it has answered. Aborting `signal` stops the run (or drops it if it hasn't
+ * started) and answers `stopped`.
+ */
+export function runLive(
   base: string,
   packages: readonly string[],
   code: string,
-): Promise<RunOutcome & { timing: Timing }> {
-  const t0 = performance.now();
-  const py = await start(base);
-  const t1 = performance.now();
-  if (packages.length > 0) await py.loadPackage([...packages], { messageCallback: () => {} });
-  const t2 = performance.now();
-  const outcome = await runCode(py, code);
-  const t3 = performance.now();
-  return {
-    ...outcome,
-    timing: { startMs: t1 - t0, packagesMs: t2 - t1, runMs: t3 - t2, fetchedBytes: fetchedFrom(base) },
-  };
+  signal?: AbortSignal,
+): Promise<LiveOutcome> {
+  const run = queue.then(() => runOne(base, packages, code, signal));
+  queue = run.catch(() => {});
+  if (!signal) return run;
+  // A run stopped while it waits its turn answers at once; its turn then passes straight on.
+  const dropped = new Promise<LiveOutcome>((resolve) =>
+    signal.addEventListener("abort", () => resolve(stopped()), { once: true }),
+  );
+  return Promise.race([run, dropped]);
 }

@@ -1,9 +1,10 @@
 // A Pyodide tool: real Python, opening on its preview (the plot and printout its code gave at
 // build) beside a printed Run-live button that says what the tap downloads. Python loads only on
 // that tap, from the site's own /pyodide/, then runs the code as the student edits it and redraws
-// the plot in the pad's inks. Nothing about Pyodide is imported until then.
+// the plot in the pad's inks. Nothing about Pyodide is imported until then. Python runs off the
+// page's thread, so code that never finishes leaves the page working, and Stop ends it.
 import { MotionConfig, useReducedMotion } from "motion/react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { readPlot } from "../python/plot.ts";
 import type { Timing } from "../python/live.ts";
 import { sizeLabel } from "../python/lock.ts";
@@ -29,7 +30,7 @@ interface Props {
   timing?: boolean;
 }
 
-type Phase = "preview" | "loading" | "running" | "live" | "error";
+type Phase = "preview" | "loading" | "running" | "live" | "error" | "stopped";
 
 const seconds = (ms: number) => (ms / 1000).toFixed(1);
 const megabytes = (bytes: number) => (bytes / 1_000_000).toFixed(1);
@@ -44,6 +45,8 @@ export default function PythonTool({ figure, labels, code, packages, printout, b
   /** What went wrong: Python's traceback (code, set in mono), or a sentence saying so. */
   const [error, setError] = useState<{ text: string; traceback: boolean }>();
   const [took, setTook] = useState<Timing>();
+  /** Stops the run in flight: Python runs off the page's thread, so the page can always ask. */
+  const stop = useRef<AbortController>(undefined);
   const captionId = useId();
   const codeId = useId();
   useEffect(() => setReady(true), []);
@@ -55,18 +58,22 @@ export default function PythonTool({ figure, labels, code, packages, printout, b
   const busy = phase === "loading" || phase === "running";
   const size = sizeLabel(bytes);
 
-  function fail(text: string, traceback: boolean, printed?: string[]) {
+  function fail(text: string, traceback: boolean, printed?: string[], to: Phase = "error") {
     if (printed) setShown((s) => ({ ...s, printout: printed }));
     setError({ text, traceback });
-    setPhase("error");
+    setPhase(to);
   }
 
   async function run() {
     setPhase(started ? "running" : "loading");
     setError(undefined);
+    const controller = new AbortController();
+    stop.current = controller;
     try {
       const { runLive } = await import("../python/live.ts");
-      const outcome = await runLive(base, packages, source);
+      const outcome = await runLive(base, packages, source, controller.signal);
+      // Stopping ended Python: it may not have finished starting, and its output went with it.
+      if ("stopped" in outcome) return fail(outcome.error, false, outcome.printout, "stopped");
       setStarted(true);
       setTook(outcome.timing);
       if ("error" in outcome) return fail(outcome.error, outcome.traceback === true, outcome.printout);
@@ -76,6 +83,8 @@ export default function PythonTool({ figure, labels, code, packages, printout, b
       setPhase("live");
     } catch (failure) {
       fail(`Python didn't load: ${failure instanceof Error ? failure.message : String(failure)}`, false);
+    } finally {
+      if (stop.current === controller) stop.current = undefined;
     }
   }
 
@@ -107,14 +116,24 @@ export default function PythonTool({ figure, labels, code, packages, printout, b
               >
                 {phase === "loading" ? "Loading Python…" : started ? "Run again" : `Run live · ${size}`}
               </button>
-              <button
-                type="button"
-                className="button-print note-button label-action"
-                disabled={!ready || busy || source === code}
-                onClick={() => setSource(code)}
-              >
-                Reset code
-              </button>
+              {busy ? (
+                <button
+                  type="button"
+                  className="button-print note-button label-action"
+                  onClick={() => stop.current?.abort()}
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button-print note-button label-action"
+                  disabled={!ready || source === code}
+                  onClick={() => setSource(code)}
+                >
+                  Reset code
+                </button>
+              )}
             </div>
             <p className="python-status text-body-small text-muted" aria-live="polite">
               {phase === "preview" && (

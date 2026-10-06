@@ -27,5 +27,7 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss(), plotlyStandIns()],
+    // The page's Python runs in a module worker (src/python/live-worker.ts).
+    worker: { format: "es" },
   },
 });

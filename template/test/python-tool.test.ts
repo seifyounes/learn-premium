@@ -86,6 +86,7 @@ describe("the pyodide gate", () => {
     expect(result.gates[0]?.controls.map((c) => [c.defect, c.caught])).toEqual([
       ["a Pyodide tool with no build-time preview", true],
       ["a Pyodide tool whose preview draws nothing", true],
+      ["a Pyodide tool whose preview draws every mark outside its frame", true],
       ["a Run-live button that doesn't say what the tap downloads", true],
       ["a Run-live button that understates the download", true],
       ["a file the tap fetches missing from the site's /pyodide/", true],
@@ -202,6 +203,12 @@ describe("the Pyodide tool in a browser", () => {
     await tool.getByRole("button", { name: "Run again" }).click();
     await page.waitForFunction(() => document.querySelector(".python-output pre")?.textContent?.includes("2.1667"));
     expect(await tool.locator(".python-figure .plot-line").getAttribute("d")).not.toBe(line);
+    // Python is already in the page: running again fetches nothing, and says so.
+    const again = JSON.parse((await tool.locator("[data-timing]").getAttribute("data-timing")) ?? "{}") as Record<
+      string,
+      number
+    >;
+    expect(again.fetchedBytes).toBe(0);
 
     await code.fill("plot = [");
     await tool.getByRole("button", { name: "Run again" }).click();
@@ -209,6 +216,98 @@ describe("the Pyodide tool in a browser", () => {
     expect(await tool.locator(".python-error").textContent()).toMatch(/SyntaxError/);
     await tool.getByRole("button", { name: "Reset code" }).click();
     expect(await code.inputValue()).toContain("np.linalg.solve");
+    await page.close();
+  });
+
+  it("keeps the page working while edited code never finishes, and stops it on Stop", async () => {
+    const { page } = await gallery();
+    await page.locator("[data-run-live]").click();
+    await page.waitForSelector('[data-python-tool][data-state="live"]', { timeout: 120_000 });
+    const tool = page.locator("[data-python-tool]");
+    const code = tool.locator("textarea");
+    await code.fill("while True:\n    pass");
+    await tool.getByRole("button", { name: "Run again" }).click();
+    await page.waitForSelector('[data-python-tool][data-state="running"]');
+    // The page's own thread is free: a script answers at once, and the student can still type.
+    const answered = await Promise.race([
+      page.evaluate(() => "answered"),
+      new Promise((resolve) => setTimeout(() => resolve("frozen"), 5_000)),
+    ]);
+    expect(answered).toBe("answered");
+    await tool.getByRole("button", { name: "Stop" }).click({ timeout: 5_000 });
+    await page.waitForSelector('[data-python-tool][data-state="stopped"]');
+    expect(await tool.locator("[role=alert]").textContent()).toMatch(/Stopped/);
+
+    await tool.getByRole("button", { name: "Reset code" }).click();
+    await tool.getByRole("button", { name: "Run again" }).click();
+    await page.waitForSelector('[data-python-tool][data-state="live"]', { timeout: 120_000 });
+    expect(await tool.locator(".python-output pre").textContent()).toContain("theta0 = 1.1667");
+    await page.close();
+  });
+});
+
+describe("two Pyodide tools on one page", () => {
+  const ECHO = `modules/${MODULE}/python/echo`;
+  let two: ReturnType<typeof buildCourse>;
+  let browser: Browser;
+  let site: Awaited<ReturnType<typeof serve>>;
+  beforeAll(async () => {
+    const code = fixtureWith(
+      `${ECHO}.py`,
+      () => 'print("echo")\nplot = [{"id": "e", "kind": "point", "at": [1, 2]}]\n',
+    );
+    const course = fixtureWith(
+      `${ECHO}.yaml`,
+      () =>
+        [
+          "title: Echo",
+          "caption: A second tool on the page.",
+          "source: echo.py",
+          "worked: '1'",
+          "figure:",
+          "  caption: One point",
+          "  x: { label: '$x$', min: 0, max: 3, step: 1 }",
+          "  y: { label: '$y$', min: 0, max: 6, step: 1 }",
+          "",
+        ].join("\n"),
+      code,
+    );
+    two = buildCourse(course);
+    expect(two.ok, two.output).toBe(true);
+    browser = await chromium.launch();
+    site = await serve(two.outDir);
+  }, 600_000);
+  afterAll(async () => {
+    await browser?.close();
+    await site?.close();
+  });
+
+  it("run one at a time, each run's output its own", async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(`${site.url}/${MODULE}/`);
+    expect(await page.locator("[data-python-tool]").count()).toBe(2);
+    const first = page.locator(`#python-${MODULE}-normal-equation [data-python-tool]`);
+    const second = page.locator(`#python-${MODULE}-echo [data-python-tool]`);
+    // Each hydrates once it is on screen.
+    for (const tool of [first, second]) {
+      await tool.scrollIntoViewIfNeeded();
+      await tool.and(page.locator('[data-ready="true"]')).waitFor();
+    }
+    // Python started once, by the first tool.
+    await first.locator("[data-run-live]").click();
+    await first.and(page.locator('[data-state="live"]')).waitFor({ timeout: 120_000 });
+    // The first tool's run waits on an await, while the second tool's run is asked for.
+    await first
+      .locator("textarea")
+      .fill(
+        'import asyncio\nprint("a1")\nawait asyncio.sleep(1.5)\nprint("a2")\nplot = [{"id": "a", "kind": "point", "at": [1, 1]}]',
+      );
+    await first.getByRole("button", { name: "Run again" }).click();
+    await second.locator("[data-run-live]").click();
+    for (const tool of [second, first])
+      await tool.and(page.locator('[data-state="live"]')).waitFor({ timeout: 120_000 });
+    expect(await first.locator(".python-output pre").textContent()).toBe("a1\na2");
+    expect(await second.locator(".python-output pre").textContent()).toBe("echo");
     await page.close();
   });
 });
