@@ -28,6 +28,8 @@ export interface Verifier {
 /** Runs the Course project's own template layer: `node template/gates/cli.ts verify …`. */
 export const templateVerifier: Verifier = {
   verify(project, point, module) {
+    if (!existsSync(join(project, TEMPLATE_DIR, "gates", "cli.ts")))
+      return { green: false, problems: [`the template layer has no gate runner (${TEMPLATE_DIR}/gates/cli.ts)`] };
     const child = spawnSync(
       process.execPath,
       [
@@ -188,7 +190,7 @@ function markdownOf(id: string, open: CheckpointItem[], preview: string | null):
   ];
   open.forEach((item, i) => {
     const ask = item.sheet
-      ? " Rule it a **Slip** (ship the corrected value, show both) or a **Divergence** (ship the Professor's value as the exam answer, with a note)."
+      ? ". (**Slip**: the site ships the corrected value and shows both. **Divergence**: it ships the Professor's value as the exam answer, with a note.)"
       : "";
     const where =
       item.link !== undefined
