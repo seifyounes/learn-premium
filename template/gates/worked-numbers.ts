@@ -63,7 +63,13 @@ const numbersOf = (written: readonly string[]) => new Set(written.flatMap((w) =>
 async function run(input: GateInput): Promise<GateRun> {
   const files = courseFiles(input);
   const bySims = simCells(files);
-  const coverage = { workedExamples: 0, cells: 0, simCells: 0 };
+  // A Module with no Worked example has nothing to check and passes, the gate having looked in it.
+  const coverage = {
+    modules: files.filter((f) => f.collection === "modules").length,
+    workedExamples: 0,
+    cells: 0,
+    simCells: 0,
+  };
   const findings: Finding[] = [];
   for (const file of files.filter((f) => f.collection === "worked")) {
     const block = (message: string, at = file.entry) => findings.push({ outcome: "block", at, message });
