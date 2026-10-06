@@ -70,7 +70,7 @@ into place whole, so a refusal leaves nothing behind.
 - `<workspace>/<slug>/`, the /newproject way: `README.md`, `CLAUDE.md` (inheriting the workspace's),
   `.gitignore`, and one commit on `main`, `chore: create the <Course> Course project`.
 - `template/`: every file of the Site template as the release tag holds it (from git's objects, never
-  a working tree), read-only on disk. The Build ledger pins the release and every file's hash, and
+  a working tree). It is read-only: the Build ledger pins the release and every file's hash, and
   `ledger integrity` reports any edit.
 - `overrides/`: the Course overrides area, empty.
 - `content/course.yaml` (the course config: name, code, pad, the Credit line, the owner) and

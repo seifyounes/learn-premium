@@ -1,9 +1,10 @@
 // `intake create`: the Course project made the /newproject way, from the Site template at the
 // pinned release, against synthetic Materials, a throwaway workspace and a throwaway release repo.
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { beforeAll, describe, expect, test } from "vitest";
+import { tmpdir } from "node:os";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { FakeHosting } from "./fake-hosting.ts";
 import { must } from "./fake-notebooklm.ts";
 import { intake, jsonInput, ledger, tempDir, writeFiles, type Result } from "./helpers.ts";
@@ -12,15 +13,13 @@ import { intake, jsonInput, ledger, tempDir, writeFiles, type Result } from "./h
 const SHA256_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 const SHA256_EMPTY = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+// git here sees no global or system config, as on a CI runner: an identity comes only from the release repo.
+const isolated = mkdtempSync(join(tmpdir(), "lp-gitconfig-"));
 beforeAll(() => {
-  // The Course project's first commit needs an identity; CI runners have none configured.
-  Object.assign(process.env, {
-    GIT_AUTHOR_NAME: "Owner",
-    GIT_AUTHOR_EMAIL: "owner@example.com",
-    GIT_COMMITTER_NAME: "Owner",
-    GIT_COMMITTER_EMAIL: "owner@example.com",
-  });
+  writeFileSync(join(isolated, "gitconfig"), "");
+  Object.assign(process.env, { GIT_CONFIG_GLOBAL: join(isolated, "gitconfig"), GIT_CONFIG_NOSYSTEM: "1" });
 });
+afterAll(() => rmSync(isolated, { recursive: true, force: true }));
 
 function git(repo: string, ...args: string[]): string {
   const child = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
@@ -34,15 +33,24 @@ const TEMPLATE_FILES = {
   "template/.gitignore": "node_modules/\ndist/\n",
 };
 
-/** A release worktree's repo: the skill, the Site template and the Fixture Course, tagged `v2.1.0`. */
-function releaseRepo(files: Record<string, string> = {}): string {
+/**
+ * A release worktree's repo: the skill, the Site template and the Fixture Course, tagged `v2.1.0`,
+ * committing as the Owner (unless `identity` is false).
+ */
+function releaseRepo(files: Record<string, string> = {}, identity = true): string {
   const repo = tempDir("release");
   git(repo, "init", "-q", "-b", "main");
   git(repo, "config", "core.autocrlf", "false");
+  git(repo, "config", "user.name", "Owner");
+  git(repo, "config", "user.email", "owner@example.com");
   writeFiles(repo, { ...TEMPLATE_FILES, "skill/SKILL.md": "skill", "fixture-course/course.yaml": "fixture", ...files });
   git(repo, "add", "-A");
   git(repo, "commit", "-q", "-m", "release");
   git(repo, "tag", "v2.1.0");
+  if (!identity) {
+    git(repo, "config", "--unset", "user.name");
+    git(repo, "config", "--unset", "user.email");
+  }
   return repo;
 }
 
@@ -158,7 +166,9 @@ describe("create", { timeout: 30_000 }, () => {
     );
     const ignored = readFileSync(join(s.project, ".gitignore"), "utf8").split("\n");
     expect(ignored).toEqual(expect.arrayContaining([".env*", "node_modules/", "media-inbox/", ".vercel/"]));
-    expect(git(s.project, "log", "--format=%s")).toBe("chore: create the Heat Transfer Course project");
+    expect(git(s.project, "log", "--format=%s by %an <%ae>")).toBe(
+      "chore: create the Heat Transfer Course project by Owner <owner@example.com>",
+    );
     expect(git(s.project, "status", "--porcelain")).toBe("");
     expect(git(s.project, "branch", "--show-current")).toBe("main");
     expect(out.commit).toBe(git(s.project, "rev-parse", "HEAD"));
@@ -184,7 +194,7 @@ describe("create", { timeout: 30_000 }, () => {
     expect(existsSync(join(s.project, "content/modules"))).toBe(true);
   });
 
-  test("copies the Site template's files at the pinned release, read-only, and the ledger pins the release and their hashes", async () => {
+  test("copies the Site template's files at the pinned release, and the ledger pins the release and their hashes", async () => {
     const release = releaseRepo();
     // After the tag: neither a later commit nor a stray untracked file reaches the Course project.
     writeFiles(release, {
@@ -198,13 +208,35 @@ describe("create", { timeout: 30_000 }, () => {
 
     expect(filesUnder(join(s.project, "template"))).toEqual([".gitignore", "package.json", "src/pages/index.astro"]);
     expect(readFileSync(join(s.project, "template/src/pages/index.astro"), "utf8")).toBe("abc");
-    for (const file of filesUnder(join(s.project, "template"))) {
-      expect(statSync(join(s.project, "template", file)).mode & 0o222, file).toBe(0);
-    }
     const { out } = ledger("status", "--project", s.project);
     expect(out.template.release).toBe("v2.1.0");
     expect(out.template.files).toMatchObject({ "package.json": SHA256_EMPTY, "src/pages/index.astro": SHA256_ABC });
     expect(ledger("integrity", "--project", s.project).code).toBe(0);
+  });
+
+  test("the template layer is read-only: an install or a build in it passes the integrity check, an edit to it fails it", async () => {
+    const s = setup();
+    must(await create(s));
+    writeFiles(join(s.project, "template"), { "node_modules/x/index.js": "installed", "dist/index.html": "built" });
+
+    expect(ledger("integrity", "--project", s.project).code).toBe(0);
+
+    writeFileSync(join(s.project, "template/src/pages/index.astro"), "edited in the Course project");
+
+    expect(ledger("integrity", "--project", s.project)).toMatchObject({
+      code: 1,
+      out: { modified: ["src/pages/index.astro"], added: [], missing: [] },
+    });
+  });
+
+  test("with no git identity to commit with, nothing is made", async () => {
+    const s = setup({ release: releaseRepo({}, false) });
+
+    const { code, out } = await create(s);
+
+    expect(code).toBe(2);
+    expect(out.error).toMatch(/user\.name and user\.email/);
+    expect(readdirSync(s.work)).toEqual(["MEMORY.md"]);
   });
 
   test("a release tag the source doesn't have is refused, and nothing is made", async () => {
