@@ -15,9 +15,7 @@ export interface PreviewJob {
 }
 
 export type PreviewReply =
-  | { id: number; running: true }
-  | { id: number; outcome: RunOutcome }
-  | { id: number; failed: string };
+  { id: number; running: true } | { id: number; outcome: RunOutcome } | { id: number; failed: string };
 
 const { contentDir, packages } = workerData as { contentDir: string; packages: string[] };
 const port = parentPort;
