@@ -56,7 +56,8 @@ node "$I" find --materials "<Materials path>"
 ```
 
 `project` null means no Course project has these Materials yet: that's intake (below), with nothing
-to lock. Otherwise:
+to lock. But when `skipped` lists registered Courses whose ledger couldn't be read, one of them may
+be this Course: show them to the Owner and start intake only once they're ruled out. Otherwise:
 
 ```bash
 L="$HOME/.claude/skills/learn-premium/scripts/ledger.ts"

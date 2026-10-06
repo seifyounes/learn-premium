@@ -52,8 +52,8 @@ function outstanding(
   const ledger = readLedger(project);
   if (ledger === null) throw new LedgerError("refused", `no Build ledger in ${project}`);
   const { sittings } = ledger.intake;
-  // A Course whose every Exam sitting is dated and past has had its semester: it wants nothing more.
-  const ended = sittings.length > 0 && sittings.every((s) => s.date !== null && s.date < today);
+  // A Course whose every Exam sitting is dated and past (or today) has had its semester: it wants nothing more.
+  const ended = sittings.length > 0 && sittings.every((s) => s.date !== null && s.date <= today);
   const modules = ledger.intake.expectedModules ?? current(ledger.modules).length;
   const items = demandOf(modules, ledger.intake.sittings.length);
   for (const item of readMediaFile(project)?.items ?? []) {
@@ -80,7 +80,7 @@ export function budget(stateDir: string, answers: Answers) {
   };
 
   const last = answers.sittings
-    .flatMap((s) => (s.date !== null && s.date >= today ? [s.date] : []))
+    .flatMap((s) => (s.date !== null && s.date > today ? [s.date] : []))
     .sort()
     .at(-1);
   const days = last === undefined ? null : (Date.parse(last) - Date.parse(today)) / DAY_MS;
