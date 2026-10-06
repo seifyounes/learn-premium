@@ -4,3 +4,5 @@ dist-production/
 .test-out/
 node_modules/
 package-lock.json
+test/stl/oracle/
+.oracle-venv/

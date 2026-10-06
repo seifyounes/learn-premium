@@ -292,6 +292,8 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
     "src/islands/sim/heatmap.ts",
     ...SHARED_VIEW,
   ],
+  // An STL listing's view runs it live, or steps through awlsim's trace when it names a Gate gap.
+  stl: ["src/islands/StlSim.tsx", "src/islands/sim/stl-view.tsx"],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 /** A Pyodide tool's view: its preview and live plot draw on the sheet's plotted figure. */
@@ -377,7 +379,9 @@ export const toolsGate: Gate = {
       coverage.checks += 5;
       // 1–3, embeddable, takes the pad frame and touch-usable: properties of the view it ships in.
       if (live) kinds.add(s.kind);
-      (live ? viewOf(s.kind, TOOLKIT[s.kind]) : viewOf("step-through", STEP_THROUGH_VIEW)).forEach(block);
+      // An STL listing steps through awlsim's trace in its own view, live or not.
+      const kind: SimKind = s.kind;
+      (live || kind === "stl" ? viewOf(kind, TOOLKIT[kind]) : viewOf("step-through", STEP_THROUGH_VIEW)).forEach(block);
       // 4, writable by the builder from the Materials: the model's numbers are the Materials' own.
       const fromMaterials = new Set(
         [...s.provenance.stated, ...s.provenance.scaled].flatMap((v) => numbersIn(v).map((n) => n.value)),

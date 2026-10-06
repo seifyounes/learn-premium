@@ -1,0 +1,70 @@
+// FC105 SCALE for the awlsim oracle, which has no TI-S7 library. Written in STL from Siemens' formula
+// (application example 23330722), apart from the engine's TypeScript (src/sims/s7/library.ts):
+//   OUT = ((IN - K1) / (K2 - K1)) * (HI_LIM - LO_LIM) + LO_LIM,  K1 = 0 or -27648, K2 = 27648
+//   IN > K2: OUT = HI_LIM, RET_VAL = W#16#0008;  IN < K1: OUT = LO_LIM, RET_VAL = W#16#0008
+// Two implementations of the formula agree; neither is Siemens' binary, so what this block leaves in
+// the accumulators and status bits is never compared.
+FUNCTION FC 105 : WORD
+VAR_INPUT
+	IN		: INT;
+	HI_LIM		: REAL;
+	LO_LIM		: REAL;
+	BIPOLAR		: BOOL;
+END_VAR
+VAR_OUTPUT
+	OUT		: REAL;
+END_VAR
+VAR_TEMP
+	X		: REAL;
+	K1		: REAL;
+	Q		: REAL;
+END_VAR
+BEGIN
+	L		0.0
+	T		#K1
+	A		#BIPOLAR
+	JCN		UNI
+	L		-2.7648e+4
+	T		#K1
+UNI:	L		#IN
+	ITD
+	DTR
+	T		#X
+	L		2.7648e+4
+	>R
+	JC		HI
+	L		#X
+	L		#K1
+	<R
+	JC		LO
+	L		2.7648e+4
+	L		#K1
+	-R
+	T		#Q
+	L		#X
+	L		#K1
+	-R
+	L		#Q
+	/R
+	T		#Q
+	L		#HI_LIM
+	L		#LO_LIM
+	-R
+	L		#Q
+	*R
+	L		#LO_LIM
+	+R
+	T		#OUT
+	L		W#16#0000
+	T		#RET_VAL
+	BEU
+HI:	L		#HI_LIM
+	T		#OUT
+	L		W#16#0008
+	T		#RET_VAL
+	BEU
+LO:	L		#LO_LIM
+	T		#OUT
+	L		W#16#0008
+	T		#RET_VAL
+END_FUNCTION

@@ -1,0 +1,113 @@
+covers: every jump, taken and not, the loop (from 1 to 255 times), and the conditional and unconditional block ends
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = Jumps
+    BEGIN
+    NETWORK
+    TITLE = On the RLO and BR
+          A     I      0.0
+          JC    J1
+          S     M     20.0
+    J1:   A     I      0.0
+          JCN   J2
+          S     M     20.1
+    J2:   A     I      0.1
+          JCB   J3
+          S     M     20.2
+    J3:   JBI   J4
+          S     M     20.3
+    J4:   A     I      0.1
+          JNB   J5
+          S     M     20.4
+    J5:   JNBI  J6
+          S     M     20.5
+    J6:   JU    J7
+          S     M     20.6
+    NETWORK
+    TITLE = On the result of an addition
+    J7:   L     MW     0
+          L     MW     2
+          +I
+          JO    K1
+          S     M     21.0
+    K1:   JZ    K2
+          S     M     21.1
+    K2:   JN    K3
+          S     M     21.2
+    K3:   JP    K4
+          S     M     21.3
+    K4:   JM    K5
+          S     M     21.4
+    K5:   JPZ   K6
+          S     M     21.5
+    K6:   JMZ   K7
+          S     M     21.6
+    K7:   JOS   K8
+          S     M     21.7
+    K8:   L     -1.0
+          SQRT
+          L     MD     4
+          +R
+          JUO   K9
+          S     M     22.0
+    K9:   NOP   0
+    NETWORK
+    TITLE = A loop, then the block ends
+          L     0
+          T     MW    30
+          L     MB     6
+    NEXT: T     MW    32
+          L     MW    30
+          L     3
+          +I
+          T     MW    30
+          L     MW    32
+          LOOP  NEXT
+          A     I      0.2
+          BEC
+          S     M     23.0
+          A     I      0.3
+          JCN   END1
+          BEU
+    END1: S     M     23.1
+          NOP   1
+          BE
+    END_ORGANIZATION_BLOCK
+  inputs:
+    I 0.0: BOOL
+    I 0.1: BOOL
+    I 0.2: BOOL
+    I 0.3: BOOL
+    MW 0: INT
+    MW 2: INT
+    MD 4: REAL
+    MB 6: BYTE
+  watch:
+    MB 20: BYTE
+    MB 21: BYTE
+    MW 30: INT
+start:
+  I 0.0: 1
+  I 0.1: 0
+  I 0.2: 0
+  I 0.3: 0
+  MW 0: 5
+  MW 2: -5
+  MD 4: 2.0
+  MB 6: 4
+tune:
+  I 0.0: { min: 0, max: 1, step: 1 }
+  I 0.1: { min: 0, max: 1, step: 1 }
+  I 0.2: { min: 0, max: 1, step: 1 }
+  I 0.3: { min: 0, max: 1, step: 1 }
+  MW 0: { min: -32768, max: 32767, step: 1 }
+  MW 2: { min: -32768, max: 32767, step: 1 }
+  MB 6: { min: 1, max: 255, step: 1 }
+cases:
+  - name: positive, negative and overflowing sums, a loop of 1
+    scans:
+      - { MW 0: 7, MW 2: 1, I 0.0: 0, I 0.1: 1, MB 6: 1 }
+      - { MW 0: -7, MW 2: 1 }
+      - { MW 0: 32767, MW 2: 1, I 0.3: 1 }
+      - { MW 0: 1, MW 2: 1, I 0.2: 1 }

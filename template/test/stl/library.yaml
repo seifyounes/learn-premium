@@ -1,0 +1,69 @@
+covers: FC105 SCALE and FC106 UNSCALE with the clamp and RET_VAL 8, and the registers they leave undefined
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = The TI-S7 converting blocks
+    BEGIN
+    NETWORK
+    TITLE = Scale an analog input
+          CALL  FC   105
+           IN     :=PIW256
+           HI_LIM :=1.000000e+002
+           LO_LIM :=MD20
+           BIPOLAR:=I0.0
+           RET_VAL:=MW0
+           OUT    :=MD2
+          L     MW     0
+          T     MW    40
+    NETWORK
+    TITLE = Unscale it back
+          CALL  FC   106
+           IN     :=MD2
+           HI_LIM :=1.000000e+002
+           LO_LIM :=MD20
+           BIPOLAR:=I0.0
+           RET_VAL:=MW6
+           OUT    :=QW8
+          L     MD    24
+          CALL  FC   106
+           IN     :=MD24
+           HI_LIM :=MD20
+           LO_LIM :=1.000000e+002
+           BIPOLAR:=FALSE
+           RET_VAL:=MW10
+           OUT    :=MW12
+          A     I      0.1
+          =     Q      0.1
+    END_ORGANIZATION_BLOCK
+  inputs:
+    PIW 256: INT
+    I 0.0: BOOL
+    I 0.1: BOOL
+    MD 20: REAL
+    MD 24: REAL
+  watch:
+    MD 2: REAL
+    MW 0: WORD
+    QW 8: INT
+    MW 12: INT
+start:
+  PIW 256: 13824
+  I 0.0: 0
+  I 0.1: 1
+  MD 20: 0
+  MD 24: 25
+tune:
+  PIW 256: { min: -32768, max: 32767, step: 1 }
+  I 0.0: { min: 0, max: 1, step: 1 }
+  MD 20: { min: -100, max: 50, step: 0.5 }
+  MD 24: { min: -200, max: 200, step: 0.5 }
+cases:
+  - name: the ends of the range, both modes
+    scans:
+      - { PIW 256: 27648, MD 24: 100 }
+      - { PIW 256: 27649, MD 24: 150 }
+      - { PIW 256: -1, MD 24: -1 }
+      - { PIW 256: -27648, I 0.0: 1, MD 24: 0 }
+      - { PIW 256: -27649, I 0.0: 1 }
+      - { PIW 256: 1, I 0.0: 1, MD 20: -100 }
+      - { PIW 256: 6912, I 0.0: 0, MD 20: 99.5 }

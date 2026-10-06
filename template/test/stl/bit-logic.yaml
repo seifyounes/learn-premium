@@ -1,0 +1,165 @@
+covers: bit logic, nesting, assignment, set and reset, edges, and status conditions read as bits
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = Bit logic
+    BEGIN
+    NETWORK
+    TITLE = A string of checks
+          A     I      0.0
+          AN    I      0.1
+          O     I      0.2
+          ON    M      0.3
+          X     I      0.4
+          XN    M      0.5
+          =     Q      0.0
+          O     I      0.0
+          A     I      0.1
+          O
+          A     I      0.2
+          A     M      0.3
+          =     Q      0.1
+          AN    I      0.0
+          A(
+          O     I      0.1
+          O     I      0.2
+          )
+          =     Q      0.2
+          A     I      0.0
+          AN(
+          A     I      0.1
+          A     I      0.2
+          )
+          O(
+          A     I      0.3
+          AN    I      0.4
+          )
+          =     Q      0.3
+          A(
+          ON    I      0.0
+          )
+          ON(
+          X     I      0.1
+          X     I      0.2
+          )
+          X(
+          A     I      0.3
+          )
+          XN(
+          A     I      0.4
+          )
+          =     Q      0.4
+    NETWORK
+    TITLE = NOT, SET, CLR, SAVE, S, R and edges
+          A     I      0.0
+          NOT
+          =     Q      0.5
+          SET
+          S     M     10.0
+          CLR
+          S     M     10.1
+          A     I      0.1
+          R     M     10.0
+          A     I      0.2
+          SAVE
+          S     M     10.2
+          A     I      0.3
+          FP    M     11.0
+          =     Q      1.0
+          A     I      0.3
+          FN    M     11.1
+          =     Q      1.1
+          A     M     10.2
+          R     M     10.2
+    NETWORK
+    TITLE = Status conditions as bits
+          L     MW     2
+          L     MW     4
+          +I
+          A     OV
+          =     Q      2.0
+          A     OS
+          =     Q      2.1
+          L     MW     2
+          L     MW     4
+          -I
+          A     ==0
+          =     Q      2.2
+          A     <>0
+          =     Q      2.3
+          O     >0
+          =     Q      2.4
+          ON    <0
+          =     Q      2.5
+          X     >=0
+          =     Q      2.6
+          XN    <=0
+          =     Q      2.7
+          L     MW     2
+          L     MW     4
+          /I
+          AN    UO
+          =     Q      3.0
+          A     I      0.5
+          JCB   NOP1
+    NOP1: A     BR
+          =     Q      3.1
+          AN    BR
+          =     Q      3.2
+    END_ORGANIZATION_BLOCK
+  inputs:
+    I 0.0: BOOL
+    I 0.1: BOOL
+    I 0.2: BOOL
+    M 0.3: BOOL
+    I 0.3: BOOL
+    I 0.4: BOOL
+    M 0.5: BOOL
+    I 0.5: BOOL
+    MW 2: INT
+    MW 4: INT
+  watch:
+    QB 0: BYTE
+    QB 1: BYTE
+    QB 2: BYTE
+    QB 3: BYTE
+    MB 10: BYTE
+start:
+  I 0.0: 1
+  I 0.1: 0
+  I 0.2: 1
+  M 0.3: 0
+  I 0.3: 1
+  I 0.4: 0
+  M 0.5: 1
+  I 0.5: 1
+  MW 2: 5
+  MW 4: 5
+tune:
+  I 0.0: { min: 0, max: 1, step: 1 }
+  I 0.1: { min: 0, max: 1, step: 1 }
+  I 0.2: { min: 0, max: 1, step: 1 }
+  M 0.3: { min: 0, max: 1, step: 1 }
+  I 0.3: { min: 0, max: 1, step: 1 }
+  I 0.4: { min: 0, max: 1, step: 1 }
+  M 0.5: { min: 0, max: 1, step: 1 }
+  I 0.5: { min: 0, max: 1, step: 1 }
+  MW 2: { min: -32768, max: 32767, step: 1 }
+  MW 4: { min: -32768, max: 32767, step: 1 }
+cases:
+  - name: every pattern of the first five inputs, then edges up and down
+    scans:
+      - { I 0.0: 0, I 0.1: 0, I 0.2: 0, M 0.3: 0, I 0.3: 0, I 0.4: 0 }
+      - { I 0.0: 1, I 0.1: 0, I 0.2: 0, M 0.3: 0, I 0.3: 1, I 0.4: 0 }
+      - { I 0.0: 0, I 0.1: 1, I 0.2: 0, M 0.3: 1, I 0.3: 1, I 0.4: 1 }
+      - { I 0.0: 1, I 0.1: 1, I 0.2: 0, M 0.3: 1, I 0.3: 0, I 0.4: 1 }
+      - { I 0.0: 0, I 0.1: 0, I 0.2: 1, M 0.3: 0, I 0.3: 0, I 0.4: 0 }
+      - { I 0.0: 1, I 0.1: 0, I 0.2: 1, M 0.3: 1, I 0.3: 1, I 0.4: 1 }
+      - { I 0.0: 0, I 0.1: 1, I 0.2: 1, M 0.3: 0, I 0.3: 1, I 0.4: 0 }
+      - { I 0.0: 1, I 0.1: 1, I 0.2: 1, M 0.3: 1, I 0.3: 0, I 0.4: 0 }
+  - name: overflow latches OS, a negative and a zero difference, a division by zero
+    scans:
+      - { MW 2: 32767, MW 4: 1, I 0.5: 0 }
+      - { MW 2: -3, MW 4: 4 }
+      - { MW 2: 9, MW 4: 0 }
+      - { MW 2: 4, MW 4: -3, I 0.5: 1 }

@@ -1,0 +1,84 @@
+// FC106 UNSCALE for the awlsim oracle, which has no TI-S7 library. Written in STL from Siemens' formula
+// (application example 23330722), apart from the engine's TypeScript (src/sims/s7/library.ts):
+//   OUT = ((IN - LO_LIM) / (HI_LIM - LO_LIM)) * (K2 - K1) + K1, rounded to the nearest INT (RND)
+//   IN past the limits: OUT = the end of the range it passed (K1 or K2), RET_VAL = W#16#0008
+// Two implementations of the formula agree; neither is Siemens' binary, so what this block leaves in
+// the accumulators and status bits is never compared.
+FUNCTION FC 106 : WORD
+VAR_INPUT
+	IN		: REAL;
+	HI_LIM		: REAL;
+	LO_LIM		: REAL;
+	BIPOLAR		: BOOL;
+END_VAR
+VAR_OUTPUT
+	OUT		: INT;
+END_VAR
+VAR_TEMP
+	K1		: REAL;
+	F		: REAL;
+	Q		: REAL;
+END_VAR
+BEGIN
+	L		0.0
+	T		#K1
+	A		#BIPOLAR
+	JCN		UNI
+	L		-2.7648e+4
+	T		#K1
+UNI:	L		#HI_LIM
+	L		#LO_LIM
+	>=R
+	JCN		FALL
+	L		#IN
+	L		#HI_LIM
+	>R
+	JC		TOHI
+	L		#IN
+	L		#LO_LIM
+	<R
+	JC		TOLO
+	JU		CALC
+FALL:	L		#IN
+	L		#LO_LIM
+	>R
+	JC		TOLO
+	L		#IN
+	L		#HI_LIM
+	<R
+	JC		TOHI
+CALC:	L		#IN
+	L		#LO_LIM
+	-R
+	T		#F
+	L		#HI_LIM
+	L		#LO_LIM
+	-R
+	T		#Q
+	L		#F
+	L		#Q
+	/R
+	T		#F
+	L		2.7648e+4
+	L		#K1
+	-R
+	L		#F
+	*R
+	L		#K1
+	+R
+	RND
+	T		#OUT
+	L		W#16#0000
+	T		#RET_VAL
+	BEU
+TOHI:	L		27648
+	T		#OUT
+	L		W#16#0008
+	T		#RET_VAL
+	BEU
+TOLO:	L		#K1
+	RND
+	T		#OUT
+	L		W#16#0008
+	T		#RET_VAL
+END_FUNCTION
