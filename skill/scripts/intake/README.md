@@ -78,7 +78,8 @@ into place whole, so a refusal leaves nothing behind.
   template lists a sitting with the Modules it covers.
 - `build-ledger.json` with the intake answers (`ledger init`), its lock held by `--holder`, and its
   generated pages in `build-records/`.
-- The Private folder, `<Materials folder> (private)` beside the Materials.
+- The Private folder, `<Materials folder>-private` beside the Materials: the name the Go-public
+  check's `private-folder` rule flags if a copy of it ever lands in a Course project.
 - The Course in the Course registry (`media.ts register`), and a row in the workspace MEMORY.md's
   Project catalog.
 

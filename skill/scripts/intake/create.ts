@@ -52,7 +52,7 @@ function enclosingRepo(path: string): string | null {
 
 /** The Private folder: beside the Materials, named after them. */
 export function privateFolderOf(materials: string): string {
-  return join(dirname(materials), `${basename(materials)} (private)`);
+  return join(dirname(materials), `${basename(materials)}-private`);
 }
 
 function git(repo: string, ...args: string[]): string {

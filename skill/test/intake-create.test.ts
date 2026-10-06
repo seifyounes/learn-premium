@@ -2,9 +2,10 @@
 // pinned release, against synthetic Materials, a throwaway workspace and a throwaway release repo.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { run as goPublic } from "../scripts/go-public/cli.ts";
 import { HostingError } from "../scripts/intake/hosting.ts";
 import { FakeHosting } from "./fake-hosting.ts";
 import { must } from "./fake-notebooklm.ts";
@@ -256,7 +257,7 @@ describe("create", { timeout: 30_000 }, () => {
 
   test("a file where the Private folder goes is refused before anything is made", async () => {
     const s = setup();
-    writeFileSync(join(dirname(s.materials), "Heat Transfer (private)"), "not a folder");
+    writeFileSync(join(dirname(s.materials), "Heat Transfer-private"), "not a folder");
 
     const { code, out } = await create(s);
 
@@ -312,9 +313,26 @@ describe("create", { timeout: 30_000 }, () => {
     const contents = filesUnder(s.project).map((f) => readFileSync(join(s.project, f), "utf8"));
     expect(contents).not.toContain("lecture one");
     expect(contents).not.toContain("sheet one");
-    const priv = join(dirname(materials), "Heat Transfer (private)");
+    const priv = join(dirname(materials), "Heat Transfer-private");
     expect(out.privateFolder).toBe(priv);
     expect(statSync(priv).isDirectory()).toBe(true);
+  });
+
+  test("the Go-public check flags a copy of the Private folder inside the Course project (negative control)", async () => {
+    const s = setup();
+    const out = must(await create(s));
+    const copied = `${basename(out.privateFolder)}/L01 notes.md`;
+    writeFiles(s.project, { [copied]: "what the Professor said in lecture one" });
+    git(s.project, "add", "-A");
+    git(s.project, "commit", "-q", "-m", "chore: a stray copy of the Private folder");
+
+    const check = await goPublic(["--project", s.project]);
+    const report = JSON.parse(check.stdout);
+
+    expect(check.code).toBe(1);
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({ check: "evidence", path: copied, rule: "private-folder" }),
+    );
   });
 
   test("a Materials file that would land in the Course project is refused, and nothing is made (negative control)", async () => {
@@ -365,7 +383,7 @@ describe("create", { timeout: 30_000 }, () => {
 
   test("a Private folder that is itself a repo is refused, and nothing is made", async () => {
     const s = setup();
-    writeFiles(dirname(s.materials), { "Heat Transfer (private)/.git/HEAD": "ref: refs/heads/main" });
+    writeFiles(dirname(s.materials), { "Heat Transfer-private/.git/HEAD": "ref: refs/heads/main" });
 
     const { code, out } = await create(s);
 
