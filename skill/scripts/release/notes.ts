@@ -32,6 +32,8 @@ export interface NotesInput {
 
 export interface ParsedNotes {
   version: string | null;
+  /** The commit the notes were written for. */
+  sha: string | null;
   gateGapsClosed: number[];
   overridesRetired: { path: string; course: string | null; gateGap: number }[];
 }
@@ -103,6 +105,7 @@ export function parseNotes(notes: string): ParsedNotes {
   if (overrides === undefined) throw new NotesError(`the release notes have no "${OVERRIDES_HEADING}" section`);
   return {
     version: /^# Template release (v\d+\.\d+\.\d+)\s*$/m.exec(notes)?.[1] ?? null,
+    sha: /^\w+ release · commit ([0-9a-f]{40}) ·/m.exec(notes)?.[1] ?? null,
     gateGapsClosed: gaps.flatMap((line) => {
       const match = /^- #(\d+)\b/.exec(line);
       return match ? [Number(match[1])] : [];

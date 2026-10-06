@@ -62,6 +62,7 @@ describe("release notes", () => {
   test("read back into the gate gaps they close and the overrides they retire", () => {
     expect(parseNotes(renderNotes(INPUT))).toEqual({
       version: "v0.2.0",
+      sha: "0123456789abcdef0123456789abcdef01234567",
       gateGapsClosed: [12, 15],
       overridesRetired: [
         { path: "src/components/Beat.astro", course: "Machine Learning", gateGap: 12 },

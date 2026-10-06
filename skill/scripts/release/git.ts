@@ -49,7 +49,15 @@ export class RepoGit implements Git {
     this.#git(["fetch", "--quiet", "origin"]);
   }
 
+  #originTags: Map<string, string> | null = null;
+
+  /** Read once per command (a round trip to origin each time); a pushed tag clears it. */
   originTags(): Map<string, string> {
+    this.#originTags ??= this.#readOriginTags();
+    return new Map(this.#originTags);
+  }
+
+  #readOriginTags(): Map<string, string> {
     const tags = new Map<string, string>();
     const peeled = new Map<string, string>();
     for (const line of this.#git(["ls-remote", "--tags", "origin"]).split("\n")) {
@@ -100,6 +108,7 @@ export class RepoGit implements Git {
   }
 
   tag(name: string, sha: string, message: string): void {
+    this.#originTags = null;
     this.#git(["tag", "--annotate", "--cleanup=verbatim", "--file=-", name, sha], message);
     try {
       this.#git(["push", "--quiet", "origin", `refs/tags/${name}`]);
