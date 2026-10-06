@@ -36,6 +36,8 @@ export interface FigureData {
 export interface StepData {
   titleHtml: string;
   noteHtml: string;
+  /** The step's Arabic note, set right to left below the note: only with the Arabic-notes toggle on. */
+  arabicHtml?: string;
   fill: string[];
   marks: string[];
   figure?: { add: string[]; ring: string[]; captionHtml?: string };
@@ -151,8 +153,15 @@ export function atRest(figure: FigureData): StepState {
   };
 }
 
-/** The sheet for one Worked example, with every prose field rendered by `html`. */
-export function toSheet(example: Omit<Worked, "provenance">, html: (prose: string) => string): SheetData {
+/**
+ * The sheet for one Worked example, with every prose field rendered by `html`. Its steps' Arabic
+ * notes are rendered by `arabic`, given only when the Course's Arabic-notes toggle is on.
+ */
+export function toSheet(
+  example: Omit<Worked, "provenance">,
+  html: (prose: string) => string,
+  arabic?: (note: string) => string,
+): SheetData {
   const { artefact, figure } = example;
   return {
     titleHtml: html(example.title),
@@ -168,6 +177,7 @@ export function toSheet(example: Omit<Worked, "provenance">, html: (prose: strin
     steps: example.steps.map((s) => ({
       titleHtml: html(s.title),
       noteHtml: html(s.note),
+      ...(arabic === undefined || s.arabic === undefined ? {} : { arabicHtml: arabic(s.arabic) }),
       fill: s.fill,
       marks: s.marks,
       ...(s.figure === undefined

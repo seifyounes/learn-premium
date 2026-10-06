@@ -50,6 +50,11 @@ export const course = z
     }),
     /** Who built the Study site, for the About page. */
     owner: z.string().min(1),
+    /**
+     * The Arabic-notes toggle, set at intake: on, every Arabic note in the content is shown beside
+     * the English; off, none is. Media stays English either way.
+     */
+    arabicNotes: z.boolean().default(false),
     sittings: z.array(sitting).default([]),
   })
   .superRefine((c, ctx) => {
@@ -75,6 +80,20 @@ export const uncoveredModules = (sittings: readonly Sitting[], modules: Readonly
     sitting.modules
       .filter((m) => !modules.has(m))
       .map((m) => ({ index, message: `sitting "${sitting.id}" covers ${m}, which the Course has no Module for` })),
+  );
+
+/**
+ * An Arabic note (CONTEXT.md): a difficult point explained in Arabic, with paper math, shown right
+ * to left beside the English only when the course's Arabic-notes toggle is on. Its numbers use the
+ * digits 0–9, as the English content and the exam do, so the provenance gate reads them.
+ */
+const arabicNote = z
+  .string()
+  .min(1)
+  .refine((text) => /\p{Script=Arabic}/u.test(text), "an Arabic note is written in Arabic")
+  .refine(
+    (text) => !/[\u0660-\u0669\u06F0-\u06F9]/.test(text),
+    "write numbers in an Arabic note with the digits 0–9, as the English content does",
   );
 
 export const module = z.strictObject({
@@ -200,6 +219,8 @@ const step = z.strictObject({
   /** Short: it names the step in the steps margin. */
   title: z.string().min(1),
   note: z.string().min(1),
+  /** The step's Arabic note, shown below its note. */
+  arabic: arabicNote.optional(),
   /** The cells this step writes (the order within the step comes from `fillOrder`). */
   fill: z.array(cellRef).default([]),
   /** Cells the red pen rings at this step, after the values land. */
@@ -611,6 +632,8 @@ export const beat = z.strictObject({
   title: z.string().min(1),
   /** The one figure the beat is written around, plotted on the sheet. */
   figure: plotFigure.omit({ question: true }).optional(),
+  /** The beat's Arabic note, shown below its text; it isn't counted in the beat's 90 words. */
+  arabic: arabicNote.optional(),
   ...tagged,
 });
 

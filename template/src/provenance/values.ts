@@ -193,6 +193,7 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
         const step = asObject(s);
         prose(step.title, `steps.${i}.title`);
         prose(step.note, `steps.${i}.note`);
+        prose(step.arabic, `steps.${i}.arabic`);
         prose(asObject(step.figure).caption, `steps.${i}.figure.caption`);
       });
       prose(entry.answer, "answer");
@@ -219,6 +220,7 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
     case "beats": {
       prose(entry.title, "title");
       figure(entry.figure, "figure");
+      prose(entry.arabic, "arabic");
       if (body !== undefined) for (const n of numbersInMarkdown(body)) found.push({ ...n, at: "body" });
       break;
     }

@@ -5,7 +5,15 @@ import { chromium } from "playwright";
 import { describe, expect, it } from "vitest";
 import { BROWSER_GATES } from "../gates/browser.ts";
 import { sitePages } from "../gates/pages.ts";
-import { assertWidth, browserRun, IN_PAGE, TAP_TAKES_MS, WIDTH_ARRIVES_MS, WIDTHS } from "../gates/browser/run.ts";
+import {
+  assertWidth,
+  browserRun,
+  DIRECTIONS,
+  IN_PAGE,
+  TAP_TAKES_MS,
+  WIDTH_ARRIVES_MS,
+  WIDTHS,
+} from "../gates/browser/run.ts";
 import { GATES } from "../gates/index.ts";
 import { runGates, type Gate, type GateInput } from "../gates/runner.ts";
 import { buildCourse, FIXTURE_COURSE } from "./build-course";
@@ -25,6 +33,13 @@ const CAUGHT_BY: Record<string, RegExp> = {
     /"Heat flows from hot to cold\." and .*"Resistances in series add\." overlap/,
   "a height-locked box whose content is taller than it": /holds \d+px of content in a 24px box/,
   "text set under the 12px floor": /"Small print under the floor\." is drawn at 10\.0px, under the 12px floor/,
+  // Seen right to left only: every place named is a right-to-left sweep.
+  "a block pushed past the page's left edge, which scrolls the page sideways only right to left":
+    /^the page scrolls sideways: \d+px wide in a \d+px viewport \((?:(?:chromium|webkit) \d+px rtl(?:, |\)$))+/,
+  "a number in an Arabic note left to run right to left":
+    /a number in an Arabic note runs right to left: "الوجه الخارجي عند −5 درجات"/,
+  "an Arabic note laid out left to right": /an Arabic note is laid out left to right: "ملاحظة بالعربية"/,
+  "a formula in an Arabic note left to run right to left": /a formula in an Arabic note runs right to left/,
   "a KaTeX error span on the page": /a KaTeX error on the page: ParseError: planted/,
   "raw TeX a script wrote into the page": /raw TeX on the page: "so \$R = \\frac\{L\}\{kA\}\$"/,
   "a hollow 0/0 score a script wrote": /a hollow 0\/0 on the page: "Score: 0\/0"/,
@@ -76,15 +91,18 @@ describe("the browser gates on the Fixture Course", () => {
     }
   });
 
-  it("pass on the whole Course, sweeping every page at every width in both browsers", async () => {
+  it("pass on the whole Course, sweeping every page at every width in both directions and both browsers", async () => {
     // A Module-point run with no Module named opens every page of the Course.
     const report = await runGates({ point: "module", commit: COMMIT, input, gates: BROWSER_GATES });
     expect(report.green, JSON.stringify(report.gates, null, 2)).toBe(true);
     const coverage = (id: string) => report.gates.find((g) => g.id === id)?.coverage ?? {};
     // Every built page but the Trap page: the Course hubs, every Module, the Tool gallery.
     const pages = sitePages(input).length;
-    expect(coverage("layout-sweep")).toMatchObject({ browsers: BROWSERS, widths: WIDTHS.length, pages });
-    expect(coverage("layout-sweep").sweeps).toBe(BROWSERS * WIDTHS.length * pages);
+    const directions = DIRECTIONS.length;
+    expect(coverage("layout-sweep")).toMatchObject({ browsers: BROWSERS, widths: WIDTHS.length, directions, pages });
+    expect(coverage("layout-sweep").sweeps).toBe(BROWSERS * WIDTHS.length * directions * pages);
+    // Module 1's Summary beat and its Worked example's first step each carry an Arabic note.
+    expect(coverage("layout-sweep").notes).toBeGreaterThanOrEqual(2);
     // The Given box is the Module page's collapsible; the sweep opened it.
     expect(coverage("layout-sweep").collapsibles).toBeGreaterThanOrEqual(1);
     // A Worked example's Table | Plot tabs add a view at the widths that show them.
@@ -94,8 +112,9 @@ describe("the browser gates on the Fixture Course", () => {
     expect(coverage("hydration").controls).toBeGreaterThan(10);
     expect(coverage("touch").taps).toBeGreaterThan(20);
     expect(coverage("initial-load").requests).toBeGreaterThan(0);
-    // Every sweep of the Trap page found all four seeded defects.
-    expect(coverage("trap-page")).toEqual({ sweeps: BROWSERS * WIDTHS.length, defects: BROWSERS * WIDTHS.length * 4 });
+    // Every sweep of the Trap page, in either direction, found all four seeded defects.
+    const trapSweeps = BROWSERS * WIDTHS.length * directions;
+    expect(coverage("trap-page")).toEqual({ sweeps: trapSweeps, defects: trapSweeps * 4 });
   }, 1_200_000);
 
   it("each catch every negative control, by the check that names its defect", async () => {

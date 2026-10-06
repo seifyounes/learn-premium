@@ -6,7 +6,7 @@
 //   - loads at 1440px, recording what the initial load fetches, before anything is scrolled;
 //   - scrolls every island into view and waits for it to hydrate, then checks its controls work;
 //   - sweeps at each of the eight widths, the viewport width asserted first, every collapsible open
-//     (`in-page.js` measures);
+//     (`in-page.js` measures), then again at each width with the document mirrored right to left;
 // then taps every control of every page in scope with emulated phone touch at 375 and 390px (4×
 // slower CPU on Chromium; WebKit has no CPU throttling), and sweeps the state that leaves.
 //
@@ -25,6 +25,13 @@ import type { Finding, GateInput, GateRun } from "../runner.ts";
 import { serveSite } from "./serve.ts";
 
 export const WIDTHS = [320, 375, 390, 430, 768, 1024, 1280, 1440] as const;
+/**
+ * The document directions each page is swept in: as built, then mirrored right to left. Every
+ * page is laid out with logical properties so it mirrors whole (DESIGN.md, the Logical Direction
+ * Rule); the right-to-left sweep holds it to that.
+ */
+export const DIRECTIONS = ["ltr", "rtl"] as const;
+type Direction = (typeof DIRECTIONS)[number];
 export const TOUCH_WIDTHS = [375, 390] as const;
 const BROWSERS = { chromium, webkit } as const;
 type BrowserName = keyof typeof BROWSERS;
@@ -41,7 +48,13 @@ export type BrowserGateId = (typeof BROWSER_GATE_IDS)[number];
 
 /** What `in-page.js` reports: the layout checks, and the live page's text checks. */
 type LayoutKind =
-  "page-scroll" | "covers-figure" | "above-viewport" | "text-collision" | "height-overflow" | "tiny-text";
+  | "page-scroll"
+  | "covers-figure"
+  | "above-viewport"
+  | "text-collision"
+  | "height-overflow"
+  | "tiny-text"
+  | "note-direction";
 type TextKind = "katex-error" | "raw-tex" | CopyDefect["kind"];
 type Kind =
   | LayoutKind
@@ -130,7 +143,7 @@ interface PageFinding<K extends Kind> {
 interface PageSweep {
   layout: PageFinding<LayoutKind>[];
   text: PageFinding<TextKind>[];
-  coverage: { collapsibles: number; views: number; texts: number; figures: number; formulas: number };
+  coverage: { collapsibles: number; views: number; texts: number; figures: number; formulas: number; notes: number };
   collapsiblesOnPage: number;
 }
 
@@ -199,9 +212,14 @@ async function execute(input: GateInput): Promise<BrowserRun> {
   const observations: Observation[] = [];
   const observe = (o: Observation) => observations.push(o);
   // Every count is of what the run looked at; one that stayed at zero covered nothing.
-  const swept = { browsers: new Set<string>(), widths: new Set<number>(), pages: new Set<string>() };
+  const swept = {
+    browsers: new Set<string>(),
+    widths: new Set<number>(),
+    directions: new Set<Direction>(),
+    pages: new Set<string>(),
+  };
   const coverage = {
-    layout: { sweeps: 0, collapsibles: 0, views: 0, texts: 0, figures: 0 },
+    layout: { sweeps: 0, collapsibles: 0, views: 0, texts: 0, figures: 0, notes: 0 },
     live: { sweeps: 0, texts: 0, formulas: 0 },
     hydration: { pages: 0, islands: 0, controls: 0 },
     touch: { pages: new Set<string>(), widths: new Set<number>(), taps: 0, slowestTapMs: 0, slowestAnswerMs: 0 },
@@ -259,10 +277,13 @@ async function execute(input: GateInput): Promise<BrowserRun> {
         s.observations.forEach(observe);
         swept.browsers.add(name);
         swept.widths.add(s.width);
+        swept.directions.add(s.direction);
         swept.pages.add(route);
         coverage.layout.sweeps += 1;
         coverage.live.sweeps += 1;
         coverage.layout.collapsibles = Math.max(coverage.layout.collapsibles, s.collapsibles);
+        // The Arabic notes one page shows: the most any page did (the Fixture Course's Module 1 has two).
+        coverage.layout.notes = Math.max(coverage.layout.notes, s.notes);
         coverage.layout.views += s.views;
         coverage.layout.texts += s.texts;
         coverage.layout.figures += s.figures;
@@ -326,7 +347,12 @@ async function execute(input: GateInput): Promise<BrowserRun> {
 
   const findingsOf = (gate: BrowserGateId) => aggregate(observations.filter((o) => o.gate === gate));
   const { layout, live, hydration, touch, initial, trap } = coverage;
-  const sweptCounts = { browsers: swept.browsers.size, widths: swept.widths.size, pages: swept.pages.size };
+  const sweptCounts = {
+    browsers: swept.browsers.size,
+    widths: swept.widths.size,
+    directions: swept.directions.size,
+    pages: swept.pages.size,
+  };
   return {
     gates: {
       "layout-sweep": { coverage: { ...sweptCounts, ...layout }, findings: findingsOf("layout-sweep") },
@@ -471,12 +497,14 @@ async function againIfCrashed<T>(task: () => Promise<T>): Promise<T> {
 interface Sweep {
   where: string;
   width: number;
+  direction: Direction;
   observations: Observation[];
   collapsibles: number;
   views: number;
   texts: number;
   figures: number;
   formulas: number;
+  notes: number;
 }
 
 interface SweptPage {
@@ -577,14 +605,21 @@ async function sweepPage(
     }
 
     const sweeps: Sweep[] = [];
-    for (const width of WIDTHS) {
-      await page.setViewportSize({ width, height: heightFor(width) });
-      await page.evaluate(async () => {
-        window.scrollTo(0, 0);
-        await window.__lpSweep.settle();
-      });
-      await assertWidth(page, name, width);
-      sweeps.push(toSweep(await sweepNow(page), route, width, `${name} ${width}px`));
+    for (const direction of DIRECTIONS) {
+      // Mirrored, the page keeps what it loaded and hydrated: only its direction changes.
+      await page.evaluate((dir) => {
+        document.documentElement.dir = dir;
+      }, direction);
+      for (const width of WIDTHS) {
+        await page.setViewportSize({ width, height: heightFor(width) });
+        await page.evaluate(async () => {
+          window.scrollTo(0, 0);
+          await window.__lpSweep.settle();
+        });
+        await assertWidth(page, name, width);
+        const where = `${name} ${width}px${direction === "rtl" ? " rtl" : ""}`;
+        sweeps.push(toSweep(await sweepNow(page), route, width, where, direction));
+      }
     }
     for (const error of errors) {
       observe({
@@ -603,11 +638,12 @@ async function sweepPage(
 
 const sweepNow = (page: Page) => page.evaluate(() => window.__lpSweep.sweep());
 
-function toSweep(result: PageSweep, route: string, width: number, where: string): Sweep {
-  const { views, texts, figures, formulas } = result.coverage;
+function toSweep(result: PageSweep, route: string, width: number, where: string, direction: Direction = "ltr"): Sweep {
+  const { views, texts, figures, formulas, notes } = result.coverage;
   return {
     where,
     width,
+    direction,
     observations: [
       ...result.layout.map((f) => ({ gate: "layout-sweep" as const, route, where, ...f })),
       ...result.text.map((f) => ({ gate: "live-page-scan" as const, route, where, ...f })),
@@ -617,6 +653,7 @@ function toSweep(result: PageSweep, route: string, width: number, where: string)
     texts,
     figures,
     formulas,
+    notes,
   };
 }
 

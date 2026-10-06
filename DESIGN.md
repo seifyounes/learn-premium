@@ -242,6 +242,7 @@ The build checks every pad, catalogue or custom, against these, measured WCAG 2.
 - **Action label** (Archivo 700, 15px, 0.08em, uppercase, 80% width): printed buttons, the back cell, phone tabs and the Given toggle (14px).
 - **Quantity** (Atkinson Mono 400–500, 13–17px, tabular): table values (16px, 15px on phones, never under 14px), step numbers, counts, given data, plot tick labels.
 - **Quantity large** (Atkinson Mono 500, 26px): the counts in the home title block; 19–21px in the worked title block.
+- **Arabic note** (the system's Arabic face: Noto Sans Arabic, Segoe UI, Geeza Pro, Tahoma; 17px, 1.8; graphite): a Summary beat's or a step's Arabic note, right to left, ruled in pencil at its inline start; max 68ch. Its numbers stay left to right in Atkinson Mono, by the Three Hands Rule.
 
 ### Named Rules
 

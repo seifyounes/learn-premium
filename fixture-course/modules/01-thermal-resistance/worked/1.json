@@ -92,7 +92,8 @@
   "steps": [
     {
       "title": "Read the wall",
-      "note": "Three layers in series between two faces at known temperatures. The table gives each layer's $L$ and $k$; the $R$ and $\\Delta T$ columns are ours to fill."
+      "note": "Three layers in series between two faces at known temperatures. The table gives each layer's $L$ and $k$; the $R$ and $\\Delta T$ columns are ours to fill.",
+      "arabic": "ثلاث طبقات على التوالي بين وجهين حرارتهما معلومة: الداخلي عند 20 درجة والخارجي عند −5 درجات. نحسب مقاومة كل طبقة ثم نجمع المقاومات."
     },
     {
       "title": "Plaster's resistance",
@@ -112,7 +113,8 @@
     },
     {
       "title": "Heat loss",
-      "note": "The whole temperature difference drives the heat through the total resistance: $\\dot{Q} = \\frac{T_1 - T_4}{R_\\text{total}} = \\frac{20 - (-5)}{1.54} = 16.2\\ \\text{W}$."
+      "note": "The whole temperature difference drives the heat through the total resistance: $\\dot{Q} = \\frac{T_1 - T_4}{R_\\text{total}} = \\frac{20 - (-5)}{1.54} = 16.2\\ \\text{W}$.",
+      "arabic": "فرق الحرارة الكلي $25\\ \\text{K}$ يدفع الحرارة عبر المقاومة الكلية، فيكون الفقد 16.2 واط."
     },
     {
       "title": "Check the temperature drops",

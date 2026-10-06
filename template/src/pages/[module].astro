@@ -10,7 +10,9 @@ import Sim from "../components/Sim.astro";
 import SummaryBeat from "../components/SummaryBeat.astro";
 import TitleBlock from "../components/TitleBlock.astro";
 import Watch from "../components/Watch.astro";
+import { arabicProse } from "../arabic/notes";
 import {
+  getCourse,
   getMedia,
   getModules,
   getPythonTools,
@@ -37,6 +39,7 @@ interface Props {
 }
 
 const { module } = Astro.props;
+const course = await getCourse();
 const media = await getMedia(module.id);
 const beats = await moduleEntries("beats", module.id);
 const worked = await moduleEntries("worked", module.id);
@@ -118,7 +121,7 @@ const notes = (p: Parameters<typeof provenanceNotes>[0]) => provenanceNotes(p, p
               <article id={workedAnchor(w.code)} class="worked-example" data-artefact={w.artefact.kind}>
                 <WorkedSheet
                   client:visible
-                  sheet={toSheet(w, prose)}
+                  sheet={toSheet(w, prose, course.arabicNotes ? arabicProse : undefined)}
                   topicHtml={prose(module.entry.data.title)}
                   module={module.id}
                   outputsHtml={outputsHtml}

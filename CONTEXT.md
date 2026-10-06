@@ -178,6 +178,12 @@ A Module's progress measure, from practice done and worked examples gone through
 readiness is its Modules' average Mastery plus the best mock score.
 _Avoid_: XP, score, streak
 
+**Arabic note**:
+A difficult point explained in Arabic beside the English, on a Summary beat or a Worked example
+step. Shown only when the Course's Arabic-notes toggle (set at intake) is on; set right to left,
+with every number and formula in it kept left to right. Media is never Arabic.
+_Avoid_: translation, Arabic version
+
 **Course notebook**:
 The one NotebookLM notebook per Course that holds its Materials and grows as Modules arrive.
 _Avoid_: notebook (alone)

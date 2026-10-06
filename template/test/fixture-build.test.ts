@@ -83,7 +83,7 @@ describe("bad LaTeX fails the build with its file and line", () => {
     );
     const build = buildCourse(course);
     expect(build.ok).toBe(false);
-    expect(build.output).toMatch(/modules\/01-thermal-resistance\/summary\/1\.md:25:\d+ bad LaTeX/);
+    expect(build.output).toMatch(/modules\/01-thermal-resistance\/summary\/1\.md:26:\d+ bad LaTeX/);
   });
 
   it("in a Practice item (YAML)", () => {
@@ -103,7 +103,7 @@ describe("bad LaTeX fails the build with its file and line", () => {
     );
     const build = buildCourse(course);
     expect(build.ok).toBe(false);
-    expect(build.output).toMatch(/modules\/01-thermal-resistance\/worked\/1\.json:129:\d+ bad LaTeX/);
+    expect(build.output).toMatch(/modules\/01-thermal-resistance\/worked\/1\.json:131:\d+ bad LaTeX/);
   });
 });
 

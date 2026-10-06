@@ -7,6 +7,8 @@ credit:
   course: Fixture Course (FX 101)
   university: Example University
 owner: A. N. Owner
+# Arabic notes beside the English (a Summary beat's and a Worked example step's `arabic`).
+arabicNotes: true
 # Exam sittings. Only the Owner says a sitting is complete; until then it has no Revision.
 sittings:
   - id: midterm

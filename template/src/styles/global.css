@@ -929,6 +929,22 @@
     }
   }
 
+  /* An Arabic note: right to left beside the English, ruled in pencil at its inline start (its
+     right edge). The prose faces carry no Arabic, so the system's Arabic face sets it, with the
+     taller leading Arabic needs; its numbers stay left to right in the quantity face. */
+  .arabic-note {
+    max-inline-size: 68ch;
+    padding-inline-start: 12px;
+    border-inline-start: 1.5px solid var(--color-pencil);
+    font-family: "Noto Sans Arabic", "Segoe UI", "Geeza Pro", Tahoma, system-ui, sans-serif;
+    line-height: 1.8;
+    color: var(--color-graphite);
+  }
+  .arabic-note .ltr-number {
+    font-family: var(--font-quantity);
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Provenance notes: a pencil-ruled box, one row per kind, each named by its printed label. */
   .provenance-notes {
     max-inline-size: 68ch;
@@ -1625,6 +1641,12 @@
   /* The map: Plotly sizes itself to the box, a picture that takes no drag. */
   .sim-map {
     aspect-ratio: 4 / 3;
+  }
+  /* Plotly measures each label in a tester it hangs off <body>; in a document set right to left that
+     tester measured the labels mirrored, and the map placed its titles on its ticks. The map is
+     drawn left to right (its stage is dir="ltr"), so it is measured left to right too. */
+  #js-plotly-tester {
+    direction: ltr;
   }
   .sim-fit {
     grid-area: fit;
