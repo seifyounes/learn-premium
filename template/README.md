@@ -260,7 +260,10 @@ keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.
 
 Every finding either blocks or raises a Checkpoint item; there is no warning level. Every gate
 reports its coverage, and a gate that crashed, didn't run or covered nothing counts as failed.
-A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
+The one exception is a Course with no Modules yet (nothing under `modules/` but a `.gitkeep`), as
+intake creates it: on a whole-Course run, a content gate (one that runs per job) that covered
+nothing passes, and the Gate report records `nothingToCheck` for it. Once a Module exists, the rule
+applies again. A new gate goes in `gates/index.ts` with at least one negative control that plants its defect.
 
 | Gate                 | Points         | Checks                                                                                                                                                                                                      |
 | -------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -320,7 +320,8 @@ _Avoid_: test (alone), lint (for the whole class), warning
 **Gate report**:
 What a gate run leaves behind: every gate with its result and what it covered, tied to the exact
 commit it checked. A gate that didn't run counts as failed, and a Module merges only with a
-green report for its final commit.
+green report for its final commit. On a Course with no Modules yet, a content gate passes with
+nothing to check, and the report says so.
 _Avoid_: test log, QA notes
 
 **Negative control**:
