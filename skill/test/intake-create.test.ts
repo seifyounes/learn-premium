@@ -230,6 +230,55 @@ describe("create", { timeout: 30_000 }, () => {
     });
   });
 
+  test("commits as the release repo does, even when the machine has another global identity", async () => {
+    writeFileSync(join(isolated, "gitconfig"), "[user]\n\tname = Global\n\temail = global@example.com\n");
+    try {
+      const s = setup();
+
+      must(await create(s));
+
+      expect(git(s.project, "log", "--format=%an <%ae>")).toBe("Owner <owner@example.com>");
+    } finally {
+      writeFileSync(join(isolated, "gitconfig"), "");
+    }
+  });
+
+  test("a second Course project for the same Materials is refused", async () => {
+    const s = setup();
+    must(await create(s));
+
+    const { code, out } = await create(s, { slug: "heat-transfer-again" });
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/already has these Materials/);
+    expect(existsSync(join(s.work, "heat-transfer-again"))).toBe(false);
+  });
+
+  test("a file where the Private folder goes is refused before anything is made", async () => {
+    const s = setup();
+    writeFileSync(join(dirname(s.materials), "Heat Transfer (private)"), "not a folder");
+
+    const { code, out } = await create(s);
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/is a file/);
+    expect(existsSync(s.project)).toBe(false);
+  });
+
+  test("a catalog section with no table is refused, not filled into a later section's table", async () => {
+    const s = setup({
+      work: workspace(
+        "# MEMORY\n\n## Project catalog\n\nNone yet.\n\n## Open actions\n\n| Action | Owner |\n|---|---|\n| x | y |\n",
+      ),
+    });
+
+    const { code, out } = await create(s);
+
+    expect(code).toBe(2);
+    expect(out.error).toMatch(/Project catalog/);
+    expect(existsSync(s.project)).toBe(false);
+  });
+
   test("with no git identity to commit with, nothing is made", async () => {
     const s = setup({ release: releaseRepo({}, false) });
 
@@ -323,6 +372,17 @@ describe("create", { timeout: 30_000 }, () => {
     expect(code).toBe(3);
     expect(out.error).toMatch(/outside any repo/);
     expect(existsSync(s.project)).toBe(false);
+  });
+
+  test("a re-run with other answers than the project was made with is refused, never taken as done", async () => {
+    const s = setup();
+    must(await create(s));
+    rmSync(join(s.state, "courses.json"));
+
+    const { code, out } = await create(s, { pad: "steel" });
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/other answers/);
   });
 
   test("a create that stopped after the project was in place is finished by running it again", async () => {
