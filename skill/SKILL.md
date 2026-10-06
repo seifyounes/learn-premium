@@ -80,9 +80,9 @@ node "$L" lock claim --project <Course project> --holder <id>
 ### 3. Pick the path
 
 `next` says which: `intake` (no ledger), `resume` (an unfinished wave), or `waves` (new Materials
-to map and the Module waves the hash diff implies). The Module wave and the Upgrade wave offer
-aren't built yet (tickets #68, #75): until they land, report what `next` returned, tell the Owner
-which ticket the run is waiting on, and release the lock.
+to map and the Module waves the hash diff implies). Module waves run as the Module wave section
+says. The Upgrade wave offer isn't built yet (ticket #75): until it lands, report what `next`
+returned for it and tell the Owner which ticket it waits on.
 
 ## Intake
 
@@ -121,6 +121,59 @@ The commands are in `scripts/intake/README.md`; `$I` is `intake.ts` as above.
    Report the live URL, or each finding when the site isn't noindex (exit 1), and never retry by
    deleting anything: a re-run makes nothing twice.
 8. Release the ledger lock. The next run's `next` picks up Module 01.
+
+## Module wave
+
+One Module from its Materials to live: read, reconcile, write, recompute, gate, Checkpoint, merge.
+On a new Course, Module 01's wave runs alone and writes the Course style sheet, and the ledger
+refuses any other Module's wave until it merges. After that, ready Modules run in parallel, each its
+own wave on its own branch. A Module waiting at its Checkpoint never holds up the others. `$W` is
+`scripts/wave.ts` (`scripts/wave/README.md`), `$L` is the ledger, and `<P>` is the Course project.
+The Private folder is `<Materials folder> (private)`. Record every job with `$L record job --wave
+<W> --job <name> --result … --started-at <when you launched it>`, timed by you, not self-reported.
+A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
+
+1. **Start:** `$L wave start --kind module --target NN --branch module/NN-<slug>` on a fresh branch
+   of `<P>`. The Module's Materials are in `$L status` (its `materials`).
+2. **Two Blind readers** (`briefs/blind-reader.md`), launched together as subagents. Each is given
+   only the Module's Materials, the Private folder and its own output file
+   (`<Private>/waves/NN/reading-a.json` or `reading-b.json`), and neither ever sees the other's.
+3. **Reconcile:** `node "$W" reconcile --project <P> --module NN`. While it exits 1, settle each dispute
+   on its rendered region. Cut the crop with the Materials reader's `crop` (the render path is in that
+   file's reader manifest, the box in the dispute) into `<Private>/waves/NN/crops/`, look at it, and
+   rule in `<Private>/waves/NN/resolutions.json`: `a`, `b`, `read` (with the value the render shows),
+   or `unreadable` when the render can't decide. Never use the text layer, and never guess.
+4. **Module 1 only, the Course style sheet** (`briefs/style-sheet.md`): `content/style-sheet.yaml`,
+   with its machine-readable notation and units.
+5. **The writer and the recompute**, as parallel subagents: the content writer (`briefs/writer.md`)
+   writes `content/modules/NN-<slug>/`, and the independent recompute (`briefs/recompute.md`) writes
+   `content/build-records/recompute/NN-<slug>/worked-<n>.json`, never seeing the writer's files. An
+   Agent-built sim gets its own sim builder and its own recompute log.
+6. **Per-job gates** in `<P>/template` (after `npm ci`): `npm run gates -- run --point job --module
+   NN-<slug> --content ../content`. A block goes back to the job that made it. Re-verify every
+   finding before blocking on it.
+7. **Your consistency pass:** read the Module through against the style sheet and the settled
+   reading: the Professor's order of working, voice, notation, nothing contradicting another Module.
+   Fix what you find, then re-run the job gates.
+8. **Commit and push** the branch (the pre-commit gate checks every commit), then wait for its Vercel
+   preview. **Per-Module gates on the preview:** `npm run gates -- run --point module --module
+   NN-<slug> --content ../content --url <preview URL>`. Then the **deploy gates** on a production
+   build (`VERCEL_ENV=production npm run build -- --outDir dist-production`, then `run --point deploy
+   --dist dist-production`). Commit the Gate reports.
+9. **The Checkpoint:** `node "$W" checkpoint --project <P> --module NN`. Post its `markdown` in chat as
+   one batch: every item links to its exact spot on the preview, or names its crop. Store each
+   answer: `$L record checkpoint --wave <W> --key <key> --question "<item>" --answer "<the Owner's
+   words>"`, adding `--ruling slip|divergence` for a sheet-vs-recompute item. Only the Owner rules
+   Slip or Divergence. Apply each answer: a Slip ships the corrected value with `provenance.slips`, a
+   Divergence keeps the Professor's value with `provenance.divergences`, an unreadable region takes
+   the Owner's reading, a conflict follows the Owner's pick. Re-run the gates and the Checkpoint until
+   nothing is open or unapplied.
+10. **Merge only on green + answered:** `node "$W" ready --project <P> --wave <W>` must exit 0 on the
+    branch's HEAD. If `main` has moved since the branch was cut (another Module merged), rebase onto
+    it first and re-run the gates and `ready`: a Gate report is bound to the commit it checked. Then
+    fast-forward `main` to the branch and push. Record `$L wave end --wave <W> --result merged --commit <full sha>`. Once Vercel deploys
+    `main`, run the live gates on the live URL (`run --point live --url <live URL>`). A red live run
+    rolls Vercel back (`template/README.md`, Deploy) and goes to the Owner.
 
 ## Media pass
 
