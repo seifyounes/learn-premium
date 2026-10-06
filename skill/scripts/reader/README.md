@@ -77,6 +77,21 @@ has audio; a deck with no audio never loads it. The language is detected per cli
 `--language ar` when short clips full of English terms get detected as English. Transcripts are
 Material, kept in the Private folder only; the audio is never published.
 
+## Crops
+
+A Blind-reader dispute is settled on the rendered region, never the text layer. `crop` cuts that
+region out of a render into the Private folder, where the Module wave's reconcile step looks for it:
+
+```bash
+"$HOME/.claude/learn-premium/venv/Scripts/python.exe"   "$HOME/.claude/skills/learn-premium/scripts/materials_reader.py"   crop --materials <Materials folder> --private <Private folder>   --render "reader/<file>/pages/page-003.png" --box 0.10,0.42,0.55,0.50 --out "waves/01/crops/<key>.png"
+```
+
+`--render` and `--out` are relative to the Private folder and must stay inside it; `--box` is
+`x0,y0,x1,y1` as fractions of the render's width and height (top-left origin), the way a Blind
+reader gives a region, rounded outwards to whole pixels. It prints `{"ok": true, "crop", "size"}`,
+exits 2 on a bad box or a path outside the Private folder, and 3 when the Private folder is inside
+the Materials or a repo.
+
 ## Long paths
 
 Materials unzipped from archives often pass Windows' 260-character limit, and long paths are off

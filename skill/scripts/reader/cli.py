@@ -5,6 +5,8 @@ import json
 import shutil
 from functools import partial
 
+from reader.crop import crop
+
 from reader.deck import read_deck
 from reader.errors import BadInput, BlankRender, Refused, ToolFailed
 from reader.paths import check_private_folder, is_within, long_path, shown
@@ -32,7 +34,21 @@ def _parser():
     read.add_argument("--language", default=None,
                       help="narration language code, e.g. ar (default: detected per clip)")
     read.add_argument("file", help="the Materials file, relative to --materials")
+    cut = commands.add_parser("crop")
+    cut.add_argument("--materials", required=True, help="the Course's Materials folder")
+    cut.add_argument("--private", required=True, help="the Course's Private folder")
+    cut.add_argument("--render", required=True,
+                     help="the rendered page or slide, relative to --private")
+    cut.add_argument("--box", required=True,
+                     help="x0,y0,x1,y1: the region, as fractions of the render's width and height")
+    cut.add_argument("--out", required=True, help="the crop to write (.png), relative to --private")
     return parser
+
+
+def _crop(args):
+    materials, private = long_path(args.materials), long_path(args.private)
+    check_private_folder(private, materials)
+    return crop(private, args.render, args.box, args.out)
 
 
 def _read(args, transcriber, powerpoint):
@@ -85,6 +101,8 @@ def run(argv, transcriber=None, powerpoint=PowerPoint):
     slide renderer."""
     try:
         args = _parser().parse_args(argv)
+        if args.command == "crop":
+            return 0, {"ok": True, **_crop(args)}
         return 0, {"ok": True, **_read(args, transcriber, powerpoint)}
     except tuple(EXIT_CODES) as e:
         return EXIT_CODES[type(e)], {"ok": False, "error": str(e)}
