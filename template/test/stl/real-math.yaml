@@ -1,0 +1,126 @@
+covers: REAL arithmetic and functions, their special cases, and the REAL to DINT conversions with their ties
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = REAL arithmetic
+    BEGIN
+    NETWORK
+    TITLE = The four operations
+          L     MD     0
+          L     MD     4
+          +R
+          T     MD   100
+          L     MD     0
+          L     MD     4
+          -R
+          T     MD   104
+          L     MD     0
+          L     MD     4
+          *R
+          T     MD   108
+          L     MD     0
+          L     MD     4
+          /R
+          T     MD   112
+          L     MD     0
+          ABS
+          T     MD   116
+          NEGR
+          T     MD   120
+          L     1.5
+          L     -2.5e-3
+          *R
+          T     MD   124
+    NETWORK
+    TITLE = Functions of ACCU 1
+          L     MD     0
+          SQR
+          T     MD   128
+          L     MD     0
+          SQRT
+          T     MD   132
+          L     MD     0
+          EXP
+          T     MD   136
+          L     MD     0
+          LN
+          T     MD   140
+          L     MD     0
+          SIN
+          T     MD   144
+          L     MD     0
+          COS
+          T     MD   148
+          L     MD     0
+          TAN
+          T     MD   152
+          L     MD     4
+          ASIN
+          T     MD   156
+          L     MD     4
+          ACOS
+          T     MD   160
+          L     MD     4
+          ATAN
+          T     MD   164
+    NETWORK
+    TITLE = REAL to DINT
+          L     MD     0
+          RND
+          T     MD   168
+          L     MD     0
+          RND+
+          T     MD   172
+          L     MD     0
+          RND-
+          T     MD   176
+          L     MD     0
+          TRUNC
+          T     MD   180
+          L     MD     4
+          RND
+          T     MD   184
+    END_ORGANIZATION_BLOCK
+  inputs:
+    MD 0: REAL
+    MD 4: REAL
+  watch:
+    MD 100: REAL
+    MD 112: REAL
+    MD 132: REAL
+    MD 168: DINT
+start:
+  MD 0: 2.5
+  MD 4: 0.5
+tune:
+  MD 0: { min: -100, max: 100, step: 0.1 }
+  MD 4: { min: -1, max: 1, step: 0.01 }
+cases:
+  - name: ties go to the even neighbour
+    scans:
+      - { MD 0: 3.5, MD 4: -2.5 }
+      - { MD 0: -3.5, MD 4: 0.5 }
+      - { MD 0: -0.5, MD 4: -0.5 }
+      - { MD 0: 1.4999999, MD 4: 2.5000002 }
+  - name: rounding off the end of DINT, and huge values
+    scans:
+      - { MD 0: 3.0e+9, MD 4: -3.0e+9 }
+      - { MD 0: 2147483520, MD 4: -2147483648 }
+      - { MD 0: 3.0e+38, MD 4: 10 }
+      - { MD 0: -3.0e+38, MD 4: 3.0e+38 }
+  - name: division by zero, square roots and logs of negatives, out-of-range arcs
+    scans:
+      - { MD 0: 7.25, MD 4: 0 }
+      - { MD 0: -7.25, MD 4: 0 }
+      - { MD 0: -4, MD 4: 1.5 }
+      - { MD 0: 0, MD 4: -1.5 }
+      - { MD 0: 0, MD 4: 1 }
+  - name: tiny results underflow, exp's limit, and the trigonometry's snapped results
+    scans:
+      - { MD 0: 1.0e-30, MD 4: 1.0e+30 }
+      - { MD 0: 1.0e-20, MD 4: 1.0e-30 }
+      - { MD 0: 89, MD 4: -1 }
+      - { MD 0: -104, MD 4: 1 }
+      - { MD 0: 3.1415927, MD 4: 0.7071068 }
+      - { MD 0: 1.5707964, MD 4: -0.9999999 }
+      - { MD 0: -1.5707964, MD 4: 1.0e-8 }

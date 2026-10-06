@@ -1,0 +1,144 @@
+covers: word and double-word logic, shifts and rotates, by a constant and by ACCU 2's low byte
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = Word logic, shifts and rotates
+    BEGIN
+    NETWORK
+    TITLE = Word logic
+          L     MD     0
+          AW    W#16#0FF0
+          T     MD   100
+          L     MD     0
+          OW    W#16#F00F
+          T     MD   104
+          L     MD     0
+          XOW   W#16#FFFF
+          T     MD   108
+          L     MD     0
+          AD    DW#16#00FFFF00
+          T     MD   112
+          L     MD     0
+          OD    DW#16#80000001
+          T     MD   116
+          L     MD     0
+          XOD   DW#16#FFFFFFFF
+          T     MD   120
+          L     MD     0
+          L     MD     4
+          AW
+          T     MD   124
+          L     MD     0
+          L     MD     4
+          OW
+          T     MD   128
+          L     MD     0
+          L     MD     4
+          XOW
+          T     MD   132
+          L     MD     0
+          L     MD     4
+          AD
+          T     MD   136
+          L     MD     0
+          L     MD     4
+          OD
+          T     MD   140
+          L     MD     0
+          L     MD     4
+          XOD
+          T     MD   144
+    NETWORK
+    TITLE = Shifts by a constant
+          L     MD     0
+          SLW   3
+          T     MD   148
+          L     MD     0
+          SRW   5
+          T     MD   152
+          L     MD     0
+          SLD   9
+          T     MD   156
+          L     MD     0
+          SRD   31
+          T     MD   160
+          L     MD     0
+          SSI   4
+          T     MD   164
+          L     MD     0
+          SSD   7
+          T     MD   168
+          L     MD     0
+          RLD   12
+          T     MD   172
+          L     MD     0
+          RRD   1
+          T     MD   176
+          L     MD     0
+          SLW   0
+          T     MD   180
+    NETWORK
+    TITLE = Shifts by ACCU 2
+          L     MB     8
+          L     MD     0
+          SLW
+          T     MD   184
+          L     MB     8
+          L     MD     0
+          SRW
+          T     MD   188
+          L     MB     8
+          L     MD     0
+          SLD
+          T     MD   192
+          L     MB     8
+          L     MD     0
+          SRD
+          T     MD   196
+          L     MB     8
+          L     MD     0
+          SSI
+          T     MD   200
+          L     MB     8
+          L     MD     0
+          SSD
+          T     MD   204
+          L     MB     8
+          L     MD     0
+          RLD
+          T     MD   208
+          L     MB     8
+          L     MD     0
+          RRD
+          T     MD   212
+          L     MD     0
+          RLDA
+          T     MD   216
+          RRDA
+          RRDA
+          T     MD   220
+    END_ORGANIZATION_BLOCK
+  inputs:
+    MD 0: DWORD
+    MD 4: DWORD
+    MB 8: BYTE
+  watch:
+    MD 100: DWORD
+    MD 184: DWORD
+start:
+  MD 0: 2882400018
+  MD 4: 252645135
+  MB 8: 3
+tune:
+  MD 0: { min: 0, max: 4294967295, step: 1 }
+  MD 4: { min: 0, max: 4294967295, step: 1 }
+  MB 8: { min: 0, max: 255, step: 1 }
+cases:
+  - name: counts of 0, the width, past the width, and negative words
+    scans:
+      - { MD 0: 32768, MB 8: 0 }
+      - { MD 0: 4294934528, MB 8: 16 }
+      - { MD 0: 2147516417, MB 8: 17 }
+      - { MD 0: 2147483649, MB 8: 32 }
+      - { MD 0: 1, MB 8: 33 }
+      - { MD 0: 0, MD 4: 0, MB 8: 1 }

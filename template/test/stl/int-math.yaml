@@ -1,0 +1,153 @@
+covers: INT and DINT arithmetic with its wrap, OV and OS; loads and transfers; the accumulator moves
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = INT and DINT arithmetic
+    BEGIN
+    NETWORK
+    TITLE = INT
+          L     MW     0
+          L     MW     2
+          +I
+          T     MW   100
+          L     MW     0
+          L     MW     2
+          -I
+          T     MW   102
+          L     MW     0
+          L     MW     2
+          *I
+          T     MD   104
+          L     MW     0
+          L     MW     2
+          /I
+          T     MD   108
+          L     MW     0
+          NEGI
+          T     MW   112
+          L     MW     0
+          INVI
+          T     MW   114
+          L     MW     0
+          ITD
+          T     MD   116
+          DTR
+          T     MD   120
+    NETWORK
+    TITLE = DINT
+          L     MD     4
+          L     MD     8
+          +D
+          T     MD   124
+          L     MD     4
+          L     MD     8
+          -D
+          T     MD   128
+          L     MD     4
+          L     MD     8
+          *D
+          T     MD   132
+          L     MD     4
+          L     MD     8
+          /D
+          T     MD   136
+          L     MD     4
+          L     MD     8
+          MOD
+          T     MD   140
+          L     MD     4
+          NEGD
+          T     MD   144
+          L     MD     4
+          INVD
+          T     MD   148
+    NETWORK
+    TITLE = Constants, + and the accumulators
+          L     -5
+          T     MD   152
+          L     L#-70000
+          T     MD   156
+          L     W#16#F00D
+          T     MW   160
+          L     DW#16#DEADBEEF
+          T     MD   162
+          L     B#16#7F
+          T     MB   166
+          L     2#1010_0101
+          T     MW   168
+          L     MB     0
+          T     MB   167
+          L     IW     2
+          +     3
+          +     L#-100000
+          T     MD   170
+          L     MW     0
+          INC   200
+          DEC   7
+          T     MW   174
+          L     MW     0
+          L     MW     2
+          TAK
+          T     MW   176
+          POP
+          T     MW   178
+          L     MD     4
+          PUSH
+          L     IB     2
+          T     QB     0
+          TAK
+          T     QD     4
+    END_ORGANIZATION_BLOCK
+  inputs:
+    MW 0: INT
+    MW 2: INT
+    MD 4: DINT
+    MD 8: DINT
+    IW 2: INT
+  watch:
+    MW 100: INT
+    MD 104: DINT
+    MD 124: DINT
+start:
+  MW 0: 300
+  MW 2: -7
+  MD 4: 100000
+  MD 8: -3
+  IW 2: 1234
+tune:
+  MW 0:
+    min: -32768
+    max: 32767
+    step: 1
+  MW 2:
+    min: -32768
+    max: 32767
+    step: 1
+  MD 4:
+    min: -2147483648
+    max: 2147483647
+    step: 1
+  MD 8:
+    min: -2147483648
+    max: 2147483647
+    step: 1
+cases:
+  - name: INT overflows both ways, and the one quotient that overflows
+    scans:
+      - { MW 0: 32767, MW 2: 1 }
+      - { MW 0: -32768, MW 2: 1 }
+      - { MW 0: -32768, MW 2: -1 }
+      - { MW 0: 200, MW 2: 200 }
+      - { MW 0: -200, MW 2: 200 }
+      - { MW 0: 0, MW 2: 0 }
+  - name: division by zero and remainders' signs
+    scans:
+      - { MW 0: 17, MW 2: 0, MD 4: 17, MD 8: 0 }
+      - { MW 0: -17, MW 2: 5, MD 4: -17, MD 8: 5 }
+      - { MW 0: 17, MW 2: -5, MD 4: 17, MD 8: -5 }
+  - name: DINT overflows
+    scans:
+      - { MD 4: 2147483647, MD 8: 1 }
+      - { MD 4: -2147483648, MD 8: -1 }
+      - { MD 4: 65536, MD 8: 65536 }
+      - { MD 4: -2147483648, MD 8: 2147483647 }

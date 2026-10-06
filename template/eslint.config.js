@@ -7,7 +7,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  { ignores: ["dist/", "dist-production/", ".astro/", ".test-out/", "node_modules/"] },
+  { ignores: ["dist/", "dist-production/", ".astro/", ".test-out/", "node_modules/", ".oracle-venv/"] },
   js.configs.recommended,
   tseslint.configs.strict,
   astro.configs.recommended,

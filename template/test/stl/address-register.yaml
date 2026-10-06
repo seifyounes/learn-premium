@@ -1,0 +1,69 @@
+covers: address register 1 and register-indirect access to bits, bytes, words and double words
+model:
+  source: |
+    ORGANIZATION_BLOCK OB 1
+    TITLE = AR 1 and register-indirect access
+    BEGIN
+    NETWORK
+    TITLE = Loading and moving AR 1
+          LAR1  P#40.0
+          L     MW     0
+          T     MW [AR1,P#2.0]
+          L     MD     4
+          T     MD [AR1,P#4.0]
+          L     MB     1
+          T     MB [AR1,P#8.0]
+          L     MW [AR1,P#2.0]
+          T     MW    60
+          L     MD [AR1,P#4.0]
+          T     MD    62
+          L     MB [AR1,P#8.0]
+          T     MB    66
+          +AR1  P#0.3
+          A     M [AR1,P#0.0]
+          =     M [AR1,P#20.1]
+          AN    M [AR1,P#1.0]
+          S     M [AR1,P#20.2]
+          O     M [AR1,P#2.0]
+          R     M [AR1,P#20.3]
+          ON    M [AR1,P#3.0]
+          X     M [AR1,P#4.0]
+          XN    M [AR1,P#5.0]
+          FP    M [AR1,P#21.0]
+          FN    M [AR1,P#21.1]
+          TAR1
+          T     MD    68
+          TAR1  MD    72
+          L     MW     8
+          +AR1
+          TAR1  MD    76
+          L     MD    10
+          LAR1
+          TAR1  MD    80
+          LAR1  MD    72
+          TAR1  MD    84
+    END_ORGANIZATION_BLOCK
+  inputs:
+    MW 0: INT
+    MD 4: DINT
+    MW 8: INT
+    MD 10: DWORD
+  watch:
+    MD 68: DWORD
+    MD 76: DWORD
+start:
+  MW 0: -2
+  MD 4: 123456
+  MW 8: 9
+  MD 10: 16
+tune:
+  MW 0: { min: -32768, max: 32767, step: 1 }
+  MD 4: { min: -2147483648, max: 2147483647, step: 1 }
+  MW 8: { min: -320, max: 320, step: 1 }
+  MD 10: { min: 0, max: 800, step: 1 }
+cases:
+  - name: AR 1 stepped back, and bits set in the bytes it points at
+    scans:
+      - { MW 0: 255, MW 8: -17, MD 10: 330 }
+      - { MW 0: -256, MW 8: 1, MD 10: 0 }
+      - { MW 0: 4660 }

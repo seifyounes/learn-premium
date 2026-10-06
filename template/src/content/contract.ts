@@ -6,6 +6,8 @@ import { turnSchema } from "../sims/layout/check.ts";
 import { SIDES } from "../sims/layout/symbols.ts";
 import { schematicProblems } from "../sims/layout/validate.ts";
 import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
+import { S7_TYPES } from "../sims/s7/memory.ts";
+import { stlProblems } from "../sims/stl/validate.ts";
 import { CELL_REF, parseCell } from "../worked/cells.ts";
 
 /** A Module's folder name is its route: a two-digit number and a slug, e.g. `01-thermal-resistance`. */
@@ -444,13 +446,70 @@ const planeWallSim = z.strictObject({
     .optional(),
 });
 
+/** An STL listing as the S7 core runs it: the listing, the operands students set, and the watch table. */
+const stlModel = z.strictObject({
+  /** The listing in STEP 7 source form, line for line as the Professor wrote it: one ORGANIZATION_BLOCK OB 1. */
+  source: z.string().min(1),
+  /** Each operand students set before a scan, by its absolute address, with its type: `"PIW 256": "INT"`. */
+  inputs: z.record(z.string(), z.enum(S7_TYPES)),
+  /** The watch table: each operand shown after a scan, with its type. */
+  watch: z.record(z.string(), z.enum(S7_TYPES)),
+});
+
+/** A gate case the builder writes: the inputs before each scan, on top of the example's (and the scan before's). */
+const stlCase = z.strictObject({
+  name: z.string().min(1),
+  scans: z.array(z.record(z.string(), z.number())).min(1),
+});
+
+/**
+ * An STL listing (`src/sims/stl/engine.ts`), run live on the S7 core: students set the inputs and
+ * step a statement or a scan at a time, with a trace. awlsim, the build oracle, runs the same
+ * listing on the same cases and must agree bit for bit (`gates/stl.ts`). A listing using an
+ * instruction the interpreter lacks names the Gate gap filed for it, and ships as a step-through of
+ * awlsim's values.
+ */
+const stlSim = z.strictObject({
+  kind: z.literal("stl"),
+  ...simCommon,
+  /** awlsim recomputes every listing at build. */
+  recompute: z.literal("independent"),
+  model: stlModel,
+  /** The example's values: the listing opens on them. */
+  start: z.record(z.string(), z.number()),
+  /** The inputs students tune, each over its range; any other input stays at the example's value. */
+  tune: z.record(z.string(), tuneRange),
+  /** Multi-scan cases (an alarm latching, then acknowledged) beyond the ones the gate derives from `tune`. */
+  cases: z.array(stlCase).default([]),
+  /** The Gate gap issue filed for an instruction the interpreter lacks: the listing ships as a step-through. */
+  gateGap: z.number().int().positive().optional(),
+  /** An STL listing's step-through is awlsim's own trace, never a drawn figure. */
+  stepThrough: z.never().optional(),
+});
+
+/** An STL listing as the template's own awlsim corpus writes one (`test/stl/`): the sim's model and cases alone. */
+export const stlListing = z
+  .strictObject({
+    /** What it exercises, in a line. */
+    covers: z.string().min(1),
+    model: stlModel,
+    start: z.record(z.string(), z.number()),
+    tune: z.record(z.string(), tuneRange).default({}),
+    cases: z.array(stlCase).default([]),
+  })
+  .superRefine((l, ctx) => {
+    for (const p of stlProblems(l.model, l.start, l.tune, l.cases)) ctx.addIssue({ code: "custom", ...p });
+  });
+
 /**
  * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
  * the same way in Node at build and in the page. Students tune it, never rewire it.
  */
 export const sim = z
-  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim])
+  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim, stlSim])
   .superRefine((s, ctx) => {
+    if (s.kind === "stl")
+      for (const p of stlProblems(s.model, s.start, s.tune, s.cases)) ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "logic") {
       // The circuit is judged once its netlist holds together: a pin in no net isn't also a loop.
       const structure = schematicProblems(s.model, s.layout);
@@ -512,9 +571,13 @@ export const sim = z
       step.ring.forEach(unknown(["stepThrough", "steps", i, "ring"]));
     });
   });
-export const SIM_KINDS = ["gradient-descent", "logic", "tangent", "plane-wall"] as const satisfies readonly z.infer<
-  typeof sim
->["kind"][];
+export const SIM_KINDS = [
+  "gradient-descent",
+  "logic",
+  "tangent",
+  "plane-wall",
+  "stl",
+] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /**
  * A Pyodide tool (CONTEXT.md): real Python where real Python is the point (the Professor's own
