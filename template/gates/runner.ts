@@ -1,11 +1,12 @@
 // The gate runner: every gate plugs in here, and every gate point (per job, per Module, per
 // deploy, and live: on the live URL once Vercel has deployed) runs through `runGates`. A gate has
 // two outcomes on a finding, block or Checkpoint item; there is no warning level. A gate that
-// didn't run, crashed or saw nothing counts as failed.
+// didn't run, crashed or saw nothing counts as failed, except a content gate on a Course with no
+// Modules yet: it passes, and the report says it had nothing to check.
 //
 // The run leaves a Gate report bound to the exact commit it checked. `verifyReport` is the only
 // way to call a report green: it re-derives the verdict rather than trusting the report's own.
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "astro/zod";
@@ -96,6 +97,8 @@ const gateResult = z.strictObject({
   fixes: z.array(z.string()).optional(),
   /** Why a `failed` gate didn't run. */
   error: z.string().optional(),
+  /** Why a content gate passed covering nothing: the Course has no Modules yet. */
+  nothingToCheck: z.string().optional(),
 });
 export type GateResult = z.infer<typeof gateResult>;
 
@@ -154,9 +157,27 @@ async function runGate(gate: Gate, input: GateInput): Promise<GateResult> {
     return { ...base, status: "failed", coverage: {}, findings: [], error: messageOf(error) };
   }
   if (!Object.values(run.coverage).some((n) => n > 0)) {
+    if (run.findings.length === 0 && gate.points.includes("job") && courseWithoutModules(input)) {
+      return { ...base, status: "pass", ...run, nothingToCheck: "the Course has no Modules yet" };
+    }
     return { ...base, status: "failed", ...run, error: "the gate covered nothing, so it can't pass" };
   }
   return { ...base, status: statusOf(run.findings), ...run };
+}
+
+/**
+ * A whole-Course run on a Course with nothing under `modules/` yet: the one case where a content gate
+ * (a per-job gate) may cover nothing and pass, so an empty Course project's deploy run is green. Any
+ * file under `modules/` but intake's `modules/.gitkeep` counts as a Module begun, and a folder without
+ * a course.yaml isn't a Course.
+ */
+function courseWithoutModules({ contentDir, module }: GateInput): boolean {
+  if (module !== undefined || !existsSync(join(contentDir, "course.yaml"))) return false;
+  const modules = join(contentDir, "modules");
+  if (!existsSync(modules)) return true;
+  return readdirSync(modules, { recursive: true, encoding: "utf8" }).every(
+    (entry) => entry === ".gitkeep" || !statSync(join(modules, entry)).isFile(),
+  );
 }
 
 function statusOf(findings: readonly Finding[]): GateStatus {

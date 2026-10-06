@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runControls, runGates, verifyReport, type Gate, type GateRun } from "../gates/runner.ts";
 
@@ -89,6 +92,84 @@ describe("a gate run", () => {
       status: "failed",
       coverage: { pages: 0 },
       error: expect.stringMatching(/covered nothing/),
+    });
+  });
+
+  describe("on a Course with no Modules yet", () => {
+    /** A Course's content folder holding `files` (path → text). */
+    function course(files: Record<string, string>): string {
+      const dir = mkdtempSync(join(tmpdir(), "lp-runner-course-"));
+      for (const [entry, text] of Object.entries(files)) {
+        mkdirSync(dirname(join(dir, entry)), { recursive: true });
+        writeFileSync(join(dir, entry), text);
+      }
+      return dir;
+    }
+    // As intake creates it: a course config, and modules/ kept by a .gitkeep.
+    const empty = course({ "course.yaml": "name: x\n", "modules/.gitkeep": "" });
+    const oneModule = course({ "course.yaml": "name: x\n", "modules/01-first/module.yaml": "title: x\n" });
+    const sawNothing: GateRun = { coverage: { examples: 0 }, findings: [] };
+    const contentGate = stubGate("content", sawNothing, { points: ["job", "deploy"] });
+    const deployRun = (contentDir: string, gates: Gate[], module?: string) =>
+      runGates({
+        point: "deploy",
+        commit: COMMIT,
+        input: { contentDir, ...(module === undefined ? {} : { module }) },
+        gates,
+      });
+
+    it("passes a content gate that covered nothing, and the report says it had nothing to check", async () => {
+      const report = await deployRun(empty, [contentGate]);
+      expect(report.green).toBe(true);
+      expect(report.gates[0]).toEqual({
+        id: "content",
+        checks: "stub content",
+        status: "pass",
+        coverage: { examples: 0 },
+        findings: [],
+        nothingToCheck: "the Course has no Modules yet",
+      });
+      expect(verifyReport(report, { commit: COMMIT, point: "deploy", gates: [contentGate] }).green).toBe(true);
+    });
+
+    it("applies the coverage rule again once one Module exists", async () => {
+      const report = await deployRun(oneModule, [contentGate]);
+      expect(report.green).toBe(false);
+      expect(report.gates[0]).toMatchObject({ status: "failed", error: expect.stringMatching(/covered nothing/) });
+      expect(report.gates[0]).not.toHaveProperty("nothingToCheck");
+    });
+
+    it("passes a Course with no modules/ folder at all", async () => {
+      expect((await deployRun(course({ "course.yaml": "name: x\n" }), [contentGate])).gates[0]?.status).toBe("pass");
+    });
+
+    it("counts any other file under modules/ as a Module begun", async () => {
+      for (const file of ["modules/notes.txt", "modules/01-first/.gitkeep"]) {
+        const begun = course({ "course.yaml": "name: x\n", [file]: "" });
+        expect((await deployRun(begun, [contentGate])).gates[0]?.status, file).toBe("failed");
+      }
+    });
+
+    it("still fails a content gate that covered nothing in a run scoped to one Module", async () => {
+      expect((await deployRun(empty, [contentGate], "01-first")).gates[0]?.status).toBe("failed");
+    });
+
+    it("still fails a gate on the built site that covered nothing", async () => {
+      const buildGate = stubGate("pages", { coverage: { pages: 0 }, findings: [] }, { points: ["module", "deploy"] });
+      expect((await deployRun(empty, [buildGate])).gates[0]?.status).toBe("failed");
+    });
+
+    it("still fails a content gate that covered nothing in a folder that isn't a Course", async () => {
+      expect((await deployRun(course({}), [contentGate])).gates[0]?.status).toBe("failed");
+    });
+
+    it("still reports a content gate's findings", async () => {
+      const blocking = stubGate(
+        "content",
+        { coverage: { examples: 0 }, findings: [{ outcome: "block", message: "no course.yaml" }] },
+        { points: ["job", "deploy"] },
+      );
+      expect((await deployRun(empty, [blocking])).gates[0]?.status).not.toBe("pass");
     });
   });
 
