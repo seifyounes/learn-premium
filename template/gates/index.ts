@@ -7,6 +7,7 @@ import { drawingGate } from "./drawing.ts";
 import { licencesFileGate, licencesGate } from "./licences.ts";
 import { liveHeaders, livePrivatePaths, liveRoutes } from "./live.ts";
 import { masterRules } from "./master-rules.ts";
+import { notationGate } from "./notation.ts";
 import { renderedPageScan } from "./pages.ts";
 import { partChecks } from "./parts.ts";
 import { noBuildEvidence, noindexGate, noMaterials } from "./private-files.ts";
@@ -16,13 +17,16 @@ import { simNumbers, toolsGate, truthTableGate } from "./sims.ts";
 import { stlGate } from "./stl.ts";
 import type { Gate } from "./runner.ts";
 import { teachingMethod } from "./teaching.ts";
+import { workedNumbers } from "./worked-numbers.ts";
 
 export const GATES: readonly Gate[] = [
   contentContract,
   katexGate,
+  notationGate,
   teachingMethod,
   provenanceGate,
   masterRules,
+  workedNumbers,
   simNumbers,
   truthTableGate,
   stlGate,

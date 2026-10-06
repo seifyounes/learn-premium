@@ -1,0 +1,29 @@
+# The Course style sheet, written from Module 1 before any other Module (synthetic, like the rest of
+# the Fixture Course). `notation` and `units` are its machine-readable part: the notation lint holds
+# every content file to them.
+writtenFrom: 01-thermal-resistance
+voice: >-
+  Plain and step by step: each step names the rule it uses before putting numbers in, and the
+  answer is checked against the question's own data at the end. Third person, no asides.
+tableForms:
+  - 'One row per layer or element, the given columns first, then the worked-out columns in solving order.'
+  - 'A total row closes a series table.'
+definitions:
+  - term: thermal resistance
+    definition: 'The temperature drop per unit heat rate, $R = \frac{L}{kA}$ for a plane layer.'
+idealisedModels:
+  - device: plane wall
+    model: 'One-dimensional conduction, constant conductivity, no contact resistance between layers.'
+notation:
+  - write: '\dot{Q}'
+    means: the heat rate
+    not: ['\dot{q}', 'Q_{dot}']
+  - write: 'R'
+    means: the thermal resistance
+    not: ['R_{th}', 'R_\text{th}']
+  - write: '\alpha'
+    means: the learning rate
+    not: ['\alpha_{lr}']
+units:
+  - write: 'W/(m·K)'
+    not: ['W/mK', 'W/m.K']
