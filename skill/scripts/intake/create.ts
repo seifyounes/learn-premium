@@ -1,10 +1,10 @@
 // Creating a Course project at intake, the /newproject way: its own folder in the workspace with a
 // README, a CLAUDE.md, a .gitignore, a first commit and a row in the workspace catalog, plus the Site
-// template at the pinned release (read-only), the course config, the Build ledger holding the intake
+// template at the pinned release (its files hashed in the ledger), the course config, the Build ledger holding the intake
 // answers, the Private folder beside the Materials and a place in the Course registry. GitHub and
 // Vercel come after, in the host step, only on the Owner's word.
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { LedgerError } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
@@ -58,6 +58,26 @@ function git(repo: string, ...args: string[]): string {
   return child.stdout.trim();
 }
 
+/** A git config value as `repo` sees it (its own, else the global one), or null. */
+function configured(repo: string, key: string): string | null {
+  const child = spawnSync("git", ["-C", repo, "config", key], { encoding: "utf8" });
+  const value = child.status === 0 ? child.stdout.trim() : "";
+  return value === "" ? null : value;
+}
+
+/** Who the Course project's commits are by: the identity the release repo commits with (its own or the global one). */
+function authorOf(source: string): { name: string; email: string } {
+  const name = configured(source, "user.name");
+  const email = configured(source, "user.email");
+  if (name === null || email === null) {
+    throw new LedgerError(
+      "invalid",
+      `git has no user.name and user.email to commit the Course project with (globally, or in ${source})`,
+    );
+  }
+  return { name, email };
+}
+
 function write(root: string, path: string, content: string | Buffer): string {
   const full = join(root, path);
   mkdirSync(dirname(full), { recursive: true });
@@ -106,6 +126,7 @@ export function createProject(options: CreateOptions) {
   if (existsSync(project))
     throw new LedgerError("refused", `${project} already exists; a Course project is never made over it`);
   readCatalog(workspace);
+  const author = authorOf(options.source);
   const template = templateAt(options.source, release);
   const materialsByHash = new Map(
     Object.entries(hashTree(materials))
@@ -118,7 +139,7 @@ export function createProject(options: CreateOptions) {
   rmSync(stage, { recursive: true, force: true });
   let commit: string;
   try {
-    for (const [path, content] of template) chmodSync(write(stage, join(TEMPLATE_DIR, path), content), 0o444);
+    for (const [path, content] of template) write(stage, join(TEMPLATE_DIR, path), content);
     const paths: Paths = { materials, private: privateFolder, release };
     write(stage, join(OVERRIDES_DIR, ".gitkeep"), "");
     write(stage, join(CONTENT_DIR, "course.yaml"), courseConfig(answers));
@@ -140,6 +161,11 @@ export function createProject(options: CreateOptions) {
     }
 
     git(stage, "init", "-q", "-b", "main");
+    // With no identity of its own (no global one), the Course project commits as the release repo does.
+    if (configured(stage, "user.name") === null || configured(stage, "user.email") === null) {
+      git(stage, "config", "user.name", author.name);
+      git(stage, "config", "user.email", author.email);
+    }
     git(stage, "add", "-A");
     git(stage, "commit", "-q", "-m", `chore: create the ${answers.courseName} Course project`);
     commit = git(stage, "rev-parse", "HEAD");
@@ -155,7 +181,7 @@ export function createProject(options: CreateOptions) {
     `${answers.courseName} study site`,
     "Study site (learn-premium)",
     "Scaffolded",
-    `Course project at ${release}; Materials at ${materials}; GitHub and Vercel pending the host step`,
+    `learn-premium Course project at ${release}; Materials at ${materials}`,
   ]);
   if (catalog.added) writeFileSync(join(workspace, MEMORY_FILE), catalog.memory);
 
