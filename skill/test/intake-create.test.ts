@@ -346,6 +346,32 @@ describe("create", { timeout: 30_000 }, () => {
     expect(JSON.parse(readFileSync(join(s.state, "courses.json"), "utf8")).courses).toHaveLength(1);
   });
 
+  test("finishing an earlier run's project needs its ledger lock first", async () => {
+    const s = setup();
+    must(await create(s));
+    rmSync(join(s.state, "courses.json"));
+
+    const other = await intake(
+      "create",
+      "--answers",
+      jsonInput(answers(s.materials)),
+      "--workspace",
+      s.work,
+      "--source",
+      s.release,
+      "--release",
+      "v2.1.0",
+      "--holder",
+      "run-2",
+      "--state",
+      s.state,
+    );
+
+    expect(other.code).toBe(3);
+    expect(other.out.error).toMatch(/claim its ledger lock first \(run-1 holds it/);
+    expect(existsSync(join(s.state, "courses.json"))).toBe(false);
+  });
+
   test("an existing project folder is never overwritten", async () => {
     const s = setup();
     writeFiles(s.project, { "keep.txt": "mine" });

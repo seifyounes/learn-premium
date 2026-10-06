@@ -134,6 +134,13 @@ export function createProject(options: CreateOptions) {
     if (ledger === null) {
       throw new LedgerError("refused", `${project} already exists; a Course project is never made over it`);
     }
+    if (ledger.lock?.holder !== options.holder) {
+      const held = ledger.lock === null ? "nobody holds it" : `${ledger.lock.holder} holds it`;
+      throw new LedgerError(
+        "refused",
+        `${project} was made by an earlier run; claim its ledger lock first (${held}; take over only on the Owner's word), then run create again`,
+      );
+    }
     return {
       ...finish(options, workspace, project, privateFolder, materials, ledger.template.release),
       templateFiles: Object.keys(ledger.template.files).length,

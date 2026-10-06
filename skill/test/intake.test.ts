@@ -311,6 +311,17 @@ describe("budget", () => {
     expect(out.capacity.units).toBe(100);
   });
 
+  test("a sitting today is too late for media: it opens no window", async () => {
+    const state = tempDir("state");
+    measured(state);
+    const today = answers(tempDir("materials"), { sittings: [{ id: "final", name: "Final", date: daysFromNow(0) }] });
+
+    const { out } = await intake("budget", "--answers", jsonInput(today), "--state", state);
+
+    expect(out.window).toBeNull();
+    expect(out.verdict).toBe("unknown");
+  });
+
   test("a registered Course that can't be read makes the verdict unknown: its demand isn't known", async () => {
     const state = tempDir("state");
     measured(state);
