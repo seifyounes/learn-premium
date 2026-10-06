@@ -237,9 +237,14 @@ describe("the Pyodide tool in a browser", () => {
     await tool.getByRole("button", { name: "Stop" }).click({ timeout: 5_000 });
     await page.waitForSelector('[data-python-tool][data-state="stopped"]');
     expect(await tool.locator("[role=alert]").textContent()).toMatch(/Stopped/);
+    // Python went with the stopped run: no timing of a past run, and the next run starts it again.
+    expect(await tool.locator("[data-timing]").count()).toBe(0);
+    const button = tool.locator("[data-run-live]");
+    expect(await button.textContent()).toMatch(/^Run live · \d+\.\d MB$/);
 
     await tool.getByRole("button", { name: "Reset code" }).click();
-    await tool.getByRole("button", { name: "Run again" }).click();
+    await button.click();
+    await page.waitForSelector('[data-python-tool][data-state="loading"]');
     await page.waitForSelector('[data-python-tool][data-state="live"]', { timeout: 120_000 });
     expect(await tool.locator(".python-output pre").textContent()).toContain("theta0 = 1.1667");
     await page.close();
