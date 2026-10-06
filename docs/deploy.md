@@ -78,3 +78,5 @@ never serves the commit, nothing is rolled back and the issue says why.
 
 CI green → the Fixture Course deploys and its live gates go green → the Owner's real-phone pass on
 the Tool gallery (`/tool-gallery/`, linked from no page) → tag.
+
+The commands that enforce it, and the release notes and migration harness that go with it: `docs/release.md`.
