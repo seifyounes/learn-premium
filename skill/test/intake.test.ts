@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 import { must } from "./fake-notebooklm.ts";
@@ -181,7 +182,8 @@ describe("budget", () => {
     expect(out.others).toEqual([
       { project: a, course: "Course A", items: { video: 1, audio: 2, infographic: 2, "sitting-audio": 1 }, units: 34 },
     ]);
-    expect(out.capacity).toEqual({ weeklyLimit: 100, units: 400, committed: 34, remaining: 366 });
+    // The video started for Course A spent 10 units this week: they still count against the cap.
+    expect(out.capacity).toEqual({ weeklyLimit: 100, used: 10, units: 390, committed: 34, remaining: 356 });
     expect(out.verdict).toBe("fits");
   });
 
@@ -234,6 +236,55 @@ describe("budget", () => {
     expect(out.capacity.committed).toBe(0);
   });
 
+  test("this week's spend still counts: with the cap used up and the sitting two days off, nothing fits", async () => {
+    const state = tempDir("state");
+    must(media("quota", "--state", state, "--limit-5-hour", "20", "--limit-weekly", "20"));
+    must(
+      media(
+        "quota",
+        "--state",
+        state,
+        "--cost-video",
+        "10",
+        "--cost-audio",
+        "5",
+        "--cost-infographic",
+        "4",
+        "--cost-sitting-audio",
+        "6",
+      ),
+    );
+    const spent = fixtureCourse("Spent", { live: ["01"] });
+    registered(state, spent);
+    must(media("gather", "--state", state));
+    for (const item of ["module-01-video", "module-01-audio", "module-01-infographic"]) {
+      must(media("start", "--state", state, "--project", spent, "--item", item));
+    }
+    const soon = answers(tempDir("materials"), {
+      expectedModules: 1,
+      sittings: [{ id: "final", name: "Final", date: daysFromNow(2) }],
+    });
+
+    const { out } = await intake("budget", "--answers", jsonInput(soon), "--state", state);
+
+    expect(out.capacity).toMatchObject({ weeklyLimit: 20, used: 19, units: 0, committed: 0, remaining: 0 });
+    expect(out.verdict).toBe("over");
+  });
+
+  test("a registered Course that can't be read makes the verdict unknown: its demand isn't known", async () => {
+    const state = tempDir("state");
+    measured(state);
+    const broken = fixtureCourse("Broken", { planned: ["01"] });
+    registered(state, broken);
+    writeFileSync(join(broken, "build-ledger.json"), "{ not json");
+
+    const { out } = await intake("budget", "--answers", jsonInput(answers(tempDir("materials"))), "--state", state);
+
+    expect(out.skipped).toEqual([expect.objectContaining({ project: broken, course: "Broken" })]);
+    expect(out.verdict).toBe("unknown");
+    expect(out.reason).toMatch(/couldn't be read/);
+  });
+
   test("more demand than the plan has left before the last sitting is over budget", async () => {
     const state = tempDir("state");
     measured(state);
@@ -248,7 +299,7 @@ describe("budget", () => {
 
     expect(code).toBe(0);
     expect(out.course.units).toBe(30 * 19 + 2 * 6);
-    expect(out.capacity).toEqual({ weeklyLimit: 100, units: 400, committed: 0, remaining: 400 });
+    expect(out.capacity).toEqual({ weeklyLimit: 100, used: 0, units: 400, committed: 0, remaining: 400 });
     expect(out.verdict).toBe("over");
   });
 
@@ -265,7 +316,7 @@ describe("budget", () => {
       items: { video: 4, audio: 4, infographic: 4, "sitting-audio": 2 },
       units: null,
     });
-    expect(out.capacity).toEqual({ weeklyLimit: null, units: null, committed: null, remaining: null });
+    expect(out.capacity).toEqual({ weeklyLimit: null, used: null, units: null, committed: null, remaining: null });
     expect(out.verdict).toBe("unknown");
     expect(out.reason).toMatch(/measured/);
   });

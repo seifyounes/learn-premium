@@ -5,6 +5,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, w
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { HostingError } from "../scripts/intake/hosting.ts";
 import { FakeHosting } from "./fake-hosting.ts";
 import { must } from "./fake-notebooklm.ts";
 import { intake, jsonInput, ledger, tempDir, writeFiles, type Result } from "./helpers.ts";
@@ -294,6 +295,36 @@ describe("create", { timeout: 30_000 }, () => {
     expect(existsSync(s.project)).toBe(false);
   });
 
+  test("a leftover staging folder, or another run's, is never touched", async () => {
+    const s = setup();
+    writeFiles(s.work, {
+      ".heat-transfer.creating/keep.txt": "another run's",
+      ".heat-transfer.creating-x/keep.txt": "x",
+    });
+
+    must(await create(s));
+
+    expect(readFileSync(join(s.work, ".heat-transfer.creating/keep.txt"), "utf8")).toBe("another run's");
+    expect(readFileSync(join(s.work, ".heat-transfer.creating-x/keep.txt"), "utf8")).toBe("x");
+    expect(readdirSync(s.work).sort()).toEqual([
+      ".heat-transfer.creating",
+      ".heat-transfer.creating-x",
+      "MEMORY.md",
+      "heat-transfer",
+    ]);
+  });
+
+  test("a Private folder that is itself a repo is refused, and nothing is made", async () => {
+    const s = setup();
+    writeFiles(dirname(s.materials), { "Heat Transfer (private)/.git/HEAD": "ref: refs/heads/main" });
+
+    const { code, out } = await create(s);
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/outside any repo/);
+    expect(existsSync(s.project)).toBe(false);
+  });
+
   test("an existing project folder is never overwritten", async () => {
     const s = setup();
     writeFiles(s.project, { "keep.txt": "mine" });
@@ -460,6 +491,26 @@ describe("host", { timeout: 30_000 }, () => {
     expect(code).toBe(0);
     expect(out.created).toEqual({ repo: false, vercelProject: false });
     expect(hosting.calls.filter((c) => c.startsWith("create") || c.startsWith("deploy"))).toHaveLength(3);
+  });
+
+  test("a run that stopped right after GitHub made the repo is finished by the next one", async () => {
+    const s = await created();
+    const hosting = new FakeHosting();
+    const visibility = hosting.repoVisibility.bind(hosting);
+    let checks = 0;
+    hosting.repoVisibility = async (repo) => {
+      // The first check (before creating) answers; the second (after) fails, as a network error would.
+      if (++checks === 2) throw new HostingError("gh repo view: connection reset");
+      return visibility(repo);
+    };
+    expect((await intake("host", "--project", s.project, { hosting })).code).toBe(3);
+    hosting.repoVisibility = visibility;
+
+    const { code, out } = await intake("host", "--project", s.project, { hosting });
+
+    expect(code).toBe(0);
+    expect(out.created).toEqual({ repo: false, vercelProject: true });
+    expect(hosting.calls.filter((c) => c.startsWith("create repo"))).toHaveLength(1);
   });
 
   test("a GitHub repo of that name that isn't this Course project's is refused, and nothing is pushed", async () => {
