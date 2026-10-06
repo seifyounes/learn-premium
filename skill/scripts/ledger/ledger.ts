@@ -235,6 +235,16 @@ export function startWave(project: string, holder: string, kind: WaveKind, targe
     const running = current(ledger.waves).find((w) => w.kind === kind && w.target === target && w.state === "running");
     if (running !== undefined)
       throw new LedgerError("refused", `wave ${running.id} is already running on ${kind} ${target}`);
+    // Module 1 runs alone first on a new Course: its wave writes the Course style sheet every other
+    // Module's writer follows. Once any Module wave has merged, the style sheet exists.
+    const [first] = current(ledger.modules).sort((a, b) => a.id.localeCompare(b.id));
+    const styleSheetWritten = ledger.waves.some((w) => w.kind === "module" && w.state === "merged");
+    if (kind === "module" && !styleSheetWritten && first !== undefined && target !== first.id) {
+      throw new LedgerError(
+        "refused",
+        `Module ${first.id} builds alone first: its wave writes the Course style sheet every other Module follows, so Module ${target}'s wave starts once it merges`,
+      );
+    }
     const id = `${kind}-${target}-${ledger.waves.filter((w) => w.kind === kind && w.target === target).length + 1}`;
     const at = now();
     ledger.waves.push({
