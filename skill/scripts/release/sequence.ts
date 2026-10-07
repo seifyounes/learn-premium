@@ -122,12 +122,13 @@ const newest = (statuses: CommitStatus[], context: string) => statuses.find((s) 
 export async function galleryStep(forge: Forge, sha: string): Promise<Steps["gallery"]> {
   const live = newest(await forge.statuses(sha), LIVE_CONTEXT);
   const url = await forge.galleryUrl(sha);
-  const ok = live?.state === "success";
+  // The phone pass needs a URL that serves this commit's build and nothing newer.
+  const ok = live?.state === "success" && url !== null;
   const lines = [
     live === undefined
       ? `no ${LIVE_CONTEXT} status on this commit: it hasn't deployed, or the live gates haven't run (fixture-live.yml)`
       : `${LIVE_CONTEXT}: ${live.state}${live.description ? ` (${live.description})` : ""}`,
-    `Tool gallery: ${url ?? "no deployment URL known for this commit"}`,
+    `Tool gallery: ${url ?? "GitHub knows no deployment URL of this commit's own build, so there's nothing to test"}`,
   ];
   return { ok, lines, url };
 }
@@ -208,8 +209,9 @@ export function plan(git: Git, sha: string, wanted: { bump?: Bump; version?: str
 
   const version = format(next);
   const kind: Bump = next[0] !== base[0] ? "major" : next[1] !== base[1] ? "minor" : "patch";
-  if (latest !== null && compare(next, latest.v) <= 0) {
-    problems.push(`${version} is not newer than the latest release ${latest.name}`);
+  // Before the first release the base is v0.0.0, which is never a release itself.
+  if (compare(next, base) <= 0) {
+    problems.push(`${version} is not newer than ${latest ? `the latest release ${latest.name}` : "v0.0.0"}`);
   }
   if (tags.has(version)) problems.push(`origin already has a tag ${version}`);
   const carried = git.migrations(sha);
@@ -217,13 +219,16 @@ export function plan(git: Git, sha: string, wanted: { bump?: Bump; version?: str
     const released = tags.get(latest.name) ?? "";
     if (!git.isAncestor(released, sha))
       problems.push(`the candidate isn't on top of the latest release ${latest.name}`);
-    // A release keeps every migration an earlier one shipped: a Course on an older release still
-    // upgrades through them.
+    // A release keeps every migration an earlier one shipped, unchanged: a Course on an older
+    // release still upgrades through them, and the harness only replays the latest release's.
     for (const old of git.migrations(released)) {
-      if (!carried.some((m) => m.file === old.file)) {
+      const now = carried.find((m) => m.file === old.file);
+      if (now === undefined) {
         problems.push(
           `the candidate drops ${old.file}, which ${latest.name} shipped; a Course upgrading through it needs it`,
         );
+      } else if (now.blob !== old.blob) {
+        problems.push(`the candidate changes ${old.file}, which ${latest.name} shipped; a shipped migration is final`);
       }
     }
   }

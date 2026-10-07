@@ -8,6 +8,14 @@ export class GitError extends Error {}
 export const MIGRATIONS_PATH = "template/migrations";
 const MIGRATION_FILE = /^v(\d+)\.ts$/;
 
+export interface Migration {
+  major: number;
+  file: string;
+  describe: string;
+  /** The file's git blob id: equal blobs, identical contents. */
+  blob: string;
+}
+
 export interface Git {
   /** The branch releases are cut from, as fetched from origin. */
   readonly mainRef: string;
@@ -19,8 +27,8 @@ export interface Git {
   isAncestor(ancestor: string, descendant: string): boolean;
   /** Every commit message in `from..to` (all of `to`'s history when `from` is null). */
   messages(from: string | null, to: string): string[];
-  /** The migrations the commit ships, with each one's `describe` line. */
-  migrations(sha: string): { major: number; file: string; describe: string }[];
+  /** The migrations the commit ships, with each one's `describe` line and blob id. */
+  migrations(sha: string): Migration[];
   /** Creates an annotated tag and pushes it to origin. */
   tag(name: string, sha: string, message: string): void;
 }
@@ -89,15 +97,19 @@ export class RepoGit implements Git {
       .filter(Boolean);
   }
 
-  migrations(sha: string): { major: number; file: string; describe: string }[] {
-    // Lists nothing (and succeeds) when the commit has no migrations folder.
-    const paths = this.#git(["ls-tree", "--name-only", sha, `${MIGRATIONS_PATH}/`]);
-    return paths
+  migrations(sha: string): Migration[] {
+    // `<mode> <type> <blob>\t<path>` per entry; nothing (and success) when there's no such folder.
+    const entries = this.#git(["ls-tree", sha, `${MIGRATIONS_PATH}/`]);
+    return entries
       .split("\n")
-      .flatMap((path) => {
-        const name = path.trim().slice(MIGRATIONS_PATH.length + 1);
+      .flatMap((entry) => {
+        const [meta, path] = entry.split("\t");
+        const blob = meta?.trim().split(/\s+/)[2];
+        const name = (path ?? "").trim().slice(MIGRATIONS_PATH.length + 1);
         const major = MIGRATION_FILE.exec(name)?.[1];
-        return major === undefined ? [] : [{ major: Number(major), file: `${MIGRATIONS_PATH}/${name}` }];
+        return major === undefined || blob === undefined
+          ? []
+          : [{ major: Number(major), file: `${MIGRATIONS_PATH}/${name}`, blob }];
       })
       .sort((a, b) => a.major - b.major)
       .map((m) => {

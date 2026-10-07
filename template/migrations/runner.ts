@@ -30,11 +30,16 @@ export interface MigrationRun {
   describe: string;
 }
 
-/** The major of a release tag, or a MigrationError naming what was given. */
-export function majorOf(tag: string): number {
+/** A release tag's [major, minor, patch], or a MigrationError naming what was given. */
+function versionOf(tag: string): [number, number, number] {
   const match = RELEASE_TAG.exec(tag);
   if (!match) throw new MigrationError(`"${tag}" is not a Template release tag (vX.Y.Z)`);
-  return Number(match[1]);
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+/** The major of a release tag, or a MigrationError naming what was given. */
+export function majorOf(tag: string): number {
+  return versionOf(tag)[0];
 }
 
 /** The majors this folder ships a migration for, oldest first. */
@@ -67,9 +72,15 @@ export async function runMigrations(options: {
   dir?: string;
 }): Promise<MigrationRun[]> {
   const dir = options.dir ?? MIGRATIONS_DIR;
-  const fromMajor = majorOf(options.from);
-  const toMajor = options.to === undefined ? Infinity : majorOf(options.to);
-  if (toMajor < fromMajor) throw new MigrationError(`can't migrate down, from ${options.from} to ${options.to}`);
+  const from = versionOf(options.from);
+  const fromMajor = from[0];
+  let toMajor = Infinity;
+  if (options.to !== undefined) {
+    const to = versionOf(options.to);
+    const down = to[0] - from[0] || to[1] - from[1] || to[2] - from[2];
+    if (down < 0) throw new MigrationError(`can't migrate down, from ${options.from} to ${options.to}`);
+    toMajor = to[0];
+  }
   const ran: MigrationRun[] = [];
   for (const major of shippedMajors(dir).filter((m) => m > fromMajor && m <= toMajor)) {
     const migration = await load(dir, major);

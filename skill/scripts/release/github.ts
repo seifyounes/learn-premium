@@ -5,9 +5,6 @@ import type { CommitStatus, Forge, GateGapIssue, WorkflowRun } from "./sequence.
 
 export class GhError extends Error {}
 
-/** The repo variable holding the Fixture Course's production URL (docs/deploy.md). */
-const LIVE_URL_VARIABLE = "FIXTURE_LIVE_URL";
-
 export class GhForge implements Forge {
   readonly repo: string;
 
@@ -120,8 +117,8 @@ export class GhForge implements Forge {
   }
 
   /**
-   * The Tool gallery on this commit's own Production deployment (a URL that serves only this
-   * commit's build), or on the production URL when GitHub knows no deployment for it.
+   * The Tool gallery on this commit's own Production deployment: a URL that serves only this
+   * commit's build. Never the production URL, which moves on to newer commits.
    */
   async galleryUrl(sha: string): Promise<string | null> {
     const deployments = this.#api<{ id: number; environment: string }[]>(
@@ -134,12 +131,7 @@ export class GhForge implements Forge {
       const url = statuses.find((s) => s.state === "success" && s.environment_url)?.environment_url;
       if (url) return `${url.replace(/\/$/, "")}/tool-gallery/`;
     }
-    try {
-      const live = this.#gh(["variable", "get", LIVE_URL_VARIABLE]).trim();
-      return live === "" ? null : `${live.replace(/\/$/, "")}/tool-gallery/`;
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   async createRelease(tag: string, title: string, notes: string): Promise<string> {
