@@ -67,3 +67,8 @@ cases:
       - { PIW 256: -27649, I 0.0: 1 }
       - { PIW 256: 1, I 0.0: 1, MD 20: -100 }
       - { PIW 256: 6912, I 0.0: 0, MD 20: 99.5 }
+  - name: limits that coincide, so the formula divides by zero
+    scans:
+      - { PIW 256: 13824, I 0.0: 0, MD 20: 100, MD 24: 100 }
+      - { PIW 256: 13824, I 0.0: 1, MD 20: 100, MD 24: 100 }
+      - { PIW 256: -100, I 0.0: 0, MD 20: 100, MD 24: 100 }

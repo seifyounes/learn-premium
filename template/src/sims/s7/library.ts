@@ -45,6 +45,9 @@ export function unscale(IN: number, HI_LIM: number, LO_LIM: number, BIPOLAR: num
   const rising = hi >= lo;
   if (x > Math.max(hi, lo)) return { OUT: rising ? K2 : K1, RET_VAL: 0x0008 };
   if (x < Math.min(hi, lo)) return { OUT: rising ? K1 : K2, RET_VAL: 0x0008 };
+  // Coinciding limits make the formula divide by zero. The oracle's STL, as awlsim runs it, gets +∞
+  // and then (awlsim's *R with ∞) K2 − K1 back, so OUT = K2 with RET_VAL 0: the engine does the same.
+  if (hi === lo) return { OUT: K2, RET_VAL: 0 };
   const fraction = toReal(toReal(x - lo) / toReal(hi - lo));
   const out = toReal(toReal(fraction * toReal(K2 - K1)) + K1);
   return { OUT: roundHalfEven(out), RET_VAL: 0 };

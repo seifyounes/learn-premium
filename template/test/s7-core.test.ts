@@ -150,5 +150,8 @@ describe("FC105 SCALE and FC106 UNSCALE (Siemens' formula, application example 2
     expect(unscale(-1, 100, 0, 1)).toEqual({ OUT: -27648, RET_VAL: 8 });
     expect(unscale(25, 0, 100, 0)).toEqual({ OUT: 20736, RET_VAL: 0 });
     expect(unscale(150, 0, 100, 0)).toEqual({ OUT: 0, RET_VAL: 8 });
+    // Coinciding limits divide by zero: the oracle's STL, as awlsim runs it, gives K2 (Codex review).
+    expect(unscale(100, 100, 100, 0)).toEqual({ OUT: 27648, RET_VAL: 0 });
+    expect(unscale(100, 100, 100, 1)).toEqual({ OUT: 27648, RET_VAL: 0 });
   });
 });

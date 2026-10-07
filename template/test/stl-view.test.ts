@@ -96,6 +96,29 @@ describe("the STL sim's readings", () => {
     expect(readAccumulator(second[0]?.accu1 ?? 0, types[0]?.accu1 ?? "INT").value).toBe("1.5");
   });
 
+  it("types what a library block writes: FC105's OUT reads as a REAL when loaded back (Codex review)", () => {
+    const listing: StlModel = {
+      source: [
+        "ORGANIZATION_BLOCK OB 1",
+        "BEGIN",
+        "      CALL  FC   105",
+        "       IN     :=MW0",
+        "       HI_LIM :=2.000000e+000",
+        "       LO_LIM :=0.000000e+000",
+        "       BIPOLAR:=FALSE",
+        "       RET_VAL:=MW8",
+        "       OUT    :=MD4",
+        "      L     MD     4",
+        "END_ORGANIZATION_BLOCK",
+      ].join("\n"),
+      inputs: { "MW 0": "INT" },
+      watch: { "MW 8": "WORD" },
+    };
+    const trace = new StlRun(listing).scan({ "MW 0": 13824 });
+    const types = accumulatorTypes(trace, listing);
+    expect(readAccumulator(trace[1]?.accu1 ?? 0, types[1]?.accu1 ?? "INT").value).toBe("1.0");
+  });
+
   it("shows AR 1 as a pointer, a bit FC105 left as ?, and a statement's writes byte by byte", () => {
     expect(pointer((60 << 3) | 2)).toBe("P#60.2");
     expect(statusBits({ status: 0b10, leftBy: { OV: "FC105" } }).slice(0, 6)).toEqual([
