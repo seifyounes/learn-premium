@@ -487,10 +487,10 @@ describe("ready, the Module wave's merge gate", () => {
     record(unreadable?.key ?? "", "eq-2");
     gateReports(project, []);
     // The writer shipped a Divergence on the sheet's 1.45 with no Owner answer: the gate stays quiet.
-    const shipped = (kind: "slip" | "divergence") => ({
+    const shipped = (kind: "slip" | "divergence", entry = "modules/01-m01/worked/1.json") => ({
       verifier: {
         verify: () => ({ green: true, problems: [] }),
-        rulings: () => [{ entry: "modules/01-m01/worked/1.json", kind, printed: [1.45] }],
+        rulings: () => [{ entry, kind, printed: [1.45] }],
       },
     });
 
@@ -498,11 +498,16 @@ describe("ready, the Module wave's merge gate", () => {
     record(sheetItem?.key ?? "", sheetItem?.question ?? "", "slip");
     const otherRuling = ready(project, waveId, shipped("divergence"));
     const matching = ready(project, waveId, shipped("slip"));
+    // The same value ruled in another example of the Module isn't the Owner's ruling on it.
+    const elsewhere = ready(project, waveId, shipped("slip", "modules/01-m01/worked/2.json"));
 
     const problem = "modules/01-m01/worked/1.json ships a divergence on 1.45 that no Owner answer rules";
     expect(unruled.out.problems).toEqual([expect.stringContaining(problem)]);
     expect(otherRuling.out.problems).toEqual([expect.stringContaining(problem)]);
     expect(matching.out.problems).toEqual([]);
+    expect(elsewhere.out.problems).toEqual([
+      expect.stringContaining("modules/01-m01/worked/2.json ships a slip on 1.45 that no Owner answer rules"),
+    ]);
   });
 
   test("the template's verify finds the Course's content from a relative project path", () => {

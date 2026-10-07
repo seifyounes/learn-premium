@@ -6,7 +6,8 @@
 import { readFileSync } from "node:fs";
 import { COLLECTIONS } from "../src/content/layout.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
-import { asObject, numbersIn } from "../src/provenance/values.ts";
+import { asObject } from "../src/provenance/values.ts";
+import { rulingValues } from "../src/sims/precision.ts";
 import { courseFiles } from "./course-files.ts";
 import type { GateInput } from "./runner.ts";
 
@@ -26,7 +27,7 @@ export function rulingsIn(input: GateInput): ContentRuling[] {
       COLLECTIONS[file.collection].format === "structured" ? source : (splitFrontmatter(source).frontmatter ?? "");
     const provenance = asObject(asObject(readStructured(structured, file.entry, () => {})).provenance);
     const list = (key: string) => (Array.isArray(provenance[key]) ? (provenance[key] as unknown[]) : []);
-    const numbers = (text: unknown) => (typeof text === "string" ? numbersIn(text).map((n) => n.value) : []);
+    const numbers = (text: unknown) => (typeof text === "string" ? rulingValues(text) : []);
     for (const slip of list("slips"))
       found.push({ entry: file.entry, kind: "slip", printed: numbers(asObject(slip).sheet) });
     for (const divergence of list("divergences"))

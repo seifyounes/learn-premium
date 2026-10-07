@@ -14,7 +14,7 @@ import { moduleOf } from "../src/content/layout.ts";
 import { readStructured } from "../src/content/loaders.ts";
 import { numbersIn } from "../src/provenance/values.ts";
 import { isLive } from "../src/sims/kinds.ts";
-import { agreesAtPrint, printAt, readPrinted } from "../src/sims/precision.ts";
+import { agreesAtPrint, printAt, readPrinted, rulingValues } from "../src/sims/precision.ts";
 import { cellAt, CELL_REF } from "../src/worked/cells.ts";
 import { courseCopy, courseFiles, type CourseFile } from "./course-files.ts";
 import { nameOf, problems } from "./sims.ts";
@@ -58,7 +58,7 @@ function simCells(files: CourseFile[]): Map<string, Set<string>> {
 }
 
 /** The magnitudes a ruling list names. */
-const numbersOf = (written: readonly string[]) => new Set(written.flatMap((w) => numbersIn(w).map((n) => n.value)));
+const numbersOf = (written: readonly string[]) => new Set(written.flatMap(rulingValues));
 
 async function run(input: GateInput): Promise<GateRun> {
   const files = courseFiles(input);
