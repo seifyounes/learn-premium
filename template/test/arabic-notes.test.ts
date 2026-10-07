@@ -34,6 +34,14 @@ describe("an Arabic note's prose", () => {
     expect(ltrRuns(arabicProse("الكفاءة .5 والفرق −.25 أي (.75)"))).toEqual([".5", "−.25", ".75"]);
   });
 
+  it("keeps digits grouped by no-break, narrow and thin spaces one run", () => {
+    expect(ltrRuns(arabicProse("المبلغ 1\u00a0000 و2\u202f500 و3\u2009750 جنيه"))).toEqual([
+      "1\u00a0000",
+      "2\u202f500",
+      "3\u2009750",
+    ]);
+  });
+
   it("keeps a sign after punctuation, and a range of signed numbers, whole", () => {
     expect(ltrRuns(arabicProse("القيمة:−5 والمدى −5–−3 أو =+2"))).toEqual(["−5", "−5–−3", "+2"]);
   });
