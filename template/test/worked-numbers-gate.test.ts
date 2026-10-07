@@ -56,6 +56,22 @@ describe("the worked-numbers gate", () => {
     ]);
   });
 
+  it("sees a sign error in a labelled cell, and reads scientific notation as one value", async () => {
+    const signed = fixtureWith(WORKED, (s) =>
+      s.replace('["Plaster", "0.02", "0.5", "0.04"', '["Plaster", "0.02", "0.5", "$R = -0.04$"'),
+    );
+    expect((await run(signed)).findings.map((f) => [f.outcome, f.message])).toEqual([
+      [
+        "checkpoint",
+        "sheet cell D1 prints -0.04, but the independent recompute gives 0.04: rule it a Slip or a Divergence",
+      ],
+    ]);
+    const scientific = fixtureWith(WORKED, (s) =>
+      s.replace('["Plaster", "0.02", "0.5", "0.04"', '["Plaster", "0.02", "0.5", "$4.0 \\\\times 10^{-2}$"'),
+    );
+    expect((await run(scientific)).findings).toEqual([]);
+  });
+
   it("agrees within one in the sheet's last printed digit, as a hand rounds", async () => {
     const course = fixtureWith(WORKED, (s) => s.replace('"0.25", "4.06"', '"0.25", "4.07"'));
     expect((await run(course)).findings).toEqual([]);

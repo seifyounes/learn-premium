@@ -15,6 +15,11 @@ const LARGE = 1e6;
 
 /** `value` printed the way the sheet prints its column: `decimals` places and a true minus sign. */
 export function printAt(value: number, decimals: number): string {
+  // Negative decimals round to tens, hundreds…, as a sheet printing `1.25 × 10^3` does.
+  if (decimals < 0) {
+    const unit = 10 ** -decimals;
+    return printAt(Math.round(value / unit) * unit, 0);
+  }
   const text =
     Math.abs(value) >= LARGE
       ? value.toExponential(Math.max(decimals - 1, 0)).replace("e+", "e")

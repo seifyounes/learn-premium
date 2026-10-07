@@ -233,7 +233,7 @@ function gateReports(project: string, items: unknown[], url: string | null = PRE
   });
 }
 
-const greenVerifier = { verifier: { verify: () => ({ green: true, problems: [] }) } };
+const greenVerifier = { verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [] } };
 
 /**
  * Module 01's wave, run to the Checkpoint on a synthetic Course project: the readings settled (one
@@ -380,7 +380,10 @@ describe("ready, the Module wave's merge gate", () => {
       ),
     );
     const red = {
-      verifier: { verify: (_: string, point: string) => ({ green: false, problems: [`no ${point} report`] }) },
+      verifier: {
+        verify: (_: string, point: string) => ({ green: false, problems: [`no ${point} report`] }),
+        rulings: () => [],
+      },
     };
 
     const { code, out } = ready(project, waveId, red);
@@ -468,6 +471,40 @@ describe("ready, the Module wave's merge gate", () => {
     ]);
   });
 
+  test("every Slip and Divergence the content ships needs the Owner's matching ruling in the ledger (negative control)", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    const [sheetItem, unreadable] = must(checkpointOf(project)).open as { key: string; question: string }[];
+    const record = (key: string, question: string, ruling?: string) =>
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", key, "--question", question, "--answer", "a"],
+          ...(ruling === undefined ? [] : ["--ruling", ruling]),
+        ),
+      );
+    record(unreadable?.key ?? "", "eq-2");
+    gateReports(project, []);
+    // The writer shipped a Divergence on the sheet's 1.45 with no Owner answer: the gate stays quiet.
+    const shipped = (kind: "slip" | "divergence") => ({
+      verifier: {
+        verify: () => ({ green: true, problems: [] }),
+        rulings: () => [{ entry: "modules/01-m01/worked/1.json", kind, printed: [1.45] }],
+      },
+    });
+
+    const unruled = ready(project, waveId, shipped("divergence"));
+    record(sheetItem?.key ?? "", sheetItem?.question ?? "", "slip");
+    const otherRuling = ready(project, waveId, shipped("divergence"));
+    const matching = ready(project, waveId, shipped("slip"));
+
+    const problem = "modules/01-m01/worked/1.json ships a divergence on 1.45 that no Owner answer rules";
+    expect(unruled.out.problems).toEqual([expect.stringContaining(problem)]);
+    expect(otherRuling.out.problems).toEqual([expect.stringContaining(problem)]);
+    expect(matching.out.problems).toEqual([]);
+  });
+
   test("the template's verify finds the Course's content from a relative project path", () => {
     const { project } = waveAtCheckpoint();
     // A stand-in gate CLI: green only when --content names the project's content folder.
@@ -499,7 +536,7 @@ describe("ready, the Module wave's merge gate", () => {
 
     const problems = ready(project, waveId, {}).out.problems as string[];
 
-    expect(problems.filter((p) => p.includes("no gate runner"))).toHaveLength(3);
+    expect(problems.filter((p) => p.includes("no gate runner"))).toHaveLength(4);
   });
 
   test("the merge gate trusts no report's own verdict: it asks the template's verify for HEAD", () => {
@@ -531,6 +568,7 @@ describe("ready, the Module wave's merge gate", () => {
           ? { green: false, problems: ["the report checked another commit"] }
           : { green: true, problems: [] };
       },
+      rulings: () => [],
     };
 
     const { out } = ready(project, waveId, { verifier });

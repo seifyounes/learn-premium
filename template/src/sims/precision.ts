@@ -14,23 +14,41 @@ export interface Printed {
   written: string;
 }
 
-const MINUS = /^[-−]/;
-
 /** The one number a sheet cell prints, or why it isn't one. */
 export function readPrinted(cell: string): Printed | string {
   const text = cell.replace(/\$/g, "").trim();
   if (text === "") return "the cell is blank";
+  const scientific = readScientific(text);
+  if (scientific !== null) return scientific;
   const found = numbersIn(cell);
   if (found.length === 0) return "the cell holds no number";
   if (found.length > 1)
     return `the cell holds ${found.length} numbers (${found.map((n) => n.written).join(", ")}), not one`;
   const [number] = found as [(typeof found)[number]];
-  const negative = MINUS.test(text);
+  // The sign is the one just before the number, after any label (`R = -0.04`).
+  const sign = new RegExp(`([-−])\\s*${escaped(number.written)}(?![\\d.])`).exec(text)?.[1];
   return {
-    value: negative ? -number.value : number.value,
+    value: sign === undefined ? number.value : -number.value,
     decimals: (number.written.split(".")[1] ?? "").length,
-    written: `${negative ? (text[0] ?? "-") : ""}${number.written}`,
+    written: `${sign ?? ""}${number.written}`,
   };
+}
+
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * A value in scientific notation (`4.0 \times 10^{-2}`, `R = 2 \cdot 10^5`): one number, printed to
+ * the mantissa's last digit times the power, so `4.0 \times 10^{-2}` has 3 decimals and
+ * `1.25 \times 10^{3}` has −1 (tens). Null when the cell isn't written that way.
+ */
+function readScientific(text: string): Printed | null {
+  const match =
+    /(?:^|=)\s*(([-−]?)\s*(\d+(?:\.(\d+))?)\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*\{?\s*([-−]?\d+)\s*\}?)\s*$/.exec(text);
+  if (!match) return null;
+  const [, written = "", sign = "", mantissa = "", places = "", power = ""] = match;
+  const exponent = Number(power.replace("−", "-"));
+  const magnitude = Number(`${mantissa}e${exponent}`);
+  return { value: sign === "" ? magnitude : -magnitude, decimals: places.length - exponent, written: written.trim() };
 }
 
 /** Whether `value`, rounded as the sheet rounds, is within 1 of its printed number in the last digit. */

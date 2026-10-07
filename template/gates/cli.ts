@@ -9,6 +9,8 @@
 //            Accepts the report only if it is green for that commit (HEAD by default).
 //   controls [--content DIR] [--dist DIR]
 //            Runs every gate on its positive fixture and on each of its negative controls.
+//   rulings  [--module NN-slug] [--content DIR]
+//            Prints (JSON) every Slip and Divergence the content carries, for the Module wave's merge gate.
 //
 // Exit codes: 0 green, 1 red, 2 bad usage.
 import { spawnSync } from "node:child_process";
@@ -16,6 +18,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { GATES } from "./index.ts";
+import { rulingsIn } from "./rulings.ts";
 import {
   GATE_POINTS,
   runControls,
@@ -97,6 +100,9 @@ async function main(argv: string[]): Promise<number> {
       );
       return verdict.green ? 0 : 1;
     }
+    case "rulings":
+      console.log(JSON.stringify({ rulings: rulingsIn(input) }));
+      return 0;
     case "controls": {
       const result = await runControls({ input, gates: GATES });
       for (const gate of result.gates) {
@@ -113,7 +119,7 @@ async function main(argv: string[]): Promise<number> {
       return result.ok ? 0 : 1;
     }
     default:
-      throw new UsageError(`unknown command "${command ?? ""}"; use run, verify or controls`);
+      throw new UsageError(`unknown command "${command ?? ""}"; use run, verify, controls or rulings`);
   }
 }
 

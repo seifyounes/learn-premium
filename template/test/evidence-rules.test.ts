@@ -18,4 +18,18 @@ describe("the evidence-shaped path rules", () => {
     expect(evidenceShape("01-thermal-resistance/media/explainer.mp4")).toBeNull();
     expect(evidenceShape("_astro/TranscriptPanel.abc123.js")).toBeNull();
   });
+
+  it("match a Module wave's readings and rulings, wherever they were copied, and nothing else in a waves/ folder", () => {
+    for (const file of [
+      "reading-a.json",
+      "reading-b.json",
+      "reading.json",
+      "resolutions.json",
+      "checkpoint-items.json",
+    ])
+      expect(evidenceShape(`waves/01/${file}`)?.rule, file).toBe("wave-reading");
+    expect(evidenceShape("content/notes/waves/03/reading.json")?.rule).toBe("wave-reading");
+    expect(evidenceShape("waves/01/summary.json")).toBeNull();
+    expect(evidenceShape("content/modules/01-waves/worked/reading.json")).toBeNull();
+  });
 });
