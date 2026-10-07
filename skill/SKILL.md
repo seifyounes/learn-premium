@@ -149,17 +149,21 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
    writes `content/modules/NN-<slug>/`, and the independent recompute (`briefs/recompute.md`) writes
    `content/build-records/recompute/NN-<slug>/worked-<n>.json`, never seeing the writer's files. An
    Agent-built sim gets its own sim builder and its own recompute log.
-6. **Per-job gates** in `<P>/template` (after `npm ci`): `npm run gates -- run --point job --module
-   NN-<slug> --content ../content`. A block goes back to the job that made it. Re-verify every
-   finding before blocking on it.
+6. **Per-job gates**, from `<P>/template` (after `npm ci`), always on the Course's content:
+   `npm run gates -- run --point job --module NN-<slug> --content ../content`. A block goes back to
+   the job that made it. Re-verify every finding before blocking on it.
 7. **Your consistency pass:** read the Module through against the style sheet and the settled
    reading: the Professor's order of working, voice, notation, nothing contradicting another Module.
-   Fix what you find, then re-run the job gates.
-8. **Commit and push** the branch (the pre-commit gate checks every commit), then wait for its Vercel
-   preview. **Per-Module gates on the preview:** `npm run gates -- run --point module --module
-   NN-<slug> --content ../content --url <preview URL>`. Then the **deploy gates** on a production
-   build (`VERCEL_ENV=production npm run build -- --outDir dist-production`, then `run --point deploy
-   --dist dist-production`). Commit the Gate reports.
+   Fix what you find.
+8. **Commit, then gate the commit.** A Gate report taken on uncommitted changes binds to no commit
+   and never verifies, so: commit the content (the pre-commit gate checks every commit), re-run the
+   job gates on it, and commit the job report. Push the branch and wait for its Vercel preview.
+   **Per-Module gates on the preview:** `npm run gates -- run --point module --module NN-<slug>
+   --content ../content --url <preview URL>`. Then the **deploy gates** on a production build of the
+   Course's content: `CONTENT_DIR=../content VERCEL_ENV=production npm run build -- --outDir
+   dist-production`, then `npm run gates -- run --point deploy --content ../content --dist
+   dist-production`. Commit the Gate reports (only build records change, so they still prove the
+   content commit). Any content change after this re-runs all three points.
 9. **The Checkpoint:** `node "$W" checkpoint --project <P> --module NN`. Post its `markdown` in chat as
    one batch: every item links to its exact spot on the preview, or names its crop. Store each
    answer: `$L record checkpoint --wave <W> --key <key> --question "<item>" --answer "<the Owner's

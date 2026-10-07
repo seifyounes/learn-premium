@@ -2,10 +2,11 @@
 // projects and Private folders: no Materials, no Vercel, the template's gate verify faked.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
+import { templateVerifier } from "../scripts/wave/wave.ts";
 import { COMMIT, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { ledger, writeFiles, type Result } from "./helpers.ts";
@@ -164,6 +165,33 @@ describe("reconcile", () => {
           "The Materials disagree on learning rate: 0.01 (L01.pdf, page 2), 0.1 (Sheet 1.pdf, page 1), 0.010 (L01.pdf, page 9). Which does the Module follow?",
       },
     ]);
+  });
+
+  test("a reading changed after it was settled withdraws the settled reading until its new disputes are ruled", () => {
+    const { project, privateFolder } = newCourse();
+    readings(privateFolder, [item("eq-1", "0.25")], [item("eq-1", "0.25")]);
+    must(reconcile(project));
+    readings(privateFolder, [item("eq-1", "0.25")], [item("eq-1", "0.52")]);
+
+    expect(reconcile(project).code).toBe(1);
+    expect(existsSync(join(privateFolder, "waves/01/reading.json"))).toBe(false);
+    expect(existsSync(join(privateFolder, "waves/01/checkpoint-items.json"))).toBe(false);
+  });
+
+  test("a conflict whose values change is a new question, under a new key", () => {
+    const { project, privateFolder } = newCourse();
+    const conflict = (sheet: string) => [
+      item("slide-alpha", "0.01", { quantity: "learning rate" }),
+      item("sheet-alpha", sheet, { quantity: "learning rate", file: "Sheet 1.pdf" }),
+    ];
+    readings(privateFolder, conflict("0.1"), conflict("0.1"));
+    const first = must(reconcile(project)).checkpointItems[0].key as string;
+    readings(privateFolder, conflict("0.5"), conflict("0.5"));
+    const second = must(reconcile(project)).checkpointItems[0].key as string;
+
+    expect(first).toMatch(/^01\/conflict\/learning-rate-/);
+    expect(second).toMatch(/^01\/conflict\/learning-rate-/);
+    expect(second).not.toBe(first);
   });
 
   test("readings are read only from the Private folder, each from its own reader", () => {
@@ -414,6 +442,56 @@ describe("ready, the Module wave's merge gate", () => {
     const problems = ready(project, second).out.problems as string[];
     expect(problems.some((p) => p.includes("job style-sheet"))).toBe(false);
     expect(problems.some((p) => p.includes("job writer"))).toBe(true);
+  });
+
+  test("a settled reading older than the readings it was settled from keeps the wave from merging", () => {
+    const { project, privateFolder, waveId, holder } = waveAtCheckpoint();
+    for (const key of (must(checkpointOf(project)).open as { key: string }[]).map((i) => i.key))
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", key, "--question", "q", "--answer", "a", "--ruling", "divergence"],
+        ),
+      );
+    gateReports(project, []);
+    expect(ready(project, waveId).out.problems).toEqual([]);
+
+    // A reader's file changes after reconcile ran, and nobody re-ran it.
+    writeFiles(privateFolder, {
+      "waves/01/reading-b.json": JSON.stringify(reading("b", [item("eq-1", "0.26"), item("eq-2", "8")])),
+    });
+
+    expect(ready(project, waveId).out.problems).toEqual([
+      expect.stringMatching(/the settled reading is stale.*re-run reconcile/),
+    ]);
+  });
+
+  test("the template's verify finds the Course's content from a relative project path", () => {
+    const { project } = waveAtCheckpoint();
+    // A stand-in gate CLI: green only when --content names the project's content folder.
+    writeFiles(project, {
+      "template/gates/cli.ts": [
+        'import { existsSync } from "node:fs";',
+        'import { join } from "node:path";',
+        'const at = process.argv.indexOf("--content");',
+        'process.exitCode = existsSync(join(process.argv[at + 1] ?? "", "style-sheet.yaml")) ? 0 : 1;',
+        "",
+      ].join("\n"),
+    });
+
+    // From the project's parent, so the path is relative on every drive layout.
+    const cwd = process.cwd();
+    process.chdir(dirname(project));
+    try {
+      expect(templateVerifier.verify(relative(process.cwd(), project), "job", "01-m01")).toEqual({
+        green: true,
+        problems: [],
+      });
+    } finally {
+      process.chdir(cwd);
+    }
   });
 
   test("with no template layer to verify with, every Gate report counts as not green", () => {

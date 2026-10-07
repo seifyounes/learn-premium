@@ -26,6 +26,8 @@ export interface CommitCheck {
   findings: CommitFinding[];
 }
 
+const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
 const sha256 = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 
 /** A staged file's possible original bytes: as staged, and for text its LF and CRLF forms (git may convert line endings). */
@@ -130,6 +132,8 @@ export function checkCommit(repo: string): CommitCheck {
   if (ledger.folder !== null && existsSync(ledger.folder)) {
     hashFolder(ledger.folder, new Set(forms.flatMap((f) => f.forms.map((b) => b.length))), known);
   }
+  // An empty Material matches every empty file (a .gitkeep), so it carries nothing to leak.
+  known.delete(EMPTY_SHA256);
   for (const { path, forms: bytes } of forms) {
     const shape = evidenceShape(path);
     if (shape !== null)
