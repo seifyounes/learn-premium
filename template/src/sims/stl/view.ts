@@ -9,6 +9,7 @@ import {
   formatRegister,
   formatValue,
   int16,
+  LIBRARY,
   parseAddress,
   S7Memory,
   STATUS_BITS,
@@ -92,15 +93,18 @@ function loadType(
  * last transferred to that address (an indirect address resolved through AR 1).
  */
 export function accumulatorTypes(
-  trace: readonly Pick<TraceEntry, "op" | "text" | "ar1">[],
+  trace: readonly (Pick<TraceEntry, "op" | "text" | "ar1"> & Partial<Pick<TraceEntry, "line">>)[],
   model: StlModel,
   /** The types transferred to memory in scans before this one (memory outlasts a scan); updated here. */
   stored = new Map<string, AccumulatorType>(),
 ): { accu1: AccumulatorType; accu2: AccumulatorType }[] {
   let accu1: AccumulatorType = "INT";
   let accu2: AccumulatorType = "INT";
-  return trace.map(({ op, text, ar1 }) => {
+  const calls = callOutputs(model);
+  return trace.map(({ op, text, ar1, line }) => {
     const a = op === "L" || op === "T" ? addressOf(op, text, ar1) : undefined;
+    // A library block's outputs are typed by the block: FC105's OUT is a REAL wherever it lands.
+    if (op === "CALL" && line !== undefined) for (const [at, type] of calls.get(line) ?? []) stored.set(at, type);
     if (op === "L") [accu2, accu1] = [accu1, loadType(text, a, model, stored)];
     else if (op === "T") {
       if (a && a.width !== "bit") stored.set(formatAddress(a), accu1);
@@ -136,9 +140,33 @@ function declaredType(a: Address, model: StlModel) {
   return undefined;
 }
 
+/** Each CALL's output addresses with the types its library block writes there, by the CALL's line. */
+function callOutputs(model: StlModel): Map<number, [string, AccumulatorType][]> {
+  const found = new Map<number, [string, AccumulatorType][]>();
+  let program;
+  try {
+    program = parseStl(model.source);
+  } catch {
+    return found;
+  }
+  for (const s of program.statements) {
+    if (s.operand.kind !== "block") continue;
+    const block = LIBRARY[s.operand.number];
+    if (!block) continue;
+    const outputs: [string, AccumulatorType][] = [];
+    for (const [name, type] of Object.entries(block.outputs)) {
+      const a = parseAddress(s.params?.[name] ?? "");
+      if (a && a.width !== "bit")
+        outputs.push([formatAddress(a), type === "REAL" ? "REAL" : type === "DINT" ? "DINT" : "INT"]);
+    }
+    found.set(s.line, outputs);
+  }
+  return found;
+}
+
 /** The types memory holds once a scan has run, from those it held before (cleared only by a cold start). */
 export function typesAfter(
-  trace: readonly Pick<TraceEntry, "op" | "text" | "ar1">[],
+  trace: readonly (Pick<TraceEntry, "op" | "text" | "ar1"> & Partial<Pick<TraceEntry, "line">>)[],
   model: StlModel,
   before: ReadonlyMap<string, AccumulatorType>,
 ): Map<string, AccumulatorType> {
