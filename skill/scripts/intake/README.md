@@ -73,7 +73,7 @@ into place whole, so a refusal leaves nothing behind.
   a working tree). It is read-only: the Build ledger pins the release and every file's hash, and
   `ledger integrity` reports any edit.
 - `overrides/`: the Course overrides area, empty.
-- `content/course.yaml` (the course config: name, code, pad, the Credit line, the owner) and
+- `content/course.yaml` (the course config: name, code, pad, the Credit line, the owner, the Arabic-notes toggle) and
   `content/modules/`. The Exam sittings stay in the Build ledger until Modules are mapped to them: the
   template lists a sitting with the Modules it covers.
 - `build-ledger.json` with the intake answers (`ledger init`), its lock held by `--holder`, and its
