@@ -2,7 +2,7 @@
 // as one OB 1, every operand is an absolute address wide enough for its type, the example's values
 // set every input, and every value fits its type. The content contract reports each problem.
 
-import { AREA_SIZES, fits, inRange, parseAddress, WIDTH_OF, type S7Type } from "../s7/core.ts";
+import { AREA_SIZES, fits, inRange, parseAddress, WIDTH_BYTES, WIDTH_OF, type S7Type } from "../s7/core.ts";
 import type { StlModel, TuneRange } from "./engine.ts";
 import { ListingError, parseStl } from "./parse.ts";
 
@@ -36,6 +36,19 @@ export function stlProblems(
   };
   operands("inputs");
   operands("watch");
+  // Inputs are written one after another before each scan: two that share a bit would overwrite each other.
+  const taken = new Map<string, string>();
+  for (const [operand, type] of Object.entries(model.inputs)) {
+    const a = parseAddress(operand);
+    if (!a || a.width !== WIDTH_OF[type] || !inRange(a)) continue;
+    const bits =
+      a.width === "bit"
+        ? [`${a.area}${a.byte}.${a.bit}`]
+        : Array.from({ length: 8 * WIDTH_BYTES[a.width] }, (_, i) => `${a.area}${a.byte + (i >> 3)}.${i & 7}`);
+    const clash = bits.map((b) => taken.get(b)).find((other) => other !== undefined);
+    if (clash) add(["model", "inputs", operand], `${operand} shares memory with the input ${clash}`);
+    else for (const b of bits) taken.set(b, operand);
+  }
   if (Object.keys(model.watch).length === 0) add(["model", "watch"], "the watch table shows at least one operand");
 
   const checkValues = (path: (string | number)[], values: Readonly<Record<string, number>>) => {
@@ -61,6 +74,15 @@ export function stlProblems(
       add(["tune", operand], `${operand}'s range leaves ${type}`);
     else if (type !== "REAL" && !Number.isInteger(range.step))
       add(["tune", operand], `${operand} holds a ${type}: its slider steps by whole numbers, not ${range.step}`);
+    else {
+      // A slider steps from its min: its max must be a whole number of steps on, or it can't be reached.
+      const steps = (range.max - range.min) / range.step;
+      if (Math.abs(steps - Math.round(steps)) > 1e-9 * Math.max(1, steps))
+        add(
+          ["tune", operand],
+          `${operand}'s slider can't reach ${range.max} from ${range.min} in steps of ${range.step}`,
+        );
+    }
   }
   cases.forEach((c, ci) => c.scans.forEach((scan, si) => checkValues(["cases", ci, "scans", si], scan)));
   return problems;

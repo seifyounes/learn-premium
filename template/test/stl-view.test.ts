@@ -140,6 +140,15 @@ describe("the STL sim's readings", () => {
     expect(watchRows(run.cpu.mem, listing, assign.writes, before).map((r) => r.written)).toEqual([true, false]);
   });
 
+  it("reads a word loaded back after a double word went to it as an integer (Codex review)", () => {
+    const trace = [
+      { op: "L", text: "L#70000", ar1: 0 },
+      { op: "T", text: "MW 0", ar1: 0 },
+      { op: "L", text: "MW 0", ar1: 0 },
+    ];
+    expect(accumulatorTypes(trace, { source: "", inputs: {}, watch: {} })[2]?.accu1).toBe("INT");
+  });
+
   it("shows AR 1 as a pointer, a bit FC105 left as ?, and a statement's writes byte by byte", () => {
     expect(pointer((60 << 3) | 2)).toBe("P#60.2");
     expect(statusBits({ status: 0b10, leftBy: { OV: "FC105" } }).slice(0, 6)).toEqual([

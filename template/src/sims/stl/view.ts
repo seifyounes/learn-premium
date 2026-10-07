@@ -108,7 +108,8 @@ export function accumulatorTypes(
     if (op === "CALL" && line !== undefined) for (const [at, type] of calls.get(line) ?? []) stored.set(at, type);
     if (op === "L") [accu2, accu1] = [accu1, loadType(text, a, model, stored)];
     else if (op === "T") {
-      if (a && a.width !== "bit") stored.set(formatAddress(a), accu1);
+      // Only a double word holds ACCU 1 whole; a byte or word load reads back an integer.
+      if (a && a.width !== "bit") stored.set(formatAddress(a), a.width === "dword" ? accu1 : "INT");
     } else if (op === "PUSH") accu2 = accu1;
     else if (op === "TAR1" && !text) [accu2, accu1] = [accu1, "DINT"];
     else if (op === "TAK") [accu1, accu2] = [accu2, accu1];
