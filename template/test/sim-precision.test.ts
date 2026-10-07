@@ -19,6 +19,10 @@ describe("a value as the sheet prints it", () => {
     // TeX spacing between the sign and the digits keeps the sign.
     expect(readPrinted("$-\\,0.04$")).toEqual({ value: -0.04, decimals: 2, written: "-0.04" });
     expect(readPrinted("$R = -\\;3$")).toEqual({ value: -3, decimals: 0, written: "-3" });
+    // A minus before a grouped value applies to it.
+    expect(readPrinted("$-(0.04)$")).toMatchObject({ value: -0.04 });
+    expect(readPrinted("$-\\left(0.04\\right)$")).toMatchObject({ value: -0.04 });
+    expect(readPrinted("$-{0.04}$")).toMatchObject({ value: -0.04 });
   });
 
   it("reads the values a ruling names, scientific notation as one value", () => {
