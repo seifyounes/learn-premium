@@ -47,7 +47,8 @@ export interface Reading {
 }
 
 /** Statements whose result fills all 32 bits of ACCU 1 as an integer. */
-const DINT_OPS = /^(\+D|-D|\*D|\/D|MOD|NEGD|INVD|ITD|\*I|RND[+-]?|TRUNC|TAR1|SLD|SRD|SSD|RLD|RRD|RLDA|RRDA|AD|OD|XOD)$/;
+const DINT_OPS =
+  /^(\+D|-D|\*D|\/D|MOD|NEGD|INVD|ITD|\*I|RND[+-]?|TRUNC|TAR1|SLD|SRD|SSD|RLD|RRD|RLDA|RRDA|AD|OD|XOD|CAD)$/;
 /** Statements that leave both accumulators as they were. */
 const KEEPS_ACCUMULATORS =
   /^(A|AN|O|ON|X|XN|[AOX]N?\(|\)|NOT|SET|CLR|SAVE|=|S|R|FP|FN|T|J[A-Z]*|BE[UC]?|NOP|LAR1|\+AR1|[=<>]{1,2}[IDR])$/;
