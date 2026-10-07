@@ -150,6 +150,11 @@ describe("a gate run", () => {
       }
     });
 
+    it("still records a failed gate, never crashes the run, when modules/ can't be read as a folder", async () => {
+      const notAFolder = course({ "course.yaml": "name: x\n", modules: "a file where the folder goes" });
+      expect((await deployRun(notAFolder, [contentGate])).gates[0]?.status).toBe("failed");
+    });
+
     it("still fails a content gate that covered nothing in a run scoped to one Module", async () => {
       expect((await deployRun(empty, [contentGate], "01-first")).gates[0]?.status).toBe("failed");
     });

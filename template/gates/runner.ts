@@ -169,15 +169,20 @@ async function runGate(gate: Gate, input: GateInput): Promise<GateResult> {
  * A whole-Course run on a Course with nothing under `modules/` yet: the one case where a content gate
  * (a per-job gate) may cover nothing and pass, so an empty Course project's deploy run is green. Any
  * file under `modules/` but intake's `modules/.gitkeep` counts as a Module begun, and a folder without
- * a course.yaml isn't a Course.
+ * a course.yaml isn't a Course. A `modules/` that can't be read as a folder isn't empty: the gate
+ * fails, recorded in the report, rather than crashing the run.
  */
 function courseWithoutModules({ contentDir, module }: GateInput): boolean {
   if (module !== undefined || !existsSync(join(contentDir, "course.yaml"))) return false;
   const modules = join(contentDir, "modules");
   if (!existsSync(modules)) return true;
-  return readdirSync(modules, { recursive: true, encoding: "utf8" }).every(
-    (entry) => entry === ".gitkeep" || !statSync(join(modules, entry)).isFile(),
-  );
+  try {
+    return readdirSync(modules, { recursive: true, encoding: "utf8" }).every(
+      (entry) => entry === ".gitkeep" || !statSync(join(modules, entry)).isFile(),
+    );
+  } catch {
+    return false;
+  }
 }
 
 function statusOf(findings: readonly Finding[]): GateStatus {
