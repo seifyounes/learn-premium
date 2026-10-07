@@ -338,6 +338,32 @@ describe("two Pyodide tools on one page", () => {
     await page.close();
   });
 
+  it("leave the page's Python running when a run is stopped while it waits its turn", async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(`${site.url}/${MODULE}/`);
+    const first = page.locator(`#python-${MODULE}-normal-equation [data-python-tool]`);
+    const second = page.locator(`#python-${MODULE}-echo [data-python-tool]`);
+    for (const tool of [first, second]) {
+      await tool.scrollIntoViewIfNeeded();
+      await tool.and(page.locator('[data-ready="true"]')).waitFor();
+    }
+    await second.locator("[data-run-live]").click();
+    await second.and(page.locator('[data-state="live"]')).waitFor({ timeout: 120_000 });
+    // The first tool's run never finishes; the second's waits behind it, and is stopped there.
+    await first.locator("textarea").fill("while True:\n    pass");
+    await first.locator("[data-run-live]").click();
+    await first.and(page.locator('[data-state="running"]')).waitFor();
+    await second.getByRole("button", { name: "Run again" }).click();
+    await second.getByRole("button", { name: "Stop" }).click();
+    await second.and(page.locator('[data-state="stopped"]')).waitFor({ timeout: 5_000 });
+    expect(await second.locator("[role=alert]").textContent()).toMatch(/Stopped before it ran/);
+    expect(await second.locator("[data-run-live]").textContent()).toBe("Run again");
+    // Python is still the first tool's, still running.
+    expect(await first.getAttribute("data-state")).toBe("running");
+    await first.getByRole("button", { name: "Stop" }).click();
+    await page.close();
+  });
+
   it("stop a run at once when Stop comes before Python's module has even loaded", async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     // Hold the module a tap imports, so Stop lands while that import is still pending.
