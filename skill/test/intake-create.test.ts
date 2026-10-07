@@ -381,9 +381,9 @@ describe("create", { timeout: 30_000 }, () => {
     ]);
   });
 
-  test("a Course project that would be the Private folder is refused, and nothing is made", async () => {
+  test("a Course project that would be the Private folder, by case only on a case-insensitive disk, is refused, and nothing is made", async () => {
     const work = workspace();
-    const materials = join(work, "heat-transfer");
+    const materials = join(work, "Heat-Transfer");
     writeFiles(materials, { "Lectures/L01 Conduction.pdf": "lecture one" });
     const s = setup({ materials, work });
 
