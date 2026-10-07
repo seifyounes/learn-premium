@@ -151,6 +151,14 @@ describe("the inputs a listing takes", () => {
     ]);
   });
 
+  it("refuses inputs that share memory, and a slider whose max its steps can't reach (Codex review)", () => {
+    const m = model(ob1("      L     MW     2"), { "MW 0": "INT", "MB 1": "BYTE", "I 0.0": "BOOL" });
+    expect(stlProblems(m, { "MW 0": 0, "MB 1": 0, "I 0.0": 0 }, { "MW 0": { min: 0, max: 5, step: 2 } }, [])).toEqual([
+      { path: ["model", "inputs", "MB 1"], message: "MB 1 shares memory with the input MW 0" },
+      { path: ["tune", "MW 0"], message: "MW 0's slider can't reach 5 from 0 in steps of 2" },
+    ]);
+  });
+
   it("steps an integer input's slider by whole numbers only (Codex review)", () => {
     const m = model(ob1("      L     MW     2"), { "MW 2": "INT" });
     expect(stlProblems(m, { "MW 2": 0 }, { "MW 2": { min: 0, max: 2, step: 0.5 } }, [])).toEqual([
