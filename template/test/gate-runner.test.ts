@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -153,6 +153,12 @@ describe("a gate run", () => {
     it("still records a failed gate, never crashes the run, when modules/ can't be read as a folder", async () => {
       const notAFolder = course({ "course.yaml": "name: x\n", modules: "a file where the folder goes" });
       expect((await deployRun(notAFolder, [contentGate])).gates[0]?.status).toBe("failed");
+    });
+
+    it("doesn't take a dangling modules/ link for a Course without modules/", async () => {
+      const dangling = course({ "course.yaml": "name: x\n" });
+      symlinkSync(join(dangling, "gone"), join(dangling, "modules"), "junction");
+      expect((await deployRun(dangling, [contentGate])).gates[0]?.status).toBe("failed");
     });
 
     it("still fails a content gate that covered nothing in a run scoped to one Module", async () => {

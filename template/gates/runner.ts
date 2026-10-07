@@ -6,7 +6,7 @@
 //
 // The run leaves a Gate report bound to the exact commit it checked. `verifyReport` is the only
 // way to call a report green: it re-derives the verdict rather than trusting the report's own.
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "astro/zod";
@@ -175,7 +175,8 @@ async function runGate(gate: Gate, input: GateInput): Promise<GateResult> {
 function courseWithoutModules({ contentDir, module }: GateInput): boolean {
   if (module !== undefined || !existsSync(join(contentDir, "course.yaml"))) return false;
   const modules = join(contentDir, "modules");
-  if (!existsSync(modules)) return true;
+  // lstat, not exists: a dangling link isn't an absent folder.
+  if (lstatSync(modules, { throwIfNoEntry: false }) === undefined) return true;
   try {
     return readdirSync(modules, { recursive: true, encoding: "utf8" }).every(
       (entry) => entry === ".gitkeep" || !statSync(join(modules, entry)).isFile(),
