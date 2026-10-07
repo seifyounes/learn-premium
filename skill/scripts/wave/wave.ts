@@ -256,13 +256,13 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
       return [];
     return [{ ruling: c.ruling, entry, printed }];
   });
-  // Bound to the item: the same kind of ruling, in the same content file, on the same sheet value.
+  // Bound to the item: the same kind of ruling, in the same content file, and every sheet value the
+  // ruling names answered by the Owner (each value suppresses a gate finding on its own).
   const close = (a: number, b: number) => Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a));
+  const ruledOn = (r: ContentRuling, n: number) =>
+    answered.some((a) => a.ruling === r.kind && a.entry === r.entry && close(n, a.printed));
   return rulings
-    .filter(
-      (r) =>
-        !answered.some((a) => a.ruling === r.kind && a.entry === r.entry && r.printed.some((n) => close(n, a.printed))),
-    )
+    .filter((r) => r.printed.length === 0 || !r.printed.every((n) => ruledOn(r, n)))
     .map(
       (r) =>
         `${r.entry} ships a ${r.kind} on ${r.printed.join(", ") || "no number"} that no Owner answer rules: record his ${r.kind} ruling on the item that raised it, with its question as the Checkpoint gives it`,
