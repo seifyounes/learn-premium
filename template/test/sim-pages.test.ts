@@ -484,6 +484,46 @@ describe("the maths and heat sims in a browser", () => {
     await context.close();
   });
 
+  it("starts Plotly on a 4×-slow phone in a few times JSXGraph's start, so opening the map doesn't hold the page", async () => {
+    // Plotly starts in one task: no tap lands until it ends. Its prebuilt dist bundle held a
+    // 4×-throttled phone for 2–4s (26× JSXGraph), and under CI's load the tap after "Map over
+    // time" missed the touch gate's waits (#119); built from Plotly's sources it starts in about
+    // 5× JSXGraph. Each is timed against JSXGraph in the same browser, so the machine's load cancels.
+    const wall = (holds: RegExp) =>
+      lazyChunk(/component-url="\/_astro\/(PlaneWallSim\.[^"]+\.js)"/, holds, build.page(HEAT));
+    const [plotly] = wall(PLOTLY).lazy;
+    const [jsxgraph] = wall(/\bJSXGraph\b/).lazy.filter((f) => f !== plotly);
+    if (!plotly || !jsxgraph) throw new Error("the plane-wall sim imports no Plotly or no JSXGraph chunk");
+    /** How long importing a chunk holds a fresh 4×-throttled phone page, its bytes already fetched. */
+    const startMs = async (chunk: string) => {
+      const context = await browser.newContext({
+        viewport: { width: 375, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+      });
+      const page = await context.newPage();
+      // A page with no sim on it, settled before the CPU slows.
+      await page.goto(`${site.url}/rules/`, { waitUntil: "networkidle" });
+      await (await context.newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: 4 });
+      // As source text: vitest would rewrite an import() in a function.
+      const ms = await page.evaluate<number>(`(async (url) => {
+        await (await fetch(url)).text();
+        const started = performance.now();
+        await import(url);
+        return performance.now() - started;
+      })(${JSON.stringify(`/_astro/${chunk}`)})`);
+      await context.close();
+      return ms;
+    };
+    const median = async (chunk: string) => {
+      const runs: number[] = [];
+      for (let i = 0; i < 3; i++) runs.push(await startMs(chunk));
+      return runs.sort((a, b) => a - b)[1] ?? 0;
+    };
+    const ratio = (await median(plotly)) / (await median(jsxgraph));
+    expect(ratio).toBeLessThan(10);
+  });
+
   it("draws both boards in the pad's inks, the tangent in the pad's print", async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const { page, errors } = await open(context, "tool-gallery");

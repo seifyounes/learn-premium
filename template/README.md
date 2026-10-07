@@ -144,8 +144,10 @@ kinds:
   temperature. The Profile tab draws T across the wall at the chosen time; the Map tab draws the
   whole wall over time as a heatmap (`src/islands/sim/heatmap.ts`). Plotly draws the map, and is
   the shared core's tool for heatmaps and 3D surfaces only: the sim imports it only when the Map
-  tab is opened, so Plotly loads only on a page with a heatmap, and only once it is wanted. The
-  map is a static picture, so a swipe on it scrolls the page. Its `units` name the Materials'
+  tab is opened, so Plotly loads only on a page with a heatmap, and only once it is wanted. Plotly
+  is built from its sources, its core and the heatmap trace, not its prebuilt dist bundle, which
+  takes over ten times as long to start on a phone; a few small packages they ask for get stand-ins
+  (`src/islands/sim/plotly-shims/stand-ins.ts`). The map is a static picture, so a swipe on it scrolls the page. Its `units` name the Materials'
   length and temperature units; time is in seconds.
 
 A recompute by another method than the engine's (the Fourier series against a Crank–Nicolson
@@ -308,9 +310,10 @@ the run opens every page in scope:
   its touch run is at full speed. A control blocks when it never takes a tap (15s, naming why) or a
   tap never changes the page (10s), not when it is slow: the gate reports its slowest tap and
   answer.
-  The plane wall's map is the slowest tap the Fixture Course has: Plotly holds a 4×-throttled phone
-  for about 4.5s while it starts (the Owner accepted the wait on #51), so its tab answers first,
-  saying the map is loading.
+  The plane wall's map is the slowest tap the Fixture Course has. Plotly's prebuilt dist bundle held
+  a 4×-throttled phone for 2–4s while it started (the Owner accepted the wait on #51), and on CI's
+  runner the tap after the map's tab missed both waits (#119). Built from its sources, it starts in
+  about 0.2s and draws the map in about 0.6s; the tab still answers first, saying the map is loading.
   The touch run refuses `/pyodide/`: a Run-live tap answers at once, and a dozen Pyodide
   starts behind it would starve every other page's taps (`test/python-tool.test.ts` runs it for real).
 
@@ -384,7 +387,8 @@ layout holds at 375 and 1280px at each slider's min, mid and max, and on a touch
 drags while a swipe elsewhere on the board scrolls the page. The logic sim inks the nets a tapped
 row drives high, and its circuit scrolls inside its box on a phone. Every page is opened with every
 sim hydrated: Plotly is fetched only on the plane wall's pages (its Module, the Lab and the Tool
-gallery), and only once its map is opened. Every label on a sim's plots is drawn at the same size
+gallery), and only once its map is opened, and on a 4×-throttled phone it starts in a few times
+JSXGraph's start, not the dist bundle's 26×. Every label on a sim's plots is drawn at the same size
 at 1280 and 320px, and never under 12px. `test/maths-heat-sims.test.ts` holds the tangent and the
 plane wall to the sim gates. `test/layout-core.test.ts` holds the layout core to its public
 interface: hints in, drawing out.

@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 import { describe, expect, it } from "vitest";
 import { BROWSER_GATES } from "../gates/browser.ts";
 import { sitePages } from "../gates/pages.ts";
-import { assertWidth, browserRun, IN_PAGE, WIDTH_ARRIVES_MS, WIDTHS } from "../gates/browser/run.ts";
+import { assertWidth, browserRun, IN_PAGE, TAP_TAKES_MS, WIDTH_ARRIVES_MS, WIDTHS } from "../gates/browser/run.ts";
 import { GATES } from "../gates/index.ts";
 import { runGates, type Gate, type GateInput } from "../gates/runner.ts";
 import { buildCourse, FIXTURE_COURSE } from "./build-course";
@@ -262,7 +262,9 @@ describe("the touch check", () => {
   it("waits out a control slow to take a tap or to answer it: only one that never does fails", async () => {
     // Under a CI runner's load, the first taps after hydration took up to 4.2s to land and some
     // answered past the 2s the check waited, on controls that work. A button busy for 6s as it is
-    // touched (past the old 5s), and one that answers 4s after its tap, stand in for them.
+    // touched (past the old 5s), and one that answers 4s after its tap, stand in for them. A button
+    // that holds the page past the wait as it is touched, as Plotly's dist bundle held a phone on
+    // CI's runner (#119), still can't be tapped: the wait is for a slow page, not a stuck one.
     expect(build.ok, build.output).toBe(true);
     const scratch = mkdtempSync(join(tmpdir(), "lp-slow-tap-"));
     try {
@@ -270,13 +272,16 @@ describe("the touch check", () => {
       cpSync(build.outDir, site, { recursive: true });
       // On a copy of the home page, quiet enough that nothing else answers for the buttons.
       const route = "planted-negative-control";
+      const hold = (id: string, ms: number) =>
+        `document.getElementById("${id}").addEventListener("touchstart", () => { const end = Date.now() + ${ms}; while (Date.now() < end); });`;
       const slow = [
         `<p><button type="button" id="held">Held</button></p>`,
         `<p><button type="button" onclick="setTimeout(() => { this.textContent = 'Answered'; }, 4000)">Answers late</button></p>`,
+        `<p><button type="button" id="stuck" onclick="this.textContent = 'Tapped at last'">Stuck</button></p>`,
         `<script>`,
-        `const held = document.getElementById("held");`,
-        `held.addEventListener("touchstart", () => { const end = Date.now() + 6000; while (Date.now() < end); });`,
-        `held.addEventListener("click", () => { held.textContent = "Tapped"; });`,
+        hold("held", 6000),
+        hold("stuck", TAP_TAKES_MS + 5000),
+        `document.getElementById("held").addEventListener("click", (e) => { e.target.textContent = "Tapped"; });`,
         `</script>`,
       ].join("");
       const home = readFileSync(join(site, "index.html"), "utf8");
@@ -289,6 +294,12 @@ describe("the touch check", () => {
       expect(run.gates.touch.findings.filter((f) => /Held|Answers late/.test(f.message))).toEqual([]);
       expect(run.gates.touch.coverage.slowestTapMs).toBeGreaterThanOrEqual(5000);
       expect(run.gates.touch.coverage.slowestAnswerMs).toBeGreaterThanOrEqual(4000);
+      // Chromium waits for a touch's handlers before the tap lands, so the tap runs out of time.
+      expect(run.gates.touch.findings).toContainEqual({
+        outcome: "block",
+        at: `/${route}/`,
+        message: expect.stringMatching(/^<button> "Stuck" can't be tapped.*chromium 375px touch.*chromium 390px touch/),
+      });
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }
