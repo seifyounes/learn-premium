@@ -32,6 +32,8 @@ interface Props {
 
 type Phase = "preview" | "loading" | "running" | "live" | "error" | "stopped";
 
+const STOPPED = "Stopped. Python starts again on the next run.";
+
 const seconds = (ms: number) => (ms / 1000).toFixed(1);
 const megabytes = (bytes: number) => (bytes / 1_000_000).toFixed(1);
 
@@ -69,17 +71,25 @@ export default function PythonTool({ figure, labels, code, packages, printout, b
     setError(undefined);
     const controller = new AbortController();
     stop.current = controller;
+    // Stopping ended Python, with its output: the next run starts it again, from the start.
+    const stopped = (printed: string[] = []) => {
+      setStarted(false);
+      setTook(undefined);
+      fail(STOPPED, false, printed, "stopped");
+    };
+    const aborted = new Promise<"stopped">((resolve) =>
+      controller.signal.addEventListener("abort", () => resolve("stopped"), { once: true }),
+    );
+    // A run stopped while this module downloads never awaits it: its failure is then no one's to report.
+    const loading = import("../python/live.ts");
+    loading.catch(() => {});
     try {
-      const { runLive, pythonStarted } = await import("../python/live.ts");
+      const live = await Promise.race([loading, aborted]);
+      if (live === "stopped") return stopped();
       // Python may have been stopped since this tool last ran (by any tool on the page).
-      setPhase(pythonStarted() ? "running" : "loading");
-      const outcome = await runLive(base, packages, source, controller.signal);
-      // Stopping ended Python, with its output: the next run starts it again, from the start.
-      if ("stopped" in outcome) {
-        setStarted(false);
-        setTook(undefined);
-        return fail(outcome.error, false, outcome.printout, "stopped");
-      }
+      setPhase(live.pythonStarted() ? "running" : "loading");
+      const outcome = await live.runLive(base, packages, source, controller.signal);
+      if ("stopped" in outcome) return stopped(outcome.printout);
       setStarted(true);
       setTook(outcome.timing);
       if ("error" in outcome) return fail(outcome.error, outcome.traceback === true, outcome.printout);
