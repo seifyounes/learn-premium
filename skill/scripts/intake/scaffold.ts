@@ -28,6 +28,8 @@ export function courseConfig(a: Answers): string {
     `  course: ${q(`${a.courseName} (${a.code})`)}`,
     `  university: ${q(a.university)}`,
     `owner: ${q(a.owner)}`,
+    "# The Arabic-notes toggle: on, the content's Arabic notes show beside the English. Media stays English.",
+    `arabicNotes: ${a.arabicNotes}`,
     "# The Exam sittings are in the Build ledger. The template lists a sitting with the Modules it covers,",
     "# so each joins here once Modules are mapped to it.",
     "sittings: []",

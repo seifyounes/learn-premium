@@ -196,6 +196,15 @@ describe("create", { timeout: 30_000 }, () => {
     expect(existsSync(join(s.project, "content/modules"))).toBe(true);
   });
 
+  test("carries the Arabic-notes toggle into the course config, which shows the notes only when it is on", async () => {
+    for (const arabicNotes of [true, false]) {
+      const s = setup();
+      must(await create(s, { arabicNotes }));
+      const config = readFileSync(join(s.project, "content/course.yaml"), "utf8");
+      expect(config).toContain(`\narabicNotes: ${arabicNotes}\n`);
+    }
+  });
+
   test("copies the Site template's files at the pinned release, and the ledger pins the release and their hashes", async () => {
     const release = releaseRepo();
     // After the tag: neither a later commit nor a stray untracked file reaches the Course project.
