@@ -6,7 +6,7 @@
 // rules on them. Everything here carries the Professor's text, so it is read from and written to the
 // Private folder only.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative } from "node:path";
 import { LedgerError } from "../ledger/file.ts";
 import { arr, fail, nonEmpty, nullable, obj, oneOf, SchemaError, type Infer, type Schema } from "../ledger/schema.ts";
@@ -108,15 +108,22 @@ function same(a: string, b: string): boolean {
   return x !== null && y !== null ? x === y : tidy(a) === tidy(b);
 }
 
-/** A key for a Checkpoint item, stable across runs and safe on a command line: `01/unreadable/eq-3-1a2b3c`. */
-export function itemKey(module: string, kind: string, name: string): string {
+/**
+ * A key for a Checkpoint item, safe on a command line: `01/unreadable/eq-3-1a2b3c`. The hash covers
+ * the name and the question's `facts` (the values and places it asks about), so the same question
+ * keeps its key across runs, and a changed one gets a new key and is asked again.
+ */
+export function itemKey(module: string, kind: string, name: string, facts: readonly string[] = []): string {
   const slug =
     name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
       .slice(0, 48) || "item";
-  const hash = createHash("sha256").update(name).digest("hex").slice(0, 6);
+  const hash = createHash("sha256")
+    .update([name, ...facts].join("\n"))
+    .digest("hex")
+    .slice(0, 6);
   return `${module}/${kind}/${slug}-${hash}`;
 }
 
@@ -182,6 +189,8 @@ export function reconcile(privateFolder: string, module: string): ReconcileResul
       throw new LedgerError("invalid", `resolutions.json rules on ${r.key}, which the readers didn't dispute`);
   }
   if (disputes.some((d) => !ruled.has(d.key))) {
+    // An earlier settled reading no longer stands: nothing may be written from it.
+    for (const file of [SETTLED_FILE, CHECKPOINT_ITEMS_FILE]) rmSync(join(folder, file), { force: true });
     return { settledNow: false, agreed: agreed.length, disputes: disputes.filter((d) => !ruled.has(d.key)) };
   }
 
@@ -210,7 +219,7 @@ export function reconcile(privateFolder: string, module: string): ReconcileResul
     if (r.ruling === "unreadable") {
       const what = base.quantity === null ? base.kind : `${base.kind} (${base.quantity})`;
       checkpointItems.push({
-        key: itemKey(module, "unreadable", d.key),
+        key: itemKey(module, "unreadable", d.key, [place(base), d.a ?? "", d.b ?? ""]),
         kind: "unreadable",
         question: `Unreadable ${what} in ${place(base)}: ${said("A", d.a)}, ${said("B", d.b)}, and the render doesn't settle it. What does it say?`,
         crop,
@@ -224,7 +233,7 @@ export function reconcile(privateFolder: string, module: string): ReconcileResul
     mkdirSync(dirname(join(folder, file)), { recursive: true });
     writeFileSync(join(folder, file), `${JSON.stringify(data, null, 2)}\n`);
   };
-  write(SETTLED_FILE, { reading: READING, reader: "settled", module, items: settled });
+  write(SETTLED_FILE, { reading: READING, reader: "settled", module, inputs: inputsHash(folder), items: settled });
   write(CHECKPOINT_ITEMS_FILE, { module, items: checkpointItems });
   return {
     settledNow: true,
@@ -233,6 +242,40 @@ export function reconcile(privateFolder: string, module: string): ReconcileResul
     settled: settled.length,
     checkpointItems,
   };
+}
+
+const INPUT_FILES = ["reading-a.json", "reading-b.json", "resolutions.json"];
+
+/** A hash of what a settled reading was settled from: both readings and the rulings. */
+function inputsHash(folder: string): string {
+  const hash = createHash("sha256");
+  for (const file of INPUT_FILES) {
+    const path = join(folder, file);
+    hash
+      .update(`${file}\n`)
+      .update(existsSync(path) ? readFileSync(path) : "(none)")
+      .update("\n");
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * Why the Module's settled reading can't be trusted, or null when it stands: missing, or settled
+ * from readings or rulings that have changed since (reconcile must run again).
+ */
+export function settledReadingProblem(privateFolder: string, module: string): string | null {
+  const folder = waveFolder(privateFolder, module);
+  const path = join(folder, SETTLED_FILE);
+  if (!existsSync(path)) return `no ${SETTLED_FILE} in the Private folder (${folder}): run reconcile`;
+  let inputs: unknown;
+  try {
+    inputs = (JSON.parse(readFileSync(path, "utf8")) as { inputs?: unknown }).inputs;
+  } catch {
+    inputs = undefined;
+  }
+  return inputs === inputsHash(folder)
+    ? null
+    : `the settled reading is stale: the readings or rulings in ${folder} changed after it was settled; re-run reconcile`;
 }
 
 /** A quantity the settled reading gives different values for in different places: the Materials disagree. */
@@ -249,7 +292,12 @@ function conflicts(module: string, settled: ReadItem[]): ReadingCheckpointItem[]
     const first = items[0]?.value ?? "";
     if (items.every((i) => same(i.value ?? "", first))) continue;
     found.push({
-      key: itemKey(module, "conflict", id),
+      key: itemKey(
+        module,
+        "conflict",
+        id,
+        items.map((i) => `${i.value} (${place(i)})`),
+      ),
       kind: "conflict",
       question: `The Materials disagree on ${id}: ${items.map((i) => `${i.value} (${place(i)})`).join(", ")}. Which does the Module follow?`,
     });

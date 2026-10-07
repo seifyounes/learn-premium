@@ -90,6 +90,15 @@ describe("the pre-commit gate", () => {
     ]);
   });
 
+  it("never takes an empty file for an empty Material, though an empty file in an evidence path still blocks", () => {
+    const { repo, materials } = courseProject();
+    write(materials, { "Lecture 3/placeholder.txt": "" });
+    stage(repo, { "content/modules/.gitkeep": "", "crops/empty.png": "" });
+    expect(checkCommit(repo).findings).toEqual([
+      { path: "crops/empty.png", message: expect.stringMatching(/^evidence-shaped path/) },
+    ]);
+  });
+
   it("blocks evidence-shaped paths: crops, transcriptions, the Materials reader's renders", () => {
     const { repo } = courseProject();
     stage(repo, { "crops/01/eq-3.png": "crop", "notes/transcripts/l1.txt": "said", "page-003.png": "render" });

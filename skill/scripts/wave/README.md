@@ -48,8 +48,11 @@ Everything the Blind readers and reconcile touch carries the Professor's text, s
 - `resolutions.json`, written by the main agent after looking at each crop:
   `{"resolutions": [{"key", "crop": "waves/NN/crops/<key>.png", "ruling": "a"|"b"|"read"|"unreadable",
   "value"}]}`; `value` is the reading for `read`, else null.
-- `reading.json` (the settled reading every writer and the recompute work from) and
-  `checkpoint-items.json`, written by `reconcile`.
+- `reading.json` (the settled reading every writer and the recompute work from, with `inputs`, a
+  hash of the readings and rulings it was settled from) and `checkpoint-items.json`, written by
+  `reconcile`. A reconcile left with unsettled disputes deletes both, and `ready` refuses a settled
+  reading whose readings or rulings have changed since. A Checkpoint item's key hashes the values
+  and places it asks about, so a changed question is asked again.
 
 Gate reports are read from the Course's `content/build-records/gate-reports/`, where `npm run gates`
 writes them.

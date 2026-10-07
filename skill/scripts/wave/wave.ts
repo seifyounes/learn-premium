@@ -8,13 +8,13 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { HOOKS_PATH, privateFolderOf } from "../intake/create.ts";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { requireLedger } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
-import { readingCheckpointItems, SETTLED_FILE, waveFolder } from "./reading.ts";
+import { readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
 
 /** The gate points a Module merges on: per job and per Module scoped to it, per deploy on the whole Course. */
 export const MERGE_POINTS = ["job", "module", "deploy"] as const;
@@ -27,7 +27,9 @@ export interface Verifier {
 
 /** Runs the Course project's own template layer: `node template/gates/cli.ts verify …`. */
 export const templateVerifier: Verifier = {
-  verify(project, point, module) {
+  verify(given, point, module) {
+    // Absolute before the child runs from the template folder, so --content names the project's content.
+    const project = resolve(given);
     if (!existsSync(join(project, TEMPLATE_DIR, "gates", "cli.ts")))
       return { green: false, problems: [`the template layer has no gate runner (${TEMPLATE_DIR}/gates/cli.ts)`] };
     const child = spawnSync(
@@ -242,11 +244,14 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   if (!existsSync(join(project, CONTENT_DIR, "modules", folder, "module.yaml")))
     problems.push(`no Module page content at ${CONTENT_DIR}/modules/${folder}/`);
 
-  const readings = waveFolder(privateFolderOf(ledger.intake.materialsPath), id);
-  for (const file of ["reading-a.json", "reading-b.json", SETTLED_FILE]) {
+  const privateFolder = privateFolderOf(ledger.intake.materialsPath);
+  const readings = waveFolder(privateFolder, id);
+  for (const file of ["reading-a.json", "reading-b.json"]) {
     if (!existsSync(join(readings, file)))
       problems.push(`no ${file} in the Private folder (${readings}): both Blind readers read, then reconcile settles`);
   }
+  const settledProblem = settledReadingProblem(privateFolder, id);
+  if (settledProblem !== null) problems.push(settledProblem);
 
   for (const point of MERGE_POINTS) {
     const verdict = verifier.verify(project, point, point === "deploy" ? undefined : folder);
