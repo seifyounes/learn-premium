@@ -22,6 +22,8 @@ interface Props {
   label: string;
   /** A step-through: awlsim's trace of the example's values, for a listing the interpreter can't run. */
   replay?: ReplayScan[];
+  /** The inputs whose example value is −0.0, which the page's props carry as 0. */
+  negativeZero?: string[];
 }
 
 /** One scan as the page holds it: memory as it began, and every statement run so far. */
@@ -81,7 +83,11 @@ function opening(model: StlModel, start: Inputs, replay: ReplayScan[] | undefine
   return { run, scan, selected: scan.trace.length - 1 };
 }
 
-export default function StlSim({ model, start, tune, label, replay }: Props) {
+export default function StlSim({ model, start: given, tune, label, replay, negativeZero = [] }: Props) {
+  const start = useMemo(
+    () => ({ ...given, ...Object.fromEntries(negativeZero.map((operand) => [operand, -0])) }),
+    [given, negativeZero],
+  );
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
   const lines = useMemo(() => model.source.replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n"), [model.source]);
