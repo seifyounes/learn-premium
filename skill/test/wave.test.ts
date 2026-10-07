@@ -487,10 +487,10 @@ describe("ready, the Module wave's merge gate", () => {
     record(unreadable?.key ?? "", "eq-2");
     gateReports(project, []);
     // The writer shipped a Divergence on the sheet's 1.45 with no Owner answer: the gate stays quiet.
-    const shipped = (kind: "slip" | "divergence", entry = "modules/01-m01/worked/1.json") => ({
+    const shipped = (kind: "slip" | "divergence", entry = "modules/01-m01/worked/1.json", printed = [1.45]) => ({
       verifier: {
         verify: () => ({ green: true, problems: [] }),
-        rulings: () => [{ entry, kind, printed: [1.45] }],
+        rulings: () => [{ entry, kind, printed }],
       },
     });
 
@@ -500,6 +500,11 @@ describe("ready, the Module wave's merge gate", () => {
     const matching = ready(project, waveId, shipped("slip"));
     // The same value ruled in another example of the Module isn't the Owner's ruling on it.
     const elsewhere = ready(project, waveId, shipped("slip", "modules/01-m01/worked/2.json"));
+    // A ruling naming a second value the Owner never ruled on isn't covered by the first.
+    const widened = ready(project, waveId, shipped("slip", "modules/01-m01/worked/1.json", [1.45, 4.6]));
+    expect(widened.out.problems).toEqual([
+      expect.stringContaining("ships a slip on 1.45, 4.6 that no Owner answer rules"),
+    ]);
 
     const problem = "modules/01-m01/worked/1.json ships a divergence on 1.45 that no Owner answer rules";
     expect(unruled.out.problems).toEqual([expect.stringContaining(problem)]);

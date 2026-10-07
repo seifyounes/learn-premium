@@ -26,8 +26,11 @@ export function readPrinted(cell: string): Printed | string {
     return `the cell holds ${found.length} numbers (${found.map((n) => n.written).join(", ")}), not one`;
   const [number] = found as [(typeof found)[number]];
   // The sign is the one just before the number, at the start or after a label's `=` (`R = -0.04`);
-  // a minus inside a subscript (`x_{-1}`) belongs to the label.
-  const sign = new RegExp(`(?:^|[=(:≈]|\\\\approx)\\s*([-−])\\s*${escaped(number.written)}(?![\\d.])`).exec(text)?.[1];
+  // a minus inside a subscript (`x_{-1}`) belongs to the label. TeX spacing (`-\,0.04`) may sit between.
+  const space = String.raw`(?:\s|\\[,;:! ]|~)*`;
+  const sign = new RegExp(`(?:^|[=(:≈]|\\\\approx)${space}([-−])${space}${escaped(number.written)}(?![\\d.])`).exec(
+    text,
+  )?.[1];
   return {
     value: sign === undefined ? number.value : -number.value,
     decimals: (number.written.split(".")[1] ?? "").length,

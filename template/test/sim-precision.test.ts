@@ -16,6 +16,9 @@ describe("a value as the sheet prints it", () => {
     expect(readPrinted("$R = 0.04$")).toEqual({ value: 0.04, decimals: 2, written: "0.04" });
     // A minus inside a subscript belongs to the label, not the value.
     expect(readPrinted("$x_{-1} = 1$")).toEqual({ value: 1, decimals: 0, written: "1" });
+    // TeX spacing between the sign and the digits keeps the sign.
+    expect(readPrinted("$-\\,0.04$")).toEqual({ value: -0.04, decimals: 2, written: "-0.04" });
+    expect(readPrinted("$R = -\\;3$")).toEqual({ value: -3, decimals: 0, written: "-3" });
   });
 
   it("reads the values a ruling names, scientific notation as one value", () => {
