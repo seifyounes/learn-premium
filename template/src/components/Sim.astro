@@ -66,6 +66,9 @@ const stlReplay = (() => {
   if (!existsSync(path)) throw new Error(`${ref.module}/${ref.name}: no oracle log for its step-through at ${path}`);
   return replayOf(stl.model, oracleLog.parse(JSON.parse(readFileSync(path, "utf8"))), stl.start);
 })();
+// Astro's props drop a REAL's sign of zero (−0.0 arrives as 0): the island is told which to restore.
+const negativeZero = (start: Record<string, number>) =>
+  Object.keys(start).filter((operand) => Object.is(start[operand], -0));
 const missing =
   stl && !live
     ? unsupportedStatements(parseStl(stl.model.source)).map(({ statement: st }) =>
@@ -85,7 +88,14 @@ const missing =
   </div>
   {inputsHtml && <div class="mbe-3" set:html={inputsHtml} />}
   {live?.kind === "stl" ? (
-    <StlSim client:visible model={live.model} start={live.start} tune={live.tune} label={label} />
+    <StlSim
+      client:visible
+      model={live.model}
+      start={live.start}
+      negativeZero={negativeZero(live.start)}
+      tune={live.tune}
+      label={label}
+    />
   ) : stl && stlReplay ? (
     <>
       <StlSim client:visible model={stl.model} start={stl.start} tune={stl.tune} label={label} replay={stlReplay} />
