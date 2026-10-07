@@ -3,6 +3,7 @@
 // and formula in it kept left to right.
 import { chromium, type Browser, type Locator } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { IN_PAGE } from "../gates/browser/run.ts";
 import { arabicProse } from "../src/arabic/notes.ts";
 import { beat, course, worked } from "../src/content/contract.ts";
 import { renderProse } from "../src/math/katex.ts";
@@ -233,6 +234,38 @@ describe("the Fixture Course with its Arabic-notes toggle off", () => {
       expect(build.page(route)).not.toContain("الجدار");
       expect(build.page(route)).not.toContain("arabicHtml");
     }
+  });
+});
+
+describe("the layout sweep's check on a number's sign in an Arabic note", () => {
+  /** The sweep's note findings on a page holding `html`. */
+  async function findings(html: string) {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      await page.setContent(`<body>${html}</body>`);
+      await page.addScriptTag({ content: IN_PAGE });
+      return await page.evaluate(() =>
+        (window as unknown as { __lpSweep: { scan(): { layout: { kind: string; detail: string }[] } } }).__lpSweep
+          .scan()
+          .layout.filter((f) => f.kind === "note-direction")
+          .map((f) => f.detail),
+      );
+    } finally {
+      await browser.close();
+    }
+  }
+
+  it("blocks a sign left outside its number's run", async () => {
+    expect(await findings('<p lang="ar" dir="rtl">القيمة:−<span dir="ltr">5</span></p>')).toEqual([
+      expect.stringMatching(/a number's sign in an Arabic note runs right to left/),
+    ]);
+  });
+
+  it("passes a dash glued to a word, which is a dash, and a note as rendered", async () => {
+    expect(await findings('<p lang="ar" dir="rtl">صفحة-<span dir="ltr">3</span></p>')).toEqual([]);
+    const note = arabicProse("القيمة:−5 والمدى −5–−3 وصفحة-3 والكفاءة .5");
+    expect(await findings(`<p lang="ar" dir="rtl">${note}</p>`)).toEqual([]);
   });
 });
 

@@ -442,10 +442,11 @@
         const value = node.nodeValue || "";
         if (/[0-9\u0660-\u0669\u06F0-\u06F9]/.test(value) && direction(el) !== "ltr")
           add(layout, "note-direction", `a number in an Arabic note runs right to left: ${quote(value)}`, el);
-        // A sign or decimal point left just outside a number's run is drawn on its far side.
+        // A sign or decimal point left just outside a number's run is drawn on its far side. A dash
+        // glued to a word is the word's (`\u0635\u0641\u062D\u0629-3`), as the note's renderer reads it.
         const next = node.nextSibling;
         if (
-          /[+\-\u2212\u00B1.]$/.test(value) &&
+          /(?<![\p{L}\p{N}])[+\-\u2212\u00B1]$|(?<![\p{L}\p{N}.])\.$/u.test(value) &&
           direction(el) !== "ltr" &&
           next instanceof Element &&
           direction(next) === "ltr" &&
