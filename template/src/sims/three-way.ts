@@ -7,10 +7,9 @@
 // instead: bits have no last digit to round, and the recompute works out every row the engine
 // gives. Pure: the gate reads the files.
 import { z } from "astro/zod";
-import { numbersIn } from "../provenance/values.ts";
 import { parseCell } from "../worked/cells.ts";
 import { engineQuantities, type LiveSim } from "./kinds.ts";
-import { agreesAtPrint, printAt, readPrinted, type Printed } from "./precision.ts";
+import { agreesAtPrint, printAt, readPrinted, rulingValues, type Printed } from "./precision.ts";
 
 export const RECOMPUTE_LOG = "learn-premium recompute log v1";
 
@@ -84,8 +83,7 @@ export function threeWay(
   }
 
   const engine = engineQuantities(s);
-  const numbers = (written: readonly string[] = []) =>
-    new Set(written.flatMap((w) => numbersIn(w).map((n) => n.value)));
+  const numbers = (written: readonly string[] = []) => new Set(written.flatMap(rulingValues));
   const divergences = numbers(sheet?.divergences);
   const slips = numbers(sheet?.slips);
   const onSheet = new Set<string>();

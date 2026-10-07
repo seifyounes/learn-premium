@@ -25,8 +25,9 @@ export function readPrinted(cell: string): Printed | string {
   if (found.length > 1)
     return `the cell holds ${found.length} numbers (${found.map((n) => n.written).join(", ")}), not one`;
   const [number] = found as [(typeof found)[number]];
-  // The sign is the one just before the number, after any label (`R = -0.04`).
-  const sign = new RegExp(`([-−])\\s*${escaped(number.written)}(?![\\d.])`).exec(text)?.[1];
+  // The sign is the one just before the number, at the start or after a label's `=` (`R = -0.04`);
+  // a minus inside a subscript (`x_{-1}`) belongs to the label.
+  const sign = new RegExp(`(?:^|[=(:≈]|\\\\approx)\\s*([-−])\\s*${escaped(number.written)}(?![\\d.])`).exec(text)?.[1];
   return {
     value: sign === undefined ? number.value : -number.value,
     decimals: (number.written.split(".")[1] ?? "").length,
@@ -49,6 +50,15 @@ function readScientific(text: string): Printed | null {
   const exponent = Number(power.replace("−", "-"));
   const magnitude = Number(`${mantissa}e${exponent}`);
   return { value: sign === "" ? magnitude : -magnitude, decimals: places.length - exponent, written: written.trim() };
+}
+
+/**
+ * The magnitudes a ruling's value names (a Slip's `sheet`, a Divergence's `value`), matched against
+ * sheet cells read by `readPrinted`: one value in scientific notation counts as one number.
+ */
+export function rulingValues(written: string): number[] {
+  const scientific = readScientific(written.replace(/\$/g, "").trim());
+  return scientific !== null ? [Math.abs(scientific.value)] : numbersIn(written).map((n) => n.value);
 }
 
 /** Whether `value`, rounded as the sheet rounds, is within 1 of its printed number in the last digit. */

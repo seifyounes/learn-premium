@@ -224,8 +224,22 @@ function markdownOf(id: string, open: CheckpointItem[], preview: string | null):
   return lines.join("\n");
 }
 
-/** The sheet value a sheet-vs-recompute item asks about: `… prints 1.45, but …`. */
-const PRINTS = /prints\s+[-−]?(\d[\d,]*(?:\.\d+)?|\.\d+)/;
+/**
+ * A sheet-vs-recompute item's question as the Checkpoint gives it: the content file it sits in and
+ * the sheet value it asks about (`modules/01-x/worked/1.json: sheet cell D4 prints 1.45, but …`).
+ */
+const SHEET_QUESTION = /^(modules\/\S+?): .*?\bprints\s+(.+?), (?:but|which)\b/;
+
+/** A printed value's magnitude: `1.45`, `−1,250.5` or `5.0 \times 10^{-2}`; null when it isn't one. */
+function magnitude(written: string): number | null {
+  const match =
+    /^[-−]?\s*(\d[\d,]*(?:\.\d+)?|\.\d+)(?:\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*\{?\s*([-−]?\d+)\s*\}?)?$/.exec(
+      written.trim(),
+    );
+  if (!match) return null;
+  const [, digits = "", power] = match;
+  return Number(`${digits.replace(/,/g, "")}e${(power ?? "0").replace("−", "-")}`);
+}
 
 /**
  * Every Slip or Divergence the Module's content ships without the Owner's matching answer: a
@@ -236,13 +250,19 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
   if (typeof rulings === "string") return [rulings];
   const answered = current(ledger.checkpoints).flatMap((c) => {
     const [module, gate] = c.key.split("/");
-    const printed = PRINTS.exec(c.question)?.[1];
-    if (module !== id || gate === undefined || !SHEET_GATES.has(gate) || c.ruling === null || printed === undefined)
+    const [, entry, written] = SHEET_QUESTION.exec(c.question) ?? [];
+    const printed = written === undefined ? null : magnitude(written);
+    if (module !== id || gate === undefined || !SHEET_GATES.has(gate) || c.ruling === null || printed === null)
       return [];
-    return [{ ruling: c.ruling, printed: Number(printed.replace(/,/g, "")) }];
+    return [{ ruling: c.ruling, entry, printed }];
   });
+  // Bound to the item: the same kind of ruling, in the same content file, on the same sheet value.
+  const close = (a: number, b: number) => Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a));
   return rulings
-    .filter((r) => !answered.some((a) => a.ruling === r.kind && r.printed.includes(a.printed)))
+    .filter(
+      (r) =>
+        !answered.some((a) => a.ruling === r.kind && a.entry === r.entry && r.printed.some((n) => close(n, a.printed))),
+    )
     .map(
       (r) =>
         `${r.entry} ships a ${r.kind} on ${r.printed.join(", ") || "no number"} that no Owner answer rules: record his ${r.kind} ruling on the item that raised it, with its question as the Checkpoint gives it`,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agreesAtPrint, printAt, printedDecimals, readPrinted } from "../src/sims/precision.ts";
+import { agreesAtPrint, printAt, printedDecimals, readPrinted, rulingValues } from "../src/sims/precision.ts";
 
 describe("a value as the sheet prints it", () => {
   it("reads the one number in a cell with its sign and how many decimals it shows", () => {
@@ -14,6 +14,14 @@ describe("a value as the sheet prints it", () => {
     expect(readPrinted("$R = -0.04$")).toEqual({ value: -0.04, decimals: 2, written: "-0.04" });
     expect(readPrinted("$\\Delta T = −3.5$")).toEqual({ value: -3.5, decimals: 1, written: "−3.5" });
     expect(readPrinted("$R = 0.04$")).toEqual({ value: 0.04, decimals: 2, written: "0.04" });
+    // A minus inside a subscript belongs to the label, not the value.
+    expect(readPrinted("$x_{-1} = 1$")).toEqual({ value: 1, decimals: 0, written: "1" });
+  });
+
+  it("reads the values a ruling names, scientific notation as one value", () => {
+    expect(rulingValues("$5.0 \\times 10^{-2}$")).toEqual([0.05]);
+    expect(rulingValues("$R_\\text{total} = 1.54\\ \\text{K/W}$")).toEqual([1.54]);
+    expect(rulingValues("plaster: $0.02$, $0.5$")).toEqual([0.02, 0.5]);
   });
 
   it("reads scientific notation as one value, its precision from the mantissa and the power", () => {
