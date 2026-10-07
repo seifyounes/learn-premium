@@ -9,7 +9,14 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { fits, S7Memory, type S7Type } from "../sims/s7/core.ts";
 import { StlRun, type Inputs, type StlModel, type TraceEntry } from "../sims/stl/engine.ts";
-import { accumulatorTypes, describeWrites, watchRows, type ReplayScan } from "../sims/stl/view.ts";
+import {
+  accumulatorTypes,
+  describeWrites,
+  typesAfter,
+  watchRows,
+  type AccumulatorType,
+  type ReplayScan,
+} from "../sims/stl/view.ts";
 import type { Range } from "../sims/tuning.ts";
 import { Listing, Registers, Trace, WatchTable } from "./sim/stl-view.tsx";
 
@@ -35,12 +42,19 @@ interface Scan {
   done: boolean;
   /** Why the interpreter stopped, if it did. */
   error?: string;
+  /** The types memory held as the scan began, from the scans before it: the trace reads loads by them. */
+  carried: ReadonlyMap<string, AccumulatorType>;
 }
 
 /** Runs a whole scan with these inputs on the run, catching an error as the trace's last word. */
-function runScan(run: StlRun, inputs: Inputs, number: number): Scan {
+function runScan(
+  run: StlRun,
+  inputs: Inputs,
+  number: number,
+  carried: ReadonlyMap<string, AccumulatorType> = new Map(),
+): Scan {
   run.begin(inputs);
-  const scan: Scan = { number, before: run.cpu.mem.clone(), trace: [], done: false };
+  const scan: Scan = { number, before: run.cpu.mem.clone(), trace: [], done: false, carried };
   try {
     while (!run.between) scan.trace.push(run.step());
     scan.done = true;
@@ -62,7 +76,7 @@ const replayScan = (replay: ReplayScan[], index: number): Scan => {
   const r = replay[index] as ReplayScan;
   const before = new S7Memory();
   for (const [area, offset, value] of r.before) before.areas[area as "I" | "Q" | "M"][offset] = value;
-  return { number: index + 1, before, trace: [], done: false };
+  return { number: index + 1, before, trace: [], done: false, carried: new Map() };
 };
 
 /** The page's state: the run (live only), the scan on show, and the statement being read. */
@@ -111,7 +125,13 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
     let current = scan;
     if (scan.done || scan.error) {
       run.begin(inputs);
-      current = { number: scan.number + 1, before: run.cpu.mem.clone(), trace: [], done: false };
+      current = {
+        number: scan.number + 1,
+        before: run.cpu.mem.clone(),
+        trace: [],
+        done: false,
+        carried: typesAfter(scan.trace, model, scan.carried),
+      };
     }
     try {
       const trace = [...current.trace, run.step()];
@@ -133,7 +153,7 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
     }
     if (!run) return;
     if (scan.done || scan.error) {
-      const fresh = runScan(run, inputs, scan.number + 1);
+      const fresh = runScan(run, inputs, scan.number + 1, typesAfter(scan.trace, model, scan.carried));
       setView({ run, scan: fresh, selected: fresh.trace.length - 1 });
       return;
     }
@@ -175,7 +195,7 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
     return set;
   }, [scan.trace]);
   const written = entry ? describeWrites(entry.writes) : [];
-  const types = useMemo(() => accumulatorTypes(scan.trace, model), [scan.trace, model]);
+  const types = useMemo(() => accumulatorTypes(scan.trace, model, new Map(scan.carried)), [scan, model]);
 
   return (
     <section className="sim stl-sim" aria-label={label} data-ready={ready} data-sim={replay ? "stl-replay" : "stl"}>

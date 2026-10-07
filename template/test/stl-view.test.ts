@@ -4,7 +4,14 @@ import { describe, expect, it } from "vitest";
 import { courseListings } from "../oracle/listings.ts";
 import { FIXTURE_COURSE } from "./build-course";
 import { StlRun, type StlModel } from "../src/sims/stl/engine.ts";
-import { accumulatorTypes, describeWrites, pointer, readAccumulator, statusBits } from "../src/sims/stl/view.ts";
+import {
+  accumulatorTypes,
+  describeWrites,
+  pointer,
+  readAccumulator,
+  statusBits,
+  typesAfter,
+} from "../src/sims/stl/view.ts";
 
 const model: StlModel = {
   source: [
@@ -66,6 +73,27 @@ describe("the STL sim's readings", () => {
     expect(read(temporary)).toBe("1.0");
     const setPoints = trace.flatMap((t, i) => (t.op === "L" && t.text.includes("[AR1") ? [read(i)] : []));
     expect(setPoints).toEqual(["1000.0", "3000.0", "10000.0", "12000.0"]);
+  });
+
+  it("carries the type transferred to memory into the next scan, whose load reads it (Codex review)", () => {
+    const listing: StlModel = {
+      source: [
+        "ORGANIZATION_BLOCK OB 1",
+        "BEGIN",
+        "      L     MD   100",
+        "      L     1.5",
+        "      T     MD   100",
+        "END_ORGANIZATION_BLOCK",
+      ].join("\n"),
+      inputs: {},
+      watch: { "MW 0": "INT" },
+    };
+    const run = new StlRun(listing);
+    const first = run.scan({});
+    const second = run.scan({});
+    const carried = typesAfter(first, listing, new Map());
+    const types = accumulatorTypes(second, listing, new Map(carried));
+    expect(readAccumulator(second[0]?.accu1 ?? 0, types[0]?.accu1 ?? "INT").value).toBe("1.5");
   });
 
   it("shows AR 1 as a pointer, a bit FC105 left as ?, and a statement's writes byte by byte", () => {
