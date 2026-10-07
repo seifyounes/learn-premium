@@ -80,6 +80,9 @@ function loadType(
   if (REAL_LITERAL.test(literal)) return "REAL";
   if (/^(L#|DW#|P#)/i.test(literal)) return "DINT";
   if (!a) return "INT";
+  // What the listing last transferred there wins over the type the model declares for it.
+  const transferred = stored.get(formatAddress(a));
+  if (transferred) return transferred;
   const declared = declaredType(a, model);
   if (declared === "REAL") return "REAL";
   if (declared === "DINT" || declared === "DWORD") return "DINT";

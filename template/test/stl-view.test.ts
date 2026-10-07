@@ -149,6 +149,15 @@ describe("the STL sim's readings", () => {
     expect(accumulatorTypes(trace, { source: "", inputs: {}, watch: {} })[2]?.accu1).toBe("INT");
   });
 
+  it("reads a load by what the listing last transferred there, over the model's declared type (Codex review)", () => {
+    const trace = [
+      { op: "L", text: "L#1", ar1: 0 },
+      { op: "T", text: "MD 0", ar1: 0 },
+      { op: "L", text: "MD 0", ar1: 0 },
+    ];
+    expect(accumulatorTypes(trace, { source: "", inputs: { "MD 0": "REAL" }, watch: {} })[2]?.accu1).toBe("DINT");
+  });
+
   it("shows AR 1 as a pointer, a bit FC105 left as ?, and a statement's writes byte by byte", () => {
     expect(pointer((60 << 3) | 2)).toBe("P#60.2");
     expect(statusBits({ status: 0b10, leftBy: { OV: "FC105" } }).slice(0, 6)).toEqual([

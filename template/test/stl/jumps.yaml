@@ -56,7 +56,7 @@ model:
     TITLE = A loop, then the block ends
           L     0
           T     MW    30
-          L     MB     6
+          L     MB     8
     NEXT: T     MW    32
           L     MW    30
           L     3
@@ -82,7 +82,7 @@ model:
     MW 0: INT
     MW 2: INT
     MD 4: REAL
-    MB 6: BYTE
+    MB 8: BYTE
   watch:
     MB 20: BYTE
     MB 21: BYTE
@@ -95,7 +95,7 @@ start:
   MW 0: 5
   MW 2: -5
   MD 4: 2.0
-  MB 6: 4
+  MB 8: 4
 tune:
   I 0.0: { min: 0, max: 1, step: 1 }
   I 0.1: { min: 0, max: 1, step: 1 }
@@ -103,11 +103,11 @@ tune:
   I 0.3: { min: 0, max: 1, step: 1 }
   MW 0: { min: -32768, max: 32767, step: 1 }
   MW 2: { min: -32768, max: 32767, step: 1 }
-  MB 6: { min: 1, max: 255, step: 1 }
+  MB 8: { min: 1, max: 255, step: 1 }
 cases:
   - name: positive, negative and overflowing sums, a loop of 1
     scans:
-      - { MW 0: 7, MW 2: 1, I 0.0: 0, I 0.1: 1, MB 6: 1 }
+      - { MW 0: 7, MW 2: 1, I 0.0: 0, I 0.1: 1, MB 8: 1 }
       - { MW 0: -7, MW 2: 1 }
       - { MW 0: 32767, MW 2: 1, I 0.3: 1 }
       - { MW 0: 1, MW 2: 1, I 0.2: 1 }
