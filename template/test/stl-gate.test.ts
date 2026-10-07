@@ -98,7 +98,7 @@ describe("the stl gate", () => {
       unknown
     >;
     const listing = Object.fromEntries(Object.entries(corpus).filter(([key]) => key !== "covers"));
-    const planted = (cut: boolean) => {
+    const planted = (cut: boolean, sheet: Record<string, unknown> = {}) => {
       const course = fixtureWith(`modules/${MODULE}/sims/byte-swap.yaml`, () =>
         stringify({
           kind: "stl",
@@ -106,6 +106,7 @@ describe("the stl gate", () => {
           caption: "Swapped.",
           recompute: "independent",
           ...listing,
+          ...sheet,
           gateGap: 999,
         }),
       );
@@ -126,6 +127,15 @@ describe("the stl gate", () => {
         outcome: "block",
         at: `modules/${MODULE}/sims/byte-swap.yaml`,
         message: expect.stringMatching(/^the log ran other cases \(0\)/),
+      },
+    ]);
+    // Its Worked example's sheet is checked against awlsim, the only side that runs it (Codex review).
+    const sheeted = await run(planted(false, { worked: "1", sheet: { B2: "MW 2" } }));
+    expect(sheeted.findings).toEqual([
+      {
+        outcome: "checkpoint",
+        at: `modules/${MODULE}/worked/1.json`,
+        message: "sheet cell B2 prints 13824, but awlsim gives 13330 (MW 2): rule it a Slip or a Divergence",
       },
     ]);
   });

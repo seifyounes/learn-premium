@@ -57,6 +57,8 @@ export function stlProblems(
     if (!type) add(["tune", operand], `${operand} isn't one of the inputs`);
     else if (!fits(type, range.min) || !fits(type, range.max))
       add(["tune", operand], `${operand}'s range leaves ${type}`);
+    else if (type !== "REAL" && !Number.isInteger(range.step))
+      add(["tune", operand], `${operand} holds a ${type}: its slider steps by whole numbers, not ${range.step}`);
   }
   cases.forEach((c, ci) => c.scans.forEach((scan, si) => checkValues(["cases", ci, "scans", si], scan)));
   return problems;
