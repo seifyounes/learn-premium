@@ -27,10 +27,12 @@ export function readPrinted(cell: string): Printed | string {
   const [number] = found as [(typeof found)[number]];
   // The sign is the one just before the number, at the start or after a label's `=` (`R = -0.04`);
   // a minus inside a subscript (`x_{-1}`) belongs to the label. TeX spacing (`-\,0.04`) may sit between.
+  // A minus before a grouped value (`-(0.04)`, `-\left(0.04\right)`, `-{0.04}`) applies to it.
   const space = String.raw`(?:\s|\\[,;:! ]|~)*`;
-  const sign = new RegExp(`(?:^|[=(:≈]|\\\\approx)${space}([-−])${space}${escaped(number.written)}(?![\\d.])`).exec(
-    text,
-  )?.[1];
+  const opens = String.raw`(?:(?:\\left)?\(|\{)?`;
+  const sign = new RegExp(
+    `(?:^|[=(:≈]|\\\\approx)${space}([-−])${space}${opens}${space}${escaped(number.written)}(?![\\d.])`,
+  ).exec(text)?.[1];
   return {
     value: sign === undefined ? number.value : -number.value,
     decimals: (number.written.split(".")[1] ?? "").length,
