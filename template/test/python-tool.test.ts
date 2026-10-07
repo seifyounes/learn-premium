@@ -249,6 +249,28 @@ describe("the Pyodide tool in a browser", () => {
     expect(await tool.locator(".python-output pre").textContent()).toContain("theta0 = 1.1667");
     await page.close();
   });
+
+  it("stops at once while the module a tap imports is still downloading", async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    let holding: () => void = () => {};
+    const held = new Promise<void>((resolve) => (holding = resolve));
+    // A stalled download: the module arrives long after the student has stopped.
+    await page.route("**/_astro/live.*.js", async (route) => {
+      holding();
+      await new Promise((resolve) => setTimeout(resolve, 20_000));
+      await route.continue().catch(() => {});
+    });
+    await page.goto(`${site.url}/tool-gallery/`);
+    const tool = page.locator("[data-python-tool]");
+    await tool.scrollIntoViewIfNeeded();
+    await page.waitForSelector('[data-python-tool][data-ready="true"]');
+    await tool.locator("[data-run-live]").click();
+    await held;
+    await tool.getByRole("button", { name: "Stop" }).click();
+    await page.waitForSelector('[data-python-tool][data-state="stopped"]', { timeout: 3_000 });
+    expect(await tool.locator("[data-run-live]").isEnabled()).toBe(true);
+    await page.close();
+  });
 });
 
 describe("two Pyodide tools on one page", () => {
