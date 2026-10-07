@@ -84,8 +84,9 @@ export default function PlaneWallSim({
   }, [model]);
 
   // Plotly loads the first time the map is opened, never before. It is heavy: on a phone it holds
-  // the page for seconds while it starts. So the tab answers first, saying the map is loading, and
-  // the import waits a frame for that to show; the sim says it is busy until the map is drawn.
+  // the page while it starts and draws (under a second, built from its sources). So the tab answers
+  // first, saying the map is loading, and the import waits a frame for that to show; the sim says it
+  // is busy until the map is drawn.
   const mapOpened = view === "map" || map !== undefined;
   const [mapDrawn, setMapDrawn] = useState(false);
   // Busy while the open tab waits for the map; back on Profile, nothing waits for it.

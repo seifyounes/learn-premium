@@ -4,9 +4,14 @@
 // module is its one door: the sim imports it only when the map is opened, so no page loads Plotly
 // with itself. The plot is static, a picture: it takes no drag, so a swipe on it scrolls the page.
 // Every text on it is set in screen pixels, so the 12px floor holds at 320px.
-import Plotly from "plotly.js-cartesian-dist-min";
+// Plotly is built from its sources, its core and the heatmap trace: the prebuilt dist bundle took
+// 2–4s to start on a 4×-slow phone, holding every tap on the page (ticket 119); this takes ~0.15s.
+import Plotly from "plotly.js/lib/core";
+import heatmapTrace from "plotly.js/lib/heatmap";
 import type { Field } from "../../sims/plane-wall/engine.ts";
 import { TICK_PX, type Inks } from "./board.ts";
+
+Plotly.register([heatmapTrace]);
 
 /** The axis titles, units included, as plain text: Plotly doesn't set paper math. */
 export interface HeatmapLabels {

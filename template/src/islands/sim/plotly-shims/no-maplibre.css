@@ -1,0 +1,2 @@
+/* Stands in for MapLibre's stylesheet inside Plotly (see stand-ins.ts): only Plotly's map traces use it,
+   and the heatmap registers none, so no MapLibre ships. */

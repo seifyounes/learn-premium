@@ -26,7 +26,7 @@ describe("the deploy and live gates on the Fixture Course's production build", (
 
   it("builds, with the Licences file at /licences.txt", () => {
     expect(build.ok, build.output).toBe(true);
-    expect(build.output).toMatch(/Licences file: 15 shipped packages and 7 hand-written notices/);
+    expect(build.output).toMatch(/Licences file: 31 shipped packages and 7 hand-written notices/);
   });
 
   it("lists exactly the packages the bundle ships, never the ones that only build the site", () => {
@@ -36,14 +36,31 @@ describe("the deploy and live gates on the Fixture Course's production build", (
       "@fontsource-variable/archivo",
       "@fontsource/atkinson-hyperlegible-mono",
       "@fontsource/atkinson-hyperlegible-next",
+      // Plotly, built from its sources for the heatmap, with the packages they bundle.
+      "@plotly/d3",
       "astro",
+      "base64-arraybuffer",
+      "culori",
+      "d3-format",
+      "d3-time",
+      "d3-time-format",
+      "events",
+      "fast-isnumeric",
       "framer-motion",
+      "gl-mat4",
+      "has-passive-events",
+      "is-browser",
+      "is-string-blank",
       "jsxgraph",
       "katex",
       "motion",
       "motion-dom",
       "motion-utils",
-      "plotly.js-cartesian-dist-min",
+      "mouse-event-offset",
+      "parse-svg-path",
+      "plotly.js",
+      "point-in-polygon",
+      "polybooljs",
       "react",
       "react-dom",
       "scheduler",
@@ -86,7 +103,7 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     const coverage = Object.fromEntries(report.gates.map((g) => [g.id, g.coverage]));
     expect(pageCount()).toBeGreaterThanOrEqual(9);
     expect(coverage["noindex"]).toEqual({ pages: pageCount(), configs: 1 });
-    expect(coverage["licences"]).toEqual({ packages: 15 });
+    expect(coverage["licences"]).toEqual({ packages: 31 });
     expect(coverage["no-build-evidence"]?.["buildRecords"]).toBeGreaterThan(0);
   });
 

@@ -31,7 +31,7 @@
     "jsxgraph": "1.13.3",
     "katex": "0.18.9",
     "motion": "13.4.6",
-    "plotly.js-cartesian-dist-min": "4.1.1",
+    "plotly.js": "4.1.1",
     "pyodide": "314.0.7",
     "react": "19.3.0",
     "react-dom": "19.3.0",

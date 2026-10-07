@@ -101,8 +101,9 @@ const CONTROLS_ON_MS = 5_000;
  * the page to answer it. Like hydration, these wait out a slow page and catch a dead one: on CI's
  * runner, with both browsers and 4× slower phone CPUs at once, live controls on the Module pages
  * and the Lab missed 5s and 2s limits on main. The touch gate reports its slowest tap and answer.
+ * (`TAP_TAKES_MS` is exported for its tests.)
  */
-const TAP_TAKES_MS = 15_000;
+export const TAP_TAKES_MS = 15_000;
 const TAP_ANSWERS_MS = 10_000;
 /** For a resized viewport to reach the page (exported for its tests). */
 export const WIDTH_ARRIVES_MS = 10_000;
