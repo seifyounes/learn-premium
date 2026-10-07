@@ -20,7 +20,8 @@ refuses to tag until every step below holds on that exact commit.
 2. **The Tool gallery deployed, live gates green.** Vercel deployed the commit and the Fixture
    live gates passed on it (the `learn-premium/live-gates` status, `docs/deploy.md`). `status`
    prints the commit's own Tool gallery URL: its Production deployment's URL, which serves only that
-   build, or the production URL when GitHub has no deployment for the commit.
+   build. The production URL moves on to newer commits, so it never stands in: with no deployment
+   URL for the commit, this step isn't green.
 3. **The Owner's real-phone pass.** The Owner opens that Tool gallery on a real phone. They use
    every sim by touch, orbit and zoom the 3D viewer, and time the Pyodide run from its "Run live"
    tap to its plot. Then, in their own terminal, they record the pass on the commit:
@@ -44,12 +45,14 @@ refuses to tag until every step below holds on that exact commit.
    tag. Before the first release that is from v0.0.0, so `--bump minor` cuts v0.1.0. `--version
    vX.Y.Z` names one outright. It refuses:
 
-   - a version that isn't newer than the latest release, or a tag origin already has;
+   - a version that isn't newer than the latest release (or than v0.0.0), or a tag origin already
+     has;
    - a commit that isn't on top of the latest release;
    - a major that doesn't ship the migration for each major it crosses;
    - a non-major that ships a migration;
-   - a commit that drops a migration an earlier release shipped (a Course on an older release
-     still upgrades through it).
+   - a commit that drops or changes a migration an earlier release shipped (a Course on an older
+     release still upgrades through it, and the harness only replays the latest release's);
+   - `--bump` and `--version` together.
 
    Then it writes the release notes, pushes an annotated tag carrying them to origin, and
    publishes the GitHub Release. `--dry-run` does every check and prints the notes, but tags

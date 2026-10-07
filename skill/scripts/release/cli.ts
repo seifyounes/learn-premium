@@ -2,7 +2,7 @@
 //
 //   status             [--sha SHA] [--bump major|minor|patch | --version vX.Y.Z]
 //   notes              (--bump KIND | --version vX.Y.Z) [--sha SHA] [--out FILE]
-//   record-phone-pass  --sha SHA --devices TEXT --pyodide-seconds N [--url URL]   (the Owner's)
+//   record-phone-pass  --sha SHA --devices TEXT --pyodide-seconds N   (the Owner's)
 //   tag                (--bump KIND | --version vX.Y.Z) [--sha SHA] [--notes FILE] [--dry-run]
 //
 // The candidate is origin/main's tip unless --sha names another commit on it.
@@ -75,13 +75,14 @@ async function main(argv: string[], deps: CliDeps, out: string[]): Promise<numbe
       notes: { type: "string" },
       devices: { type: "string" },
       "pyodide-seconds": { type: "string" },
-      url: { type: "string" },
       "dry-run": { type: "boolean", default: false },
     },
   });
   const command = positionals[0];
   if (values.bump !== undefined && !BUMPS.includes(values.bump as Bump))
     throw new UsageError(`--bump takes ${BUMPS.join(", ")}`);
+  if (values.bump !== undefined && values.version !== undefined)
+    throw new UsageError("--bump and --version are alternatives; give one");
   const wanted = {
     ...(values.bump === undefined ? {} : { bump: values.bump as Bump }),
     ...(values.version === undefined ? {} : { version: values.version }),
@@ -171,7 +172,8 @@ async function main(argv: string[], deps: CliDeps, out: string[]): Promise<numbe
         out.push(`refused: only the Owner (@${owner}) records the real-phone pass; gh is signed in as @${viewer}`);
         return 1;
       }
-      const url = values.url ?? s.gallery.url;
+      // The commit's own deployment: the gallery step is green only when there is one.
+      const url = s.gallery.url;
       const description = passDescription(values.devices ?? "", values["pyodide-seconds"] ?? "");
       const yes = await deps.confirm(
         `Did you go through the Tool gallery at ${url ?? "(no URL)"} on a real phone (${values.devices}), ` +

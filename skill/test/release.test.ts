@@ -304,6 +304,24 @@ describe("tag", () => {
     expect(r.originTags().split("\n")).toEqual(["v0.1.0", "v0.1.1"]);
   });
 
+  test("the first release must be newer than v0.0.0", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r);
+    r.forge.ownerPass(sha);
+    const { code, stdout } = await r.release("tag", "--version", "v0.0.0");
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/v0\.0\.0 is not newer than v0\.0\.0/);
+    expect(r.originTags()).toBe("");
+  });
+
+  test("takes --bump or --version, never both", async () => {
+    const r = repo();
+    readyButForThePass(r);
+    const { code, stdout } = await r.release("tag", "--bump", "major", "--version", "v1.2.4");
+    expect(code).toBe(2);
+    expect(stdout).toMatch(/alternatives/);
+  });
+
   test("refuses a candidate that isn't on origin's main", async () => {
     const r = repo();
     readyButForThePass(r);
@@ -362,6 +380,20 @@ describe("majors and migrations", () => {
     expect(code).toBe(1);
     expect(stdout).toMatch(/ships template\/migrations\/v1\.ts, so it must be a major release/);
     expect(r.originTags()).toBe("");
+  });
+
+  test("a later release can't change a migration an earlier one shipped", async () => {
+    const r = await afterFirstRelease({ "template/migrations/v1.ts": MIGRATION });
+    expect((await r.release("tag", "--bump", "major")).code).toBe(0);
+    const sha = r.commit("rewrite the v1 migration", {
+      "template/migrations/v1.ts": `export const describe = "now a no-op";\nexport function migrate(): void {}\n`,
+    });
+    r.forge.ciGreen(sha);
+    r.forge.liveGreen(sha);
+    r.forge.ownerPass(sha);
+    const { code, stdout } = await r.release("tag", "--bump", "patch");
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/changes template\/migrations\/v1\.ts, which v1\.0\.0 shipped/);
   });
 
   test("a later release keeps every migration an earlier one shipped", async () => {
@@ -486,6 +518,25 @@ describe("record-phone-pass", () => {
     expect(code).toBe(1);
     expect(stdout).toMatch(/2\. Tool gallery deployed, live gates green: no/);
     expect(r.forge.statusesBySha.get(sha)?.some((s) => s.context === PHONE_PASS_CONTEXT) ?? false).toBe(false);
+  });
+
+  test("refuses when there's no deployment URL serving that commit's own build to test", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r);
+    r.forge.gallery = null;
+    const { code, stdout } = await r.release(
+      "record-phone-pass",
+      "--sha",
+      sha,
+      "--devices",
+      "iPhone 13 Safari",
+      "--pyodide-seconds",
+      "14",
+    );
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/2\. Tool gallery deployed, live gates green: no/);
+    expect(stdout).toMatch(/no deployment URL of this commit's own build/);
+    expect(r.forge.statusesBySha.get(sha)?.some((s) => s.context === PHONE_PASS_CONTEXT)).toBe(false);
   });
 
   test("records nothing unless the Owner confirms, in a terminal, that the phone pass happened", async () => {

@@ -92,5 +92,9 @@ describe("runMigrations", () => {
     await expect(runMigrations({ contentDir: course(), from: "v3.0.0", to: "v2.0.0", dir })).rejects.toThrow(
       /can't migrate down/,
     );
+    // Within one major too: no migration would run, but the request is still wrong.
+    await expect(runMigrations({ contentDir: course(), from: "v1.5.0", to: "v1.2.0", dir })).rejects.toThrow(
+      /can't migrate down/,
+    );
   });
 });
