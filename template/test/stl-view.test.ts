@@ -11,6 +11,7 @@ import {
   readAccumulator,
   statusBits,
   typesAfter,
+  watchRows,
 } from "../src/sims/stl/view.ts";
 
 const model: StlModel = {
@@ -117,6 +118,26 @@ describe("the STL sim's readings", () => {
     const trace = new StlRun(listing).scan({ "MW 0": 13824 });
     const types = accumulatorTypes(trace, listing);
     expect(readAccumulator(trace[1]?.accu1 ?? 0, types[1]?.accu1 ?? "INT").value).toBe("1.0");
+  });
+
+  it("marks only the BOOL a statement wrote, not the others sharing its byte (Codex review)", () => {
+    const listing: StlModel = {
+      source: [
+        "ORGANIZATION_BLOCK OB 1",
+        "BEGIN",
+        "      SET",
+        "      =     M      1.0",
+        "END_ORGANIZATION_BLOCK",
+      ].join("\n"),
+      inputs: {},
+      watch: { "M 1.0": "BOOL", "M 1.1": "BOOL" },
+    };
+    const run = new StlRun(listing);
+    run.begin({});
+    const before = run.cpu.mem.clone();
+    run.step();
+    const assign = run.step();
+    expect(watchRows(run.cpu.mem, listing, assign.writes, before).map((r) => r.written)).toEqual([true, false]);
   });
 
   it("shows AR 1 as a pointer, a bit FC105 left as ?, and a statement's writes byte by byte", () => {

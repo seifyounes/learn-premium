@@ -2,7 +2,7 @@
 // as one OB 1, every operand is an absolute address wide enough for its type, the example's values
 // set every input, and every value fits its type. The content contract reports each problem.
 
-import { fits, parseAddress, WIDTH_OF, type S7Type } from "../s7/core.ts";
+import { AREA_SIZES, fits, inRange, parseAddress, WIDTH_OF, type S7Type } from "../s7/core.ts";
 import type { StlModel, TuneRange } from "./engine.ts";
 import { ListingError, parseStl } from "./parse.ts";
 
@@ -26,6 +26,8 @@ export function stlProblems(
       if (!a) add(["model", key, operand], `"${operand}" isn't an absolute address like I 0.1, MW 20 or PIW 256`);
       else if (a.width !== WIDTH_OF[type])
         add(["model", key, operand], `${operand} is a ${a.width}, which can't hold a ${type}`);
+      else if (!inRange(a))
+        add(["model", key, operand], `${operand} runs past the ${AREA_SIZES[a.area]} bytes of ${a.area}`);
       else if (key === "inputs" && a.area === "Q")
         add(["model", key, operand], `${operand} is an output: a student sets inputs (I) or memory (M)`);
       else if (key === "watch" && a.peripheral)

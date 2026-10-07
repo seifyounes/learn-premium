@@ -188,7 +188,10 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
   const { scan, selected } = view;
   const entry = scan.trace[selected];
   const mem = useMemo(() => memoryAt(scan, selected), [scan, selected]);
-  const rows = useMemo(() => watchRows(mem, model, entry?.writes), [mem, model, entry]);
+  const rows = useMemo(
+    () => watchRows(mem, model, entry?.writes, memoryAt(scan, selected - 1)),
+    [mem, model, entry, scan, selected],
+  );
   const ran = useMemo(() => {
     const set = new Set<number>();
     for (const t of scan.trace) for (let l = t.line; l <= t.lastLine; l++) set.add(l);

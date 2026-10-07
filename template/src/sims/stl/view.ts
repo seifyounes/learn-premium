@@ -186,11 +186,18 @@ export interface WatchRow {
   written: boolean;
 }
 
-export function watchRows(mem: S7Memory, model: StlModel, writes: readonly ByteWrite[] = []): WatchRow[] {
+export function watchRows(
+  mem: S7Memory,
+  model: StlModel,
+  writes: readonly ByteWrite[] = [],
+  /** Memory before the statement: a BOOL counts as written only if its own bit changed, not its byte. */
+  before?: S7Memory,
+): WatchRow[] {
   return Object.entries(model.watch).map(([operand, type]) => {
     const a = operandAddress(operand, type);
     const bytes = a.width === "bit" ? 1 : a.width === "byte" ? 1 : a.width === "word" ? 2 : 4;
-    const written = writes.some((w) => w.area === a.area && w.offset >= a.byte && w.offset < a.byte + bytes);
+    const touched = writes.some((w) => w.area === a.area && w.offset >= a.byte && w.offset < a.byte + bytes);
+    const written = a.width === "bit" && before ? touched && before.read(a) !== mem.read(a) : touched;
     return { operand, value: formatValue(type, mem.read(a)), written };
   });
 }

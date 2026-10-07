@@ -144,6 +144,13 @@ describe("FC105's leftovers", () => {
 });
 
 describe("the inputs a listing takes", () => {
+  it("keeps every operand inside its memory area (Codex review)", () => {
+    const m = model(ob1("      L     MW     2"), { "MW 511": "INT" });
+    expect(stlProblems(m, { "MW 511": 0 }, {}, [])).toEqual([
+      { path: ["model", "inputs", "MW 511"], message: "MW 511 runs past the 512 bytes of M" },
+    ]);
+  });
+
   it("steps an integer input's slider by whole numbers only (Codex review)", () => {
     const m = model(ob1("      L     MW     2"), { "MW 2": "INT" });
     expect(stlProblems(m, { "MW 2": 0 }, { "MW 2": { min: 0, max: 2, step: 0.5 } }, [])).toEqual([
