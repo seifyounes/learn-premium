@@ -169,7 +169,10 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
    answer: `$L record checkpoint --wave <W> --key <key> --question "<the item's question, exactly as
    the Checkpoint gives it>" --answer "<the Owner's words>"`, adding `--ruling slip|divergence` for
    a sheet-vs-recompute item. Only the Owner rules Slip or Divergence: `ready` holds every Slip and
-   Divergence the content ships to a stored ruling on the sheet value its question names. Apply each answer: a Slip ships the corrected value with `provenance.slips`, a
+   Divergence the content ships to a stored ruling on the sheet value its question names. One no gate
+   raised (a Practice answer, a Summary value) is asked like any other item and recorded under
+   `NN/ruling/<name>` with the question `<content file>: … prints <value>, but …`. A job that can't go
+   on without the Owner records `--result checkpoint --detail "<what it needs>"`, and joins the batch. Apply each answer: a Slip ships the corrected value with `provenance.slips`, a
    Divergence keeps the Professor's value with `provenance.divergences`, an unreadable region takes
    the Owner's reading, a conflict follows the Owner's pick. Re-run the gates and the Checkpoint until
    nothing is open or unapplied.
