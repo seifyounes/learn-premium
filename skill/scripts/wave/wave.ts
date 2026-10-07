@@ -14,7 +14,7 @@ import { CONTENT_DIR } from "../intake/scaffold.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { requireLedger } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
-import { readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
+import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
 
 /** The gate points a Module merges on: per job and per Module scoped to it, per deploy on the whole Course. */
 export const MERGE_POINTS = ["job", "module", "deploy"] as const;
@@ -93,7 +93,7 @@ export const STYLE_SHEET_FILE = "style-sheet.yaml";
 
 export interface CheckpointItem {
   key: string;
-  kind: "gate" | "unreadable" | "conflict";
+  kind: "gate" | "unreadable" | "conflict" | "job";
   question: string;
   /** For a gate's item: the gate, and whether it is a sheet-vs-recompute item needing a ruling. */
   gate?: string;
@@ -173,6 +173,19 @@ export function raisedItems(project: string, id: string, preview?: string) {
   for (const item of readingCheckpointItems(privateFolderOf(ledger.intake.materialsPath), id)) {
     items.set(item.key, { ...item, sheet: false });
   }
+  // A job of the Module's running wave that escalated (`record job --result checkpoint`) waits for the Owner too.
+  const running = current(ledger.waves).filter((w) => w.kind === "module" && w.target === id && w.state === "running");
+  for (const job of current(ledger.jobs).filter(
+    (j) => j.result === "checkpoint" && running.some((w) => w.id === j.wave),
+  )) {
+    const key = itemKey(id, "job", job.job, [job.detail ?? ""]);
+    items.set(key, {
+      key,
+      kind: "job",
+      question: `The ${job.job} job needs the Owner: ${job.detail ?? "(it recorded no detail; ask the job what it needs)"}`,
+      sheet: false,
+    });
+  }
   return { ledger, folder, preview: base, items: [...items.values()] };
 }
 
@@ -249,11 +262,13 @@ function magnitude(written: string): number | null {
 function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string): string[] {
   if (typeof rulings === "string") return [rulings];
   const answered = current(ledger.checkpoints).flatMap((c) => {
-    const [module, gate] = c.key.split("/");
+    // A gate's sheet item, or a ruling no gate raised (a Practice answer, a Summary value), recorded
+    // under `NN/ruling/<name>`: either way, its question names the content file and the sheet value.
+    const [module, kind] = c.key.split("/");
     const [, entry, written] = SHEET_QUESTION.exec(c.question) ?? [];
     const printed = written === undefined ? null : magnitude(written);
-    if (module !== id || gate === undefined || !SHEET_GATES.has(gate) || c.ruling === null || printed === null)
-      return [];
+    const ruledItem = kind !== undefined && (SHEET_GATES.has(kind) || kind === "ruling");
+    if (module !== id || !ruledItem || c.ruling === null || printed === null) return [];
     return [{ ruling: c.ruling, entry, printed }];
   });
   // Bound to the item: the same kind of ruling, in the same content file, and every sheet value the
@@ -265,7 +280,7 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
     .filter((r) => r.printed.length === 0 || !r.printed.every((n) => ruledOn(r, n)))
     .map(
       (r) =>
-        `${r.entry} ships a ${r.kind} on ${r.printed.join(", ") || "no number"} that no Owner answer rules: record his ${r.kind} ruling on the item that raised it, with its question as the Checkpoint gives it`,
+        `${r.entry} ships a ${r.kind} on ${r.printed.join(", ") || "no number"} that no Owner answer rules: record his ${r.kind} ruling on the item that raised it, with its question as the Checkpoint gives it, or, where no gate raised it, under ${id}/ruling/<name> with the question "${r.entry}: … prints <value>, but …"`,
     );
 }
 

@@ -515,6 +515,86 @@ describe("ready, the Module wave's merge gate", () => {
     ]);
   });
 
+  test("a job that escalated to the Owner is a Checkpoint item, and the wave waits for its answer", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    const answerAll = () => {
+      for (const i of must(checkpointOf(project)).open as { key: string; question: string; sheet: boolean }[])
+        must(
+          ledger(
+            "record",
+            "checkpoint",
+            ...holder,
+            ...["--wave", waveId, "--key", i.key, "--question", i.question, "--answer", "a"],
+            ...(i.sheet ? ["--ruling", "slip"] : []),
+          ),
+        );
+    };
+    answerAll();
+    gateReports(project, []);
+    must(
+      ledger(
+        "record",
+        "job",
+        ...holder,
+        ...["--wave", waveId, "--job", "recompute", "--result", "checkpoint"],
+        ...["--detail", "Sheet 2's question 3 doesn't fix the step size; the recompute can't work it out"],
+      ),
+    );
+
+    const { open } = must(checkpointOf(project));
+    const waiting = ready(project, waveId);
+    answerAll();
+
+    expect(open).toEqual([
+      expect.objectContaining({
+        key: expect.stringMatching(/^01\/job\/recompute-[0-9a-f]{6}$/),
+        kind: "job",
+        question:
+          "The recompute job needs the Owner: Sheet 2's question 3 doesn't fix the step size; the recompute can't work it out",
+      }),
+    ]);
+    expect(waiting.out.problems).toEqual([
+      expect.stringMatching(/^Checkpoint item 01\/job\/recompute-.* is unanswered$/),
+    ]);
+    expect(ready(project, waveId).out.problems).toEqual([]);
+  });
+
+  test("a Slip or Divergence no gate raises (in a Practice item) is authorized by an Owner ruling recorded for it", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    for (const i of must(checkpointOf(project)).open as { key: string; question: string; sheet: boolean }[])
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", i.key, "--question", i.question, "--answer", "a"],
+          ...(i.sheet ? ["--ruling", "slip"] : []),
+        ),
+      );
+    gateReports(project, []);
+    const practice = {
+      verifier: {
+        verify: () => ({ green: true, problems: [] }),
+        rulings: () => [{ entry: "modules/01-m01/practice/2.yaml", kind: "divergence" as const, printed: [9.6] }],
+      },
+    };
+
+    const before = ready(project, waveId, practice);
+    must(
+      ledger(
+        "record",
+        "checkpoint",
+        ...holder,
+        ...["--wave", waveId, "--key", "01/ruling/practice-2-answer"],
+        ...["--question", "modules/01-m01/practice/2.yaml: the key prints 9.6, but the recompute gives 9.4"],
+        ...["--answer", "The exam marks 9.6.", "--ruling", "divergence"],
+      ),
+    );
+
+    expect(before.out.problems).toEqual([expect.stringContaining("practice/2.yaml ships a divergence on 9.6")]);
+    expect(ready(project, waveId, practice).out.problems).toEqual([]);
+  });
+
   test("the template's verify finds the Course's content from a relative project path", () => {
     const { project } = waveAtCheckpoint();
     // A stand-in gate CLI: green only when --content names the project's content folder.
