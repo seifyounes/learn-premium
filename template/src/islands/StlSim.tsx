@@ -113,7 +113,6 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
   /** The next statement: a new scan begins first if the last one ended. */
   const step = () => {
     const { run, scan } = view;
-    setPending(false);
     if (replay) {
       const next = scan.done ? replayScan(replay, scan.number % replay.length) : scan;
       const all = replay[next.number - 1]?.trace ?? [];
@@ -124,7 +123,9 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
     if (!run) return;
     let current = scan;
     if (scan.done || scan.error) {
+      // New inputs are taken as a scan begins, and only then.
       run.begin(inputs);
+      setPending(false);
       current = {
         number: scan.number + 1,
         before: run.cpu.mem.clone(),
@@ -144,7 +145,6 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
   /** The rest of this scan, or a whole new one if it ended. */
   const scanToEnd = () => {
     const { run, scan } = view;
-    setPending(false);
     if (replay) {
       const next = scan.done ? replayScan(replay, scan.number % replay.length) : scan;
       const trace = replay[next.number - 1]?.trace ?? [];
@@ -153,6 +153,7 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
     }
     if (!run) return;
     if (scan.done || scan.error) {
+      setPending(false);
       const fresh = runScan(run, inputs, scan.number + 1, typesAfter(scan.trace, model, scan.carried));
       setView({ run, scan: fresh, selected: fresh.trace.length - 1 });
       return;
