@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -169,6 +169,16 @@ describe("a gate run", () => {
       const linkedInside = course({ "course.yaml": "name: x\n", "modules/.gitkeep": "" });
       symlinkSync(outside, join(linkedInside, "modules", "01-first"), "junction");
       expect((await deployRun(linkedInside, [contentGate])).gates[0]?.status).toBe("failed");
+      const linkedKeep = course({ "course.yaml": "name: x\n", "modules/x": "" });
+      rmSync(join(linkedKeep, "modules", "x"));
+      symlinkSync(outside, join(linkedKeep, "modules", ".gitkeep"), "junction");
+      expect((await deployRun(linkedKeep, [contentGate])).gates[0]?.status).toBe("failed");
+    });
+
+    it("doesn't take a course.yaml that isn't a plain file for a Course", async () => {
+      const linkedConfig = course({ "modules/.gitkeep": "" });
+      symlinkSync(mkdtempSync(join(tmpdir(), "lp-runner-outside-")), join(linkedConfig, "course.yaml"), "junction");
+      expect((await deployRun(linkedConfig, [contentGate])).gates[0]?.status).toBe("failed");
     });
 
     it("still fails a content gate that covered nothing in a run scoped to one Module", async () => {

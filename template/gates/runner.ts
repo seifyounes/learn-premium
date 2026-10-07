@@ -6,7 +6,7 @@
 //
 // The run leaves a Gate report bound to the exact commit it checked. `verifyReport` is the only
 // way to call a report green: it re-derives the verdict rather than trusting the report's own.
-import { existsSync, lstatSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { lstatSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "astro/zod";
@@ -168,22 +168,24 @@ async function runGate(gate: Gate, input: GateInput): Promise<GateResult> {
 /**
  * A whole-Course run on a Course with nothing under `modules/` yet: the one case where a content gate
  * (a per-job gate) may cover nothing and pass, so an empty Course project's deploy run is green. Any
- * entry under `modules/` but plain folders and intake's `modules/.gitkeep` counts as a Module begun,
- * and a folder without a course.yaml isn't a Course. A `modules/` that is a link (dangling, or out of
- * the commit the report is bound to) or can't be read isn't empty: the gate fails, recorded in the
- * report, rather than passing or crashing the run.
+ * entry under `modules/` but plain folders and intake's plain-file `modules/.gitkeep` counts as a
+ * Module begun, and a folder without a plain-file course.yaml isn't a Course. A link anywhere here
+ * (dangling, or out of the commit the report is bound to) or an unreadable entry never passes: the
+ * gate fails, recorded in the report, rather than passing or crashing the run.
  */
 function courseWithoutModules({ contentDir, module }: GateInput): boolean {
-  if (module !== undefined || !existsSync(join(contentDir, "course.yaml"))) return false;
+  if (module !== undefined) return false;
   const modules = join(contentDir, "modules");
   try {
-    // lstat throughout: a link is never taken for an absent or a plain folder.
+    // lstat throughout: a link is never taken for an absent folder, a plain folder or a plain file.
+    if (lstatSync(join(contentDir, "course.yaml"), { throwIfNoEntry: false })?.isFile() !== true) return false;
     const root = lstatSync(modules, { throwIfNoEntry: false });
     if (root === undefined) return true;
     if (!root.isDirectory()) return false;
-    return readdirSync(modules, { recursive: true, encoding: "utf8" }).every(
-      (entry) => entry === ".gitkeep" || lstatSync(join(modules, entry)).isDirectory(),
-    );
+    return readdirSync(modules, { recursive: true, encoding: "utf8" }).every((entry) => {
+      const stat = lstatSync(join(modules, entry));
+      return entry === ".gitkeep" ? stat.isFile() : stat.isDirectory();
+    });
   } catch {
     return false;
   }
