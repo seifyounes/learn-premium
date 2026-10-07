@@ -10,6 +10,8 @@ on:
       - "fixture-course/**"
       # The deploy gates' evidence rules: test/evidence-rules.test.ts holds this copy to the template's.
       - "skill/scripts/go-public/evidence.ts"
+      # The awlsim version the STL oracle runs (its logs must be that version's).
+      - "skill/uv.lock"
       - ".github/workflows/template-ci.yml"
   workflow_dispatch:
 

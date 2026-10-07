@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { STATUS_BITS } from "../src/sims/s7/core.ts";
 import { quantities, StlRun, unsupportedStatements, type StlModel } from "../src/sims/stl/engine.ts";
 import { ListingError, parseStl } from "../src/sims/stl/parse.ts";
+import { stlProblems } from "../src/sims/stl/validate.ts";
 
 const ob1 = (...lines: string[]) => ["ORGANIZATION_BLOCK OB 1", "BEGIN", ...lines, "END_ORGANIZATION_BLOCK"].join("\n");
 const model = (source: string, inputs: StlModel["inputs"] = {}, watch: StlModel["watch"] = { "MW 0": "INT" }) => ({
@@ -139,6 +140,15 @@ describe("FC105's leftovers", () => {
 
   it("don't stop what FC105 wrote: OUT and RET_VAL", () => {
     expect(quantities(scaled(), { "MW 2": 27649 })).toEqual({ "MD 6": 100, "MW 4": 8 });
+  });
+});
+
+describe("the inputs a listing takes", () => {
+  it("steps an integer input's slider by whole numbers only (Codex review)", () => {
+    const m = model(ob1("      L     MW     2"), { "MW 2": "INT" });
+    expect(stlProblems(m, { "MW 2": 0 }, { "MW 2": { min: 0, max: 2, step: 0.5 } }, [])).toEqual([
+      { path: ["tune", "MW 2"], message: "MW 2 holds a INT: its slider steps by whole numbers, not 0.5" },
+    ]);
   });
 });
 

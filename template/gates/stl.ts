@@ -19,6 +19,9 @@ import { compareWithOracle, logShapeProblem, oracleLog, type OracleLog } from ".
 import { parseStl } from "../src/sims/stl/parse.ts";
 import { isLive, type LiveSim } from "../src/sims/kinds.ts";
 import { RECOMPUTE_LOG, threeWay } from "../src/sims/three-way.ts";
+import { agreesAtPrint, printAt, readPrinted } from "../src/sims/precision.ts";
+import { numbersIn } from "../src/provenance/values.ts";
+import { parseCell } from "../src/worked/cells.ts";
 import { courseCopy, courseFiles } from "./course-files.ts";
 import type { Finding, Gate, GateInput } from "./runner.ts";
 import { problems, workedExample } from "./sims.ts";
@@ -98,8 +101,39 @@ export const stlGate: Gate = {
         // The step-through plays awlsim's own trace: its log must be there and current.
         const log = readLog(listing, logEntry);
         const shape = typeof log === "string" ? log : logShapeProblem(listing.cases, log);
-        if (shape) block(shape);
-        else coverage.stepThroughs += 1;
+        if (shape || typeof log === "string") {
+          block(shape ?? "no oracle log");
+          continue;
+        }
+        coverage.stepThroughs += 1;
+        // No engine runs it, so its sheet is checked two ways: awlsim against the sheet as printed.
+        if (s.worked !== undefined && Object.keys(s.sheet).length > 0) {
+          const example = workedExample(files, moduleOf(at) ?? "", s.worked);
+          if (typeof example === "string") {
+            block(example);
+            continue;
+          }
+          const values = awlsimWatch(listing, log);
+          const divergences = new Set(example.sheet.divergences.flatMap((d) => numbersIn(d).map((n) => n.value)));
+          for (const [cell, quantity] of Object.entries(s.sheet)) {
+            const { row, col } = parseCell(cell);
+            const printed = readPrinted(example.sheet.rows[row]?.[col] ?? "");
+            const value = values[quantity];
+            if (typeof printed === "string" || value === undefined) {
+              block(
+                `sheet cell ${cell} (${quantity}) can't be compared: ${typeof printed === "string" ? printed : "the watch table has no such operand"}`,
+              );
+              continue;
+            }
+            coverage.sheetValues += 1;
+            if (!agreesAtPrint(value, printed) && !divergences.has(Math.abs(printed.value)))
+              findings.push({
+                outcome: "checkpoint",
+                at: example.entry,
+                message: `sheet cell ${cell} prints ${printed.written}, but awlsim gives ${printAt(value, printed.decimals)} (${quantity}): rule it a Slip or a Divergence`,
+              });
+          }
+        }
         continue;
       }
       if (s.gateGap !== undefined) {
