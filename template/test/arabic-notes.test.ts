@@ -29,6 +29,10 @@ describe("an Arabic note's prose", () => {
     expect(ltrRuns(html)).toEqual(["+20 100 123 4567", "2026-11-10", "3-5", "1,234.5", "25%"]);
   });
 
+  it("keeps a decimal written without its leading zero whole, sign included", () => {
+    expect(ltrRuns(arabicProse("الكفاءة .5 والفرق −.25 أي (.75)"))).toEqual([".5", "−.25", ".75"]);
+  });
+
   it("doesn't take a dash glued to a word as a sign, nor a sentence's full stop", () => {
     expect(ltrRuns(arabicProse("صفحة-3 والسمك 1.5."))).toEqual(["3", "1.5"]);
   });
