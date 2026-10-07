@@ -112,8 +112,15 @@ describe("reconcile", () => {
     );
     writeFiles(privateFolder, { "waves/01/crops/eq-1.png": "png", "waves/01/crops/note-1.png": "png" });
     resolutions(privateFolder, [
-      { key: "eq-1", crop: "waves/01/crops/eq-1.png", ruling: "a", value: null },
-      { key: "note-1", crop: "waves/01/crops/note-1.png", ruling: "unreadable", value: null },
+      { key: "eq-1", a: "0.25", b: "0.52", crop: "waves/01/crops/eq-1.png", ruling: "a", value: null },
+      {
+        key: "note-1",
+        a: "check sign",
+        b: "check size",
+        crop: "waves/01/crops/note-1.png",
+        ruling: "unreadable",
+        value: null,
+      },
     ]);
 
     const { code, out } = reconcile(project);
@@ -137,7 +144,9 @@ describe("reconcile", () => {
   test("a dispute settled without a crop in the Private folder is refused: disputes are settled on what the Professor wrote", () => {
     const { project, privateFolder } = newCourse();
     readings(privateFolder, [item("eq-1", "0.25")], [item("eq-1", "0.52")]);
-    resolutions(privateFolder, [{ key: "eq-1", crop: "waves/01/crops/eq-1.png", ruling: "a", value: null }]);
+    resolutions(privateFolder, [
+      { key: "eq-1", a: "0.25", b: "0.52", crop: "waves/01/crops/eq-1.png", ruling: "a", value: null },
+    ]);
 
     const { code, out } = reconcile(project);
 
@@ -176,6 +185,23 @@ describe("reconcile", () => {
     expect(reconcile(project).code).toBe(1);
     expect(existsSync(join(privateFolder, "waves/01/reading.json"))).toBe(false);
     expect(existsSync(join(privateFolder, "waves/01/checkpoint-items.json"))).toBe(false);
+  });
+
+  test("a ruling stands only for the values it was made on: a reader changing a disputed value reopens the dispute", () => {
+    const { project, privateFolder } = newCourse();
+    readings(privateFolder, [item("eq-1", "0.25")], [item("eq-1", "0.52")]);
+    writeFiles(privateFolder, { "waves/01/crops/eq-1.png": "png" });
+    resolutions(privateFolder, [
+      { key: "eq-1", a: "0.25", b: "0.52", crop: "waves/01/crops/eq-1.png", ruling: "a", value: null },
+    ]);
+    must(reconcile(project));
+    readings(privateFolder, [item("eq-1", "0.26")], [item("eq-1", "0.52")]);
+
+    const reopened = reconcile(project);
+
+    expect(reopened.code).toBe(1);
+    expect(reopened.out.disputes).toEqual([expect.objectContaining({ key: "eq-1", a: "0.26", b: "0.52" })]);
+    expect(existsSync(join(privateFolder, "waves/01/reading.json"))).toBe(false);
   });
 
   test("a conflict whose values change is a new question, under a new key", () => {
@@ -248,7 +274,9 @@ function waveAtCheckpoint() {
   );
   readings(privateFolder, [item("eq-1", "0.25"), item("eq-2", "3")], [item("eq-1", "0.25"), item("eq-2", "8")]);
   writeFiles(privateFolder, { "waves/01/crops/eq-2.png": "png" });
-  resolutions(privateFolder, [{ key: "eq-2", crop: "waves/01/crops/eq-2.png", ruling: "unreadable", value: null }]);
+  resolutions(privateFolder, [
+    { key: "eq-2", a: "3", b: "8", crop: "waves/01/crops/eq-2.png", ruling: "unreadable", value: null },
+  ]);
   must(reconcile(project));
   writeFiles(project, {
     "content/style-sheet.yaml": "writtenFrom: 01-m01\n",

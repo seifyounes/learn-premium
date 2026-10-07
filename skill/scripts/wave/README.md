@@ -46,8 +46,9 @@ Everything the Blind readers and reconcile touch carries the Professor's text, s
   trailing zeros aside.
 - `crops/<key>.png`: the rendered region of each dispute, cut with the Materials reader's `crop`.
 - `resolutions.json`, written by the main agent after looking at each crop:
-  `{"resolutions": [{"key", "crop": "waves/NN/crops/<key>.png", "ruling": "a"|"b"|"read"|"unreadable",
-  "value"}]}`; `value` is the reading for `read`, else null.
+  `{"resolutions": [{"key", "a", "b", "crop": "waves/NN/crops/<key>.png", "ruling": "a"|"b"|"read"|"unreadable",
+  "value"}]}`; `a` and `b` copy what the dispute listed (a ruling stands only while the readers still
+  read that), and `value` is the reading for `read`, else null.
 - `reading.json` (the settled reading every writer and the recompute work from, with `inputs`, a
   hash of the readings and rulings it was settled from) and `checkpoint-items.json`, written by
   `reconcile`. A reconcile left with unsettled disputes deletes both, and `ready` refuses a settled
