@@ -120,6 +120,13 @@ export function createProject(options: CreateOptions) {
       `the Materials folder ${materials} is inside the Course project's folder ${project}`,
     );
   }
+  // The Course project is a repo: the Private folder can't be it, inside it or around it.
+  if (within(privateFolder, project) || within(project, privateFolder)) {
+    throw new LedgerError(
+      "refused",
+      `the Course project ${project} would be or hold the Private folder ${privateFolder}; it sits outside any repo`,
+    );
+  }
   const repo = enclosingRepo(privateFolder);
   if (repo !== null) {
     throw new LedgerError(

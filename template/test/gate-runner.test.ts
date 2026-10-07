@@ -161,6 +161,16 @@ describe("a gate run", () => {
       expect((await deployRun(dangling, [contentGate])).gates[0]?.status).toBe("failed");
     });
 
+    it("doesn't vouch for a modules/ that links outside the Course, empty or not", async () => {
+      const outside = mkdtempSync(join(tmpdir(), "lp-runner-outside-"));
+      const linked = course({ "course.yaml": "name: x\n" });
+      symlinkSync(outside, join(linked, "modules"), "junction");
+      expect((await deployRun(linked, [contentGate])).gates[0]?.status).toBe("failed");
+      const linkedInside = course({ "course.yaml": "name: x\n", "modules/.gitkeep": "" });
+      symlinkSync(outside, join(linkedInside, "modules", "01-first"), "junction");
+      expect((await deployRun(linkedInside, [contentGate])).gates[0]?.status).toBe("failed");
+    });
+
     it("still fails a content gate that covered nothing in a run scoped to one Module", async () => {
       expect((await deployRun(empty, [contentGate], "01-first")).gates[0]?.status).toBe("failed");
     });
