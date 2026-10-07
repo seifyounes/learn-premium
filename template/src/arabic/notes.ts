@@ -5,13 +5,13 @@
 import { escapeHtml, renderProse } from "../math/katex.ts";
 
 /**
- * A number as a note writes it, kept left to right as one run. It is a sign (only where it starts
- * a word, so a dash glued to a word stays a dash), a decimal point where the number opens with one
- * (`.5`, `−.25`), then digits with the separators of decimals, thousands, dates, times, ranges and
- * phone numbers between them (spaces included, so `+20 100 123 4567` stays one run), and a percent
- * sign. It always ends on a digit or `%`, so a sentence's full stop stays outside it.
+ * A number as a note writes it, kept left to right as one run. It is a sign (unless a letter or a
+ * digit comes before it, so a dash glued to a word stays a dash, and `القيمة:−5` keeps its minus), a
+ * decimal point where the number opens with one (`.5`, `−.25`), then digits with the separators of
+ * decimals, thousands, dates, times, ranges (`−5–−3`) and phone numbers between them (spaces
+ * included, so `+20 100 123 4567` stays one run), and a percent sign. It always ends on a digit or `%`, so a sentence's full stop stays outside it.
  */
-export const NUMBER_RUN = /(?:(?<=^|[\s([{«"'])[+\-−±])?(?:(?<=^|[\s([{«"'+\-−±])\.)?\d(?:[\d.,:/\-– ]*\d)?%?/gu;
+export const NUMBER_RUN = /(?:(?<![\p{L}\p{N}])[+\-−±])?(?:(?<![\p{L}\p{N}.])\.)?\d(?:[\d.,:/+\-−– ]*\d)?%?/gu;
 
 /** Plain note text as HTML, every number in it isolated left to right. */
 export function isolateNumbers(raw: string): string {

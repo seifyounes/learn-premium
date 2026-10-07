@@ -33,6 +33,10 @@ describe("an Arabic note's prose", () => {
     expect(ltrRuns(arabicProse("الكفاءة .5 والفرق −.25 أي (.75)"))).toEqual([".5", "−.25", ".75"]);
   });
 
+  it("keeps a sign after punctuation, and a range of signed numbers, whole", () => {
+    expect(ltrRuns(arabicProse("القيمة:−5 والمدى −5–−3 أو =+2"))).toEqual(["−5", "−5–−3", "+2"]);
+  });
+
   it("doesn't take a dash glued to a word as a sign, nor a sentence's full stop", () => {
     expect(ltrRuns(arabicProse("صفحة-3 والسمك 1.5."))).toEqual(["3", "1.5"]);
   });

@@ -146,6 +146,10 @@ export const layoutSweep = browserGate(
       plant: plantInMain('<p lang="ar" dir="rtl">الوجه الخارجي عند −5 درجات</p>'),
     },
     {
+      defect: "a number's sign in an Arabic note left outside its run",
+      plant: plantInMain('<p lang="ar" dir="rtl">القيمة:−<span dir="ltr">5</span> درجات</p>'),
+    },
+    {
       defect: "an Arabic note laid out left to right",
       plant: plantInMain('<p lang="ar" dir="ltr">ملاحظة بالعربية</p>'),
     },
