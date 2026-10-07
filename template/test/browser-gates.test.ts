@@ -38,6 +38,8 @@ const CAUGHT_BY: Record<string, RegExp> = {
     /^the page scrolls sideways: \d+px wide in a \d+px viewport \((?:(?:chromium|webkit) \d+px rtl(?:, |\)$))+/,
   "a number in an Arabic note left to run right to left":
     /a number in an Arabic note runs right to left: "الوجه الخارجي عند −5 درجات"/,
+  "a number's sign in an Arabic note left outside its run":
+    /a number's sign in an Arabic note runs right to left: "القيمة:−5"/,
   "an Arabic note laid out left to right": /an Arabic note is laid out left to right: "ملاحظة بالعربية"/,
   "a formula in an Arabic note left to run right to left": /a formula in an Arabic note runs right to left/,
   "a KaTeX error span on the page": /a KaTeX error on the page: ParseError: planted/,
