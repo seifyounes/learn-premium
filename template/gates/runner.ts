@@ -176,11 +176,11 @@ async function runGate(gate: Gate, input: GateInput): Promise<GateResult> {
 function courseWithoutModules({ contentDir, module }: GateInput): boolean {
   if (module !== undefined || !existsSync(join(contentDir, "course.yaml"))) return false;
   const modules = join(contentDir, "modules");
-  // lstat throughout: a link is never taken for an absent or a plain folder.
-  const root = lstatSync(modules, { throwIfNoEntry: false });
-  if (root === undefined) return true;
-  if (!root.isDirectory()) return false;
   try {
+    // lstat throughout: a link is never taken for an absent or a plain folder.
+    const root = lstatSync(modules, { throwIfNoEntry: false });
+    if (root === undefined) return true;
+    if (!root.isDirectory()) return false;
     return readdirSync(modules, { recursive: true, encoding: "utf8" }).every(
       (entry) => entry === ".gitkeep" || lstatSync(join(modules, entry)).isDirectory(),
     );
