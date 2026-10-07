@@ -370,6 +370,8 @@ keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.
   negative controls. A negative control that passes is a failure. Most controls must block; one
   whose defect only the Owner can settle (`expect: "checkpoint"`) must raise a Checkpoint item,
   and blocking it is a miss too.
+- `rulings [--module …]` prints (JSON) every Slip and Divergence the content carries; the Module
+  wave's merge gate holds each one to a stored Owner ruling.
 
 A Checkpoint item in a Gate report carries its `spot`: the page and anchor it shows at
 (`/01-slug/#worked-W01.1`), so the batched Checkpoint links to the exact place on the preview.

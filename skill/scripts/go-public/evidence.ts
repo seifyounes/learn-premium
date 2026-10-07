@@ -60,7 +60,17 @@ const RULES: Rule[] = [
     reason: "a folder named evidence/ (gate reports and recompute logs go in build-records/)",
     test: (folders) => folders.includes("evidence"),
   },
+  {
+    rule: "wave-reading",
+    reason: "a Module wave's Blind readings, rulings or settled reading (they live in the Private folder)",
+    test: (folders, file) => {
+      const waves = folders.lastIndexOf("waves");
+      return waves !== -1 && /^\d{2}$/.test(folders[waves + 1] ?? "") && WAVE_READING.test(file);
+    },
+  },
 ];
+
+const WAVE_READING = /^(reading(-[ab])?|resolutions|checkpoint-items)\.json$/;
 
 const READER_OUTPUT = new Set(["pages", "media", "transcripts"]);
 

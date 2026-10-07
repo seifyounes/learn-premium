@@ -166,9 +166,10 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
    content commit). Any content change after this re-runs all three points.
 9. **The Checkpoint:** `node "$W" checkpoint --project <P> --module NN`. Post its `markdown` in chat as
    one batch: every item links to its exact spot on the preview, or names its crop. Store each
-   answer: `$L record checkpoint --wave <W> --key <key> --question "<item>" --answer "<the Owner's
-   words>"`, adding `--ruling slip|divergence` for a sheet-vs-recompute item. Only the Owner rules
-   Slip or Divergence. Apply each answer: a Slip ships the corrected value with `provenance.slips`, a
+   answer: `$L record checkpoint --wave <W> --key <key> --question "<the item's question, exactly as
+   the Checkpoint gives it>" --answer "<the Owner's words>"`, adding `--ruling slip|divergence` for
+   a sheet-vs-recompute item. Only the Owner rules Slip or Divergence: `ready` holds every Slip and
+   Divergence the content ships to a stored ruling on the sheet value its question names. Apply each answer: a Slip ships the corrected value with `provenance.slips`, a
    Divergence keeps the Professor's value with `provenance.divergences`, an unreadable region takes
    the Owner's reading, a conflict follows the Owner's pick. Re-run the gates and the Checkpoint until
    nothing is open or unapplied.

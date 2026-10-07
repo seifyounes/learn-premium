@@ -10,6 +10,22 @@ describe("a value as the sheet prints it", () => {
     expect(readPrinted("1,250.5")).toEqual({ value: 1250.5, decimals: 1, written: "1,250.5" });
   });
 
+  it("keeps the sign that belongs to the number in a labelled cell", () => {
+    expect(readPrinted("$R = -0.04$")).toEqual({ value: -0.04, decimals: 2, written: "-0.04" });
+    expect(readPrinted("$\\Delta T = −3.5$")).toEqual({ value: -3.5, decimals: 1, written: "−3.5" });
+    expect(readPrinted("$R = 0.04$")).toEqual({ value: 0.04, decimals: 2, written: "0.04" });
+  });
+
+  it("reads scientific notation as one value, its precision from the mantissa and the power", () => {
+    expect(readPrinted("$4.0 \\times 10^{-2}$")).toEqual({ value: 0.04, decimals: 3, written: "4.0 \\times 10^{-2}" });
+    expect(readPrinted("$-1.25 \\times 10^{3}$")).toEqual({
+      value: -1250,
+      decimals: -1,
+      written: "-1.25 \\times 10^{3}",
+    });
+    expect(readPrinted("$k = 2 \\cdot 10^5$")).toEqual({ value: 200000, decimals: -5, written: "2 \\cdot 10^5" });
+  });
+
   it("refuses a cell that holds no number, or more than one", () => {
     expect(readPrinted("")).toBe("the cell is blank");
     expect(readPrinted("$\\theta_0$")).toBe("the cell holds no number");
@@ -31,6 +47,14 @@ describe("agreement at the sheet's printed precision", () => {
     expect(agreesAtPrint(0.26666666, sheet("0.27"))).toBe(true);
     expect(agreesAtPrint(0.26666666, sheet("0.3"))).toBe(true);
     expect(agreesAtPrint(4.3333, sheet("4"))).toBe(true);
+  });
+
+  it("compares scientific notation at the power its mantissa prints", () => {
+    expect(agreesAtPrint(0.0401, sheet("$4.0 \\times 10^{-2}$"))).toBe(true);
+    expect(agreesAtPrint(0.043, sheet("$4.0 \\times 10^{-2}$"))).toBe(false);
+    expect(agreesAtPrint(1262, sheet("$1.25 \\times 10^{3}$"))).toBe(true);
+    expect(agreesAtPrint(1290, sheet("$1.25 \\times 10^{3}$"))).toBe(false);
+    expect(agreesAtPrint(0.04, sheet("$R = -0.04$"))).toBe(false);
   });
 
   it("disagrees past it", () => {

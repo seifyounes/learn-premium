@@ -101,11 +101,17 @@ describe("the pre-commit gate", () => {
 
   it("blocks evidence-shaped paths: crops, transcriptions, the Materials reader's renders", () => {
     const { repo } = courseProject();
-    stage(repo, { "crops/01/eq-3.png": "crop", "notes/transcripts/l1.txt": "said", "page-003.png": "render" });
+    stage(repo, {
+      "crops/01/eq-3.png": "crop",
+      "notes/transcripts/l1.txt": "said",
+      "page-003.png": "render",
+      "waves/01/reading-a.json": '{"reading": "a Blind reader\'s transcription"}',
+    });
     expect(checkCommit(repo).findings.map((f) => f.path)).toEqual([
       "crops/01/eq-3.png",
       "notes/transcripts/l1.txt",
       "page-003.png",
+      "waves/01/reading-a.json",
     ]);
   });
 

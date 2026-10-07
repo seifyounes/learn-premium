@@ -20,37 +20,56 @@ import { readingCheckpointItems, settledReadingProblem, waveFolder } from "./rea
 export const MERGE_POINTS = ["job", "module", "deploy"] as const;
 export type MergePoint = (typeof MERGE_POINTS)[number];
 
-/** The template's gate verify, which re-derives a Gate report's verdict for the repo's HEAD. A seam: faked in tests. */
-export interface Verifier {
-  verify(project: string, point: MergePoint, module: string | undefined): { green: boolean; problems: string[] };
+/** A Slip or Divergence the content ships, by the magnitudes of the sheet's value it rules on. */
+export interface ContentRuling {
+  entry: string;
+  kind: "slip" | "divergence";
+  printed: number[];
 }
 
-/** Runs the Course project's own template layer: `node template/gates/cli.ts verify …`. */
+/**
+ * The Course project's own template layer, as the merge gate uses it. A seam: faked in tests.
+ * `verify` re-derives a Gate report's verdict for the repo's HEAD; `rulings` lists the Slips and
+ * Divergences the Module's content ships (or says why it can't).
+ */
+export interface Verifier {
+  verify(project: string, point: MergePoint, module: string | undefined): { green: boolean; problems: string[] };
+  rulings(project: string, module: string): ContentRuling[] | string;
+}
+
+/** Runs `node template/gates/cli.ts <args…>` in the Course project, from its template folder. */
+function gateCli(given: string, args: string[]) {
+  // Absolute before the child runs from the template folder, so --content names the project's content.
+  const project = resolve(given);
+  if (!existsSync(join(project, TEMPLATE_DIR, "gates", "cli.ts")))
+    return { ok: false, out: "", said: [`the template layer has no gate runner (${TEMPLATE_DIR}/gates/cli.ts)`] };
+  const child = spawnSync(
+    process.execPath,
+    [join("gates", "cli.ts"), ...args, "--content", join(project, CONTENT_DIR)],
+    { cwd: join(project, TEMPLATE_DIR), encoding: "utf8" },
+  );
+  if (child.error !== undefined) return { ok: false, out: "", said: [child.error.message] };
+  const said = `${child.stdout ?? ""}\n${child.stderr ?? ""}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return { ok: child.status === 0, out: child.stdout ?? "", said };
+}
+
+/** Runs the Course project's own template layer: `node template/gates/cli.ts verify|rulings …`. */
 export const templateVerifier: Verifier = {
-  verify(given, point, module) {
-    // Absolute before the child runs from the template folder, so --content names the project's content.
-    const project = resolve(given);
-    if (!existsSync(join(project, TEMPLATE_DIR, "gates", "cli.ts")))
-      return { green: false, problems: [`the template layer has no gate runner (${TEMPLATE_DIR}/gates/cli.ts)`] };
-    const child = spawnSync(
-      process.execPath,
-      [
-        join("gates", "cli.ts"),
-        "verify",
-        "--point",
-        point,
-        ...(module === undefined ? [] : ["--module", module]),
-        "--content",
-        join(project, CONTENT_DIR),
-      ],
-      { cwd: join(project, TEMPLATE_DIR), encoding: "utf8" },
-    );
-    const said = `${child.stdout ?? ""}\n${child.stderr ?? ""}`
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (child.error !== undefined) return { green: false, problems: [child.error.message] };
-    return { green: child.status === 0, problems: child.status === 0 ? [] : said };
+  verify(project, point, module) {
+    const run = gateCli(project, ["verify", "--point", point, ...(module === undefined ? [] : ["--module", module])]);
+    return { green: run.ok, problems: run.ok ? [] : run.said };
+  },
+  rulings(project, module) {
+    const run = gateCli(project, ["rulings", "--module", module]);
+    if (!run.ok) return `the template can't list the content's rulings: ${run.said.join("; ")}`;
+    try {
+      return (JSON.parse(run.out) as { rulings: ContentRuling[] }).rulings;
+    } catch (error) {
+      return `the template's rulings aren't JSON: ${(error as Error).message}`;
+    }
   },
 };
 
@@ -205,6 +224,31 @@ function markdownOf(id: string, open: CheckpointItem[], preview: string | null):
   return lines.join("\n");
 }
 
+/** The sheet value a sheet-vs-recompute item asks about: `… prints 1.45, but …`. */
+const PRINTS = /prints\s+[-−]?(\d[\d,]*(?:\.\d+)?|\.\d+)/;
+
+/**
+ * Every Slip or Divergence the Module's content ships without the Owner's matching answer: a
+ * sheet-vs-recompute item of this Module, answered with that ruling, about that sheet value. Only
+ * the Owner rules on the Professor's numbers; a ruling the gates no longer raise must still be his.
+ */
+function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string): string[] {
+  if (typeof rulings === "string") return [rulings];
+  const answered = current(ledger.checkpoints).flatMap((c) => {
+    const [module, gate] = c.key.split("/");
+    const printed = PRINTS.exec(c.question)?.[1];
+    if (module !== id || gate === undefined || !SHEET_GATES.has(gate) || c.ruling === null || printed === undefined)
+      return [];
+    return [{ ruling: c.ruling, printed: Number(printed.replace(/,/g, "")) }];
+  });
+  return rulings
+    .filter((r) => !answered.some((a) => a.ruling === r.kind && r.printed.includes(a.printed)))
+    .map(
+      (r) =>
+        `${r.entry} ships a ${r.kind} on ${r.printed.join(", ") || "no number"} that no Owner answer rules: record his ${r.kind} ruling on the item that raised it, with its question as the Checkpoint gives it`,
+    );
+}
+
 /** Whether the Course project's commits go through the template's pre-commit gate. */
 function hookInstalled(project: string): boolean {
   const child = spawnSync("git", ["-C", project, "config", "core.hooksPath"], { encoding: "utf8" });
@@ -271,6 +315,8 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
     problems.push(
       `Checkpoint item ${item.key} was ruled a ${item.ruling}, but the content doesn't carry the ruling yet (provenance ${item.ruling === "slip" ? "slips" : "divergences"})`,
     );
+
+  problems.push(...unruled(ledger, id, verifier.rulings(project, folder)));
 
   if (!hookInstalled(project))
     problems.push(`the pre-commit gate isn't the repo's hook: git config core.hooksPath ${HOOKS_PATH}`);
