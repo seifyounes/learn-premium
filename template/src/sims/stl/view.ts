@@ -94,10 +94,11 @@ function loadType(
 export function accumulatorTypes(
   trace: readonly Pick<TraceEntry, "op" | "text" | "ar1">[],
   model: StlModel,
+  /** The types transferred to memory in scans before this one (memory outlasts a scan); updated here. */
+  stored = new Map<string, AccumulatorType>(),
 ): { accu1: AccumulatorType; accu2: AccumulatorType }[] {
   let accu1: AccumulatorType = "INT";
   let accu2: AccumulatorType = "INT";
-  const stored = new Map<string, AccumulatorType>();
   return trace.map(({ op, text, ar1 }) => {
     const a = op === "L" || op === "T" ? addressOf(op, text, ar1) : undefined;
     if (op === "L") [accu2, accu1] = [accu1, loadType(text, a, model, stored)];
@@ -133,6 +134,17 @@ function declaredType(a: Address, model: StlModel) {
       if (named && formatAddress(named) === key) return type;
     }
   return undefined;
+}
+
+/** The types memory holds once a scan has run, from those it held before (cleared only by a cold start). */
+export function typesAfter(
+  trace: readonly Pick<TraceEntry, "op" | "text" | "ar1">[],
+  model: StlModel,
+  before: ReadonlyMap<string, AccumulatorType>,
+): Map<string, AccumulatorType> {
+  const stored = new Map(before);
+  accumulatorTypes(trace, model, stored);
+  return stored;
 }
 
 /** AR 1 as the pointer it holds: `P#60.0`. */
@@ -194,7 +206,8 @@ export function replayOf(model: StlModel, log: OracleLog, start: Inputs): Replay
       : program.statements.find((s) => line - 1 >= s.line && line - 1 <= s.lastLine);
   const mem = new S7Memory();
   return example.scans.map((scan, si) => {
-    applyInputs(mem, model, example.inputs[si] ?? start);
+    // The example's first scan is `start` itself: the log's JSON keeps no REAL's −0.
+    applyInputs(mem, model, si === 0 ? start : (example.inputs[si] ?? start));
     const before = (["I", "Q", "M"] as const).flatMap((area) =>
       Array.from(mem.areas[area].entries())
         .filter(([, b]) => b !== 0)
