@@ -381,6 +381,19 @@ describe("create", { timeout: 30_000 }, () => {
     ]);
   });
 
+  test("a Course project that would be the Private folder is refused, and nothing is made", async () => {
+    const work = workspace();
+    const materials = join(work, "heat-transfer");
+    writeFiles(materials, { "Lectures/L01 Conduction.pdf": "lecture one" });
+    const s = setup({ materials, work });
+
+    const { code, out } = await create(s, { slug: "heat-transfer-private" });
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/Private folder/);
+    expect(existsSync(join(work, "heat-transfer-private"))).toBe(false);
+  });
+
   test("a Private folder that is itself a repo is refused, and nothing is made", async () => {
     const s = setup();
     writeFiles(dirname(s.materials), { "Heat Transfer-private/.git/HEAD": "ref: refs/heads/main" });
