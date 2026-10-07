@@ -18,7 +18,14 @@ export function printAt(value: number, decimals: number): string {
   // Negative decimals round to tens, hundreds…, as a sheet printing `1.25 × 10^3` does.
   if (decimals < 0) {
     const unit = 10 ** -decimals;
-    return printAt(Math.round(value / unit) * unit, 0);
+    const rounded = Math.round(value / unit) * unit;
+    if (Math.abs(rounded) < LARGE) return printAt(rounded, 0);
+    // In powers of ten, keep the mantissa digits down to that unit: 1250000 at tens of thousands is 1.25e6.
+    const exponent = Math.floor(Math.log10(Math.abs(rounded)));
+    return rounded
+      .toExponential(Math.max(exponent + decimals, 0))
+      .replace("e+", "e")
+      .replace(/^-/, "−");
   }
   const text =
     Math.abs(value) >= LARGE

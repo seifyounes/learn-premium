@@ -54,6 +54,9 @@ export const readingSchema = obj({
 /** The main agent's ruling on one dispute, made on its crop: reader A's value, B's, its own reading, or unreadable. */
 const resolutionSchema = obj({
   key: nonEmpty,
+  /** What reader A and reader B read, as the dispute listed them: the ruling stands only while they do. */
+  a: nullable(nonEmpty),
+  b: nullable(nonEmpty),
   /** The crop of the rendered region, relative to the Private folder. */
   crop: nonEmpty,
   ruling: oneOf("a", "b", "read", "unreadable"),
@@ -183,11 +186,15 @@ export function reconcile(privateFolder: string, module: string): ReconcileResul
   const rulings = existsSync(resolutionsPath)
     ? readJsonFile(resolutionsPath, resolutionsSchema, "resolutions.json").resolutions
     : [];
-  const ruled = new Map(rulings.map((r) => [r.key, r]));
   for (const r of rulings) {
     if (!disputes.some((d) => d.key === r.key))
       throw new LedgerError("invalid", `resolutions.json rules on ${r.key}, which the readers didn't dispute`);
   }
+  // A ruling made on other values (a reader changed a disputed item since) no longer stands: the
+  // dispute is open again until the region is looked at afresh.
+  const ruled = new Map(
+    rulings.filter((r) => disputes.some((d) => d.key === r.key && d.a === r.a && d.b === r.b)).map((r) => [r.key, r]),
+  );
   if (disputes.some((d) => !ruled.has(d.key))) {
     // An earlier settled reading no longer stands: nothing may be written from it.
     for (const file of [SETTLED_FILE, CHECKPOINT_ITEMS_FILE]) rmSync(join(folder, file), { force: true });

@@ -99,6 +99,12 @@ describe("printing a value the way the sheet does", () => {
     expect(printAt(123456789.5, 4)).toBe("1.235e8");
     expect(printAt(-2.5e12, 2)).toBe("−2.5e12");
   });
+
+  it("keeps the significant digits a sheet in powers of ten prints (negative decimals)", () => {
+    expect(printAt(1250000, -4)).toBe("1.25e6");
+    expect(printAt(-1249999, -4)).toBe("−1.25e6");
+    expect(printAt(1262, -1)).toBe("1260");
+  });
 });
 
 describe("the decimals a sheet prints with", () => {
