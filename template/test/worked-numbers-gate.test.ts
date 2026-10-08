@@ -125,6 +125,25 @@ describe("the worked-numbers gate", () => {
     ]);
   });
 
+  it("holds a Slip's corrected value to its sign, and to a live sim's recompute on the cells the sim maps", async () => {
+    const signed = fixtureWith(WORKED, (s) =>
+      s.replace('"value": "$R_\\\\text{total} = 1.54\\\\ \\\\text{K/W}$"', '"value": "$R_\\\\text{total} = -1.54$"'),
+    );
+    expect((await run(signed)).findings.map((f) => f.message)).toEqual([
+      "the Slip on 1.45 (cell D4) ships -1.54 as the corrected value, but the independent recompute gives 1.54 for D4",
+    ]);
+    // W01.2's B3 is the plate sim's: its recompute log gives 44.87.
+    const onSim = fixtureWith(`modules/${MODULE}/worked/2.json`, (s) =>
+      s.replace(
+        '"provenance": {',
+        '"provenance": {\n    "slips": [{ "cell": "B3", "value": "$48.9$", "sheet": "$49.4$" }],',
+      ),
+    );
+    expect((await run(onSim)).findings.map((f) => f.message)).toEqual([
+      "the Slip on 49.4 (cell B3) ships 48.9 as the corrected value, but the independent recompute gives 44.9 for B3",
+    ]);
+  });
+
   it("blocks a value the Owner ruled a Slip that the sheet still prints", async () => {
     // The Fixture's own Slip: the sheet printed 1.45 for the total, the site ships 1.54.
     const course = fixtureWith(WORKED, (s) =>

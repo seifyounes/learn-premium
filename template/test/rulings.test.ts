@@ -9,7 +9,7 @@ const MODULE = "01-thermal-resistance";
 describe("the rulings a Course's content carries", () => {
   it("lists each Slip by the sheet's value and each Divergence by the value it ships", () => {
     expect(rulingsIn({ contentDir: FIXTURE_COURSE, module: MODULE })).toEqual([
-      { entry: `modules/${MODULE}/worked/1.json`, kind: "slip", printed: [1.45] },
+      { entry: `modules/${MODULE}/worked/1.json`, kind: "slip", printed: [1.45], cell: "D4" },
       { entry: `modules/${MODULE}/practice/1.yaml`, kind: "divergence", printed: [9.6] },
     ]);
     expect(rulingsIn({ contentDir: FIXTURE_COURSE, module: "02-convection" })).toEqual([]);

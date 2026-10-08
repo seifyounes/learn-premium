@@ -17,7 +17,7 @@ import { isLive } from "../src/sims/kinds.ts";
 import { agreesAtPrint, printAt, readPrinted, rulingValues } from "../src/sims/precision.ts";
 import { cellAt, CELL_REF } from "../src/worked/cells.ts";
 import { courseCopy, courseFiles, type CourseFile } from "./course-files.ts";
-import { nameOf, problems } from "./sims.ts";
+import { nameOf, problems, recomputeLogEntry } from "./sims.ts";
 import type { Finding, Gate, GateInput, GateRun } from "./runner.ts";
 
 export const WORKED_RECOMPUTE_LOG = "learn-premium worked recompute v1";
@@ -39,8 +39,8 @@ const ignoreMath = () => {};
 const read = (file: CourseFile) => readStructured(readFileSync(file.path, "utf8"), file.entry, ignoreMath);
 
 /** The sheet cells each Worked example's live sims map (the sim-numbers gate checks those), by example. */
-function simCells(files: CourseFile[]): Map<string, Set<string>> {
-  const mapped = new Map<string, Set<string>>();
+function simCells(files: CourseFile[], contentDir: string): Map<string, Map<string, number | undefined>> {
+  const mapped = new Map<string, Map<string, number | undefined>>();
   for (const file of files.filter((f) => f.collection === "sims")) {
     let parsed;
     try {
@@ -49,9 +49,21 @@ function simCells(files: CourseFile[]): Map<string, Set<string>> {
       continue; // the content gates report an unreadable sim
     }
     if (!parsed.success || !isLive(parsed.data) || parsed.data.worked === undefined) continue;
-    const key = `${moduleOf(file.entry) ?? ""}/${parsed.data.worked}`;
-    const cells = mapped.get(key) ?? new Set<string>();
-    for (const cell of Object.keys(parsed.data.sheet)) cells.add(cell);
+    const module = moduleOf(file.entry) ?? "";
+    // The sim's own recompute log, for each cell it maps (sim-numbers checks the log is sound).
+    let values: Record<string, unknown> = {};
+    try {
+      const logPath = join(contentDir, recomputeLogEntry(module, nameOf(file.entry)));
+      values = (JSON.parse(readFileSync(logPath, "utf8")) as { values?: Record<string, unknown> }).values ?? {};
+    } catch {
+      // no log: sim-numbers blocks the sim
+    }
+    const key = `${module}/${parsed.data.worked}`;
+    const cells = mapped.get(key) ?? new Map<string, number | undefined>();
+    for (const [cell, quantity] of Object.entries(parsed.data.sheet)) {
+      const value = values[quantity];
+      cells.set(cell, typeof value === "number" ? value : undefined);
+    }
     mapped.set(key, cells);
   }
   return mapped;
@@ -74,7 +86,7 @@ function take(counts: Map<number, number>, value: number): boolean {
 
 async function run(input: GateInput): Promise<GateRun> {
   const files = courseFiles(input);
-  const bySims = simCells(files);
+  const bySims = simCells(files, input.contentDir);
   // A Module with no Worked example has nothing to check and passes, the gate having looked in it.
   const coverage = {
     modules: files.filter((f) => f.collection === "modules").length,
@@ -100,7 +112,36 @@ async function run(input: GateInput): Promise<GateRun> {
     const { artefact, provenance } = parsed.data;
     const module = moduleOf(file.entry) ?? "";
     const number = nameOf(file.entry);
-    const fromSims = bySims.get(`${module}/${number}`) ?? new Set<string>();
+    const fromSims = bySims.get(`${module}/${number}`) ?? new Map<string, number | undefined>();
+    // A Slip ships its corrected value to students: it must be the recompute of the cell it corrects
+    // (from this example's log, or the live sim's for a cell the sim maps), sign included.
+    const checkSlips = (logged: Record<string, number>) => {
+      for (const slip of provenance.slips) {
+        const on = rulingValues(slip.sheet).join(", ");
+        if (slip.cell === undefined) {
+          block(
+            `the Slip on ${on} names no cell: give the sheet cell it corrects (cell), so its corrected value can be checked`,
+          );
+          continue;
+        }
+        const recomputed = logged[slip.cell] ?? fromSims.get(slip.cell);
+        if (recomputed === undefined) {
+          // A sim cell with no log is sim-numbers' to block; any other cell has no recompute.
+          if (!fromSims.has(slip.cell))
+            block(`the Slip on ${on} corrects cell ${slip.cell}, which no recompute log gives`);
+          continue;
+        }
+        const shipped = readPrinted(slip.value);
+        if (typeof shipped === "string") {
+          block(`the Slip on ${on} (cell ${slip.cell}) must print its corrected value as one number: ${shipped}`);
+          continue;
+        }
+        if (!agreesAtPrint(recomputed, shipped))
+          block(
+            `the Slip on ${on} (cell ${slip.cell}) ships ${shipped.written} as the corrected value, but the independent recompute gives ${printAt(recomputed, shipped.decimals).replace("−", "-")} for ${slip.cell}`,
+          );
+      }
+    };
     // Every cell the sheet works out (not a given column) that prints one number.
     const worked = new Map<string, ReturnType<typeof readPrinted>>();
     artefact.rows.forEach((row, r) =>
@@ -111,7 +152,10 @@ async function run(input: GateInput): Promise<GateRun> {
         else worked.set(cell, readPrinted(text));
       }),
     );
-    if (worked.size === 0) continue;
+    if (worked.size === 0) {
+      checkSlips({});
+      continue;
+    }
     const logEntry = workedLogEntry(module, number);
     const logPath = join(input.contentDir, logEntry);
     if (!existsSync(logPath)) {
@@ -138,36 +182,7 @@ async function run(input: GateInput): Promise<GateRun> {
       if (!worked.has(cell))
         block(`the recompute log ${logEntry} gives ${cell}, which isn't a number the sheet works out`);
     }
-    // A Slip ships its corrected value to students: it must be the recompute of the cell it corrects.
-    for (const slip of provenance.slips) {
-      const on = rulingValues(slip.sheet).join(", ");
-      if (slip.cell === undefined) {
-        block(
-          `the Slip on ${on} names no cell: give the sheet cell it corrects (cell), so its corrected value can be checked`,
-        );
-        continue;
-      }
-      const recomputed = log.data.cells[slip.cell] ?? (fromSims.has(slip.cell) ? undefined : null);
-      // A cell a live sim maps is checked by sim-numbers, three ways.
-      if (recomputed === undefined) continue;
-      if (recomputed === null) {
-        block(`the Slip on ${on} corrects cell ${slip.cell}, which the recompute log doesn't give`);
-        continue;
-      }
-      const shipped = numbersIn(slip.value);
-      const matches = (n: { value: number; written: string }) =>
-        agreesAtPrint(Math.abs(recomputed), {
-          value: n.value,
-          decimals: (n.written.split(".")[1] ?? "").length,
-          written: n.written,
-        });
-      if (!shipped.some(matches)) {
-        const decimals = Math.max(0, ...shipped.map((n) => (n.written.split(".")[1] ?? "").length));
-        block(
-          `the Slip on ${on} (cell ${slip.cell}) ships ${shipped.map((n) => n.written).join(", ") || "no number"} as the corrected value, but the independent recompute gives ${printAt(recomputed, decimals)} for ${slip.cell}`,
-        );
-      }
-    }
+    checkSlips(log.data.cells);
     for (const [cell, printed] of worked) {
       if (typeof printed === "string") {
         block(`sheet cell ${cell} can't be compared with the recompute: ${printed}`);

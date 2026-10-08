@@ -805,6 +805,32 @@ describe("ready, the Module wave's merge gate", () => {
     ]);
   });
 
+  test("a Slip naming another cell isn't authorized by the Owner's ruling on this cell's value", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    for (const i of must(checkpointOf(project)).open as { key: string; question: string; sheet: boolean }[])
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", i.key, "--question", i.question, "--answer", "a"],
+          ...(i.sheet ? ["--ruling", "slip"] : []),
+        ),
+      );
+    gateReports(project, []);
+    // The Owner ruled on D4 printing 1.45 (SHEET_ITEM).
+    const slipOn = (cell: string) => ({
+      verifier: {
+        verify: () => ({ green: true, problems: [] }),
+        rulings: () => [{ entry: "modules/01-m01/worked/1.json", kind: "slip" as const, printed: [1.45], cell }],
+      },
+    });
+    expect(ready(project, waveId, slipOn("D4")).out.problems).toEqual([]);
+    expect(ready(project, waveId, slipOn("E2")).out.problems).toEqual([
+      expect.stringContaining("ships a slip on 1.45 (cell E2)"),
+    ]);
+  });
+
   test("with no template layer to verify with, every Gate report counts as not green", () => {
     const { project, waveId } = waveAtCheckpoint();
 
