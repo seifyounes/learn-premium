@@ -324,6 +324,15 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
     problems.push(
       `the Course project is checked out on ${branch ?? "no branch"}, not the wave's branch ${wave.branch}: check it out and run ready again`,
     );
+  // The Gate reports prove HEAD, and HEAD is what merges: the ledger rows, records and content this
+  // check reads must be HEAD's too.
+  const status = spawnSync("git", ["-C", project, "status", "--porcelain"], { encoding: "utf8" });
+  const changed = status.status === 0 ? status.stdout.split(/\r?\n/).filter(Boolean) : null;
+  if (changed === null) problems.push("can't read the Course project's git status");
+  else if (changed.length > 0)
+    problems.push(
+      `the Course project has uncommitted changes (${changed.map((l) => l.slice(3)).join(", ")}): commit them (and re-run the gates if content changed), then run ready again`,
+    );
 
   // Every job of the wave ran, and none is left blocked.
   const firstWave = !ledger.waves.some((w) => w.kind === "module" && w.state === "merged");

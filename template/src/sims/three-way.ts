@@ -83,9 +83,19 @@ export function threeWay(
   }
 
   const engine = engineQuantities(s);
-  const numbers = (written: readonly string[] = []) => new Set(written.flatMap(rulingValues));
-  const divergences = numbers(sheet?.divergences);
-  const slips = numbers(sheet?.slips);
+  // Each ruling settles one cell: a value ruled once doesn't also settle another cell printing it.
+  const counts = (written: readonly string[] = []) => {
+    const found = new Map<number, number>();
+    for (const n of written.flatMap(rulingValues)) found.set(n, (found.get(n) ?? 0) + 1);
+    return found;
+  };
+  const take = (left: Map<number, number>, value: number) => {
+    const n = left.get(value) ?? 0;
+    if (n > 0) left.set(value, n - 1);
+    return n > 0;
+  };
+  const divergences = counts(sheet?.divergences);
+  const slips = counts(sheet?.slips);
   const onSheet = new Set<string>();
   for (const [cell, quantity] of Object.entries(s.sheet)) {
     onSheet.add(quantity);
@@ -116,10 +126,10 @@ export function threeWay(
       block(
         `${quantity} (sheet cell ${cell}): the engine gives ${print(fromEngine, d)} but the independent recompute gives ${print(fromRecompute, d)}${atPrecision(d)}; fix whichever is wrong`,
       );
-    } else if (!agrees(fromEngine, printed) && !divergences.has(Math.abs(printed.value))) {
+    } else if (!agrees(fromEngine, printed) && !take(divergences, Math.abs(printed.value))) {
       const computed = `${print(fromEngine, d)} (${quantity})`;
       result.problems.push(
-        slips.has(Math.abs(printed.value))
+        take(slips, Math.abs(printed.value))
           ? {
               outcome: "block",
               on: "sheet",
