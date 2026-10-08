@@ -193,6 +193,17 @@ describe("the trace", () => {
   });
 });
 
+describe("FUNCTION parameters", () => {
+  it("binds a VAR_IN_OUT to its actual variable: two naming the same one both write it (Codex review)", () => {
+    const m = fb(
+      "VAR n : INT; END_VAR",
+      "Both(a := n, b := n);",
+      "FUNCTION Both : VOID\nVAR_IN_OUT a : INT; b : INT; END_VAR\nBEGIN\na := a + 1;\nb := b + 1;\nEND_FUNCTION",
+    );
+    expect(after(m).n).toBe(2);
+  });
+});
+
 describe("what isn't SCL, or isn't supported", () => {
   it("names the line a listing stops reading on", () => {
     expect(() => new SclRun(fb("VAR i : INT; END_VAR", "i := ;"))).toThrow(ListingError);

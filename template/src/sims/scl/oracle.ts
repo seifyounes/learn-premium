@@ -104,7 +104,15 @@ export function compareWithBlind(
       result.scans += 1;
       if ("stopped" in other) {
         const { line, point, manual } = other.stopped;
-        if (mine.error !== undefined) return; // Both stop: neither gives a value.
+        // Both stop: the CPU faults where the manual gives no result, which is the Owner's to rule too.
+        if (mine.error !== undefined) {
+          result.stopped.push({
+            at: `line ${line}`,
+            where,
+            detail: `the engine stops (${mine.error}), and the blind interpreter stops on line ${line} (${point}; ${manual})`,
+          });
+          return;
+        }
         result.stopped.push({
           at: `line ${line}`,
           where,
