@@ -6,6 +6,7 @@
 // A placed part's transform: `flip` mirrors local x first, then `turn` turns it clockwise on
 // screen by 0, 90, 180 or 270. So a resistor at turn 90 is vertical with pin 1 on top, and a gate
 // at turn 0 has its inputs on the left and its output on the right.
+import { BLOCK_DIAGRAM_SYMBOLS } from "./block-diagram.ts";
 
 export type Point = readonly [number, number];
 export type Turn = 0 | 90 | 180 | 270;
@@ -53,6 +54,10 @@ export interface SymbolDef {
   fill?: string;
   /** A small circle on the body (a gate's inverting bubble, a terminal), [cx, cy, r]. */
   circles?: readonly (readonly [number, number, number])[];
+  /** The figure prints the part's label inside its body (a block's transfer function), never beside it. */
+  labelInside?: boolean;
+  /** How a Blind reader keys a part of this kind the figure doesn't label (a summing junction: SUM). */
+  figureKey?: string;
 }
 
 const pin = (at: Point, faces: Pin["faces"], lead = true): Pin => ({ at, faces, lead });
@@ -78,6 +83,7 @@ function gate(body: string, inputsReach: number, inverted: boolean, extra = ""):
 }
 
 export const SYMBOLS = {
+  ...BLOCK_DIAGRAM_SYMBOLS,
   resistor: {
     pins: twoTerminal("1", "2"),
     box: [-26, -10, 26, 10],

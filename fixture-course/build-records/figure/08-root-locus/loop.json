@@ -1,0 +1,18 @@
+{
+  "reading": "learn-premium figure reading v1",
+  "by": "Blind reader, from the synthetic unity-feedback block diagram drawn for this Fixture Course (R(s) into a summing junction, K, G(s), Y(s) fed back to the junction's minus input), never seeing a builder file",
+  "parts": {
+    "R(s)": { "kind": "port", "at": [0.07, 0.25], "turn": 0, "label": "left" },
+    "K": { "kind": "block", "at": [0.45, 0.25], "turn": 0 },
+    "G(s)": { "kind": "block", "at": [0.71, 0.25], "turn": 0 },
+    "Y(s)": { "kind": "port", "at": [0.93, 0.25], "turn": 0, "label": "right" }
+  },
+  "unlabelled": { "sum": 1 },
+  "nets": [
+    { "pins": ["R(s).t", "SUM.in1"] },
+    { "pins": ["SUM.out", "K.in"] },
+    { "pins": ["K.out", "G(s).in"] },
+    { "pins": ["G(s).out", "Y(s).t", "SUM.in2"], "dotted": true }
+  ],
+  "doubts": []
+}

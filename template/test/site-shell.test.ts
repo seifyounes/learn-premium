@@ -14,6 +14,7 @@ const ROUTES = [
   "05-derivatives",
   "06-tank-level",
   "07-flanged-hub",
+  "08-root-locus",
   "09-silo-blender",
   "rules",
   "lab",
@@ -68,6 +69,7 @@ describe("the Study site shell", () => {
       "05-derivatives": "Modules",
       "06-tank-level": "Modules",
       "07-flanged-hub": "Modules",
+      "08-root-locus": "Modules",
       "09-silo-blender": "Modules",
       rules: "Master Rules",
       lab: "Lab",
@@ -106,6 +108,7 @@ describe("the Study site shell", () => {
         "05-derivatives",
         "06-tank-level",
         "07-flanged-hub",
+        "08-root-locus",
         "09-silo-blender",
       ]);
       expect(contentsLine(home(), "02-convection")).toContain('href="/02-convection/"');
@@ -180,6 +183,7 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/04-full-adder/"');
     expect(lab).toContain('href="/05-derivatives/"');
     expect(lab).toContain('href="/07-flanged-hub/"');
+    expect(lab).toContain('href="/08-root-locus/"');
     // The seven sims and the Pyodide tool, then the machine part.
     expect(lab.match(/class="sim-card"/g)).toHaveLength(8);
     expect(lab.match(/class="sim-card part-card"/g)).toHaveLength(1);
@@ -224,6 +228,7 @@ describe("a Course with no tools yet", () => {
       "05-derivatives/sims",
       "06-tank-level/sims",
       "07-flanged-hub/parts",
+      "08-root-locus/sims",
       "09-silo-blender/sims",
     ])
       rmSync(join(course, "modules", sims), { recursive: true });

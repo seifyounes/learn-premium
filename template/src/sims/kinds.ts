@@ -3,6 +3,14 @@
 // page runs the same code for the student.
 import type { z } from "astro/zod";
 import type { sim } from "../content/contract.ts";
+import * as control from "./control/engine.ts";
+import {
+  DEFINITION_NAMES,
+  pinnedFor,
+  type AllPinned,
+  type DefinitionName,
+  type PinnedDefinitions,
+} from "./definitions.ts";
 import * as gradientDescent from "./gradient-descent/engine.ts";
 import * as logic from "./logic/engine.ts";
 import * as planeWall from "./plane-wall/engine.ts";
@@ -17,7 +25,12 @@ type SimOf<K extends SimKind> = Extract<Sim, { kind: K }>;
 
 interface Kind<K extends SimKind> {
   /** Every number the engine gives for the model at `inputs`, by the name sheets and recompute logs use. */
-  quantities(model: SimOf<K>["model"], inputs: NonNullable<SimOf<K>["start"]>): Record<string, number>;
+  quantities(
+    model: SimOf<K>["model"],
+    inputs: NonNullable<SimOf<K>["start"]>,
+    /** The pinned definitions, for a kind that names them in `definitions`. */
+    definitions?: AllPinned,
+  ): Record<string, number>;
   /**
    * The gate that checks its numbers three ways: `sim-numbers` at the sheet's printed precision,
    * or `truth-table` bit for bit, every row of it; an STL listing is checked by `stl`, bit for bit
@@ -25,6 +38,8 @@ interface Kind<K extends SimKind> {
    * interpreter on every scan.
    */
   checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl";
+  /** The Professor's definitions its engine works to, pinned in the Course style sheet. */
+  definitions?: readonly DefinitionName[];
 }
 
 export const KINDS: { [K in SimKind]: Kind<K> } = {
@@ -40,7 +55,22 @@ export const KINDS: { [K in SimKind]: Kind<K> } = {
   "plane-wall": { quantities: planeWall.quantities, checkedBy: "sim-numbers" },
   stl: { quantities: stl.quantities, checkedBy: "stl" },
   scl: { quantities: scl.quantities, checkedBy: "scl" },
+  control: { quantities: control.quantities, checkedBy: "sim-numbers", definitions: ["settlingTime", "riseTime"] },
 };
+
+/**
+ * The pinned definitions a sim's engine works to, from the Course style sheet. Throws, naming it,
+ * when the style sheet doesn't pin one the kind needs: the engine has nothing to read its numbers by.
+ */
+export function definitionsFor(s: Sim, pinned: PinnedDefinitions | undefined): AllPinned {
+  const found = pinnedFor(KINDS[s.kind].definitions ?? [], pinned);
+  if ("missing" in found)
+    throw new Error(
+      `the Course style sheet pins no ${DEFINITION_NAMES[found.missing]} definition, which a ${s.kind} sim's engine works to`,
+    );
+  // A kind is handed only the definitions it names; the rest it never reads.
+  return found.definitions as AllPinned;
+}
 
 /** A sim an independent recompute checks, which ships live: it opens on `start`, tuned over `tune`. */
 export type LiveSim = Sim & { start: NonNullable<Sim["start"]>; tune: NonNullable<Sim["tune"]> };
@@ -55,8 +85,15 @@ export const isLive = (s: Sim): s is LiveSim =>
   s.tune !== undefined &&
   !(s.kind === "stl" && s.gateGap !== undefined);
 
-/** Runs a sim's engine at `inputs` (the example's values by default). */
-export function engineQuantities(s: LiveSim, inputs: Inputs = s.start): Record<string, number> {
+/**
+ * Runs a sim's engine at `inputs` (the example's values by default), by the definitions the Course
+ * style sheet pins. Throws when it doesn't pin one the kind works to.
+ */
+export function engineQuantities(
+  s: LiveSim,
+  inputs: Inputs = s.start,
+  pinned?: PinnedDefinitions,
+): Record<string, number> {
   switch (s.kind) {
     case "gradient-descent":
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
@@ -70,6 +107,8 @@ export function engineQuantities(s: LiveSim, inputs: Inputs = s.start): Record<s
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
     case "scl":
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
+    case "control":
+      return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs }, definitionsFor(s, pinned));
   }
 }
 

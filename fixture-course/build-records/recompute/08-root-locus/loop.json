@@ -1,0 +1,108 @@
+{
+  "recompute": "learn-premium recompute log v1",
+  "by": "fixture-course/tools/recompute-control.py: python-control 0.10.2 (feedback, step_info, damp, margin), each step characteristic pinned down between its samples, apart from the engine",
+  "inputs": {
+    "model": {
+      "plant": {
+        "gain": 1,
+        "zeros": [],
+        "poles": [
+          0,
+          -2
+        ]
+      },
+      "loop": {
+        "input": "R",
+        "sum": "E",
+        "gain": "K",
+        "plant": "G",
+        "output": "Y"
+      },
+      "parts": [
+        {
+          "id": "R",
+          "kind": "port",
+          "label": "R(s)"
+        },
+        {
+          "id": "E",
+          "kind": "sum"
+        },
+        {
+          "id": "K",
+          "kind": "block",
+          "label": "K"
+        },
+        {
+          "id": "G",
+          "kind": "block",
+          "label": "G(s)"
+        },
+        {
+          "id": "Y",
+          "kind": "port",
+          "label": "Y(s)"
+        }
+      ],
+      "nets": [
+        {
+          "id": "r",
+          "pins": [
+            "R.t",
+            "E.in1"
+          ]
+        },
+        {
+          "id": "e",
+          "pins": [
+            "E.out",
+            "K.in"
+          ]
+        },
+        {
+          "id": "u",
+          "pins": [
+            "K.out",
+            "G.in"
+          ]
+        },
+        {
+          "id": "y",
+          "pins": [
+            "G.out",
+            "Y.t",
+            "E.in2"
+          ]
+        }
+      ]
+    },
+    "start": {
+      "K": 4
+    }
+  },
+  "definitions": {
+    "settlingTime": {
+      "band": 0.02
+    },
+    "riseTime": {
+      "from": 0.1,
+      "to": 0.9
+    }
+  },
+  "values": {
+    "pole[0].re": -1.0000000000000002,
+    "pole[0].im": 1.7320508075688767,
+    "pole[1].re": -1.0000000000000002,
+    "pole[1].im": -1.7320508075688767,
+    "wn": 1.9999999999999996,
+    "zeta": 0.5000000000000002,
+    "final": 1.0,
+    "Tr": 0.8187864736641747,
+    "Ts": 4.03817448696401,
+    "Tp": 1.8137993642342183,
+    "peak": 1.1630335348215808,
+    "overshoot": 16.30335348215808,
+    "wc": 1.572302755514846,
+    "PM": 51.827292372987756
+  }
+}

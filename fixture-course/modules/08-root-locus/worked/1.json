@@ -1,0 +1,78 @@
+{
+  "code": "W08.1",
+  "title": "A gain in a unity-feedback loop",
+  "statement": "The gain $K$ drives the plant $G(s) = \\frac{1}{s(s + 2)}$ under unity negative feedback. For $K = 4$, find the closed loop's $\\omega_n$, $\\zeta$ and poles, its step response's overshoot, peak, rise and settling times, and the open loop's phase margin.",
+  "given": [
+    "$G(s) = \\frac{1}{s(s + 2)}$",
+    "unity negative feedback",
+    "the gain $K = 4$",
+    "settling within $2\\ \\%$ of the final value; rise from $10\\ \\%$ to $90\\ \\%$"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "The loop at $K = 4$: closed-loop poles, step response and phase margin",
+    "columns": [
+      { "label": "Quantity", "given": true },
+      { "label": "Value" }
+    ],
+    "rows": [
+      ["$\\omega_n$ (rad/s)", "2"],
+      ["$\\zeta$", "0.5"],
+      ["$\\sigma = -\\zeta\\omega_n$", "-1"],
+      ["$\\omega_d$ (rad/s)", "1.732"],
+      ["overshoot (%)", "16.30"],
+      ["$T_p$ (s)", "1.814"],
+      ["$T_r$ (s)", "0.819"],
+      ["$T_s$ (s)", "4.038"],
+      ["$\\omega_c$ (rad/s)", "1.572"],
+      ["PM (°)", "51.83"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Close the loop",
+      "note": "Under unity feedback $\\frac{Y(s)}{R(s)} = \\frac{KG(s)}{1 + KG(s)} = \\frac{K}{s^2 + 2s + K}$. At $K = 4$ this is $s^2 + 2s + 4$, so $\\omega_n^2 = 4$ and $2\\zeta\\omega_n = 2$: $\\omega_n = 2$ and $\\zeta = 0.5$.",
+      "fill": ["B1", "B2"]
+    },
+    {
+      "title": "The closed-loop poles",
+      "note": "$s_{1,2} = -\\zeta\\omega_n \\pm j\\omega_n\\sqrt{1 - \\zeta^2} = -1 \\pm j1.732$: the root locus at $K = 4$.",
+      "fill": ["B3", "B4"]
+    },
+    {
+      "title": "Overshoot and peak",
+      "note": "$\\%OS = 100\\, e^{-\\frac{\\pi\\zeta}{\\sqrt{1 - \\zeta^2}}} = 16.30$ and $T_p = \\frac{\\pi}{\\omega_d} = 1.814\\ \\text{s}$.",
+      "fill": ["B5", "B6"],
+      "marks": ["B5"]
+    },
+    {
+      "title": "Rise and settling",
+      "note": "Read off the response by the Professor's definitions: it climbs from $10\\ \\%$ to $90\\ \\%$ of its final value in $T_r = 0.819\\ \\text{s}$, and last leaves the $2\\ \\%$ band at $T_s = 4.038\\ \\text{s}$, a little past the estimate $\\frac{4}{\\zeta\\omega_n} = 4\\ \\text{s}$.",
+      "fill": ["B7", "B8"],
+      "marks": ["B8"]
+    },
+    {
+      "title": "Phase margin",
+      "note": "$|KG(j\\omega)| = \\frac{4}{\\omega\\sqrt{\\omega^2 + 4}} = 1$ at $\\omega^2 = -2 + \\sqrt{20}$, so $\\omega_c = 1.572\\ \\text{rad/s}$, and $\\text{PM} = 180° - 90° - \\tan^{-1}\\frac{\\omega_c}{2} = 51.83°$.",
+      "fill": ["B9", "B10"]
+    }
+  ],
+  "answer": "$\\zeta = 0.5$, $\\omega_n = 2\\ \\text{rad/s}$: $16.30\\ \\%$ overshoot, $T_s = 4.038\\ \\text{s}$, and a phase margin of $51.83°$",
+  "provenance": {
+    "stated": [
+      "$G(s) = \\frac{1}{s(s + 2)}$",
+      "the gain $K = 4$",
+      "settling within $2\\ \\%$; rise from $10\\ \\%$ to $90\\ \\%$",
+      "$\\omega_n = 2$, $\\zeta = 0.5$",
+      "$s_{1,2} = -1 \\pm j1.732$, so $\\sigma = -1$ and $\\omega_d = 1.732$",
+      "$\\%OS = 100\\, e^{-\\frac{\\pi\\zeta}{\\sqrt{1 - \\zeta^2}}} = 16.30$",
+      "$T_p = 1.814\\ \\text{s}$",
+      "$T_r = 0.819\\ \\text{s}$",
+      "$T_s = 4.038\\ \\text{s}$, the estimate $4\\ \\text{s}$",
+      "$\\omega^2 = -2 + \\sqrt{20}$",
+      "$\\omega_c = 1.572\\ \\text{rad/s}$",
+      "$\\text{PM} = 180° - 90° - \\tan^{-1}\\frac{\\omega_c}{2} = 51.83°$"
+    ]
+  }
+}

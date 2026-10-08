@@ -63,6 +63,7 @@ describe("the sim on the built pages", () => {
       "plane-wall:independent",
       "stl:independent",
       "scl:independent",
+      "control:independent",
       "gradient-descent:none",
     ]);
   });

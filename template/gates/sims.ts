@@ -4,7 +4,7 @@
 // `truth-table` does the same for a logic sim, bit for bit over every row of its truth table.
 // `tools` holds every sim to the five eligibility checks a tool must pass to ship.
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { basename, extname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { stringify } from "yaml";
 import { SIM_KINDS, sim as simSchema, worked as workedSchema } from "../src/content/contract.ts";
 import { moduleOf } from "../src/content/layout.ts";
@@ -16,6 +16,7 @@ import { recomputeLog, threeWay } from "../src/sims/three-way.ts";
 import { snap } from "../src/sims/tuning.ts";
 import { parseCell } from "../src/worked/cells.ts";
 import { courseCopy, courseFiles, courseWith, type CourseFile } from "./course-files.ts";
+import { readPinned } from "./definitions.ts";
 import type { Finding, Gate, GateInput } from "./runner.ts";
 
 const ignoreMath = () => {};
@@ -43,7 +44,7 @@ function simsInScope(input: GateInput) {
 }
 
 /** A sim file as written, and as the content contract reads it, or why it can't be checked. */
-function readSim(
+export function readSim(
   file: CourseFile,
 ):
   | { raw: Record<string, unknown>; sim: Sim; problem?: never }
@@ -82,6 +83,7 @@ async function threeWayRun(input: GateInput, gate: ThreeWayGate) {
     });
   const coverage = { modules, sims: sims.length, sheetValues: 0, recomputedValues: 0, stepThroughs: 0 };
   const findings: Finding[] = [];
+  const style = readPinned(input.contentDir);
   for (const { file, read } of sims) {
     const block = (message: string) => findings.push({ outcome: "block", at: file.entry, message });
     const { sim: s, problem } = read;
@@ -119,7 +121,14 @@ async function threeWayRun(input: GateInput, gate: ThreeWayGate) {
       block(example);
       continue;
     }
-    const result = threeWay(s, log.data, example?.sheet, { exact: gate === "truth-table" });
+    if ("problem" in style && KINDS[s.kind].definitions) {
+      block(style.problem);
+      continue;
+    }
+    const result = threeWay(s, log.data, example?.sheet, {
+      exact: gate === "truth-table",
+      pinned: "pinned" in style ? style.pinned : undefined,
+    });
     coverage.sheetValues += result.sheetValues;
     coverage.recomputedValues += result.recomputedValues;
     for (const p of result.problems) {
@@ -295,6 +304,12 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
   // An STL listing's view runs it live, or steps through awlsim's trace when it names a Gate gap.
   stl: ["src/islands/StlSim.tsx", "src/islands/sim/stl-view.tsx", "src/islands/sim/s7-inputs.tsx"],
   scl: ["src/islands/SclSim.tsx", "src/islands/sim/scl-view.tsx", "src/islands/sim/s7-inputs.tsx"],
+  control: [
+    "src/islands/ControlSim.tsx",
+    "src/islands/sim/control-boards.ts",
+    "src/islands/sim/Schematic.tsx",
+    ...SHARED_VIEW,
+  ],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 /** A Pyodide tool's view: its preview and live plot draw on the sheet's plotted figure. */
@@ -367,6 +382,8 @@ export const toolsGate: Gate = {
       engineSamples: 0,
     };
     const findings: Finding[] = [];
+    const style = readPinned(input.contentDir);
+    const pinned = "pinned" in style ? style.pinned : undefined;
     const views = new Map<string, string[]>();
     /** The sim kinds checked live: a step-through or a Pyodide tool is no kind. */
     const kinds = new Set<string>();
@@ -416,7 +433,7 @@ export const toolsGate: Gate = {
         coverage.engineSamples += 1;
         let values: Record<string, number>;
         try {
-          values = engineQuantities(s, inputs);
+          values = engineQuantities(s, inputs, pinned);
         } catch (error) {
           block(`not checkable headlessly: at ${where} the engine throws: ${(error as Error).message}`);
           break;
@@ -435,8 +452,11 @@ export const toolsGate: Gate = {
     if (python.length > 0) {
       const problems = viewOf("python", PYTHON_VIEW);
       for (const file of python) {
-        coverage.checks += 2;
+        coverage.checks += 3;
         problems.forEach((message) => findings.push({ outcome: "block", at: file.entry, message }));
+        // python-control checks the control sims at build: it never loads in the page.
+        const oracle = buildTimeOracle(input.contentDir, file);
+        if (oracle) findings.push({ outcome: "block", at: file.entry, message: oracle });
       }
     }
     // A machine part ships in the 3D viewer: it takes the pad frame and answers touch like a sim's.
@@ -484,8 +504,52 @@ export const toolsGate: Gate = {
           }),
         }),
     },
+    {
+      defect: "a Pyodide tool that loads python-control, the build-time oracle, in the page",
+      plant: (good, scratch) =>
+        courseWith(good, scratch, {
+          "python/900.json": JSON.stringify({
+            title: "Planted root locus",
+            caption: "Planted",
+            source: "900.py",
+            figure: {
+              caption: "Planted",
+              x: { label: "x", min: 0, max: 1, step: 0.5 },
+              y: { label: "y", min: 0, max: 1, step: 0.5 },
+            },
+          }),
+          "python/900.py": "import control\n\nplot = []\n",
+        }),
+    },
   ],
 };
+
+/** The build-time oracles: Python packages that check engines at build and never load in the page. */
+const ORACLE_PACKAGES = ["control", "python-control", "slycot"];
+/** Whether Python source imports control: `import a, control as ct`, `import control.matlab`, `from control import …`. */
+export function importsOracle(source: string): boolean {
+  return source.split("\n").some((line) => {
+    if (/^\s*from\s+control(?:\.\w+)*\s+import\b/.test(line)) return true;
+    const names = /^\s*import\s+(.+)$/.exec(line.replace(/#.*/, ""))?.[1];
+    return !!names && names.split(",").some((name) => /^\s*control(?:\.\w+)*(?:\s+as\s+\w+)?\s*$/.test(name));
+  });
+}
+
+/** Why a Pyodide tool would load a build-time oracle in the page, if it would. */
+function buildTimeOracle(contentDir: string, file: CourseFile): string | undefined {
+  let tool: { packages?: unknown; source?: unknown };
+  try {
+    tool = read(file) as typeof tool;
+  } catch {
+    return undefined; // an unreadable tool is the content contract's to report
+  }
+  const packages = Array.isArray(tool.packages) ? tool.packages.filter((p) => typeof p === "string") : [];
+  const listed = packages.find((p) => ORACLE_PACKAGES.includes(p.toLowerCase()));
+  const source = typeof tool.source === "string" ? join(contentDir, dirname(file.entry), tool.source) : undefined;
+  const imports = source !== undefined && existsSync(source) && importsOracle(readFileSync(source, "utf8"));
+  if (!listed && !imports) return undefined;
+  return `python-control is a build-time oracle only: it checks the control sims at build and never loads in the page, but this Pyodide tool ${listed ? `lists ${listed}` : `imports control (${tool.source as string})`}`;
+}
 
 /** The Worked example a sim names in its Module, with its sheet, or why it can't be read. */
 export function workedExample(files: CourseFile[], module: string, number: string) {

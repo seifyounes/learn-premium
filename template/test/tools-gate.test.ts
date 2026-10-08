@@ -13,14 +13,14 @@ describe("the tools gate: the five eligibility checks", () => {
     const result = await run(FIXTURE_COURSE);
     expect(result.findings).toEqual([]);
     // One live sim: the example's values, then 4 sliders × min, mid and max. The Pyodide tool's
-    // view adds its pad-frame and touch checks.
+    // view adds its pad-frame and touch checks, and the check that it loads no build-time oracle.
     expect(result.coverage).toEqual({
       modules: 1,
       sims: 2,
       pythonTools: 1,
       parts: 0,
       kinds: 1,
-      checks: 12,
+      checks: 13,
       engineSamples: 13,
     });
   });
@@ -46,7 +46,7 @@ describe("the tools gate: the five eligibility checks", () => {
         outcome: "block",
         at: at("sims/900.json"),
         message:
-          '"phet" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl); PhET and Falstad appear only as credited links, never as a tool',
+          '"phet" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl, control); PhET and Falstad appear only as credited links, never as a tool',
       },
     ]);
   });

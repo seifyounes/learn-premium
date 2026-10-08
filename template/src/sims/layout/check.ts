@@ -41,7 +41,7 @@ const fraction = z.number().min(0).max(1);
  * A Blind reader's account of the Professor's figure, written without seeing any builder file. It
  * sits in the Course's build records beside the recompute logs. Parts are keyed by the label the
  * figure prints; every ground pin is `GND.g` and every rail pin `RAIL.t`, since unlabelled symbols
- * can't be keyed.
+ * can't be keyed, and an unlabelled kind with a `figureKey` (a summing junction) is keyed by it.
  */
 export const figureReading = z.strictObject({
   reading: z.literal(FIGURE_READING),
@@ -396,6 +396,8 @@ function figureChecks(
     const kind = kindOf.get(id);
     if (kind === "ground") return "GND.g";
     if (kind === "rail") return "RAIL.t";
+    const figureKey = kind && symbolOf(kind).figureKey;
+    if (figureKey && !keyOf.has(id)) return `${figureKey}.${pin}`;
     return `${keyOf.get(id) ?? `?${id}`}.${pin}`;
   };
 
