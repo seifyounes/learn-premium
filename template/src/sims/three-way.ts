@@ -89,9 +89,9 @@ export function threeWay(
     for (const n of written.flatMap(rulingValues)) found.set(n, (found.get(n) ?? 0) + 1);
     return found;
   };
-  const take = (left: Map<number, number>, value: number) => {
-    const n = left.get(value) ?? 0;
-    if (n > 0) left.set(value, n - 1);
+  const take = (remaining: Map<number, number>, value: number) => {
+    const n = remaining.get(value) ?? 0;
+    if (n > 0) remaining.set(value, n - 1);
     return n > 0;
   };
   const divergences = counts(sheet?.divergences);

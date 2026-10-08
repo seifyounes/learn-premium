@@ -66,9 +66,9 @@ function countsOf(written: readonly string[]): Map<number, number> {
 
 /** Uses up one ruling on `value`, if one is left. */
 function take(counts: Map<number, number>, value: number): boolean {
-  const left = counts.get(value) ?? 0;
-  if (left === 0) return false;
-  counts.set(value, left - 1);
+  const remaining = counts.get(value) ?? 0;
+  if (remaining === 0) return false;
+  counts.set(value, remaining - 1);
   return true;
 }
 
