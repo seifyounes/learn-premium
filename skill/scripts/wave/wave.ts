@@ -7,7 +7,7 @@
 // carries), the Course style sheet exists and the pre-commit gate guards the repo.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { HOOKS_PATH, privateFolderOf } from "../intake/create.ts";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
@@ -287,9 +287,17 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
 /** Whether the Course project's commits go through the template's pre-commit gate. */
 function hookInstalled(project: string): boolean {
   const child = spawnSync("git", ["-C", project, "config", "core.hooksPath"], { encoding: "utf8" });
-  return (
-    child.status === 0 && child.stdout.trim() === HOOKS_PATH && existsSync(join(project, HOOKS_PATH, "pre-commit"))
-  );
+  if (child.status !== 0 || child.stdout.trim() !== HOOKS_PATH) return false;
+  const hook = join(project, HOOKS_PATH, "pre-commit");
+  if (!existsSync(hook) || !statSync(hook).isFile()) return false;
+  // git runs only an executable hook, and ignores any other; Windows has no executable bit.
+  return process.platform === "win32" || (statSync(hook).mode & 0o111) !== 0;
+}
+
+/** The branch checked out in the Course project, or null when HEAD is detached or it isn't a repo. */
+function checkedOutBranch(project: string): string | null {
+  const child = spawnSync("git", ["-C", project, "symbolic-ref", "--short", "-q", "HEAD"], { encoding: "utf8" });
+  return child.status === 0 ? child.stdout.trim() : null;
 }
 
 /** Every reason the Module wave `waveId` may not merge yet; none means it may. */
@@ -302,6 +310,13 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   const id = wave.target;
   const { folder } = moduleFolder(ledger, id);
   const problems: string[] = [];
+
+  // Every check below reads the checked-out tree and HEAD: they must be the wave's branch.
+  const branch = checkedOutBranch(project);
+  if (branch !== wave.branch)
+    problems.push(
+      `the Course project is checked out on ${branch ?? "no branch"}, not the wave's branch ${wave.branch}: check it out and run ready again`,
+    );
 
   // Every job of the wave ran, and none is left blocked.
   const firstWave = !ledger.waves.some((w) => w.kind === "module" && w.state === "merged");

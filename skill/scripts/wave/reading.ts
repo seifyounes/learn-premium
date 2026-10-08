@@ -240,8 +240,11 @@ export function reconcile(privateFolder: string, module: string): ReconcileResul
     mkdirSync(dirname(join(folder, file)), { recursive: true });
     writeFileSync(join(folder, file), `${JSON.stringify(data, null, 2)}\n`);
   };
-  write(SETTLED_FILE, { reading: READING, reader: "settled", module, inputs: inputsHash(folder), items: settled });
-  write(CHECKPOINT_ITEMS_FILE, { module, items: checkpointItems });
+  // Both bound to the same inputs, the Checkpoint items written first: a settled reading stands only
+  // with the Checkpoint items it raised beside it (an interrupted write leaves it stale, not short).
+  const inputs = inputsHash(folder);
+  write(CHECKPOINT_ITEMS_FILE, { module, inputs, items: checkpointItems });
+  write(SETTLED_FILE, { reading: READING, reader: "settled", module, inputs, items: settled });
   return {
     settledNow: true,
     agreed: agreed.length,
@@ -272,17 +275,19 @@ function inputsHash(folder: string): string {
  */
 export function settledReadingProblem(privateFolder: string, module: string): string | null {
   const folder = waveFolder(privateFolder, module);
-  const path = join(folder, SETTLED_FILE);
-  if (!existsSync(path)) return `no ${SETTLED_FILE} in the Private folder (${folder}): run reconcile`;
-  let inputs: unknown;
-  try {
-    inputs = (JSON.parse(readFileSync(path, "utf8")) as { inputs?: unknown }).inputs;
-  } catch {
-    inputs = undefined;
-  }
-  return inputs === inputsHash(folder)
+  if (!existsSync(join(folder, SETTLED_FILE)))
+    return `no ${SETTLED_FILE} in the Private folder (${folder}): run reconcile`;
+  const inputsOf = (file: string) => {
+    try {
+      return (JSON.parse(readFileSync(join(folder, file), "utf8")) as { inputs?: unknown }).inputs;
+    } catch {
+      return undefined;
+    }
+  };
+  const expected = inputsHash(folder);
+  return inputsOf(SETTLED_FILE) === expected && inputsOf(CHECKPOINT_ITEMS_FILE) === expected
     ? null
-    : `the settled reading is stale: the readings or rulings in ${folder} changed after it was settled; re-run reconcile`;
+    : `the settled reading is stale or incomplete: the readings or rulings in ${folder} changed after it was settled, or its Checkpoint items are missing; re-run reconcile`;
 }
 
 /** A quantity the settled reading gives different values for in different places: the Materials disagree. */
