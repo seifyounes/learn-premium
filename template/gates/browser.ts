@@ -270,6 +270,20 @@ export const initialLoad = browserGate(
       plant: plantScript("/_astro/charts.planted.js", "globalThis.Plotly = { newPlot() {} };\n"),
     },
     {
+      defect: "Plotly loaded the moment the page has loaded, though nobody opened it",
+      plant: (good, scratch) =>
+        planted(
+          good,
+          scratch,
+          (page) =>
+            page.replace(
+              "</head>",
+              `<script>addEventListener("load", () => { const s = document.createElement("script"); s.src = "/_astro/plotly.after-load.planted.js"; document.head.append(s); });</script></head>`,
+            ),
+          { files: { "_astro/plotly.after-load.planted.js": "globalThis.Plotly = { newPlot() {} };\n" } },
+        ),
+    },
+    {
       defect: "three.js asked for from a CDN with the page",
       plant: plantScript("https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"),
     },

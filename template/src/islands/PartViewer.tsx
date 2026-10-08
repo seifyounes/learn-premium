@@ -143,6 +143,9 @@ export default function PartViewer({ glb, dimensions, label }: Props) {
         try {
           part = await showPart(made, glb, dimensions);
         } catch {
+          // Its renderer and WebGL context go with it.
+          made.dispose();
+          if (stage.current === made) stage.current = undefined;
           if (!disposed) setStatus("no-part");
           return;
         }

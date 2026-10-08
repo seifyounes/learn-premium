@@ -183,6 +183,15 @@ describe("the 3D part checks", () => {
     );
   });
 
+  it("block a recompute that doesn't log every dimension it works from", async () => {
+    const course = editJson(LOG, (log) => {
+      delete (log.inputs as Record<string, number>)["bore-d"];
+    });
+    expect((await check(course)).findings.map((f) => f.message)).toEqual([
+      `the independent recompute ${LOG} doesn't say what it took for bore-d: it logs every dimension of the drawing it works from`,
+    ]);
+  });
+
   it("block a part with no record, GLB or recompute", async () => {
     for (const [file, message] of [
       [RECORD, `no part record at ${RECORD}: build the part with npm run parts`],
