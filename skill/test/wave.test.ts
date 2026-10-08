@@ -1,7 +1,7 @@
 // The Module wave's commands (`wave.ts`) through their command interface, on synthetic Course
 // projects and Private folders: no Materials, no Vercel, the template's gate verify faked.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
@@ -299,6 +299,8 @@ function waveAtCheckpoint() {
   gateReports(project, [SHEET_ITEM]);
   gitIn(project, "init", "-q");
   gitIn(project, "config", "core.hooksPath", "template/gates/hooks");
+  gitIn(project, "symbolic-ref", "HEAD", "refs/heads/module/01-m01");
+  chmodSync(join(project, "template/gates/hooks/pre-commit"), 0o755);
   return { project, privateFolder, waveId, holder };
 }
 
@@ -646,6 +648,41 @@ describe("ready, the Module wave's merge gate", () => {
       });
     } finally {
       process.chdir(cwd);
+    }
+  });
+
+  test("it checks the wave's own branch, a settled reading with its Checkpoint items, and an executable hook", () => {
+    const { project, privateFolder, waveId, holder } = waveAtCheckpoint();
+    for (const i of must(checkpointOf(project)).open as { key: string; question: string; sheet: boolean }[])
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", i.key, "--question", i.question, "--answer", "a"],
+          ...(i.sheet ? ["--ruling", "slip"] : []),
+        ),
+      );
+    gateReports(project, []);
+    expect(ready(project, waveId).out.problems).toEqual([]);
+
+    // Another branch checked out: its HEAD and reports aren't the wave's.
+    gitIn(project, "symbolic-ref", "HEAD", "refs/heads/main");
+    expect(ready(project, waveId).out.problems).toEqual([
+      expect.stringContaining("checked out on main, not the wave's branch module/01-m01"),
+    ]);
+    gitIn(project, "symbolic-ref", "HEAD", "refs/heads/module/01-m01");
+
+    // The settled reading's Checkpoint items lost (an interrupted reconcile): it doesn't stand.
+    rmSync(join(privateFolder, "waves/01/checkpoint-items.json"));
+    expect(ready(project, waveId).out.problems).toEqual([expect.stringMatching(/re-run reconcile/)]);
+    must(reconcile(project));
+
+    if (process.platform !== "win32") {
+      chmodSync(join(project, "template/gates/hooks/pre-commit"), 0o644);
+      expect(ready(project, waveId).out.problems).toEqual([
+        expect.stringMatching(/pre-commit gate isn't the repo's hook/),
+      ]);
     }
   });
 
