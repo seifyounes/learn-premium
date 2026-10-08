@@ -575,6 +575,21 @@ describe("record-phone-pass", () => {
     expect(r.forge.statusesBySha.get(sha)?.some((s) => s.context === PHONE_PASS_CONTEXT) ?? false).toBe(false);
   });
 
+  test("a pass on an earlier deployment of the commit doesn't count once it's redeployed", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r);
+    r.forge.ownerPass(sha);
+    // Vercel redeploys the commit at a new URL, and its own live-gates run goes green.
+    r.forge.galleryLink = "https://fixture-def456.example.app/tool-gallery/";
+    r.forge.liveGreen(sha);
+    const { code, stdout } = await r.release("tag", "--bump", "minor");
+    expect(code).toBe(1);
+    expect(stdout).toMatch(
+      /the real-phone pass was on https:\/\/fixture-abc123.*not on this commit's current deployment/,
+    );
+    expect(r.originTags()).toBe("");
+  });
+
   test("refuses when the commit was redeployed after its live gates went green", async () => {
     const r = repo();
     const sha = readyButForThePass(r);

@@ -180,8 +180,12 @@ export async function galleryStep(forge: Forge, sha: string): Promise<Steps["gal
   return { ok: greenOnIt, lines, url };
 }
 
-/** Step 3: the Owner's real-phone pass, recorded on exactly this commit by the Owner. */
-export async function passStep(forge: Forge, sha: string): Promise<Steps["pass"]> {
+/**
+ * Step 3: the Owner's real-phone pass, recorded on exactly this commit by the Owner, on the Tool
+ * gallery step 2 points at now. Each deployment has its own URL, so a redeploy after the pass
+ * needs a new one.
+ */
+export async function passStep(forge: Forge, sha: string, galleryUrl: string | null): Promise<Steps["pass"]> {
   const status = newest(await forge.statuses(sha), PHONE_PASS_CONTEXT);
   if (status === undefined) return { ok: false, lines: ["no real-phone pass recorded on this commit"], pass: null };
   const owner = await forge.owner();
@@ -192,6 +196,16 @@ export async function passStep(forge: Forge, sha: string): Promise<Steps["pass"]
     return {
       ok: false,
       lines: [`a real-phone pass was recorded by @${status.creator ?? "unknown"}, not the Owner (@${owner})`],
+      pass: null,
+    };
+  }
+  if (galleryUrl !== null && status.targetUrl !== galleryUrl) {
+    return {
+      ok: false,
+      lines: [
+        `the real-phone pass was on ${status.targetUrl ?? "no recorded URL"}, not on this commit's current deployment ` +
+          `(${galleryUrl}); test that one and record the pass again`,
+      ],
       pass: null,
     };
   }
@@ -208,10 +222,11 @@ export async function steps(deps: Deps, sha: string): Promise<Steps> {
   const onMainTip = deps.git.resolve(deps.git.mainRef) === sha;
   const latest = latestRelease(deps.git);
   const released = latest === null ? null : { name: latest, publishedAt: await deps.forge.releasePublishedAt(latest) };
+  const gallery = await galleryStep(deps.forge, sha);
   return {
     ci: await ciStep(deps.forge, sha, onMainTip, released),
-    gallery: await galleryStep(deps.forge, sha),
-    pass: await passStep(deps.forge, sha),
+    gallery,
+    pass: await passStep(deps.forge, sha, gallery.url),
   };
 }
 

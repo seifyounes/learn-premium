@@ -37,7 +37,8 @@ refuses to tag until every step below holds on that exact commit.
    asks the Owner to type `yes`. With no terminal attached (a script, CI, an agent's shell) the
    answer is no, so nothing else can record a pass. The pass is a `learn-premium/real-phone-pass`
    commit status naming the phones and the Pyodide time. It counts only on the commit it was
-   recorded on, and only when the repo owner set it.
+   recorded on, only for the deployment URL it was tested on (a redeploy needs a new pass), and
+   only when the repo owner set it.
 4. **Tag.**
 
    ```bash
