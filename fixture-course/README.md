@@ -49,7 +49,7 @@ Layout (content contract v0):
   gate, and `recompute-plane-wall.py` from the Fourier series.
 - `build-records/recompute/<NN>-<slug>/worked-<n>.json`: a Worked example's recompute log, every
   number its sheet works out by cell (`cells`), for the cells no live sim maps; the worked-numbers
-  gate compares the sheet with it. W01.1's is written by `tools/recompute-composite-wall.py`, W06.1's by `tools/recompute-tank-volume.py`.
+  gate compares the sheet with it. W01.1's is written by `tools/recompute-composite-wall.py`, W06.1's by `tools/recompute-tank-volume.py`, W07.1's by `tools/recompute-hub-volume.py`.
 - A schematic sim (`kind: logic`) also gives its Layout hints (`layout`): each part's cell on the
   figure's coarse grid, its turn and label side, and the nets whose joints the figure dots; never a
   coordinate. `build-records/figure/<NN>-<slug>/<name>.json` is the Blind reader's account of its

@@ -1,0 +1,11 @@
+{
+  "recompute": "learn-premium worked recompute v1",
+  "by": "fixture-course/tools/recompute-hub-volume.py: V = pi/4 d^2 l per primitive, apart from the sheet and the model",
+  "cells": {
+    "D1": 50265.482457436694,
+    "D2": 25132.741228718347,
+    "D3": -9424.77796076938,
+    "D4": -2010.6192982974676,
+    "D5": 63962.82642708819
+  }
+}
