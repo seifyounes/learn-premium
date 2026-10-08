@@ -8,6 +8,7 @@ import { licencesFile } from "./src/licences/integration.ts";
 import { paperMathProcessor } from "./src/math/markdown.ts";
 import { moduleMedia } from "./src/media/integration.ts";
 import { padLog } from "./src/pads/integration.ts";
+import { partFiles } from "./src/parts/integration.ts";
 import { pyodideFiles } from "./src/python/integration.ts";
 import { trapPage } from "./src/trap/integration.ts";
 
@@ -18,6 +19,7 @@ export default defineConfig({
     react(),
     padLog(buildContentDir()),
     moduleMedia(buildContentDir()),
+    partFiles(buildContentDir()),
     pyodideFiles(buildContentDir()),
     trapPage(),
     licencesFile(),

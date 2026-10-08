@@ -16,6 +16,7 @@
     "test": "vitest run",
     "gates": "node gates/cli.ts",
     "wheels": "node src/python/wheels.ts",
+    "parts": "node src/parts/build.ts",
     "deploy": "node deploy/cli.ts",
     "oracle": "node oracle/cli.ts",
     "migrations": "node migrations/cli.ts"
@@ -39,6 +40,7 @@
     "react-dom": "19.3.0",
     "remark-math": "6.0.0",
     "tailwindcss": "4.3.3",
+    "three": "0.186.1",
     "yaml": "2.9.1"
   },
   "devDependencies": {
@@ -50,6 +52,7 @@
     "@types/node": "24.10.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
     "eslint": "10.11.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-astro": "3.2.1",

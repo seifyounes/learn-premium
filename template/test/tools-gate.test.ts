@@ -18,9 +18,24 @@ describe("the tools gate: the five eligibility checks", () => {
       modules: 1,
       sims: 2,
       pythonTools: 1,
+      parts: 0,
       kinds: 1,
       checks: 12,
       engineSamples: 13,
+    });
+  });
+
+  it("holds a machine part's 3D viewer to the pad frame and touch, as a sim's view", async () => {
+    const result = await toolsGate.run({ contentDir: FIXTURE_COURSE, module: "07-flanged-hub" });
+    expect(result.findings).toEqual([]);
+    expect(result.coverage).toEqual({
+      modules: 1,
+      sims: 0,
+      pythonTools: 0,
+      parts: 1,
+      kinds: 0,
+      checks: 3,
+      engineSamples: 0,
     });
   });
 

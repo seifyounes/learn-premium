@@ -63,6 +63,7 @@ describe("the first gates on the Fixture Course", () => {
       "truth-table",
       "stl",
       "drawing",
+      "part-checks",
       "tools",
     ]);
     expect(gate(job, "content-contract")?.coverage).toEqual({
@@ -104,6 +105,7 @@ describe("the first gates on the Fixture Course", () => {
       "truth-table",
       "stl",
       "drawing",
+      "part-checks",
       "tools",
       "rendered-page-scan",
       "pyodide",

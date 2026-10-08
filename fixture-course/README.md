@@ -54,6 +54,13 @@ Layout (content contract v0):
   every case, written by `npm run oracle -- write` in the template; the `stl` gate checks the
   interpreter against it bit for bit. The tank listing is the STL prototype's own (#37), no
   Professor's text.
+- `modules/<NN>-<slug>/parts/<name>.json` (JSON only) and `<name>.py`: one machine part each, its
+  build123d script and the dimensions its drawing gives (each between two points on the part, with
+  its Provenance tag; `confirmed` once the Owner has ruled on a scaled or assumed one). `<name>.glb`
+  and `build-records/parts/<NN>-<slug>/<name>.json` (its part record) are written by
+  `npm run parts` in the template, with the machine venv's build123d, and committed.
+  `build-records/recompute/<NN>-<slug>/parts/<name>.json` is its independent volume, summed from
+  the drawing's primitives (by a script in `tools/`).
 - `modules/<NN>-<slug>/practice/<n>.yaml`: one Practice item each (JSON or YAML). A `numeric`
   item has an `answer` (`value`, `unit`, `tolerance`) the site checks; a `prose` item lists what
   `earns` the mark, one point per mark, for the student to mark themselves against.
@@ -96,6 +103,12 @@ the sheet, on synthetic numbers worked out here:
   gallery's Pyodide timing run.
 - Module 5 (derivatives): `sims/tangent.json` (tangent), in W05.1, the secants of a cubic closing
   on its tangent, checked by direct evaluation.
+
+Module 7 (flanged hub) carries the machine part: `parts/hub.py` builds the hub of W07.1 (a flange
+with four bolt holes, a hub and a bore), whose table sums its volume from the drawing's primitives.
+Its overall height is tagged scaled and its bolt holes' size assumed, both confirmed, so the
+Fixture Course raises no Checkpoint item; `tools/recompute-flanged-hub.py` is its independent
+volume, summed by hand.
 
 Module 4 (full adder) carries the logic sim, on a synthetic full adder (two XORs, two ANDs and an
 OR, the figure the sim-layout prototype drew). W04.1 fills its truth table net by net;

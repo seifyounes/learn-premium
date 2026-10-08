@@ -5,6 +5,7 @@ import GivenBox from "../components/GivenBox.astro";
 import HonestyCell from "../components/HonestyCell.astro";
 import Infographic from "../components/Infographic.astro";
 import SectionRail from "../components/SectionRail.astro";
+import Part from "../components/Part.astro";
 import PythonTool from "../components/PythonTool.astro";
 import Sim from "../components/Sim.astro";
 import SummaryBeat from "../components/SummaryBeat.astro";
@@ -15,6 +16,7 @@ import {
   getCourse,
   getMedia,
   getModules,
+  getParts,
   getPythonTools,
   getSims,
   itemNumber,
@@ -58,6 +60,9 @@ for (const tool of pythonTools) {
       `${tool.entry.filePath ?? tool.entry.id}: names Worked example ${number}, which Module ${module.id} doesn't have`,
     );
 }
+/** The machine parts each Worked example carries, last: each in its 3D viewer. */
+const parts = (await getParts()).filter((p) => p.module === module.id);
+const partsOf = (id: string) => parts.filter((p) => p.entry.data.worked === itemNumber(id));
 
 // Watch → Summary → Worked examples → Practice; a section with nothing in it isn't on the page.
 const has: Record<Section, boolean> = {
@@ -141,6 +146,9 @@ const notes = (p: Parameters<typeof provenanceNotes>[0]) => provenanceNotes(p, p
                 ))}
                 {pythonOf(id).map((tool) => (
                   <PythonTool tool={tool} heading="h4" />
+                ))}
+                {partsOf(id).map((part) => (
+                  <Part part={part} heading="h4" />
                 ))}
               </article>
             );

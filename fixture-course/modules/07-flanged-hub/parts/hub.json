@@ -1,0 +1,62 @@
+{
+  "title": "The flanged hub",
+  "caption": "The hub of W07.1 as an exact solid: a flange with four bolt holes, a hub, and a bore through both. Turn it to see the holes from below.",
+  "source": "hub.py",
+  "worked": "1",
+  "dimensions": [
+    {
+      "id": "flange-d",
+      "label": "Flange diameter",
+      "kind": "diameter",
+      "value": 80,
+      "tag": "stated",
+      "from": [-40, 0, 5],
+      "to": [40, 0, 5]
+    },
+    {
+      "id": "flange-t",
+      "label": "Flange thickness",
+      "value": 10,
+      "tag": "stated",
+      "from": [25, 25, 0],
+      "to": [25, 25, 10]
+    },
+    {
+      "id": "hub-d",
+      "label": "Hub diameter",
+      "kind": "diameter",
+      "value": 40,
+      "tag": "stated",
+      "from": [-20, 0, 20],
+      "to": [20, 0, 20]
+    },
+    {
+      "id": "height",
+      "label": "Overall height",
+      "value": 30,
+      "tag": "scaled",
+      "confirmed": true,
+      "from": [15, 0, 0],
+      "to": [15, 0, 30]
+    },
+    {
+      "id": "bore-d",
+      "label": "Bore",
+      "kind": "diameter",
+      "value": 20,
+      "tag": "stated",
+      "from": [-10, 0, 15],
+      "to": [10, 0, 15]
+    },
+    {
+      "id": "hole-d",
+      "label": "Bolt hole",
+      "kind": "diameter",
+      "value": 8,
+      "tag": "assumed",
+      "confirmed": true,
+      "from": [26, 0, 5],
+      "to": [34, 0, 5]
+    }
+  ]
+}

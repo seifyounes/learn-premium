@@ -1,0 +1,45 @@
+---
+import { prose, type PartRef } from "../content/course";
+import PartViewer, { type ViewerDimension } from "../islands/PartViewer";
+import { dimensionAnchor } from "../parts/record";
+import { provenanceNotes } from "../provenance/notes";
+
+/**
+ * A machine part where it is used: a Worked example, the Lab or the Tool gallery. Its 3D viewer
+ * (three.js, loaded after first paint) with every tagged dimension labelled beside the part and
+ * listed below it with its Provenance tag.
+ */
+interface Props {
+  part: PartRef;
+  heading: "h3" | "h4";
+}
+
+const { part, heading: Heading } = Astro.props;
+const p = part.entry.data;
+const { inputsHtml, outputsHtml } = provenanceNotes(p.provenance, prose);
+const plainText = (html: string) => html.replace(/<[^>]*>/g, "");
+const READ_AS = { stated: "stated", derived: "derived", scaled: "scaled off the drawing", assumed: "assumed" } as const;
+const dimensions: ViewerDimension[] = p.dimensions.map((d) => ({
+  id: d.id,
+  anchor: dimensionAnchor(part.module, part.name, d.id),
+  labelHtml: prose(d.label),
+  text: `${d.kind === "diameter" ? "Ø" : ""}${d.value}`,
+  tag: READ_AS[d.tag],
+  from: [...d.from],
+  to: [...d.to],
+}));
+---
+
+<article class="sim-card part-card" id={`part-${part.module}-${part.name}`} data-part={part.name}>
+  <div class="sim-head">
+    <span class="field-label">3D part</span>
+    <Heading
+      class="font-print text-sheet-title font-semibold text-graphite [font-variation-settings:'wdth'_87]"
+      set:html={prose(p.title)}
+    />
+    <p class="max-w-[68ch] text-body-small text-muted" set:html={prose(p.caption)} />
+  </div>
+  {inputsHtml && <div class="mbe-3" set:html={inputsHtml} />}
+  <PartViewer client:visible glb={part.glbUrl} dimensions={dimensions} label={plainText(prose(p.title))} />
+  {outputsHtml && <div class="mbs-3" set:html={outputsHtml} />}
+</article>

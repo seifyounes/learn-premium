@@ -64,6 +64,13 @@ const CAUGHT_BY: Record<string, RegExp> = {
   "Plotly loaded with the page": /Plotly loads with the page/,
   "three.js asked for from a CDN with the page":
     /three\.js loads with the page \(https:\/\/cdn\.jsdelivr\.net\/npm\/three@0\.170\.0\/build\/three\.module\.js\)/,
+  "a 3D viewer that takes the wheel before it is tapped":
+    /a wheel over the 3D viewer 1 of 1 doesn't scroll the page before it is tapped or clicked/,
+  "a 3D viewer that takes every touch before it is tapped":
+    /the 3D viewer 1 of 1 takes every touch before it is tapped \(touch-action: none\)/,
+  "a 3D viewer a click never hands the wheel to":
+    /the 3D viewer 1 of 1 still lets the wheel scroll the page once clicked/,
+  "a 3D viewer whose object never loads": /the 3D viewer 1 of 1 never draws its object \(no-part\)/,
   "a Trap page whose folded figure is labelled at a legal size":
     /missed the Trap page's seeded figure labelled under the 12px floor/,
   "a Trap page without its KaTeX error": /missed the Trap page's seeded KaTeX error/,
@@ -114,6 +121,8 @@ describe("the browser gates on the Fixture Course", () => {
     expect(coverage("hydration").controls).toBeGreaterThan(10);
     expect(coverage("touch").taps).toBeGreaterThan(20);
     expect(coverage("initial-load").requests).toBeGreaterThan(0);
+    // The flanged hub's viewer, on its Module page, in the Lab and in the Tool gallery, in both browsers.
+    expect(coverage("scroll-pass-through")).toMatchObject({ pages: BROWSERS * pages, viewers: BROWSERS * 3 });
     // Every sweep of the Trap page, in either direction, found all four seeded defects.
     const trapSweeps = BROWSERS * WIDTHS.length * directions;
     expect(coverage("trap-page")).toEqual({ sweeps: trapSweeps, defects: trapSweeps * 4 });
