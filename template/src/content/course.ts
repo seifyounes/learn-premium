@@ -141,6 +141,8 @@ export async function getParts(): Promise<PartRef[]> {
   return parts
     .map((entry) => {
       const [module = "", , name = ""] = entry.id.split("/");
+      if (!existsSync(join(contentDir, "modules", module, "module.yaml")))
+        throw new Error(`${entry.filePath ?? entry.id} sits in modules/${module}/, which has no module.yaml`);
       const glb = partGlbEntry(module, name);
       if (!existsSync(join(contentDir, glb)))
         throw new Error(`${entry.filePath ?? entry.id} has no GLB at ${glb}: build it with npm run parts`);

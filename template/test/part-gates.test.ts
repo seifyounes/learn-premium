@@ -68,7 +68,7 @@ describe("the 3D part checks", () => {
   it("pass the flanged hub: its GLB, its B-rep and the drawing's own sum agree", async () => {
     const result = await check(FIXTURE_COURSE);
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toEqual({ modules: 1, parts: 1, dimensions: 6, meshes: 1, volumes: 1 });
+    expect(result.coverage).toEqual({ modules: 1, parts: 1, dimensions: 7, meshes: 1, volumes: 1 });
   });
 
   it("block a GLB that is 0.05 mm off the solid, though its build recorded it", async () => {
@@ -88,6 +88,7 @@ describe("the 3D part checks", () => {
     // Scaled by 1.0002: the rim 0.008 mm out, so the box and each end pass and only the length can tell.
     expect((await check(scaledGlb(1.0002))).findings.map((f) => f.message)).toEqual([
       "Flange diameter (flange-d): the GLB measures 80.014 mm where the solid measures 80 mm (more than 0.01 mm apart): re-run npm run parts",
+      "Bolt-hole pitch circle (pcd): the GLB measures 60.012 mm where the solid measures 60 mm (more than 0.01 mm apart): re-run npm run parts",
     ]);
   });
 
@@ -103,6 +104,37 @@ describe("the 3D part checks", () => {
         message:
           "Overall height (height) = 30 mm is scaled off the drawing, not stated: confirm it, or give the stated value",
       },
+    ]);
+  });
+
+  it("block a pitch circle whose holes aren't where the drawing puts them", async () => {
+    // As a build would record it if the script set the holes 1 mm further out than the drawing's 60.
+    const move = (d: Record<string, unknown>) =>
+      d.id === "pcd" ? { ...d, from: [-31, 0, 5], to: [31, 0, 5], value: 62 } : d;
+    const described = editJson(DESCRIPTOR, (p) => {
+      p.dimensions = p.dimensions.map(move);
+    });
+    const recorded = editJson(
+      RECORD,
+      (r) => {
+        r.dimensions = r.dimensions.map((d) => (d.id === "pcd" ? { ...move(d), gaps: [1, 1] } : d));
+      },
+      described,
+    );
+    const messages = (await check(recorded)).findings.map((f) => f.message);
+    expect(messages).toContain(
+      "Bolt-hole pitch circle (pcd): on the solid, its from end is 1 mm off the axis of a round feature: a centres dimension runs between two axes",
+    );
+    expect(messages).toContain(
+      "Bolt-hole pitch circle (pcd): on the GLB, its from end is 1 mm off the middle of a round feature: a centres dimension runs between two axes",
+    );
+  });
+
+  it("block a part in a folder with no module.yaml", async () => {
+    const course = fixtureWith(DESCRIPTOR, (s) => s);
+    rmSync(join(course, `modules/${MODULE}/module.yaml`));
+    expect((await check(course)).findings.map((f) => f.message)).toEqual([
+      `sits in modules/${MODULE}/, which has no module.yaml, so no page would show it`,
     ]);
   });
 

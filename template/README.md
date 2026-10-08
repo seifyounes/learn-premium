@@ -253,7 +253,9 @@ exact solid: a build123d script (`source`, a `.py` file beside it, which leaves 
 `part`) and a JSON file naming it, the Worked example it sits in (`worked`) and every dimension the
 drawing gives. A dimension (`dimensions`) is measured in millimetres between two points on the part
 in the script's frame (z up), `from` and `to`, each on a surface the dimension meets square: two
-faces, or the two sides of a diameter (`kind: diameter`, printed with Ø). It carries its own
+faces, or the two sides of a diameter (`kind: diameter`, printed with Ø). A dimension that locates
+features (a pitch-circle diameter, a hole spacing) is `kind: centres`: its ends sit on the axes of
+round features, square to them, and on the mesh halfway between each feature's walls. It carries its own
 Provenance tag (`tag`). JSON only: the build reads it with Python's standard library.
 
 - **Built.** `npm run parts` runs `parts/build.py` with the machine venv's Python (build123d; set

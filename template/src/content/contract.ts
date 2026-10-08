@@ -633,16 +633,18 @@ const point3 = z.tuple([z.number(), z.number(), z.number()]);
 const DIMENSION_SLACK_MM = 1e-6;
 
 /**
- * One dimension the drawing gives a part, in millimetres, measured between two points on the part
- * in the script's frame (z up), each on a surface the dimension meets square: two faces, or the two
- * sides of a diameter. The part gates check both ends on the solid and on its GLB.
+ * One dimension the drawing gives a part, in millimetres, in the script's frame (z up). A `length` or
+ * `diameter` runs between two points on the part, each on a surface it meets square: two faces, or
+ * the two sides of a diameter. A `centres` dimension locates features: it runs between two points on
+ * the axes of round features (holes, bosses), square to them, as a pitch-circle diameter or a hole
+ * spacing does. The part gates check both ends on the solid and on its GLB.
  */
 const partDimension = z.strictObject({
   id: elementId,
   /** What it measures, as the drawing names it (e.g. Flange diameter). */
   label: z.string().min(1),
-  /** A diameter is printed with Ø. */
-  kind: z.enum(["length", "diameter"]).default("length"),
+  /** A diameter is printed with Ø; `centres` runs between the axes of two round features. */
+  kind: z.enum(["length", "diameter", "centres"]).default("length"),
   value: z.number().positive(),
   /** Its Provenance tag: a scaled or assumed dimension goes to the Owner as a Checkpoint item. */
   tag: z.enum(PROVENANCE_TAGS),

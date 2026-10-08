@@ -246,6 +246,23 @@ export function measureAlong({ positions: p }: PartMesh, from: Point3, to: Point
   const span = Math.hypot(...dir);
   if (span === 0) throw new Error("a dimension's two ends are the same point");
   const d: Point3 = [dir[0] / span, dir[1] / span, dir[2] / span];
+  const hits = lineHits({ positions: p }, from, d);
+  const nearest = (t: number): SurfaceEnd => {
+    let best: { t: number; normal: Point3 } | undefined;
+    for (const hit of hits) if (!best || Math.abs(hit.t - t) < Math.abs(best.t - t)) best = hit;
+    if (!best) return { at: from, gap: Infinity, normal: [0, 0, 0] };
+    return {
+      at: [from[0] + d[0] * best.t, from[1] + d[1] * best.t, from[2] + d[2] * best.t],
+      gap: Math.abs(best.t - t),
+      normal: best.normal,
+    };
+  };
+  const ends: [SurfaceEnd, SurfaceEnd] = [nearest(0), nearest(span)];
+  return { length: Math.hypot(...sub(ends[1].at, ends[0].at)), ends };
+}
+
+/** Where the line through `from` along the unit `d` crosses the mesh: its parameter, and the normal there. */
+function lineHits({ positions: p }: PartMesh, from: Point3, d: Point3): { t: number; normal: Point3 }[] {
   const hits: { t: number; normal: Point3 }[] = [];
   for (let i = 0; i + 8 < p.length; i += 9) {
     const a: Point3 = [p[i] ?? 0, p[i + 1] ?? 0, p[i + 2] ?? 0];
@@ -265,17 +282,37 @@ export function measureAlong({ positions: p }: PartMesh, from: Point3, to: Point
     const len = Math.hypot(...n);
     hits.push({ t: dot(e2, q) / det, normal: [n[0] / len, n[1] / len, n[2] / len] });
   }
-  const nearest = (t: number): SurfaceEnd => {
-    let best: { t: number; normal: Point3 } | undefined;
-    for (const hit of hits) if (!best || Math.abs(hit.t - t) < Math.abs(best.t - t)) best = hit;
-    if (!best) return { at: from, gap: Infinity, normal: [0, 0, 0] };
-    return {
-      at: [from[0] + d[0] * best.t, from[1] + d[1] * best.t, from[2] + d[2] * best.t],
-      gap: Math.abs(best.t - t),
-      normal: best.normal,
-    };
+  return hits;
+}
+
+export interface CentreEnd {
+  /** The middle of the round feature the line crosses at the end: halfway between its walls. */
+  at: Point3;
+  /** How far that is from the end, along the line, in mm (Infinity if no walls straddle the end). */
+  gap: number;
+}
+
+/**
+ * A centres dimension measured on the mesh: at each end, the line crosses a round feature's walls on
+ * either side; their midpoint is the feature's centre along the line. On a feature's axis the two
+ * walls lie equally far from the end.
+ */
+export function centresAlong(
+  mesh: PartMesh,
+  from: Point3,
+  to: Point3,
+): { length: number; ends: [CentreEnd, CentreEnd] } {
+  const span = Math.hypot(...sub(to, from));
+  const d: Point3 = [(to[0] - from[0]) / span, (to[1] - from[1]) / span, (to[2] - from[2]) / span];
+  const hits = lineHits(mesh, from, d).map((h) => h.t);
+  const centre = (t: number): CentreEnd => {
+    const below = Math.max(...hits.filter((h) => h < t));
+    const above = Math.min(...hits.filter((h) => h > t));
+    if (!Number.isFinite(below) || !Number.isFinite(above)) return { at: from, gap: Infinity };
+    const mid = (below + above) / 2;
+    return { at: [from[0] + d[0] * mid, from[1] + d[1] * mid, from[2] + d[2] * mid], gap: Math.abs(mid - t) };
   };
-  const ends: [SurfaceEnd, SurfaceEnd] = [nearest(0), nearest(span)];
+  const ends: [CentreEnd, CentreEnd] = [centre(0), centre(span)];
   return { length: Math.hypot(...sub(ends[1].at, ends[0].at)), ends };
 }
 

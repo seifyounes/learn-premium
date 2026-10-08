@@ -12,6 +12,7 @@ import { moduleOf } from "../src/content/layout.ts";
 import { readStructured } from "../src/content/loaders.ts";
 import {
   boundingBox,
+  centresAlong,
   dot,
   measureAlong,
   meshVolume,
@@ -93,6 +94,10 @@ function checkPart({ contentDir }: GateInput, { file, module, name }: PartSite) 
   const logEntry = partRecomputeEntry(module, name);
   if (!existsSync(script)) {
     block(`names parts/${p.source}, which isn't in its folder`);
+    return result();
+  }
+  if (!existsSync(join(contentDir, "modules", module, "module.yaml"))) {
+    block(`sits in modules/${module}/, which has no module.yaml, so no page would show it`);
     return result();
   }
   // The viewer sits below the Worked example it names: one the Module lacks would hide it from the
@@ -191,33 +196,61 @@ function checkPart({ contentDir }: GateInput, { file, module, name }: PartSite) 
     const r = record.dimensions.find((x) => x.id === d.id);
     const dir = unit(sub(d.to, d.from));
     const ENDS = ["from", "to"] as const;
-    ENDS.forEach((end, i) => {
-      const gap = r?.gaps[i] ?? Infinity;
-      if (!(gap <= SOLID_GAP_MM))
+    if (d.kind === "centres") {
+      // Each end on a round feature's axis, the line square to it; on the mesh, halfway between its walls.
+      ENDS.forEach((end, i) => {
+        const gap = r?.gaps[i] ?? Infinity;
+        if (!(gap <= SOLID_GAP_MM))
+          block(
+            `${named}: on the solid, its ${end} end is ${mm(gap)} off the axis of a round feature: a centres dimension runs between two axes`,
+          );
+        else if (Math.abs(dot(r?.normals[i] ?? [0, 0, 1], dir)) > 1 - SOLID_SQUARE)
+          block(`${named}: on the solid, its line isn't square to the axis at its ${end} end`);
+      });
+      const located = centresAlong(mesh, d.from, d.to);
+      ENDS.forEach((end, i) => {
+        const e = located.ends[i];
+        if (e && !(e.gap <= MESH_TOLERANCE_MM))
+          block(
+            `${named}: on the GLB, its ${end} end is ${mm(e.gap)} off the middle of a round feature: a centres dimension runs between two axes`,
+          );
+      });
+      if (
+        located.ends.every((e) => e.gap <= MESH_TOLERANCE_MM) &&
+        !(Math.abs(located.length - d.value) <= MESH_TOLERANCE_MM)
+      )
         block(
-          `${named}: on the solid, its ${end} end is ${mm(gap)} off the surface: a dimension runs between two points on the part`,
+          `${named}: the GLB measures ${mm(located.length)} where the solid measures ${mm(d.value)} (more than ${MESH_TOLERANCE_MM} mm apart): ${REBUILD}`,
         );
-      else if (Math.abs(dot(r?.normals[i] ?? [0, 0, 0], dir)) < SOLID_SQUARE)
+    } else {
+      ENDS.forEach((end, i) => {
+        const gap = r?.gaps[i] ?? Infinity;
+        if (!(gap <= SOLID_GAP_MM))
+          block(
+            `${named}: on the solid, its ${end} end is ${mm(gap)} off the surface: a dimension runs between two points on the part`,
+          );
+        else if (Math.abs(dot(r?.normals[i] ?? [0, 0, 0], dir)) < SOLID_SQUARE)
+          block(
+            `${named}: on the solid, its line doesn't meet the surface square at its ${end} end: a dimension runs between two faces it meets square, or across a diameter`,
+          );
+      });
+      const measured = measureAlong(mesh, d.from, d.to);
+      const onMesh = measured.ends.every((e) => e.gap <= MESH_TOLERANCE_MM);
+      ENDS.forEach((end, i) => {
+        const e = measured.ends[i];
+        if (!e) return;
+        if (!(e.gap <= MESH_TOLERANCE_MM))
+          block(
+            `${named}: on the GLB, its ${end} end is ${mm(e.gap)} off the surface: a dimension runs between two points on the part`,
+          );
+        else if (Math.abs(dot(e.normal, dir)) < MESH_SQUARE)
+          block(`${named}: on the GLB, its line doesn't meet the surface square at its ${end} end`);
+      });
+      if (onMesh && !(Math.abs(measured.length - d.value) <= MESH_TOLERANCE_MM))
         block(
-          `${named}: on the solid, its line doesn't meet the surface square at its ${end} end: a dimension runs between two faces it meets square, or across a diameter`,
+          `${named}: the GLB measures ${mm(measured.length)} where the solid measures ${mm(d.value)} (more than ${MESH_TOLERANCE_MM} mm apart): ${REBUILD}`,
         );
-    });
-    const measured = measureAlong(mesh, d.from, d.to);
-    const onMesh = measured.ends.every((e) => e.gap <= MESH_TOLERANCE_MM);
-    ENDS.forEach((end, i) => {
-      const e = measured.ends[i];
-      if (!e) return;
-      if (!(e.gap <= MESH_TOLERANCE_MM))
-        block(
-          `${named}: on the GLB, its ${end} end is ${mm(e.gap)} off the surface: a dimension runs between two points on the part`,
-        );
-      else if (Math.abs(dot(e.normal, dir)) < MESH_SQUARE)
-        block(`${named}: on the GLB, its line doesn't meet the surface square at its ${end} end`);
-    });
-    if (onMesh && !(Math.abs(measured.length - d.value) <= MESH_TOLERANCE_MM))
-      block(
-        `${named}: the GLB measures ${mm(measured.length)} where the solid measures ${mm(d.value)} (more than ${MESH_TOLERANCE_MM} mm apart): ${REBUILD}`,
-      );
+    }
     // Only the Owner can say a reading off the drawing, or a value the drawing lacks, is right.
     if ((d.tag === "scaled" || d.tag === "assumed") && !d.confirmed)
       findings.push({
