@@ -75,9 +75,13 @@ export default function PartViewer({ glb, dimensions, label }: Props) {
   const scene = useRef<PartScene>(undefined);
   const activeRef = useRef(false);
   activeRef.current = active;
-  /** Only a drawn part can be turned: until then, and when it can't be drawn, the page keeps every gesture. */
-  const drawnRef = useRef(false);
-  drawnRef.current = status === "drawn";
+  /**
+   * A viewer that can't draw (no WebGL, a part that didn't load) leaves every gesture to the page. One
+   * drawing its part, or drawing it again as it comes back on screen, can be tapped on already.
+   */
+  const usable = status === "drawn" || status === "waiting";
+  const usableRef = useRef(false);
+  usableRef.current = usable;
   const highlightRef = useRef<string>(undefined);
   highlightRef.current = highlighted;
   const hintId = useId();
@@ -193,7 +197,7 @@ export default function PartViewer({ glb, dimensions, label }: Props) {
     const gestures = createGestures({
       turn: (dx, dy) => activeRef.current && stage.current?.turn(dx, dy),
       pinch: (ratio) => activeRef.current && stage.current?.zoom(ratio),
-      tap: () => drawnRef.current && setActive(true),
+      tap: () => usableRef.current && setActive(true),
     });
     const down = (e: PointerEvent) => {
       gestures.down(e.pointerId, e.clientX, e.clientY, e.timeStamp);
@@ -243,7 +247,7 @@ export default function PartViewer({ glb, dimensions, label }: Props) {
   const keys = (e: React.KeyboardEvent) => {
     const s = stage.current;
     if (!activeRef.current) {
-      if (drawnRef.current && (e.key === "Enter" || e.key === " ")) {
+      if (usableRef.current && (e.key === "Enter" || e.key === " ")) {
         e.preventDefault();
         setActive(true);
       }
@@ -290,12 +294,12 @@ export default function PartViewer({ glb, dimensions, label }: Props) {
             role="button"
             tabIndex={0}
             aria-pressed={active}
-            aria-disabled={!ready || status !== "drawn"}
+            aria-disabled={!ready || !usable}
             aria-label={`${label}: tap to turn it`}
             aria-describedby={hintId}
             onKeyDown={keys}
             // Assistive tech may activate the button with a click alone.
-            onClick={() => drawnRef.current && setActive(true)}
+            onClick={() => usableRef.current && setActive(true)}
           />
           <div className="viewer-gutter" style={{ blockSize: labels.height || undefined }} aria-hidden="true">
             {labels.at.map((l) => (

@@ -35,6 +35,7 @@ const CONTENT_GATES = [
   "truth-table",
   "stl",
   "drawing",
+  "part-checks",
   "tools",
 ];
 
