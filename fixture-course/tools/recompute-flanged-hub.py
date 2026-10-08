@@ -16,8 +16,9 @@ from pathlib import Path
 
 LOG = Path(__file__).resolve().parents[1] / "build-records" / "recompute" / "07-flanged-hub" / "parts" / "hub.json"
 
-# The drawing, by the part's dimension ids (mm); the bolt holes' count is a note on the drawing.
-DIMENSIONS = {"flange-d": 80, "flange-t": 10, "hub-d": 40, "height": 30, "bore-d": 20, "hole-d": 8}
+# The drawing, by the part's dimension ids (mm); the bolt holes' count is a note on the drawing. The
+# pitch circle places the holes and leaves the volume as it is, since none of them overlaps another.
+DIMENSIONS = {"flange-d": 80, "flange-t": 10, "hub-d": 40, "height": 30, "bore-d": 20, "hole-d": 8, "pcd": 60}
 HOLES = 4
 
 

@@ -25,7 +25,7 @@ describe("the part on the built pages", () => {
       const card = page.slice(page.indexOf(`id="part-${MODULE}-hub"`));
       expect(card, route).toMatch(/component-url="\/_astro\/PartViewer\.[^"]+\.js"[^>]*client="visible"/);
       const buttons = [...card.slice(0, card.indexOf("</article>")).matchAll(/<button[^>]*>/g)].map((m) => m[0]);
-      expect(buttons.length, route).toBe(7); // Reset view and a row per dimension
+      expect(buttons.length, route).toBe(8); // Reset view and a row per dimension
       for (const b of buttons) expect(b).toContain("disabled");
     }
     const worked = build.page(MODULE);
@@ -45,6 +45,7 @@ describe("the part on the built pages", () => {
       [`dim-${MODULE}-hub-height`, "30 | scaled off the drawing"],
       [`dim-${MODULE}-hub-bore-d`, "Ø20 | stated"],
       [`dim-${MODULE}-hub-hole-d`, "Ø8 | assumed"],
+      [`dim-${MODULE}-hub-pcd`, "60 | stated"],
     ]);
   });
 
@@ -137,7 +138,7 @@ describe("the part's viewer in a browser", () => {
           };
         });
       });
-      expect(labels.map((l) => l.text).sort(), `${width}px`).toEqual(["10", "30", "Ø20", "Ø40", "Ø8", "Ø80"]);
+      expect(labels.map((l) => l.text).sort(), `${width}px`).toEqual(["10", "30", "60", "Ø20", "Ø40", "Ø8", "Ø80"]);
       for (const l of labels) {
         expect(l.px).toBeGreaterThanOrEqual(12);
         expect(l.onCanvas, `${l.text} at ${width}px`).toBe(false);

@@ -8,7 +8,8 @@ For every part in the Course (`modules/<NN-slug>/parts/<name>.json`, naming its 
   the page's viewer loads (glTF: metres, +Y up);
 - `build-records/parts/<NN-slug>/<name>.json`: the part record. What the B-rep measures (is it a
   valid solid, its volume and bounding box, and for each tagged dimension where its two ends meet
-  the solid's surface and the surface's normal there), bound to the script and the GLB by their
+  the solid's surface and the surface's normal there, or for a centres dimension how far each is
+  from a round feature's axis and that axis), bound to the script and the GLB by their
   SHA-256, so a script edited after its build, or a GLB from another build, is stale.
 
 The part gates check the GLB against the record in Node: Template CI has no build123d, so the
@@ -29,7 +30,9 @@ from pathlib import Path
 
 from build123d import Shape, Unit, Vector, export_gltf
 from build123d import __version__ as BUILD123D_VERSION
+from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
+from OCP.GeomAbs import GeomAbs_Cylinder
 
 RECORD = "learn-premium part record v1"
 # The GLB's chord error, in millimetres, absolute (build123d's own export takes it relative to each
@@ -56,6 +59,24 @@ def surface_at(solid: Shape, point: list[float]) -> tuple[float, list[float]]:
     return face.distance_to(p), [normal.X, normal.Y, normal.Z]
 
 
+def axis_at(solid: Shape, point: list[float]) -> tuple[float, list[float]]:
+    """How far `point` is from the nearest axis of a round face (a hole, a boss), and that axis."""
+    p = Vector(*point)
+    best = (float("inf"), [0.0, 0.0, 0.0])
+    for face in solid.faces():
+        surface = BRepAdaptor_Surface(face.wrapped)
+        if surface.GetType() != GeomAbs_Cylinder:
+            continue
+        axis = surface.Cylinder().Axis()
+        origin = Vector(axis.Location().X(), axis.Location().Y(), axis.Location().Z())
+        direction = Vector(axis.Direction().X(), axis.Direction().Y(), axis.Direction().Z()).normalized()
+        off = p - origin
+        gap = (off - direction * off.dot(direction)).length
+        if gap < best[0]:
+            best = (gap, [direction.X, direction.Y, direction.Z])
+    return best
+
+
 def build_part(content: Path, module: str, descriptor: Path) -> str:
     name = descriptor.stem
     spec = json.loads(descriptor.read_text(encoding="utf-8"))
@@ -74,7 +95,9 @@ def build_part(content: Path, module: str, descriptor: Path) -> str:
     box = solid.bounding_box(optimal=True)
     dimensions = []
     for d in spec["dimensions"]:
-        ends = [surface_at(solid, d["from"]), surface_at(solid, d["to"])]
+        # A centres dimension's ends sit on round features' axes; every other's on the surface.
+        at = axis_at if d.get("kind") == "centres" else surface_at
+        ends = [at(solid, d["from"]), at(solid, d["to"])]
         dimensions.append({
             "id": d["id"],
             "from": d["from"],
