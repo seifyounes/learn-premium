@@ -7,6 +7,7 @@ export * from "./display.ts";
 export * from "./library.ts";
 export * from "./memory.ts";
 export * from "./numbers.ts";
+export * from "./timers.ts";
 
 /** The status word's bits, bit 0 first, by their English mnemonics. */
 export const STATUS_BITS = ["/FC", "RLO", "STA", "OR", "OS", "OV", "CC0", "CC1", "BR"] as const;
