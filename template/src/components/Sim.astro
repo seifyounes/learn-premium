@@ -6,6 +6,7 @@ import { prose, type SimRef } from "../content/course";
 import GradientDescentSim from "../islands/GradientDescentSim";
 import LogicSim from "../islands/LogicSim";
 import PlaneWallSim from "../islands/PlaneWallSim";
+import SclSim from "../islands/SclSim";
 import StepThrough from "../islands/StepThrough";
 import StlSim from "../islands/StlSim";
 import { buildContentDir } from "../content/layout";
@@ -87,7 +88,23 @@ const missing =
     <p class="max-w-[68ch] text-body-small text-muted" set:html={prose(s.caption)} />
   </div>
   {inputsHtml && <div class="mbe-3" set:html={inputsHtml} />}
-  {live?.kind === "stl" ? (
+  {live?.kind === "scl" ? (
+    <SclSim
+      client:visible
+      model={live.model}
+      start={live.start}
+      negativeZero={negativeZero(live.start)}
+      tune={live.tune}
+      label={label}
+      walkthrough={live.walkthrough.map((w) => ({
+        titleHtml: prose(w.title),
+        lines: w.lines,
+        ...(w.note ? { noteHtml: prose(w.note) } : {}),
+        ...(w.fragment ? { fragment: w.fragment } : {}),
+      }))}
+      divergences={live.divergences.map((d) => ({ line: d.line, examHtml: prose(d.exam), noteHtml: prose(d.note) }))}
+    />
+  ) : live?.kind === "stl" ? (
     <StlSim
       client:visible
       model={live.model}

@@ -6,6 +6,7 @@ import type { sim } from "../content/contract.ts";
 import * as gradientDescent from "./gradient-descent/engine.ts";
 import * as logic from "./logic/engine.ts";
 import * as planeWall from "./plane-wall/engine.ts";
+import * as scl from "./scl/engine.ts";
 import * as stl from "./stl/engine.ts";
 import * as tangent from "./tangent/engine.ts";
 import type { Inputs } from "./tuning.ts";
@@ -20,9 +21,10 @@ interface Kind<K extends SimKind> {
   /**
    * The gate that checks its numbers three ways: `sim-numbers` at the sheet's printed precision,
    * or `truth-table` bit for bit, every row of it; an STL listing is checked by `stl`, bit for bit
-   * against awlsim after every statement.
+   * against awlsim after every statement, and an SCL listing by `scl`, against the blind
+   * interpreter on every scan.
    */
-  checkedBy: "sim-numbers" | "truth-table" | "stl";
+  checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl";
 }
 
 export const KINDS: { [K in SimKind]: Kind<K> } = {
@@ -37,6 +39,7 @@ export const KINDS: { [K in SimKind]: Kind<K> } = {
   tangent: { quantities: tangent.quantities, checkedBy: "sim-numbers" },
   "plane-wall": { quantities: planeWall.quantities, checkedBy: "sim-numbers" },
   stl: { quantities: stl.quantities, checkedBy: "stl" },
+  scl: { quantities: scl.quantities, checkedBy: "scl" },
 };
 
 /** A sim an independent recompute checks, which ships live: it opens on `start`, tuned over `tune`. */
@@ -64,6 +67,8 @@ export function engineQuantities(s: LiveSim, inputs: Inputs = s.start): Record<s
     case "plane-wall":
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
     case "stl":
+      return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
+    case "scl":
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
   }
 }

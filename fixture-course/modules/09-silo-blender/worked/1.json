@@ -1,0 +1,67 @@
+{
+  "code": "W09.1",
+  "title": "Weighing the hopper in one scan",
+  "statement": "An S7-300 runs the Blender function block below once a scan. Its three load cells read $0$ to $27648$ for $0$ to $500$ kg, and the recipe wants $120$, $80$ and $120$ kg. For each set of raw values, fill in the weight in the hopper, how full the batch is, and how many $25$ kg bags it fills, rounded to the nearest bag.",
+  "given": [
+    "load cells: raw $0$ to $27648$ is $0$ to $500$ kg",
+    "recipe: $120$, $80$ and $120$ kg",
+    "bags of $25$ kg"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "One scan, three sets of raw values",
+    "columns": [
+      { "label": "raw 1", "given": true },
+      { "label": "raw 2", "given": true },
+      { "label": "raw 3", "given": true },
+      { "label": "total", "unit": "kg" },
+      { "label": "fill", "unit": "%" },
+      { "label": "bags" }
+    ],
+    "rows": [
+      ["3456", "2592", "4320", "187.5", "58.59", "8"],
+      ["6480", "4320", "6480", "312.5", "97.66", "13"],
+      ["7344", "4536", "6912", "339.8", "106.20", "14"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Weigh the silos",
+      "note": "The FOR loop scales each load cell with ToKg, $\\text{kg} = \\frac{\\text{raw}}{27648} \\cdot 500$, and adds it up: $117.1875 + 78.125 + 117.1875 = 312.5$ kg.",
+      "fill": ["D1", "D2", "D3"]
+    },
+    {
+      "title": "How full the batch is",
+      "note": "The recipe adds up to $120 + 80 + 120 = 320$ kg, so the hopper holds $\\frac{312.5}{320} \\cdot 100 = 97.66$ % of it.",
+      "fill": ["E1", "E2", "E3"]
+    },
+    {
+      "title": "Bags to fill",
+      "note": "$\\frac{312.5}{25} = 12.5$ bags, which the Professor rounds up to $13$. REAL_TO_INT on a real S7 rounds a tie to the even number, $12$: the exam wants $13$.",
+      "fill": ["F1", "F2", "F3"],
+      "marks": ["F2"]
+    }
+  ],
+  "answer": "At raw values $6480$, $4320$ and $6480$ the hopper holds $312.5$ kg, $97.66$ % of the batch, which the exam counts as $13$ bags.",
+  "provenance": {
+    "stated": [
+      "an S7-300 with three load cells, $1$, $2$ and $3$",
+      "raw $0$ to $27648$ is $0$ to $500$ kg",
+      "the recipe's $120$, $80$ and $120$ kg",
+      "bags of $25$ kg",
+      "the raw values $3456$, $2592$, $4320$, $6480$, $7344$, $4536$ and $6912$"
+    ],
+    "derived": [
+      "$187.5$, $312.5$ and $339.8$ kg, and $117.1875$ and $78.125$ kg",
+      "$58.59$, $97.66$ and $106.20$ %, and the recipe's $320$ kg",
+      "$8$, $12.5$ and $14$ bags, and $100$"
+    ],
+    "divergences": [
+      {
+        "value": "$13$ bags",
+        "note": "REAL_TO_INT rounds $12.5$ to the even number on a real S7, so the CPU holds $12$; the Professor's answer, $13$, is the exam's."
+      }
+    ]
+  }
+}

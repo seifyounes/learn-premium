@@ -216,7 +216,7 @@ export class SclRun {
     this.block = block;
     for (const db of unit.dataBlocks) {
       const frame = this.frame(`${db.name}.`, new Map());
-      for (const d of db.declarations) this.declare(frame, d, "DB");
+      for (const d of db.declarations) this.define(frame, d, "DB");
       this.dbs.set(key(db.name), frame);
     }
     // A DB's BEGIN section sets its actual values, once.
@@ -233,7 +233,7 @@ export class SclRun {
           "the FUNCTION_BLOCK a scan calls has no actual parameter for a VAR_IN_OUT: declare it VAR_INPUT or VAR_OUTPUT",
         );
       for (const d of section.declarations) {
-        const v = this.declare(this.fb, d, section.kind);
+        const v = this.define(this.fb, d, section.kind);
         if (section.kind === "VAR_INPUT") {
           if (v.type.kind !== "elementary")
             throw new ListingError(
@@ -321,7 +321,7 @@ export class SclRun {
     return constants;
   }
 
-  private declare(frame: Frame, d: Declaration, section: Variable["section"]): Variable {
+  private define(frame: Frame, d: Declaration, section: Variable["section"]): Variable {
     if (frame.variables.has(key(d.name))) throw new ListingError(d.line, `${d.name} is declared twice`);
     const type = this.resolve(d.type, frame, d.line);
     const v: Variable = { name: d.name, type, section };
@@ -412,7 +412,9 @@ export class SclRun {
   // ---- references ----
 
   private place(ref: Reference, frame: Frame): Place {
-    const local = ref.quoted ? undefined : frame.variables.get(key(ref.name));
+    // A quoted name is a block's or a DB's: inside a FUNCTION, its own name is its value.
+    const named = frame.variables.get(key(ref.name));
+    const local = ref.quoted && named?.section !== "RETURN" ? undefined : named;
     if (local) return this.select({ frame, path: local.name, type: local.type }, ref.selectors, frame, ref);
     const db = this.dbs.get(key(ref.name));
     if (!db) throw new ListingError(ref.line, `"${ref.name}" isn't a variable, a constant or a DB here`);
@@ -564,9 +566,12 @@ export class SclRun {
         const sel = typed(this.ev(s.selector, frame), s.line);
         if (sel.type !== "INT" && sel.type !== "DINT")
           throw new ListingError(s.line, "a CASE selector is an INT or DINT");
-        const arm = s.arms.find((a) =>
+        const matching = s.arms.filter((a) =>
           a.labels.some((l) => sel.value >= this.ev(l.from, frame).value && sel.value <= this.ev(l.to, frame).value),
         );
+        // Each value labels one arm at most (the manual, CASE Statement).
+        if (matching.length > 1) throw new ListingError(s.line, `the CASE value ${sel.value} labels two arms`);
+        const arm = matching[0];
         e.outcome = arm
           ? `${sel.value}: line ${arm.line + 1}`
           : s.otherwise
@@ -809,10 +814,10 @@ export class SclRun {
     const params: { d: Declaration; section: SectionKind }[] = [];
     for (const section of fc.sections)
       for (const d of section.declarations) {
-        this.declare(local, d, section.kind);
+        this.define(local, d, section.kind);
         if (section.kind !== "VAR_TEMP" && section.kind !== "VAR") params.push({ d, section: section.kind });
       }
-    if (fc.returns) this.declare(local, { name: fc.name, type: fc.returns, line: fc.line }, "RETURN");
+    if (fc.returns) this.define(local, { name: fc.name, type: fc.returns, line: fc.line }, "RETURN");
     const outs: { param: Place; actual: Place }[] = [];
     const given = new Set<string>();
     e.args.forEach((a, i) => {

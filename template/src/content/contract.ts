@@ -8,6 +8,7 @@ import { schematicProblems } from "../sims/layout/validate.ts";
 import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
 import { PROVENANCE_TAGS } from "../provenance/values.ts";
 import { S7_TYPES } from "../sims/s7/memory.ts";
+import { sclProblems } from "../sims/scl/validate.ts";
 import { stlProblems } from "../sims/stl/validate.ts";
 import { CELL_REF, parseCell } from "../worked/cells.ts";
 
@@ -532,14 +533,76 @@ export const stlListing = z
   });
 
 /**
+ * An SCL listing (`src/sims/scl/engine.ts`), run live on the S7 core: each scan calls the listing's
+ * FUNCTION_BLOCK once, students set its inputs and step a statement or a scan at a time, with a
+ * trace. A second interpreter, written blind from the Siemens SCL manual (`oracle/scl-blind.ts`),
+ * runs the same cases at build and must agree on every scan (`gates/scl.ts`).
+ */
+const sclSim = z.strictObject({
+  kind: z.literal("scl"),
+  ...simCommon,
+  /** The blind interpreter recomputes every listing at build. */
+  recompute: z.literal("independent"),
+  model: z.strictObject({
+    /** The listing as the Professor wrote it, line for line: TYPE, DATA_BLOCK, FUNCTION and FUNCTION_BLOCK units. */
+    source: z.string().min(1),
+    /** The FUNCTION_BLOCK each scan calls once: its VAR_INPUTs are what students set. */
+    block: z.string().min(1),
+    /** The watch table: variables by path (`fill_pct`, `Recipe.silo[1].kg`), shown as each statement runs. */
+    watch: z.array(z.string().min(1)),
+  }),
+  /** The example's values, one per VAR_INPUT: the listing opens on them. */
+  start: z.record(z.string(), z.number()),
+  /** The inputs students tune, each over its range; any other input stays at the example's value. */
+  tune: z.record(z.string(), tuneRange),
+  /** Multi-scan cases (a batch run start to finish) beyond the ones the gate derives from `tune`. */
+  cases: z.array(stlCase).default([]),
+  /**
+   * A listing the Professor builds up over several slides: one tab per build step, naming the lines
+   * of the final listing that step adds (`"1-12, 30"`). `fragment` is code a slide shows only for
+   * its syntax: it stays static code, never run.
+   */
+  walkthrough: z
+    .array(
+      z.strictObject({
+        title: z.string().min(1),
+        lines: z.string().min(1),
+        note: z.string().min(1).optional(),
+        fragment: z.string().min(1).optional(),
+      }),
+    )
+    .default([]),
+  /**
+   * The lines the Owner ruled a Divergence at a Checkpoint: the trace marks that line only, with the
+   * Professor's result as the exam answer and a red-pen note on what a real S7 does.
+   */
+  divergences: z
+    .array(z.strictObject({ line: z.number().int().positive(), exam: z.string().min(1), note: z.string().min(1) }))
+    .default([]),
+  /**
+   * Where the two interpreters part and the SCL manual says nothing: each is a Checkpoint item until
+   * the Owner rules it (`ruling`). `at` is the variable they part on, or `line N` where the blind
+   * interpreter stops because the manual leaves the result undefined.
+   */
+  silent: z
+    .array(z.strictObject({ at: z.string().min(1), point: z.string().min(1), ruling: z.string().min(1).optional() }))
+    .default([]),
+  /** An SCL listing always ships live. */
+  stepThrough: z.never().optional(),
+});
+
+/**
  * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
  * the same way in Node at build and in the page. Students tune it, never rewire it.
  */
 export const sim = z
-  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim, stlSim])
+  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim, stlSim, sclSim])
   .superRefine((s, ctx) => {
     if (s.kind === "stl")
       for (const p of stlProblems(s.model, s.start, s.tune, s.cases)) ctx.addIssue({ code: "custom", ...p });
+    if (s.kind === "scl")
+      for (const p of sclProblems(s.model, s.start, s.tune, s.cases, s.walkthrough, s.divergences))
+        ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "logic") {
       // The circuit is judged once its netlist holds together: a pin in no net isn't also a loop.
       const structure = schematicProblems(s.model, s.layout);
@@ -607,6 +670,7 @@ export const SIM_KINDS = [
   "tangent",
   "plane-wall",
   "stl",
+  "scl",
 ] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /**
