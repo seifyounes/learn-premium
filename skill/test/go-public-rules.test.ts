@@ -122,5 +122,6 @@ describe("secrets", () => {
     });
 
     expect(flagged).toEqual([]);
-  });
+    // It reads every file the template and the Fixture Course carry: seconds on a loaded 4-core run.
+  }, 30_000);
 });
