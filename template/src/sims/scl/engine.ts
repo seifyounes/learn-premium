@@ -160,6 +160,8 @@ interface Frame {
   constants: Map<string, Value>;
   /** Its writes show in the trace (an FB's and a DB's; a FUNCTION's own are its business). */
   traced: boolean;
+  /** A FUNCTION's VAR_IN_OUT parameters, each bound to its actual variable. */
+  aliases: Map<string, Place>;
 }
 
 /** A resolved place: the frame, its path there, and its type. */
@@ -313,12 +315,19 @@ export class SclRun {
   // ---- declarations ----
 
   private frame(prefix: string, constants: Map<string, Value>): Frame {
-    return { variables: new Map(), store: new Map(), prefix, constants, traced: true };
+    return { variables: new Map(), store: new Map(), prefix, constants, traced: true, aliases: new Map() };
   }
 
   private constantsOf(block: Block): Map<string, Value> {
     const constants = new Map<string, Value>();
-    const frame: Frame = { variables: new Map(), store: new Map(), prefix: "", constants, traced: false };
+    const frame: Frame = {
+      variables: new Map(),
+      store: new Map(),
+      prefix: "",
+      constants,
+      traced: false,
+      aliases: new Map(),
+    };
     for (const c of block.constants) constants.set(key(c.name), this.ev(c.value, frame));
     return constants;
   }
@@ -414,6 +423,8 @@ export class SclRun {
   // ---- references ----
 
   private place(ref: Reference, frame: Frame): Place {
+    const alias = ref.quoted ? undefined : frame.aliases.get(key(ref.name));
+    if (alias) return this.select(alias, ref.selectors, frame, ref);
     // A quoted name is a block's or a DB's: inside a FUNCTION, its own name is its value.
     const named = frame.variables.get(key(ref.name));
     const local = ref.quoted && named?.section !== "RETURN" ? undefined : named;
@@ -815,6 +826,7 @@ export class SclRun {
       prefix: "",
       constants: this.constantsOf(fc),
       traced: false,
+      aliases: new Map(),
     };
     const params: { d: Declaration; section: SectionKind }[] = [];
     for (const section of fc.sections)
@@ -838,16 +850,18 @@ export class SclRun {
       if (a.value.kind !== "ref") throw new ListingError(e.line, `${p.d.name} is an output: give it a variable`);
       const actual = this.place(a.value.ref, frame);
       if (p.section === "VAR_IN_OUT") {
-        if (param.type.kind !== "elementary" || actual.type.kind !== "elementary")
-          throw new ListingError(e.line, `${p.d.name} takes an elementary variable`);
-        local.store.set(
-          p.d.name,
-          this.convert(
-            { type: actual.type.name, value: actual.frame.store.get(actual.path) ?? 0 },
-            param.type.name,
+        // An in/out parameter is the actual variable itself: two naming the same one write the same place.
+        if (
+          param.type.kind !== "elementary" ||
+          actual.type.kind !== "elementary" ||
+          actual.type.name !== param.type.name
+        )
+          throw new ListingError(
             e.line,
-          ),
-        );
+            `${p.d.name} takes ${an(param.type.kind === "elementary" ? param.type.name : "elementary")} variable`,
+          );
+        local.aliases.set(key(p.d.name), actual);
+        return;
       }
       outs.push({ param, actual });
     });

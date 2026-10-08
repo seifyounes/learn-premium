@@ -180,9 +180,13 @@ export const sclGate: Gate = {
           // Only what the sheet prints: every other value was compared scan by scan above.
           const blindValues: Record<string, Leaf> = first.values;
           values = { ...s.start };
+          // A quantity the Owner ruled where the manual is silent takes the engine's value, as ruled.
+          const engine = engineQuantities(s);
           for (const quantity of Object.values(s.sheet)) {
             const leaf = blindValues[quantity];
-            if (leaf) values[quantity] = leaf.value;
+            if (listed.get(quantity)?.ruling !== undefined && engine[quantity] !== undefined)
+              values[quantity] = engine[quantity];
+            else if (leaf) values[quantity] = leaf.value;
           }
         } else if (first && "stopped" in first && listed.get(`line ${first.stopped.line}`)?.ruling !== undefined) {
           // The Owner ruled the engine's way where the manual is silent: the engine is the recompute.

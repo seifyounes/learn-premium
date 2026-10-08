@@ -12,7 +12,7 @@ import { runControls } from "../gates/runner.ts";
 import { sclGate } from "../gates/scl.ts";
 import { runBlind } from "../oracle/scl-blind.ts";
 import { runControls as runMutants } from "../src/sims/scl/mutants.ts";
-import { gateCases, type BlindScan } from "../src/sims/scl/oracle.ts";
+import { compareWithBlind, gateCases, type BlindScan } from "../src/sims/scl/oracle.ts";
 import { FIXTURE_COURSE } from "./build-course";
 
 const MODULE = "09-silo-blender";
@@ -137,6 +137,22 @@ describe("the scl gate", () => {
       );
       expect(ruled.findings).toEqual([]);
     });
+  });
+
+  it("refers a scan both interpreters stop on to the Owner, never counting it as agreement (Codex review)", () => {
+    const source =
+      "FUNCTION_BLOCK T\nVAR_INPUT k : INT; END_VAR\nVAR_OUTPUT o : INT; END_VAR\nVAR a : ARRAY[1..2] OF INT; END_VAR\nBEGIN\no := a[k];\nEND_FUNCTION_BLOCK\n";
+    const model = { source, block: "T", watch: ["o"] };
+    const cases = [{ name: "past the end", scans: [{ k: 3 }] }];
+    const blind = [runBlind({ source, block: "T", scans: [{ k: 3 }] }) as BlindScan[]];
+    const agreement = compareWithBlind(model, cases, blind);
+    expect(agreement.stopped).toEqual([
+      {
+        at: "line 6",
+        where: "past the end, scan 1",
+        detail: expect.stringMatching(/^the engine stops \(line 6: a\[3\]/),
+      },
+    ]);
   });
 
   it("blocks a construct the listing uses that no case runs (the *I lesson), and only that", async () => {
