@@ -21,8 +21,12 @@ const TB_10S = 3;
 const bcd3 = (n: number) => (n % 10) | ((Math.floor(n / 10) % 10) << 4) | ((Math.floor(n / 100) % 10) << 8);
 const fromBcd3 = (word: number) => (word & 0xf) + ((word >> 4) & 0xf) * 10 + ((word >> 8) & 0xf) * 100;
 
-/** Seconds as an S5TIME in the given base, without the base bits (awlsim's `_seconds_to_s5t_tb*`). */
+/** Seconds as an S5TIME word in the given base, base bits included (awlsim's `_seconds_to_s5t_tb*`). */
 function inBase(seconds: number, base: number): number {
+  return digitsIn(seconds, base) | (base << 12);
+}
+
+function digitsIn(seconds: number, base: number): number {
   switch (base) {
     case TB_10MS:
       return bcd3(roundHalfEven(seconds * 100.0));
@@ -39,9 +43,9 @@ function inBase(seconds: number, base: number): number {
 export function secondsToS5t(seconds: number): number {
   if (seconds < 0) throw new RangeError(`${seconds} s can't be an S5TIME`);
   if (seconds <= 9.99) return inBase(seconds, TB_10MS);
-  if (seconds <= 99.9) return inBase(seconds, TB_100MS) | (TB_100MS << 12);
-  if (seconds <= 999.0) return inBase(seconds, TB_1S) | (TB_1S << 12);
-  if (seconds <= 9990.0) return inBase(seconds, TB_10S) | (TB_10S << 12);
+  if (seconds <= 99.9) return inBase(seconds, TB_100MS);
+  if (seconds <= 999.0) return inBase(seconds, TB_1S);
+  if (seconds <= 9990.0) return inBase(seconds, TB_10S);
   throw new RangeError(`${seconds} s is longer than an S5TIME holds (9990 s)`);
 }
 
@@ -156,7 +160,7 @@ export class S5Timer {
     }
   }
 
-  /** The time left in BCD, as `LC T` loads it: awlsim leaves the time base out (a real S7 puts it in bits 12–13). */
+  /** The time left in BCD with its time base in bits 12–13, as `LC T` loads it. */
   valueBcd(now: number): number {
     return inBase(this.remainingAt(now), this.timebase);
   }
