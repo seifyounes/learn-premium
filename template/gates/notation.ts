@@ -5,7 +5,7 @@
 // it before any other Module is written.
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { COLLECTIONS } from "../src/content/layout.ts";
+import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
 import { STYLE_SHEET_FILE, styleSheet, type StyleSheet } from "../src/content/style-sheet.ts";
 import { splitProse } from "../src/math/katex.ts";
@@ -119,8 +119,10 @@ export const notationGate: Gate = {
   points: ["job", "deploy"],
   async run(input) {
     const files = courseFiles(input);
-    // Nothing in scope to hold to the style sheet: the gate covered nothing.
-    if (files.length === 0) return { coverage: { entries: 0, styleSheetRules: 0 }, findings: [] };
+    // No Module in scope (a Module that doesn't exist, or a Course with none yet, whose style sheet
+    // Module 1's wave hasn't written): the gate covered nothing.
+    if (!files.some((f) => moduleOf(f.entry) !== undefined))
+      return { coverage: { entries: 0, styleSheetRules: 0 }, findings: [] };
     const read = readStyleSheet(input.contentDir);
     if ("finding" in read) return { coverage: { entries: files.length, styleSheetRules: 0 }, findings: [read.finding] };
     const { sheet } = read;
