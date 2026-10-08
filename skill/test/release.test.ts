@@ -63,7 +63,14 @@ class FakeForge implements Forge {
   async galleryUrl() {
     return this.gallery;
   }
+  /** Tag times on the runs' own clock, so "a run before the tag" means an earlier tick. */
+  tagTimes = new Map<string, string>();
+  async tagCreatedAt(tag: string) {
+    return this.tagTimes.get(tag) ?? null;
+  }
   async createRelease(tag: string, title: string, notes: string) {
+    // The tag was pushed just before its GitHub Release.
+    this.tagTimes.set(tag, new Date(Date.UTC(2026, 9, 7, 0, 0, this.clock++)).toISOString());
     this.releases.push({ tag, title, notes });
     return `https://github.example/releases/${tag}`;
   }
@@ -320,6 +327,26 @@ describe("tag", () => {
     const { code, stdout } = await r.release("tag", "--bump", "major", "--version", "v1.2.4");
     expect(code).toBe(2);
     expect(stdout).toMatch(/alternatives/);
+  });
+
+  test("needs a migration harness run made after the latest release was tagged", async () => {
+    const r = repo();
+    const older = readyButForThePass(r, "the release candidate");
+    r.forge.ownerPass(older);
+    // A later merge goes green while no release exists yet: its harness had nothing to upgrade.
+    const later = readyButForThePass(r, "a later merge");
+    r.forge.ownerPass(later);
+    expect((await r.release("tag", "--bump", "minor", "--sha", older)).code).toBe(0);
+    const stale = await r.release("tag", "--bump", "patch");
+    expect(stale.code).toBe(1);
+    expect(stale.stdout).toMatch(/migration-harness\.yml: its run predates v0\.1\.0/);
+    expect(stale.stdout).toContain("gh workflow run migration-harness.yml --ref main");
+    expect(r.originTags()).toBe("v0.1.0");
+    // Re-run after the tag: it upgrades v0.1.0's Fixture Course, and the release goes through.
+    r.forge.addRun(later, ".github/workflows/migration-harness.yml", "success");
+    const { code, stdout } = await r.release("tag", "--bump", "patch");
+    expect(code, stdout).toBe(0);
+    expect(r.originTags().split("\n")).toEqual(["v0.1.0", "v0.1.1"]);
   });
 
   test("refuses a candidate that isn't on origin's main", async () => {

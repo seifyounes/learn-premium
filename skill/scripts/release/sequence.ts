@@ -65,7 +65,12 @@ export interface Forge {
   galleryUrl(sha: string): Promise<string | null>;
   /** Publishes the GitHub Release for an existing tag; returns its URL. */
   createRelease(tag: string, title: string, notes: string): Promise<string>;
+  /** When an annotated release tag was made (its tagger date), or null when GitHub can't say. */
+  tagCreatedAt(tag: string): Promise<string | null>;
 }
+
+/** The workflow whose result depends on which release is the latest: it upgrades that one's Fixture Course. */
+export const HARNESS_WORKFLOW = ".github/workflows/migration-harness.yml";
 
 export interface Deps {
   git: Git;
@@ -85,8 +90,17 @@ export interface Steps {
 
 const workflowFile = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
-/** Step 1: the latest attempt of every required workflow on the candidate is green. */
-export async function ciStep(forge: Forge, sha: string, onMainTip: boolean): Promise<Step> {
+/**
+ * Step 1: the latest attempt of every required workflow on the candidate is green. The migration
+ * harness must also have run after the latest release was tagged: it upgrades the Fixture Course
+ * of whichever release was latest when it ran, so an older run proved the wrong upgrade.
+ */
+export async function ciStep(
+  forge: Forge,
+  sha: string,
+  onMainTip: boolean,
+  latestRelease: { name: string; taggedAt: string | null } | null = null,
+): Promise<Step> {
   const runs = await forge.runs(sha);
   const lines: string[] = [];
   let ok = true;
@@ -108,6 +122,16 @@ export async function ciStep(forge: Forge, sha: string, onMainTip: boolean): Pro
     } else if (newest.conclusion !== "success") {
       ok = false;
       lines.push(`${file}: ${newest.conclusion ?? "no conclusion"} (${newest.url})`);
+    } else if (
+      workflow === HARNESS_WORKFLOW &&
+      latestRelease?.taggedAt != null &&
+      Date.parse(newest.startedAt) < Date.parse(latestRelease.taggedAt)
+    ) {
+      ok = false;
+      lines.push(
+        `${file}: its run predates ${latestRelease.name}, so it upgraded an older release's Fixture Course; ` +
+          (onMainTip ? `re-run it: gh workflow run ${file} --ref main` : "re-run it on this commit"),
+      );
     } else {
       lines.push(`${file}: success`);
     }
@@ -159,8 +183,10 @@ export async function passStep(forge: Forge, sha: string): Promise<Steps["pass"]
 
 export async function steps(deps: Deps, sha: string): Promise<Steps> {
   const onMainTip = deps.git.resolve(deps.git.mainRef) === sha;
+  const latest = latestRelease(deps.git);
+  const released = latest === null ? null : { name: latest, taggedAt: await deps.forge.tagCreatedAt(latest) };
   return {
-    ci: await ciStep(deps.forge, sha, onMainTip),
+    ci: await ciStep(deps.forge, sha, onMainTip, released),
     gallery: await galleryStep(deps.forge, sha),
     pass: await passStep(deps.forge, sha),
   };
@@ -177,6 +203,17 @@ const parse = (tag: string): Version | null => {
 const format = (v: Version) => `v${v.join(".")}`;
 const compare = (a: Version, b: Version) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 
+/** Origin's release tags, oldest version first. */
+function releasesOn(git: Git): { name: string; v: Version }[] {
+  return [...git.originTags().keys()]
+    .map((name) => ({ name, v: parse(name) }))
+    .filter((t): t is { name: string; v: Version } => t.v !== null)
+    .sort((a, b) => compare(a.v, b.v));
+}
+
+/** Origin's latest release tag, or null before the first release. */
+export const latestRelease = (git: Git): string | null => releasesOn(git).at(-1)?.name ?? null;
+
 export interface Plan {
   previous: string | null;
   version: string | null;
@@ -191,11 +228,7 @@ export interface Plan {
 export function plan(git: Git, sha: string, wanted: { bump?: Bump; version?: string }): Plan {
   const problems: string[] = [];
   const tags = git.originTags();
-  const releases = [...tags.keys()]
-    .map((name) => ({ name, v: parse(name) }))
-    .filter((t): t is { name: string; v: Version } => t.v !== null)
-    .sort((a, b) => compare(a.v, b.v));
-  const latest = releases.at(-1) ?? null;
+  const latest = releasesOn(git).at(-1) ?? null;
   const base: Version = latest?.v ?? [0, 0, 0];
 
   let next: Version | null = null;

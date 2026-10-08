@@ -16,7 +16,8 @@ refuses to tag until every step below holds on that exact commit.
 1. **CI green.** The newest run of each of these workflows on the commit succeeded: Template CI,
    Skill CI and the Migration harness. A workflow only runs on a push that touches its paths, so
    `status` prints the `gh workflow run … --ref main` command for any that have no run on the
-   commit.
+   commit. The Migration harness run must also have started after the latest release was tagged:
+   it upgrades whichever release was latest when it ran.
 2. **The Tool gallery deployed, live gates green.** Vercel deployed the commit and the Fixture
    live gates passed on it (the `learn-premium/live-gates` status, `docs/deploy.md`). `status`
    prints the commit's own Tool gallery URL: its Production deployment's URL, which serves only that
