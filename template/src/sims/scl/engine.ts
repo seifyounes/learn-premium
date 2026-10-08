@@ -670,7 +670,7 @@ export class SclRun {
       case "unary":
         return this.unary(e.op, this.ev(e.operand, frame), this.lineOf(e));
       case "binary":
-        return this.binary(e.op, this.ev(e.left, frame), this.ev(e.right, frame), this.lineOf(e));
+        return this.binary(e.op, this.ev(e.lhs, frame), this.ev(e.rhs, frame), this.lineOf(e));
       case "call":
         return this.call(e, frame, false);
     }
@@ -930,8 +930,8 @@ export function constructsIn(unit: Unit): Map<string, number> {
         expression(e.operand, line);
         break;
       case "binary":
-        expression(e.left, line);
-        expression(e.right, line);
+        expression(e.lhs, line);
+        expression(e.rhs, line);
         break;
       case "call":
         for (const a of e.args) expression(a.value, line);
@@ -986,7 +986,7 @@ const lineIn = (e: Expr): number | undefined => {
     case "unary":
       return lineIn(e.operand);
     case "binary":
-      return lineIn(e.left) ?? lineIn(e.right);
+      return lineIn(e.lhs) ?? lineIn(e.rhs);
     case "literal":
       return undefined;
   }
