@@ -106,9 +106,10 @@ shipped migration newer than the content's release, oldest first. An upgrade fro
 runs v2, then v3. From v1.2 to v1.5 it runs none. The Upgrade wave runs it on its branch.
 
 The Migration harness workflow (`.github/workflows/migration-harness.yml`, `npm run migrations --
-prove`) takes the Fixture Course from the latest release tag behind the commit. It runs the
-migrations on a copy, then checks the copy against this template's content contract and builds
-it. Within one major no migration runs, so the previous release's Fixture Course must pass as it
+prove`) takes the Fixture Course from the latest release tag behind the commit, and from the last
+release of every older major. A Course on v1 upgrades through v2's migration and then v3's, so
+that whole chain is replayed too. It runs the remaining migrations on a copy of each, then checks
+each copy against this template's content contract and builds it. Within one major no migration runs, so the previous release's Fixture Course must pass as it
 is. A contract change that breaks it needs a major release and its migration. Before the first
 release there's nothing to upgrade, so the harness is green.
 

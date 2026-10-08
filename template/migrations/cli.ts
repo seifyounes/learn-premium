@@ -5,15 +5,16 @@
 //          Runs every shipped migration newer than the release the content was written at (up to
 //          --to), oldest first, rewriting DIR in place. The Upgrade wave runs it on its branch.
 //   prove  [--repo DIR]
-//          The migration harness: upgrades a copy of the previous release's Fixture Course and
-//          checks it against the content contract, then builds it with this template.
+//          The migration harness: upgrades a copy of the Fixture Course of the last release of
+//          every major behind HEAD (the previous release among them) through the remaining
+//          migrations, and checks each against the content contract, then builds it.
 //
 // Exit codes: 0 green, 1 red, 2 bad usage.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { contractProblems, proveUpgrade, type Prover } from "./harness.ts";
+import { contractProblems, proveAllUpgrades, type Prover } from "./harness.ts";
 import { runMigrations } from "./runner.ts";
 
 const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
@@ -70,22 +71,25 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case "prove": {
-      const proof = await proveUpgrade({
+      const proofs = await proveAllUpgrades({
         repo: resolve(values.repo ?? join(TEMPLATE_DIR, "..")),
         prove: contractThenBuild,
       });
-      if (proof.previous === null) {
+      if (proofs.length === 0) {
         console.log("green: no Template release yet, so no earlier Fixture Course to upgrade");
         return 0;
       }
-      console.log(`upgraded the Fixture Course of ${proof.previous} (copy at ${proof.contentDir})`);
-      if (proof.migrations.length === 0) console.log("  no migration: the same major, so it must pass as it is");
-      for (const m of proof.migrations) console.log(`  ran v${m.major}: ${m.describe}`);
-      for (const problem of proof.problems) console.log(`  block: ${problem}`);
+      for (const proof of proofs) {
+        console.log(`upgraded the Fixture Course of ${proof.previous} (copy at ${proof.contentDir})`);
+        if (proof.migrations.length === 0) console.log("  no migration: the same major, so it must pass as it is");
+        for (const m of proof.migrations) console.log(`  ran v${m.major}: ${m.describe}`);
+        for (const problem of proof.problems) console.log(`  block: ${problem}`);
+      }
+      const red = proofs.filter((p) => p.problems.length > 0).map((p) => p.previous);
       console.log(
-        proof.problems.length === 0 ? "green: it passes this template" : "red: it doesn't pass this template",
+        red.length === 0 ? "green: every upgrade passes this template" : `red: ${red.join(", ")} don't upgrade`,
       );
-      return proof.problems.length === 0 ? 0 : 1;
+      return red.length === 0 ? 0 : 1;
     }
     default:
       throw new UsageError(`unknown command "${positionals[0] ?? ""}"; use run or prove`);

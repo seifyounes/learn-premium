@@ -135,7 +135,8 @@ export async function ciStep(
     } else if (
       workflow === HARNESS_WORKFLOW &&
       latestRelease?.publishedAt != null &&
-      Date.parse(newest.startedAt) < Date.parse(latestRelease.publishedAt)
+      // GitHub's timestamps have whole seconds: a run in the same second may have come first.
+      Date.parse(newest.startedAt) <= Date.parse(latestRelease.publishedAt)
     ) {
       ok = false;
       lines.push(
