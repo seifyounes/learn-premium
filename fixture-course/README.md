@@ -61,6 +61,12 @@ Layout (content contract v0):
   every case, written by `npm run oracle -- write` in the template; the `stl` gate checks the
   interpreter against it bit for bit. The tank listing is the STL prototype's own (#37), no
   Professor's text.
+- An SCL sim (`kind: scl`, Module 09) holds its listing (`model.source`), the FUNCTION_BLOCK a scan
+  calls (`model.block`), the watch table by variable path (`model.watch`), multi-scan `cases`, its
+  build steps (`walkthrough`, with a syntax `fragment`) and a Divergence line (`divergences`). The
+  `scl` gate runs it on the blind interpreter at every build, so no oracle log is kept. The blending
+  station is written for the Fixture Course, no Professor's text, and its Divergence (REAL_TO_INT
+  of 12.5) is a fixture ruling, not the Owner's.
 - `modules/<NN>-<slug>/parts/<name>.json` (JSON only) and `<name>.py`: one machine part each, its
   build123d script and the dimensions its drawing gives (each between two points on the part, with
   its Provenance tag; `confirmed` once the Owner has ruled on a scaled or assumed one). `<name>.glb`
