@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { prose, type SimRef } from "../content/course";
 import ControlSim from "../islands/ControlSim";
 import GradientDescentSim from "../islands/GradientDescentSim";
+import LadderSim from "../islands/LadderSim";
 import LogicSim from "../islands/LogicSim";
 import PlaneWallSim from "../islands/PlaneWallSim";
 import SclSim from "../islands/SclSim";
@@ -14,7 +15,7 @@ import { buildContentDir } from "../content/layout";
 import { pinnedIn } from "../content/style-sheet";
 import TangentSim from "../islands/TangentSim";
 import { provenanceNotes } from "../provenance/notes";
-import { definitionsFor, isLive } from "../sims/kinds";
+import { definitionsFor, isLive, schematicModelOf } from "../sims/kinds";
 import { inkNets } from "../sims/layout/geometry";
 import { layOut } from "../sims/layout/layout";
 import { printedDecimals } from "../sims/precision";
@@ -60,6 +61,8 @@ const stepThrough = s.stepThrough && toStepThrough(s.stepThrough, prose);
 // the drawing, never the router.
 const logic = live?.kind === "logic" ? live : undefined;
 const drawing = logic && layOut(logic.model, logic.layout);
+const ladder = live?.kind === "ladder" ? live : undefined;
+const ladderDrawing = ladder && layOut(schematicModelOf(ladder), ladder.layout);
 // An STL listing with an instruction the interpreter lacks plays awlsim's own trace of the example's
 // values, from its oracle log in the build records (the stl gate checked the log is current).
 const stl = s.kind === "stl" ? s : undefined;
@@ -128,6 +131,17 @@ const controlDefinitions = control && definitionsFor(control, pinnedIn(buildCont
         the scans the build's oracle (awlsim) ran on the example's values.
       </p>
     </>
+  ) : ladder && ladderDrawing ? (
+    <LadderSim
+      client:visible
+      model={ladder.model}
+      drawing={ladderDrawing}
+      nets={inkNets(ladderDrawing, ladder.model.nets)}
+      start={ladder.start}
+      scenario={ladder.scenario}
+      cycle={ladder.cycle}
+      label={label}
+    />
   ) : logic && drawing ? (
     <LogicSim
       client:visible

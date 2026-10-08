@@ -5,6 +5,7 @@ import { padGate, redHueRule } from "./colour.ts";
 import { contentContract, katexGate } from "./content.ts";
 import { pinnedDefinitionsGate } from "./definitions.ts";
 import { drawingGate } from "./drawing.ts";
+import { ladderGate } from "./ladder.ts";
 import { licencesFileGate, licencesGate } from "./licences.ts";
 import { liveHeaders, livePrivatePaths, liveRoutes } from "./live.ts";
 import { masterRules } from "./master-rules.ts";
@@ -34,6 +35,7 @@ export const GATES: readonly Gate[] = [
   stlGate,
   sclGate,
   pinnedDefinitionsGate,
+  ladderGate,
   drawingGate,
   partChecks,
   toolsGate,

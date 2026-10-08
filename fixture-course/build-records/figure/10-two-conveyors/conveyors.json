@@ -1,0 +1,28 @@
+{
+  "reading": "learn-premium figure reading v1",
+  "by": "Blind reader, from the synthetic STEP 7 LAD editor screenshot build-records/figure/10-two-conveyors/conveyors.png, never seeing a builder file",
+  "parts": {
+    "N1 no I0.0": { "kind": "no", "at": [0.144, 0.312], "turn": 0, "label": "above" },
+    "N1 no Q4.0": { "kind": "no", "at": [0.144, 0.390], "turn": 0, "label": "above" },
+    "N1 no I0.1": { "kind": "no", "at": [0.344, 0.312], "turn": 0, "label": "above" },
+    "N1 coil Q4.0": { "kind": "coil", "at": [0.911, 0.312], "turn": 0, "label": "above" },
+    "N2 no Q4.0": { "kind": "no", "at": [0.144, 0.577], "turn": 0, "label": "above" },
+    "N2 ton DB1": { "kind": "ton", "at": [0.466, 0.630], "turn": 0, "label": "above" },
+    "N2 coil Q4.1": { "kind": "coil", "at": [0.911, 0.577], "turn": 0, "label": "above" }
+  },
+  "unlabelled": { "power-rail": 2 },
+  "nets": [
+    { "pins": ["POWER.t", "N1 no I0.0.in", "N1 no Q4.0.in", "N2 no Q4.0.in"], "dotted": false },
+    { "pins": ["N1 no I0.0.out", "N1 no Q4.0.out", "N1 no I0.1.in"], "dotted": false },
+    { "pins": ["N1 no I0.1.out", "N1 coil Q4.0.in"], "dotted": false },
+    { "pins": ["N2 no Q4.0.out", "N2 ton DB1.IN"], "dotted": false },
+    { "pins": ["N2 ton DB1.Q", "N2 coil Q4.1.in"], "dotted": false }
+  ],
+  "doubts": [
+    "Both networks' left rails share the single pin name POWER.t; since every pin may appear in only one net, I merged both rails' connections into one power net (N1 I0.0, N1 Q4.0 seal-in branch, N2 Q4.0).",
+    "I0.1 is drawn as a normally open contact -| |- even though the comment says the Stop button is normally closed (reads 1 until pressed); I read it as kind 'no', exactly as drawn.",
+    "The TON box's PT input (T#5S) and ET output (MD20) are values, not pins, and are left out of the nets; the box's printed instance operand is DB1, read as the ton's key.",
+    "The seal-in branch joins the main rung at x~200 px with a plain T-junction; no joint dots are drawn anywhere, so every net is dotted: false.",
+    "Positions measured from dark-pixel extents on the 900x640 image: contacts by their two bars, coils by their two arcs, the TON by its box outline (x 359-480, y 355-452)."
+  ]
+}

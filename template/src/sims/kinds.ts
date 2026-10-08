@@ -13,11 +13,13 @@ import {
 } from "./definitions.ts";
 import * as gradientDescent from "./gradient-descent/engine.ts";
 import * as ladder from "./ladder/engine.ts";
+import { schematicOf } from "./ladder/model.ts";
 import * as logic from "./logic/engine.ts";
 import * as planeWall from "./plane-wall/engine.ts";
 import * as scl from "./scl/engine.ts";
 import * as stl from "./stl/engine.ts";
 import * as tangent from "./tangent/engine.ts";
+import type { SchematicModel } from "./layout/drawing.ts";
 import type { Inputs } from "./tuning.ts";
 
 export type Sim = z.output<typeof sim>;
@@ -126,3 +128,7 @@ export function engineQuantities(
 /** A sim drawn as a schematic by the layout core: its model and the Layout hints read off its figure. */
 export type SchematicSim = Extract<Sim, { layout: unknown }>;
 export const isSchematic = (s: Sim): s is SchematicSim => "layout" in s;
+
+/** A schematic sim's model as the layout core draws it: a ladder's parts with their printed labels, values and keys. */
+export const schematicModelOf = (s: SchematicSim): SchematicModel =>
+  s.kind === "ladder" ? schematicOf(s.model) : s.model;
