@@ -141,7 +141,7 @@ export type Expr =
   | { kind: "literal"; type: S7Type | "ANYINT" | "BOOL"; value: number }
   | { kind: "ref"; ref: Reference }
   | { kind: "unary"; op: "-" | "+" | "NOT"; operand: Expr }
-  | { kind: "binary"; op: BinaryOp; left: Expr; right: Expr }
+  | { kind: "binary"; op: BinaryOp; lhs: Expr; rhs: Expr }
   | { kind: "call"; name: string; args: { name?: string; value: Expr }[]; line: number };
 
 export type BinaryOp =
@@ -311,13 +311,13 @@ export function parseScl(source: string): Unit {
   function expr(level = 0): Expr {
     const ops = PRECEDENCE[level];
     if (!ops) return unary();
-    let left = expr(level + 1);
+    let lhs = expr(level + 1);
     for (;;) {
       const op = ops.find((o) => is(o) || (o === "AND" && is("&")));
-      if (!op) return left;
+      if (!op) return lhs;
       next();
       signAfter(op);
-      left = { kind: "binary", op, left, right: expr(level + 1) };
+      lhs = { kind: "binary", op, lhs, rhs: expr(level + 1) };
     }
   }
   /**
@@ -342,14 +342,14 @@ export function parseScl(source: string): Unit {
     if (optional("NOT")) return { kind: "unary", op: "NOT", operand: unary() };
     return power();
   }
-  /** ** between operands of equal priority runs left to right: 2 ** 3 ** 2 is (2 ** 3) ** 2. */
+  /** ** between operands of equal priority runs in reading order, so 2 ** 3 ** 2 is (2 ** 3) ** 2. */
   function power(): Expr {
     let base = primary();
     while (optional("**")) {
       signAfter("**");
       // 2 ** −1 takes a signed constant as its exponent.
       const exponent = is("-") || is("+") ? unary() : primary();
-      base = { kind: "binary", op: "**", left: base, right: exponent };
+      base = { kind: "binary", op: "**", lhs: base, rhs: exponent };
     }
     return base;
   }
