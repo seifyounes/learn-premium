@@ -48,7 +48,7 @@ describe("the colour gates on the Fixture Course", () => {
   it("the pad gate passes a catalogue pad that every page wears, with nothing to fix", async () => {
     const pad = await runOne(padGate, input);
     expect(pad.status).toBe("pass");
-    expect(pad.coverage).toEqual({ pads: 1, requirements: 18, pages: 12 });
+    expect(pad.coverage).toEqual({ pads: 1, requirements: 18, pages: 13 });
     expect(pad.fixes).toEqual([]);
   });
 
@@ -71,7 +71,7 @@ describe("the colour gates on the Fixture Course", () => {
   it("the Red Hue Rule passes the Fixture Course, reporting what it looked at", async () => {
     const hue = await runOne(redHueRule, input);
     expect(hue.status).toBe("pass");
-    expect(hue.coverage).toMatchObject({ pages: 12, islands: 30, stylesheets: 1 });
+    expect(hue.coverage).toMatchObject({ pages: 13, islands: 34, stylesheets: 1 });
     expect(hue.coverage.svgs).toBeGreaterThan(8);
     // The stylesheet's inks: the red pen, graphite and pencil, and the black a hover mixes in.
     expect(hue.coverage.colours).toBeGreaterThan(0);
