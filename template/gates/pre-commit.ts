@@ -135,16 +135,23 @@ function readLedger(repo: string): LedgerMaterials {
  * Hashes the Materials folder's files whose size one of `sizes` could match, so a file not yet in
  * the Module map is caught too, without hashing every lecture video on each commit.
  */
-function hashFolder(folder: string, sizes: Set<number>, into: Map<string, string>): void {
+function hashFolder(folder: string, wanted: (size: number) => boolean, into: Map<string, string>): void {
   const walk = (dir: string, rel: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.name === ".git") continue;
       const full = join(dir, entry.name);
       const path = rel === "" ? entry.name : `${rel}/${entry.name}`;
       if (entry.isDirectory()) walk(full, path);
-      else if (entry.isFile() && sizes.has(statSync(full).size)) {
-        const hash = sha256(readFileSync(full));
-        if (!into.has(hash)) into.set(hash, path);
+      else if (entry.isFile() && wanted(statSync(full).size)) {
+        const bytes = readFileSync(full);
+        // A text Material by its bytes and with LF endings, as git may normalise any mix of them.
+        const forms = bytes.includes(0)
+          ? [bytes]
+          : [bytes, Buffer.from(bytes.toString("latin1").replace(/\r\n/g, "\n"), "latin1")];
+        for (const form of forms) {
+          const hash = sha256(form);
+          if (!into.has(hash)) into.set(hash, path);
+        }
       }
     }
   };
@@ -158,6 +165,9 @@ export function checkCommit(repo: string): CommitCheck {
   const known = new Map(ledger.hashes);
   const forms = staged.map(({ path, bytes }) => ({ path, forms: variants(bytes) }));
   const sizes = new Set(forms.flatMap((f) => f.forms.map((b) => b.length)));
+  // A text Material normalised to LF is at most twice the staged LF text (every line once CRLF).
+  const textSizes = forms.filter((f) => f.forms.length > 1).map((f) => (f.forms[1] as Buffer).length);
+  const wanted = (size: number) => sizes.has(size) || textSizes.some((lf) => size >= lf && size <= 2 * lf);
   // A Material not yet in the Module map is caught only by scanning the folder: none reachable (a
   // disconnected drive, a moved folder) means the check can't be complete, so it blocks.
   const reachable = ledger.folders.filter((folder) => existsSync(folder));
@@ -165,7 +175,7 @@ export function checkCommit(repo: string): CommitCheck {
     throw new Error(
       `can't reach the Materials folder (${ledger.folders.join(", ") || "the ledger names none"}), so a Material not yet mapped can't be caught`,
     );
-  for (const folder of reachable) hashFolder(folder, sizes, known);
+  for (const folder of reachable) hashFolder(folder, wanted, known);
   // An empty Material matches every empty file (a .gitkeep), so it carries nothing to leak.
   known.delete(EMPTY_SHA256);
   for (const { path, forms: bytes } of forms) {

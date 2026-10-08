@@ -17,6 +17,8 @@ export interface ContentRuling {
   kind: "slip" | "divergence";
   /** The magnitudes of the sheet's value it rules on: a Slip's `sheet`, a Divergence's `value`. */
   printed: number[];
+  /** A Worked example's Slip: the sheet cell it corrects. */
+  cell?: string;
 }
 
 export function rulingsIn(input: GateInput): ContentRuling[] {
@@ -28,8 +30,15 @@ export function rulingsIn(input: GateInput): ContentRuling[] {
     const provenance = asObject(asObject(readStructured(structured, file.entry, () => {})).provenance);
     const list = (key: string) => (Array.isArray(provenance[key]) ? (provenance[key] as unknown[]) : []);
     const numbers = (text: unknown) => (typeof text === "string" ? rulingValues(text) : []);
-    for (const slip of list("slips"))
-      found.push({ entry: file.entry, kind: "slip", printed: numbers(asObject(slip).sheet) });
+    for (const slip of list("slips")) {
+      const { sheet, cell } = asObject(slip);
+      found.push({
+        entry: file.entry,
+        kind: "slip",
+        printed: numbers(sheet),
+        ...(typeof cell === "string" ? { cell } : {}),
+      });
+    }
     for (const divergence of list("divergences"))
       found.push({ entry: file.entry, kind: "divergence", printed: numbers(asObject(divergence).value) });
   }

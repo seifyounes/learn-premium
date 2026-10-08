@@ -24,6 +24,8 @@ export type MergePoint = (typeof MERGE_POINTS)[number];
 /** A Slip or Divergence the content ships, by the magnitudes of the sheet's value it rules on. */
 export interface ContentRuling {
   entry: string;
+  /** A Worked example's Slip: the sheet cell it corrects. */
+  cell?: string;
   kind: "slip" | "divergence";
   printed: number[];
 }
@@ -270,7 +272,8 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
     const printed = written === undefined ? null : magnitude(written);
     const ruledItem = kind !== undefined && (SHEET_GATES.has(kind) || kind === "ruling");
     if (module !== id || !ruledItem || c.ruling === null || printed === null) return [];
-    return [{ ruling: c.ruling, entry, printed }];
+    const cell = /\bsheet cell ([A-Z][1-9]\d*)\b/.exec(c.question)?.[1];
+    return [{ ruling: c.ruling, entry, printed, cell }];
   });
   // Bound to the item: the same kind of ruling, in the same content file, and every sheet value the
   // ruling names answered by the Owner (each value suppresses a gate finding on its own).
@@ -278,7 +281,12 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
   // Each answer authorizes one occurrence: two cells ruled on the same value need two answers.
   const unused = [...answered];
   const takeAnswer = (r: ContentRuling, n: number) => {
-    const at = unused.findIndex((a) => a.ruling === r.kind && a.entry === r.entry && close(n, a.printed));
+    // A ruling naming its cell needs the Owner's answer on that cell (when the answer names one).
+    const sameCell = (a: { cell: string | undefined }) =>
+      r.cell === undefined || a.cell === undefined || a.cell === r.cell;
+    const at = unused.findIndex(
+      (a) => a.ruling === r.kind && a.entry === r.entry && sameCell(a) && close(n, a.printed),
+    );
     if (at === -1) return false;
     unused.splice(at, 1);
     return true;
@@ -287,7 +295,7 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
     .filter((r) => r.printed.length === 0 || !r.printed.map((n) => takeAnswer(r, n)).every(Boolean))
     .map(
       (r) =>
-        `${r.entry} ships a ${r.kind} on ${r.printed.join(", ") || "no number"} that no Owner answer rules: record his ${r.kind} ruling on the item that raised it, with its question as the Checkpoint gives it, or, where no gate raised it, under ${id}/ruling/<name> with the question "${r.entry}: … prints <value>, but …"`,
+        `${r.entry} ships a ${r.kind} on ${r.printed.join(", ") || "no number"}${r.cell === undefined ? "" : ` (cell ${r.cell})`} that no Owner answer rules: record his ${r.kind} ruling on the item that raised it, with its question as the Checkpoint gives it, or, where no gate raised it, under ${id}/ruling/<name> with the question "${r.entry}: … prints <value>, but …"`,
     );
 }
 

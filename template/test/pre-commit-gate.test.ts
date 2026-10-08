@@ -146,6 +146,15 @@ describe("the pre-commit gate", () => {
     ]);
   });
 
+  it("catches a text Material with mixed line endings, committed with git's normalised LF ones", () => {
+    const { repo, materials } = courseProject();
+    write(materials, { "Lecture 5/mixed.txt": "line one\r\nline two\nline three\r\n" });
+    stage(repo, { "content/notes.md": "line one\nline two\nline three\n" });
+    expect(checkCommit(repo).findings.map((f) => f.message)).toEqual([
+      "is the Materials file Lecture 5/mixed.txt: Materials are referenced by path, never committed",
+    ]);
+  });
+
   it("can't run, and says so, when no Materials folder the ledgers name is there to scan", () => {
     const { repo, materials } = courseProject();
     cpSync(materials, `${materials}-moved`, { recursive: true });
