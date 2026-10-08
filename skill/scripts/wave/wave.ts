@@ -12,6 +12,7 @@ import { join, resolve } from "node:path";
 import { HOOKS_PATH, privateFolderOf } from "../intake/create.ts";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
 import { LedgerError } from "../ledger/file.ts";
+import { hashTree } from "../ledger/hash.ts";
 import { requireLedger } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
@@ -74,7 +75,7 @@ export const templateVerifier: Verifier = {
 };
 
 /** The gates whose Checkpoint items are sheet-vs-recompute: the Owner rules each a Slip or a Divergence. */
-export const SHEET_GATES = new Set(["sim-numbers", "truth-table", "worked-numbers"]);
+export const SHEET_GATES = new Set(["sim-numbers", "truth-table", "worked-numbers", "stl"]);
 
 /** The jobs every Module wave records before it merges; the first Module's wave also writes the style sheet. */
 export const WAVE_JOBS = [
@@ -274,10 +275,16 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
   // Bound to the item: the same kind of ruling, in the same content file, and every sheet value the
   // ruling names answered by the Owner (each value suppresses a gate finding on its own).
   const close = (a: number, b: number) => Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a));
-  const ruledOn = (r: ContentRuling, n: number) =>
-    answered.some((a) => a.ruling === r.kind && a.entry === r.entry && close(n, a.printed));
+  // Each answer authorizes one occurrence: two cells ruled on the same value need two answers.
+  const unused = [...answered];
+  const takeAnswer = (r: ContentRuling, n: number) => {
+    const at = unused.findIndex((a) => a.ruling === r.kind && a.entry === r.entry && close(n, a.printed));
+    if (at === -1) return false;
+    unused.splice(at, 1);
+    return true;
+  };
   return rulings
-    .filter((r) => r.printed.length === 0 || !r.printed.every((n) => ruledOn(r, n)))
+    .filter((r) => r.printed.length === 0 || !r.printed.map((n) => takeAnswer(r, n)).every(Boolean))
     .map(
       (r) =>
         `${r.entry} ships a ${r.kind} on ${r.printed.join(", ") || "no number"} that no Owner answer rules: record his ${r.kind} ruling on the item that raised it, with its question as the Checkpoint gives it, or, where no gate raised it, under ${id}/ruling/<name> with the question "${r.entry}: … prints <value>, but …"`,
@@ -367,6 +374,15 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
     );
 
   problems.push(...unruled(ledger, id, verifier.rulings(project, folder)));
+
+  // The Materials as the wave took them in: an edit since leaves the readings and recompute stale.
+  const onDisk = hashTree(ledger.intake.materialsPath);
+  for (const material of current(ledger.materials).filter((m) => m.module === id)) {
+    if (onDisk[material.path] !== material.hash)
+      problems.push(
+        `${material.path} changed since wave ${waveId} started${onDisk[material.path] === undefined ? " (it was deleted)" : ""}: end the wave failed and start a fresh one`,
+      );
+  }
 
   if (!hookInstalled(project))
     problems.push(`the pre-commit gate isn't the repo's hook: git config core.hooksPath ${HOOKS_PATH}`);
