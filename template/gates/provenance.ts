@@ -11,14 +11,14 @@ import { plantedSim } from "./sims.ts";
 import type { Finding, Gate } from "./runner.ts";
 
 const ignoreMath = () => {};
-const TAGGED: readonly ValueCollection[] = ["worked", "practice", "beats", "rules", "sims", "python"];
+const TAGGED: readonly ValueCollection[] = ["worked", "practice", "beats", "rules", "sims", "python", "parts"];
 const isTagged = (collection: string): collection is ValueCollection =>
   (TAGGED as readonly string[]).includes(collection);
 
 export const provenanceGate: Gate = {
   id: "provenance",
   checks:
-    "every number a Worked example, Practice item, Summary beat, rule, sim or Pyodide tool shows or is built from carries a Provenance tag",
+    "every number a Worked example, Practice item, Summary beat, rule, sim, Pyodide tool or machine part shows or is built from carries a Provenance tag",
   points: ["job", "deploy"],
   async run(input) {
     const coverage = { entries: 0, values: 0 };

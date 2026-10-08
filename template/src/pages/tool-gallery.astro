@@ -1,15 +1,16 @@
 ---
 import Cell from "../components/Cell.astro";
 import HonestyCell from "../components/HonestyCell.astro";
+import Part from "../components/Part.astro";
 import PythonTool from "../components/PythonTool.astro";
 import Sim from "../components/Sim.astro";
 import TitleBlock from "../components/TitleBlock.astro";
 import { SIM_KINDS } from "../content/contract";
-import { getPythonTools, getSims } from "../content/course";
+import { getParts, getPythonTools, getSims } from "../content/course";
 import Sheet from "../layouts/Sheet.astro";
 
-// The Tool gallery: one live sim of every kind the Course has, one step-through and one Pyodide
-// tool, the page the Owner tries on a real phone before every Template release. The Pyodide tool
+// The Tool gallery: one live sim of every kind the Course has, one step-through, one Pyodide
+// tool and one machine part in its 3D viewer, the page the Owner tries on a real phone before every Template release. The Pyodide tool
 // is the timing run: a live run shows how long Python took to start, load and run, and what it
 // fetched. Linked from no page; the nav marks it with the Lab, the other page of tools.
 const sims = await getSims();
@@ -21,6 +22,7 @@ const shown = [
   ...sims.filter((s) => s.entry.data.recompute === "none").slice(0, 1),
 ];
 const python = (await getPythonTools()).slice(0, 1);
+const parts = (await getParts()).slice(0, 1);
 ---
 
 <Sheet title="Tool gallery" nav="lab">
@@ -30,19 +32,22 @@ const python = (await getPythonTools()).slice(0, 1);
     </Cell>
     <Cell label="Tools">
       <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">
-        {shown.length + python.length}
+        {shown.length + python.length + parts.length}
       </span>
     </Cell>
     <HonestyCell />
   </TitleBlock>
 
-  {shown.length + python.length === 0 && <p class="mbs-8 text-muted">The Course has no tool yet.</p>}
+  {shown.length + python.length + parts.length === 0 && <p class="mbs-8 text-muted">The Course has no tool yet.</p>}
   <div class="mbs-8 space-y-12">
     {shown.map((sim) => (
       <Sim sim={sim} heading="h3" />
     ))}
     {python.map((tool) => (
       <PythonTool tool={tool} heading="h3" timing />
+    ))}
+    {parts.map((part) => (
+      <Part part={part} heading="h3" />
     ))}
   </div>
 </Sheet>

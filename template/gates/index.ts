@@ -8,6 +8,7 @@ import { licencesFileGate, licencesGate } from "./licences.ts";
 import { liveHeaders, livePrivatePaths, liveRoutes } from "./live.ts";
 import { masterRules } from "./master-rules.ts";
 import { renderedPageScan } from "./pages.ts";
+import { partChecks } from "./parts.ts";
 import { noBuildEvidence, noindexGate, noMaterials } from "./private-files.ts";
 import { provenanceGate } from "./provenance.ts";
 import { pyodideGate } from "./pyodide.ts";
@@ -26,6 +27,7 @@ export const GATES: readonly Gate[] = [
   truthTableGate,
   stlGate,
   drawingGate,
+  partChecks,
   toolsGate,
   renderedPageScan,
   pyodideGate,

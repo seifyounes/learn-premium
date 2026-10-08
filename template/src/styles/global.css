@@ -2174,3 +2174,117 @@
     animation-delay: 0s !important;
   }
 }
+
+/* The 3D viewer (DESIGN.md, Live 3D Viewers): a framed tool on the sheet, the part on a transparent
+   stage so the grid shows through, its labels hung in a gutter beside it, never on it. Until it is
+   tapped, a swipe over it scrolls the page (and a pinch zooms the page); once tapped, it takes every
+   touch, so one finger turns it and two pinch it inside the frame. */
+@layer components {
+  .viewer-frame {
+    margin: 0;
+    border: 1.2px solid var(--color-pencil);
+  }
+  .viewer-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px;
+    align-items: start;
+  }
+  .viewer-object {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    touch-action: pan-y pinch-zoom;
+    cursor: pointer;
+    user-select: none;
+    outline-offset: -3px;
+  }
+  @container sim (width < 480px) {
+    .viewer-object {
+      aspect-ratio: 1 / 1;
+    }
+  }
+  /* On a wide sheet, a lower frame: the part, its labels and Reset view on one laptop screen. */
+  @container sim (width >= 760px) {
+    .viewer-object {
+      aspect-ratio: 16 / 9;
+    }
+  }
+  .viewer[data-active="true"] .viewer-object {
+    touch-action: none;
+    cursor: grab;
+  }
+  .viewer-canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  .viewer-gutter {
+    position: relative;
+    block-size: 100%;
+  }
+  .viewer-label {
+    position: absolute;
+    inset-inline-start: 6px;
+    font-family: var(--font-quantity);
+    font-size: 14px;
+    line-height: 22px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-pencil);
+    white-space: nowrap;
+  }
+  .viewer-label[data-strong] {
+    color: var(--color-graphite);
+    font-weight: 700;
+  }
+  .viewer-caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 8px 12px;
+    border-block-start: 1px solid var(--color-pencil);
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+    color: var(--color-muted);
+  }
+  .viewer-dimensions {
+    margin-block-start: 12px;
+  }
+  .viewer-dimensions table {
+    border-collapse: collapse;
+    background: var(--color-sheet);
+  }
+  .viewer-dimensions :is(th, td) {
+    border: 1px solid var(--color-pencil);
+    padding: 4px 10px;
+    text-align: start;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .viewer-dimensions thead th {
+    font-family: var(--font-print);
+    font-weight: 700;
+    color: var(--color-print);
+  }
+  .viewer-dimensions tbody td {
+    color: var(--color-graphite);
+  }
+  .viewer-dimension {
+    min-block-size: 32px;
+    text-align: start;
+    color: var(--color-graphite);
+    text-decoration: underline dotted var(--color-pencil);
+    text-underline-offset: 3px;
+  }
+  .viewer-dimension[aria-pressed="true"] {
+    font-weight: 700;
+    text-decoration: none;
+  }
+  /* The highlighted dimension's value, ringed in red pen outside the viewer: the pen never draws inside it. */
+  .viewer-dimensions tr[data-highlighted] td:first-of-type {
+    outline: 1.5px solid var(--color-red-pen);
+    outline-offset: -4px;
+  }
+}

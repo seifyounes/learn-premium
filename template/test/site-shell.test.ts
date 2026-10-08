@@ -13,6 +13,7 @@ const ROUTES = [
   "04-full-adder",
   "05-derivatives",
   "06-tank-level",
+  "07-flanged-hub",
   "rules",
   "lab",
   "about",
@@ -65,6 +66,7 @@ describe("the Study site shell", () => {
       "04-full-adder": "Modules",
       "05-derivatives": "Modules",
       "06-tank-level": "Modules",
+      "07-flanged-hub": "Modules",
       rules: "Master Rules",
       lab: "Lab",
       about: "About",
@@ -101,6 +103,7 @@ describe("the Study site shell", () => {
         "04-full-adder",
         "05-derivatives",
         "06-tank-level",
+        "07-flanged-hub",
       ]);
       expect(contentsLine(home(), "02-convection")).toContain('href="/02-convection/"');
     });
@@ -173,8 +176,10 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/03-gradient-descent/"');
     expect(lab).toContain('href="/04-full-adder/"');
     expect(lab).toContain('href="/05-derivatives/"');
-    // The six sims and the Pyodide tool.
+    expect(lab).toContain('href="/07-flanged-hub/"');
+    // The six sims and the Pyodide tool, then the machine part.
     expect(lab.match(/class="sim-card"/g)).toHaveLength(7);
+    expect(lab.match(/class="sim-card part-card"/g)).toHaveLength(1);
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
 
@@ -215,6 +220,7 @@ describe("a Course with no tools yet", () => {
       "04-full-adder",
       "05-derivatives/sims",
       "06-tank-level/sims",
+      "07-flanged-hub/parts",
     ])
       rmSync(join(course, "modules", sims), { recursive: true });
     const build = buildCourse(course);

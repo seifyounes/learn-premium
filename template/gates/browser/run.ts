@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Element as HastElement } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import { chromium, webkit, type Browser, type Page } from "playwright";
+import { chromium, webkit, type Browser, type Page, type Request } from "playwright";
 import { PYODIDE_PATH } from "../../src/python/download.ts";
 import { TRAP_DEFECTS, TRAP_ROUTE, type TrapDefect } from "../../src/trap/route.ts";
 import { COPY_DEFECTS, quote, RAW_TEX, type CopyDefect } from "../copy-checks.ts";
@@ -42,6 +42,7 @@ export const BROWSER_GATE_IDS = [
   "hydration",
   "touch",
   "initial-load",
+  "scroll-pass-through",
   "trap-page",
 ] as const;
 export type BrowserGateId = (typeof BROWSER_GATE_IDS)[number];
@@ -62,6 +63,9 @@ type Kind =
   | "load"
   | "page-error"
   | "heavy-library"
+  | "viewer-traps-wheel"
+  | "viewer-traps-touch"
+  | "viewer-never-takes"
   | "never-hydrated"
   | "disabled-after-hydration"
   | "enabled-before-hydration"
@@ -224,6 +228,7 @@ async function execute(input: GateInput): Promise<BrowserRun> {
     hydration: { pages: 0, islands: 0, controls: 0 },
     touch: { pages: new Set<string>(), widths: new Set<number>(), taps: 0, slowestTapMs: 0, slowestAnswerMs: 0 },
     initial: { pages: 0, requests: 0 },
+    viewers: { pages: 0, viewers: 0, wheels: 0 },
     trap: { sweeps: 0, defects: 0 },
   };
   /** Each Trap page sweep, with what it found. */
@@ -293,6 +298,9 @@ async function execute(input: GateInput): Promise<BrowserRun> {
       if (name === "chromium") coverage.hydration.islands += result.islands;
       coverage.initial.pages += 1;
       coverage.initial.requests += result.requests;
+      coverage.viewers.pages += 1;
+      coverage.viewers.viewers += result.viewers.viewers;
+      coverage.viewers.wheels += result.viewers.wheels;
     });
     for (const result of touched) {
       result.observations.forEach(observe);
@@ -346,7 +354,7 @@ async function execute(input: GateInput): Promise<BrowserRun> {
   }
 
   const findingsOf = (gate: BrowserGateId) => aggregate(observations.filter((o) => o.gate === gate));
-  const { layout, live, hydration, touch, initial, trap } = coverage;
+  const { layout, live, hydration, touch, initial, viewers, trap } = coverage;
   const sweptCounts = {
     browsers: swept.browsers.size,
     widths: swept.widths.size,
@@ -370,6 +378,7 @@ async function execute(input: GateInput): Promise<BrowserRun> {
         findings: findingsOf("touch"),
       },
       "initial-load": { coverage: initial, findings: findingsOf("initial-load") },
+      "scroll-pass-through": { coverage: viewers, findings: findingsOf("scroll-pass-through") },
       "trap-page": { coverage: trap, findings: trapFindings },
     },
     ...(trapFindings.length > 0
@@ -513,6 +522,7 @@ interface SweptPage {
   sweeps: Sweep[];
   islands: number;
   requests: number;
+  viewers: { viewers: number; wheels: number };
 }
 
 async function sweepPage(
@@ -531,23 +541,32 @@ async function sweepPage(
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(firstLine(error)));
-    // The initial load: every address asked for (a request to another site is blocked, but was
-    // still asked for), and the body of every script that arrived.
+    // The initial load: every address the page asked for before its load event (a request to
+    // another site is blocked, but was still asked for), and the body of every script among them
+    // that arrived. A 3D viewer on screen asks for three.js only once the page has loaded and
+    // painted: after first paint, not with the page.
     const asked: string[] = [];
+    const initialRequests = new Set<Request>();
     const bodies: Promise<string>[] = [];
-    let initial = true;
+    let loading = true;
     page.on("request", (request) => {
-      if (initial) asked.push(request.url());
+      if (!loading) return;
+      asked.push(request.url());
+      initialRequests.add(request);
+    });
+    page.once("load", () => {
+      loading = false;
     });
     page.on("response", (response) => {
-      if (!initial) return;
+      if (!initialRequests.has(response.request())) return;
       const script = response.request().resourceType() === "script" || /\.(?:m?js|wasm)(?:[?#]|$)/.test(response.url());
       if (script) bodies.push(response.text().catch(() => ""));
     });
     const response = await page.goto(url, { waitUntil: "load" });
     if (!response || response.status() >= 400) return "missing";
+    loading = false;
+    // Responses to what the load asked for may still be landing.
     await page.waitForTimeout(LOAD_SETTLES_MS);
-    initial = false;
     const scripts = await Promise.all(bodies);
     for (const library of HEAVY_LIBRARIES) {
       const address = asked.find((a) => library.url.test(new URL(a).pathname));
@@ -604,6 +623,10 @@ async function sweepPage(
       }
     }
 
+    const viewers = await passThrough(page, (detail, kind) =>
+      observe({ gate: "scroll-pass-through", route, where: name, kind, detail }),
+    );
+
     const sweeps: Sweep[] = [];
     for (const direction of DIRECTIONS) {
       // Mirrored, the page keeps what it loaded and hydrated: only its direction changes.
@@ -630,13 +653,125 @@ async function sweepPage(
         detail: `an uncaught error on the page: ${error}`,
       });
     }
-    return { observations, sweeps, islands: islands.length, requests: asked.length };
+    return { observations, sweeps, islands: islands.length, requests: asked.length, viewers };
   } finally {
     await context.close();
   }
 }
 
 const sweepNow = (page: Page) => page.evaluate(() => window.__lpSweep.sweep());
+
+/** The surface of a 3D viewer a gesture lands on (`src/islands/PartViewer.tsx`; mechanisms and apparatus too). */
+const VIEWER_OBJECT = "[data-viewer-object]";
+/** For a wheel's scroll to reach the page, or for a wheel the viewer took to not have. */
+const WHEEL_SCROLLS_MS = 2_000;
+/** For a viewer to draw its object, and take gestures (its `data-viewer-state` says `waiting` until then). */
+const VIEWER_DRAWS_MS = 30_000;
+
+/**
+ * Every 3D viewer on the page lets the page scroll over it until it is tapped or clicked (story 86):
+ * a wheel over it scrolls the page, and its touch-action leaves a vertical swipe to the page. Once
+ * clicked it takes the wheel (it zooms), or the check wheeled something that was never a viewer. A
+ * viewer says what it drew in `data-viewer-state`: `drawn`, `waiting`, `no-webgl` (a browser that
+ * can't draw WebGL, which leaves every gesture to the page, so only the pass-through is checked on
+ * it), or another failure, which blocks, as does one still waiting. Escape hands the page back.
+ */
+async function passThrough(
+  page: Page,
+  observe: (detail: string, kind: "viewer-traps-wheel" | "viewer-traps-touch" | "viewer-never-takes") => void,
+): Promise<{ viewers: number; wheels: number }> {
+  const found = page.locator(VIEWER_OBJECT);
+  const count = await found.count();
+  let wheels = 0;
+  // A page that fits its viewport can't scroll whatever the viewer does: room is made below it for
+  // the probe, and taken away after.
+  if (count > 0)
+    await page.evaluate(() => {
+      const spacer = document.createElement("div");
+      spacer.setAttribute("data-lp-spacer", "");
+      spacer.style.blockSize = `${2 * window.innerHeight}px`;
+      document.body.append(spacer);
+    });
+  for (let i = 0; i < count; i++) {
+    const viewer = found.nth(i);
+    const named = `the 3D viewer ${i + 1} of ${count}`;
+    await viewer.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await page.evaluate(() => window.__lpSweep.settle());
+    // The touch-action a swipe meets: the viewer's, as narrowed by every box it sits in.
+    const touch = await viewer.evaluate((el) => {
+      const actions: string[] = [];
+      for (let at: Element | null = el; at; at = at.parentElement) actions.push(getComputedStyle(at).touchAction);
+      return actions;
+    });
+    const blocking = touch.find((a) => a === "none" || (!a.includes("pan-y") && a !== "auto" && a !== "manipulation"));
+    if (blocking !== undefined)
+      observe(
+        `${named} takes every touch before it is tapped (touch-action: ${blocking}), so a swipe over it can't scroll the page`,
+        "viewer-traps-touch",
+      );
+    const wheel = async () => {
+      const box = await viewer.boundingBox();
+      if (!box) return undefined;
+      // Down, unless the page is already at its foot.
+      const down = await page.evaluate(
+        () => window.scrollY + window.innerHeight < document.documentElement.scrollHeight - 2,
+      );
+      const before = await page.evaluate(() => window.scrollY);
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.wheel(0, down ? 200 : -200);
+      wheels += 1;
+      return page
+        .waitForFunction((y) => window.scrollY !== y, before, { timeout: WHEEL_SCROLLS_MS })
+        .then(() => true)
+        .catch(() => false);
+    };
+    if ((await wheel()) === false)
+      observe(
+        `a wheel over ${named} doesn't scroll the page before it is tapped or clicked: it traps the page`,
+        "viewer-traps-wheel",
+      );
+    await viewer.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    const state = await viewer
+      .evaluate(
+        (el, ms) =>
+          new Promise<string | null>((resolve) => {
+            const deadline = performance.now() + ms;
+            const check = () => {
+              const now = el.getAttribute("data-viewer-state");
+              if (now !== "waiting" || performance.now() > deadline) resolve(now);
+              else setTimeout(check, 100);
+            };
+            check();
+          }),
+        VIEWER_DRAWS_MS,
+      )
+      .catch(() => "unreadable");
+    if (state === "no-webgl") continue;
+    if (state !== null && state !== "drawn") {
+      observe(
+        `${named} never draws its object (${state === "waiting" ? `still waiting after ${VIEWER_DRAWS_MS / 1000}s` : state}), so it can't be turned`,
+        "viewer-never-takes",
+      );
+      continue;
+    }
+    const clicked = await viewer
+      .click({ timeout: TAP_TAKES_MS })
+      .then(() => true)
+      .catch(() => false);
+    if (!clicked) observe(`${named} can't be clicked, so it can't be turned`, "viewer-never-takes");
+    else if ((await wheel()) === true)
+      observe(
+        `${named} still lets the wheel scroll the page once clicked: it never takes a gesture`,
+        "viewer-never-takes",
+      );
+    await page.keyboard.press("Escape");
+  }
+  await page.evaluate(() => {
+    document.querySelector("[data-lp-spacer]")?.remove();
+    window.scrollTo(0, 0);
+  });
+  return { viewers: count, wheels };
+}
 
 function toSweep(result: PageSweep, route: string, width: number, where: string, direction: Direction = "ltr"): Sweep {
   const { views, texts, figures, formulas, notes } = result.coverage;
@@ -719,6 +854,7 @@ async function touchPage(
             (el) =>
               !el.hasAttribute("data-lp-tapped") &&
               !(el as HTMLButtonElement).disabled &&
+              el.getAttribute("aria-disabled") !== "true" &&
               !(el as HTMLInputElement).readOnly &&
               el.getAttribute("aria-current") === null &&
               el.getAttribute("aria-selected") !== "true" &&

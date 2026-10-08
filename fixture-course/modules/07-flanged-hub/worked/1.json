@@ -1,0 +1,68 @@
+{
+  "code": "W07.1",
+  "title": "The volume of a flanged hub",
+  "statement": "A flanged hub is a flange of diameter $80\\ \\text{mm}$ and thickness $10\\ \\text{mm}$, with a hub of diameter $40\\ \\text{mm}$ standing on it to an overall height of $30\\ \\text{mm}$. A bore of diameter $20\\ \\text{mm}$ runs through both, and four bolt holes of diameter $8\\ \\text{mm}$ pass through the flange. Find the volume of the hub.",
+  "given": [
+    "flange $\\varnothing 80\\ \\text{mm}$, $10\\ \\text{mm}$ thick",
+    "hub $\\varnothing 40\\ \\text{mm}$, overall height $30\\ \\text{mm}$",
+    "bore $\\varnothing 20\\ \\text{mm}$, through",
+    "four bolt holes $\\varnothing 8\\ \\text{mm}$ through the flange"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "Each primitive's volume $V = \\frac{\\pi}{4} d^2 l$, added or taken away",
+    "columns": [
+      { "label": "Primitive", "given": true },
+      { "label": "$d$", "unit": "mm", "given": true },
+      { "label": "$l$", "unit": "mm", "given": true },
+      { "label": "$V$", "unit": "$\\text{mm}^3$" }
+    ],
+    "rows": [
+      ["Flange", "80", "10", "50265.5"],
+      ["Hub", "40", "20", "25132.7"],
+      ["Bore", "20", "30", "$-9424.8$"],
+      ["Bolt holes, four", "8", "10", "$-2010.6$"],
+      ["Total", "", "", "63962.8"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Split it into primitives",
+      "note": "The hub is two cylinders that add (the flange, and the hub standing on it) and two kinds of hole that take away (the bore through both, and the bolt holes through the flange). None of them overlaps another, so their volumes add and subtract exactly. The hub stands $30 - 10 = 20\\ \\text{mm}$ above the flange."
+    },
+    {
+      "title": "The cylinders that add",
+      "note": "Each cylinder's volume is $V = \\frac{\\pi}{4} d^2 l$: the flange gives $50265.5\\ \\text{mm}^3$ and the hub $25132.7\\ \\text{mm}^3$.",
+      "fill": ["D1", "D2"]
+    },
+    {
+      "title": "The holes that take away",
+      "note": "The bore runs the full height, $9424.8\\ \\text{mm}^3$; each bolt hole is $502.7\\ \\text{mm}^3$, four of them $2010.6\\ \\text{mm}^3$. Both are taken away.",
+      "fill": ["D3", "D4"]
+    },
+    {
+      "title": "Add them up",
+      "note": "The cylinders give $50265.5 + 25132.7$; less the holes' $9424.8$ and $2010.6$, that leaves $V = 63962.8\\ \\text{mm}^3$.",
+      "fill": ["D5"],
+      "marks": ["D5"]
+    }
+  ],
+  "answer": "$V = 63962.8\\ \\text{mm}^3$",
+  "provenance": {
+    "stated": [
+      "flange $\\varnothing 80\\ \\text{mm}$, $10\\ \\text{mm}$ thick",
+      "hub $\\varnothing 40\\ \\text{mm}$",
+      "bore $\\varnothing 20\\ \\text{mm}$",
+      "four bolt holes"
+    ],
+    "scaled": ["overall height $30\\ \\text{mm}$"],
+    "assumed": ["bolt holes $\\varnothing 8\\ \\text{mm}$"],
+    "derived": [
+      "the hub's length $30 - 10 = 20\\ \\text{mm}$",
+      "$\\frac{\\pi}{4}$",
+      "$V = 50265.5$, $25132.7$, $9424.8$, $502.7$, $2010.6\\ \\text{mm}^3$",
+      "$V = 63962.8\\ \\text{mm}^3$"
+    ]
+  }
+}

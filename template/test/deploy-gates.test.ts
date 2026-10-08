@@ -26,7 +26,7 @@ describe("the deploy and live gates on the Fixture Course's production build", (
 
   it("builds, with the Licences file at /licences.txt", () => {
     expect(build.ok, build.output).toBe(true);
-    expect(build.output).toMatch(/Licences file: 31 shipped packages and 7 hand-written notices/);
+    expect(build.output).toMatch(/Licences file: 32 shipped packages and 7 hand-written notices/);
   });
 
   it("lists exactly the packages the bundle ships, never the ones that only build the site", () => {
@@ -64,6 +64,7 @@ describe("the deploy and live gates on the Fixture Course's production build", (
       "react",
       "react-dom",
       "scheduler",
+      "three",
     ]);
     expect(file.packages.find((p) => p.name === "react")).toEqual({
       name: "react",
@@ -103,7 +104,7 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     const coverage = Object.fromEntries(report.gates.map((g) => [g.id, g.coverage]));
     expect(pageCount()).toBeGreaterThanOrEqual(9);
     expect(coverage["noindex"]).toEqual({ pages: pageCount(), configs: 1 });
-    expect(coverage["licences"]).toEqual({ packages: 31 });
+    expect(coverage["licences"]).toEqual({ packages: 32 });
     expect(coverage["no-build-evidence"]?.["buildRecords"]).toBeGreaterThan(0);
   });
 

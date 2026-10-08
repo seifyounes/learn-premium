@@ -276,6 +276,50 @@ export const initialLoad = browserGate(
   ],
 );
 
+/**
+ * A planted 3D viewer: a framed surface marked as a viewer's, on a page tall enough to scroll, that
+ * takes the wheel once clicked (as the real one does) unless `takes` says otherwise.
+ */
+const plantedViewer = ({
+  style = "",
+  wheel = "",
+  takes = true,
+  state,
+}: {
+  style?: string;
+  wheel?: string;
+  takes?: boolean;
+  state?: string;
+}) =>
+  plantInMain(
+    `<div data-viewer-object${state ? ` data-viewer-state="${state}"` : ""} role="button" tabindex="0" aria-label="Planted viewer" style="block-size: 320px; border: 1px solid; ${style}"${
+      takes ? ` onclick="this.dataset.active = 'true'"` : ""
+    }></div><div style="block-size: 2400px"></div><script>document.querySelector("[data-viewer-object]").addEventListener("wheel", function (event) { ${wheel} if (this.dataset.active) event.preventDefault(); }, { passive: false });</script>`,
+  );
+
+export const scrollPassThrough = browserGate(
+  "scroll-pass-through",
+  "every 3D viewer lets the page scroll over it (a wheel, and a swipe by its touch-action) until it is tapped or clicked, and takes the wheel once clicked",
+  [
+    {
+      defect: "a 3D viewer that takes the wheel before it is tapped",
+      plant: plantedViewer({ wheel: "event.preventDefault();" }),
+    },
+    {
+      defect: "a 3D viewer that takes every touch before it is tapped",
+      plant: plantedViewer({ style: "touch-action: none;" }),
+    },
+    {
+      defect: "a 3D viewer a click never hands the wheel to",
+      plant: plantedViewer({ takes: false }),
+    },
+    {
+      defect: "a 3D viewer whose object never loads",
+      plant: plantedViewer({ state: "no-part" }),
+    },
+  ],
+);
+
 export const trapPageGate = browserGate(
   "trap-page",
   "every browser sweep found every seeded defect on the Trap page; a run that missed one is void",
@@ -309,5 +353,6 @@ export const BROWSER_GATES: readonly Gate[] = [
   hydrationGate,
   touchGate,
   initialLoad,
+  scrollPassThrough,
   trapPageGate,
 ];

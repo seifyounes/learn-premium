@@ -6,6 +6,7 @@ import { turnSchema } from "../sims/layout/check.ts";
 import { SIDES } from "../sims/layout/symbols.ts";
 import { schematicProblems } from "../sims/layout/validate.ts";
 import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
+import { PROVENANCE_TAGS } from "../provenance/values.ts";
 import { S7_TYPES } from "../sims/s7/memory.ts";
 import { stlProblems } from "../sims/stl/validate.ts";
 import { CELL_REF, parseCell } from "../worked/cells.ts";
@@ -626,6 +627,68 @@ export const pythonTool = z.strictObject({
   worked: z.string().regex(/^\d+$/, "a Worked example's file number, e.g. 1").optional(),
   ...tagged,
 });
+
+const point3 = z.tuple([z.number(), z.number(), z.number()]);
+/** How far apart a dimension's ends may lie from its value: the model is exact, so float noise only. */
+const DIMENSION_SLACK_MM = 1e-6;
+
+/**
+ * One dimension the drawing gives a part, in millimetres, measured between two points on the part
+ * in the script's frame (z up), each on a surface the dimension meets square: two faces, or the two
+ * sides of a diameter. The part gates check both ends on the solid and on its GLB.
+ */
+const partDimension = z.strictObject({
+  id: elementId,
+  /** What it measures, as the drawing names it (e.g. Flange diameter). */
+  label: z.string().min(1),
+  /** A diameter is printed with Ø. */
+  kind: z.enum(["length", "diameter"]).default("length"),
+  value: z.number().positive(),
+  /** Its Provenance tag: a scaled or assumed dimension goes to the Owner as a Checkpoint item. */
+  tag: z.enum(PROVENANCE_TAGS),
+  /** The Owner confirmed this scaled or assumed reading at a Checkpoint: it isn't asked again. */
+  confirmed: z.boolean().default(false),
+  from: point3,
+  to: point3,
+});
+
+/**
+ * A machine part (CONTEXT.md, Toolkit: machinery): an exact solid built by a build123d script
+ * beside this file, exported to GLB by `npm run parts`, and shown in the 3D viewer. Students turn
+ * and zoom it; nothing about it is tuned.
+ */
+export const part = z
+  .strictObject({
+    title: z.string().min(1),
+    caption: z.string().min(1),
+    /** The build123d script, a `.py` file in the Module's `parts/` folder; it leaves the solid in `part`. */
+    source: z.string().regex(/^[\w-][\w.-]*\.py$/, "a .py file in the Module's parts/ folder, named with no folder"),
+    /** The Worked example it sits in, by its file number in the Module's `worked/` folder. */
+    worked: z.string().regex(/^\d+$/, "a Worked example's file number, e.g. 1").optional(),
+    dimensions: z.array(partDimension).min(1),
+    ...tagged,
+  })
+  .superRefine((p, ctx) => {
+    const ids = new Set<string>();
+    p.dimensions.forEach((d, i) => {
+      if (ids.has(d.id))
+        ctx.addIssue({ code: "custom", path: ["dimensions", i, "id"], message: `"${d.id}" is used twice` });
+      ids.add(d.id);
+      const apart = Math.hypot(d.to[0] - d.from[0], d.to[1] - d.from[1], d.to[2] - d.from[2]);
+      if (Math.abs(apart - d.value) > DIMENSION_SLACK_MM)
+        ctx.addIssue({
+          code: "custom",
+          path: ["dimensions", i, "value"],
+          message: `its ends lie ${Number(apart.toFixed(6))} mm apart, not ${d.value}: a dimension runs between the two points it measures`,
+        });
+      if (d.confirmed && d.tag !== "scaled" && d.tag !== "assumed")
+        ctx.addIssue({
+          code: "custom",
+          path: ["dimensions", i, "confirmed"],
+          message: `only a scaled or assumed dimension waits on the Owner's word; a ${d.tag} one needs none`,
+        });
+    });
+  });
 
 /** A Summary beat's frontmatter; its body is plain Markdown of at most 90 words. */
 export const beat = z.strictObject({

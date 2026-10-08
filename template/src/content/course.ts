@@ -3,6 +3,7 @@ import { getCollection, getEntry, type CollectionEntry } from "astro:content";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderProse } from "../math/katex";
+import { partGlbEntry, partGlbUrl } from "../parts/record";
 import { notInPythonFolder, pythonSource } from "../python/tools";
 import { mediaFolder, mediaUrl, missingMediaFiles, notInMediaFolder, pngSize, type Media } from "../media/media";
 import type { MasteryShape } from "../progress/progress";
@@ -116,6 +117,34 @@ export async function getPythonTools(): Promise<PythonRef[]> {
       const path = pythonSource(contentDir, module, entry.data.source);
       if (!existsSync(path)) throw new Error(`${entry.filePath ?? entry.id} ${notInPythonFolder(entry.data.source)}`);
       return { module, name, entry, code: readFileSync(path, "utf8") };
+    })
+    .sort((a, b) => a.module.localeCompare(b.module) || a.name.localeCompare(b.name));
+}
+
+export interface PartRef {
+  /** The Module it belongs to (its folder name). */
+  module: string;
+  /** Its file name in the Module's `parts/` folder, without the extension. */
+  name: string;
+  entry: CollectionEntry<"parts">;
+  /** Where the site publishes its GLB. */
+  glbUrl: string;
+}
+
+/**
+ * Every machine part in the Course, Module by Module, by file name within each. A part whose GLB
+ * hasn't been built (`npm run parts`) fails the build, naming it.
+ */
+export async function getParts(): Promise<PartRef[]> {
+  const contentDir = buildContentDir();
+  const parts = await getCollection("parts");
+  return parts
+    .map((entry) => {
+      const [module = "", , name = ""] = entry.id.split("/");
+      const glb = partGlbEntry(module, name);
+      if (!existsSync(join(contentDir, glb)))
+        throw new Error(`${entry.filePath ?? entry.id} has no GLB at ${glb}: build it with npm run parts`);
+      return { module, name, entry, glbUrl: partGlbUrl(module, name) };
     })
     .sort((a, b) => a.module.localeCompare(b.module) || a.name.localeCompare(b.name));
 }

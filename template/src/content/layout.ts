@@ -67,6 +67,8 @@ export const COLLECTIONS = {
     generateId: moduleEntryId,
     schema: contract.pythonTool,
   },
+  // JSON only: `npm run parts` reads them with Python's standard library, before Node is involved.
+  parts: { pattern: "modules/*/parts/*.json", format: "structured", generateId: moduleEntryId, schema: contract.part },
 } as const satisfies Record<string, CollectionLayout & { schema: unknown }>;
 
 /** The Module a content file belongs to (its folder name), or undefined for Course-level files. */

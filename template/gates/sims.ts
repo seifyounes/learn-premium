@@ -298,6 +298,13 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 /** A Pyodide tool's view: its preview and live plot draw on the sheet's plotted figure. */
 const PYTHON_VIEW = ["src/islands/PythonTool.tsx", "src/islands/worked/PlotFigure.tsx"];
+/** A machine part's view: the 3D viewer, its three.js stage and the gestures it takes. */
+const PART_VIEW = [
+  "src/islands/PartViewer.tsx",
+  "src/islands/three/stage.ts",
+  "src/islands/three/part-scene.ts",
+  "src/viewer/gesture.ts",
+];
 
 const COLOUR_LITERAL = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi;
 const MOUSE_ONLY =
@@ -348,7 +355,16 @@ export const toolsGate: Gate = {
   async run(input) {
     const { files, sims, modules } = simsInScope(input);
     const python = files.filter((f) => f.collection === "python");
-    const coverage = { modules, sims: sims.length, pythonTools: python.length, kinds: 0, checks: 0, engineSamples: 0 };
+    const parts = files.filter((f) => f.collection === "parts");
+    const coverage = {
+      modules,
+      sims: sims.length,
+      pythonTools: python.length,
+      parts: parts.length,
+      kinds: 0,
+      checks: 0,
+      engineSamples: 0,
+    };
     const findings: Finding[] = [];
     const views = new Map<string, string[]>();
     /** The sim kinds checked live: a step-through or a Pyodide tool is no kind. */
@@ -419,6 +435,15 @@ export const toolsGate: Gate = {
       const problems = viewOf("python", PYTHON_VIEW);
       for (const file of python) {
         coverage.checks += 2;
+        problems.forEach((message) => findings.push({ outcome: "block", at: file.entry, message }));
+      }
+    }
+    // A machine part ships in the 3D viewer: it takes the pad frame and answers touch like a sim's.
+    // Its numbers are checked headlessly by the part checks, against its B-rep.
+    if (parts.length > 0) {
+      const problems = viewOf("part", PART_VIEW);
+      for (const file of parts) {
+        coverage.checks += 3;
         problems.forEach((message) => findings.push({ outcome: "block", at: file.entry, message }));
       }
     }

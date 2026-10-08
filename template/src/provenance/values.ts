@@ -136,7 +136,7 @@ export interface ValueFound extends NumberFound {
 }
 
 /** The kinds of entry that show values. */
-export type ValueCollection = "worked" | "practice" | "beats" | "rules" | "sims" | "python";
+export type ValueCollection = "worked" | "practice" | "beats" | "rules" | "sims" | "python" | "parts";
 
 type Raw = Record<string, unknown>;
 export const asObject = (value: unknown): Raw => (value && typeof value === "object" ? (value as Raw) : {});
@@ -244,6 +244,13 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
       const stepped = asObject(entry.stepThrough);
       figure(stepped.figure, "stepThrough.figure");
       asArray(stepped.steps).forEach((step, i) => prose(asObject(step).caption, `stepThrough.steps.${i}.caption`));
+      break;
+    }
+    case "parts": {
+      // A part's prose; each dimension carries its own Provenance tag (`tag`), which the contract requires.
+      prose(entry.title, "title");
+      prose(entry.caption, "caption");
+      asArray(entry.dimensions).forEach((d, i) => prose(asObject(d).label, `dimensions.${i}.label`));
       break;
     }
     case "python": {

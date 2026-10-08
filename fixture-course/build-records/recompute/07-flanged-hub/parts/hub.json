@@ -1,0 +1,16 @@
+{
+  "recompute": "learn-premium recompute log v1",
+  "by": "fixture-course/tools/recompute-flanged-hub.py: the drawing's primitives summed by hand (flange + hub - bore - holes)",
+  "inputs": {
+    "flange-d": 80,
+    "flange-t": 10,
+    "hub-d": 40,
+    "height": 30,
+    "bore-d": 20,
+    "hole-d": 8,
+    "holes": 4
+  },
+  "values": {
+    "volume": 63962.8264270882
+  }
+}
