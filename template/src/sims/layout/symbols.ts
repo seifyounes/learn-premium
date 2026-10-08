@@ -58,6 +58,22 @@ export interface SymbolDef {
   labelInside?: boolean;
   /** How a Blind reader keys a part of this kind the figure doesn't label (a summing junction: SUM). */
   figureKey?: string;
+  /** Fixed text inside the body (a box's title and pin names, a coil's mark), 12px: [x, y baseline, text, anchor]. */
+  text?: readonly SymbolText[];
+  /**
+   * Where a part's own values print beside it (a timer's preset, the word its value goes to), each
+   * by the slot's name: the layout core sets them there, outside the body, and the Drawing gate
+   * holds them to the same legibility as labels.
+   */
+  slots?: Readonly<Record<string, Slot>>;
+}
+
+export type Anchor = "start" | "middle" | "end";
+export type SymbolText = readonly [x: number, y: number, text: string, anchor: Anchor];
+/** A value's baseline point, local px, and which end of the text sits there. */
+export interface Slot {
+  at: Point;
+  anchor: Anchor;
 }
 
 const pin = (at: Point, faces: Pin["faces"], lead = true): Pin => ({ at, faces, lead });
@@ -81,6 +97,112 @@ function gate(body: string, inputsReach: number, inverted: boolean, extra = ""):
     ...(inverted ? { circles: [[34, 0, 4]] as const } : {}),
   };
 }
+
+// ---- the PLC pack: ladder (LAD) and function block diagram (FBD), as STEP 7 draws them ----------
+// Every element reads left to right at turn 0: power enters on the left, leaves on the right.
+
+/** A contact, -| |-: power passes `in` → `out` when its operand allows. */
+const contact = (slash: boolean): SymbolDef => ({
+  pins: { in: pin([-40, 0], W), out: pin([40, 0], E) },
+  box: slash ? [-14, -16, 14, 16] : [-10, -16, 10, 16],
+  orientation: { by: "pin", pin: "out" },
+  leads: "M-40 0H-8M8 0H40",
+  body: `M-8 -14V14M8 -14V14${slash ? "M-12 14L12 -14" : ""}`,
+});
+
+/** A coil, -( )-, ending its rung; `mark` is its letters (S, R, SD, CU…), a timer or counter coil its preset below. */
+const coil = (mark: string, preset = false): SymbolDef => ({
+  pins: { in: pin([-40, 0], W) },
+  box: [-16, -16, 16, 16],
+  orientation: { by: "pin", pin: "in" },
+  leads: "M-40 0H-14",
+  body: "M-8 -14A18 18 0 0 0 -8 14M8 -14A18 18 0 0 1 8 14",
+  ...(mark ? { text: [[0, 4, mark, "middle"]] as const } : {}),
+  ...(preset ? { slots: { preset: { at: [0, 34], anchor: "middle" } } } : {}),
+});
+
+/** A box, as STEP 7 draws S_ODT or TON: inputs on the left, outputs on the right, its name on top. */
+function box(
+  title: string,
+  bottom: number,
+  inputs: readonly (readonly [name: string, y: number])[],
+  outputs: readonly (readonly [name: string, y: number])[],
+  slots: readonly (readonly [name: string, side: "in" | "out", y: number])[],
+): SymbolDef {
+  const names: SymbolText[] = [
+    [0, -48, title, "middle"],
+    ...inputs.map(([name, y]): SymbolText => [-36, y + 4, name, "start"]),
+    ...outputs.map(([name, y]): SymbolText => [36, y + 4, name, "end"]),
+    ...slots.map(([name, side, y]): SymbolText =>
+      side === "in" ? [-36, y + 4, name, "start"] : [36, y + 4, name, "end"],
+    ),
+  ];
+  const lead = (side: "in" | "out", y: number) => (side === "in" ? `M-60 ${y}H-40` : `M40 ${y}H60`);
+  return {
+    pins: Object.fromEntries([
+      ...inputs.map(([name, y]) => [name, pin([-60, y], W)]),
+      ...outputs.map(([name, y]) => [name, pin([60, y], E)]),
+    ]),
+    box: [-40, -60, 40, bottom],
+    orientation: { by: "full" },
+    leads: [
+      ...inputs.map(([, y]) => lead("in", y)),
+      ...outputs.map(([, y]) => lead("out", y)),
+      ...slots.map(([, side, y]) => lead(side, y)),
+    ].join(""),
+    body: `M-40 -60H40V${bottom}H-40Z`,
+    text: names,
+    slots: Object.fromEntries(
+      slots.map(([name, side, y]) => [
+        name,
+        { at: side === "in" ? [-64, y + 4] : [64, y + 4], anchor: side === "in" ? "end" : "start" } as Slot,
+      ]),
+    ),
+  };
+}
+
+/** An S5 timer box: S starts it, R resets it, Q its output; TV its preset, BI and BCD the time left. */
+const s5TimerBox = (title: string) =>
+  box(
+    title,
+    60,
+    [
+      ["S", -40],
+      ["R", 40],
+    ],
+    [["Q", -40]],
+    [
+      ["TV", "in", 0],
+      ["BI", "out", 0],
+      ["BCD", "out", 40],
+    ],
+  );
+
+/** An S5 counter box: CU and CD count, S sets PV, R resets; Q while above 0, CV and CV_BCD the count. */
+const s5CounterBox = (title: string, up: boolean, down: boolean) =>
+  box(
+    title,
+    60,
+    [...(up ? [["CU", -40] as const] : []), ...(down ? [["CD", up ? -20 : -40] as const] : []), ["S", 0], ["R", 40]],
+    [["Q", -40]],
+    [
+      ["PV", "in", 20],
+      ["CV", "out", 0],
+      ["CV_BCD", "out", 20],
+    ],
+  );
+
+/** An FBD box: its function's sign on top, inputs on the left, the result on the right. */
+const fbdBox = (sign: string, inputs: number): SymbolDef => ({
+  pins:
+    inputs === 2 ? { in1: pin([-40, -20], W), in2: pin([-40, 20], W), out: pin([40, 0], E) } : { in: pin([-40, 0], W) },
+  box: inputs === 2 ? [-20, -30, 20, 30] : [-20, -16, 20, 16],
+  orientation: { by: "pin", pin: inputs === 2 ? "out" : "in" },
+  ...(inputs === 2 ? { swappable: ["in1", "in2"] as const } : {}),
+  leads: inputs === 2 ? "M-40 -20H-20M-40 20H-20M20 0H40" : "M-40 0H-20",
+  body: inputs === 2 ? "M-20 -30H20V30H-20Z" : "M-20 -16H20V16H-20Z",
+  text: [[0, inputs === 2 ? -12 : 5, sign, "middle"]],
+});
 
 export const SYMBOLS = {
   ...BLOCK_DIAGRAM_SYMBOLS,
@@ -197,6 +319,79 @@ export const SYMBOLS = {
     body: "M-24 -16L18 0L-24 16Z",
     circles: [[22, 0, 4]],
   },
+  /** A ladder network's left power rail; every rail is the one rail, so they join without a wire. */
+  "power-rail": {
+    pins: { t: pin([20, 0], E) },
+    box: [-2, -30, 2, 30],
+    orientation: { by: "any" },
+    implicit: () => "power rail",
+    leads: "M2 0H20",
+    body: "M0 -30V30",
+  },
+  /** A normally open contact, -| |-. */
+  no: contact(false),
+  /** A normally closed contact, -|/|-. */
+  nc: contact(true),
+  /** An output coil, -( )-: the operand takes the power reaching it. */
+  coil: coil(""),
+  /** A set coil, -(S)-, and a reset coil, -(R)-. */
+  "coil-s": coil("S"),
+  "coil-r": coil("R"),
+  /** The S5 timer coils: pulse, extended pulse, on-delay, retentive on-delay, off-delay. */
+  "coil-sp": coil("SP", true),
+  "coil-se": coil("SE", true),
+  "coil-sd": coil("SD", true),
+  "coil-ss": coil("SS", true),
+  "coil-sf": coil("SF", true),
+  /** The S5 counter coils: count up, count down, set the count (its preset below). */
+  "coil-cu": coil("CU"),
+  "coil-cd": coil("CD"),
+  "coil-sc": coil("SC", true),
+  /** The S5 timer boxes. */
+  "s-pulse": s5TimerBox("S_PULSE"),
+  "s-pext": s5TimerBox("S_PEXT"),
+  "s-odt": s5TimerBox("S_ODT"),
+  "s-odts": s5TimerBox("S_ODTS"),
+  "s-offdt": s5TimerBox("S_OFFDT"),
+  /** The S5 counter boxes. */
+  "s-cu": s5CounterBox("S_CU", true, false),
+  "s-cd": s5CounterBox("S_CD", false, true),
+  "s-cud": s5CounterBox("S_CUD", true, true),
+  /** The IEC on-delay, SFB 4: IN starts it, Q once PT has run; ET the time so far. */
+  ton: box(
+    "TON",
+    20,
+    [["IN", -40]],
+    [["Q", -40]],
+    [
+      ["PT", "in", 0],
+      ["ET", "out", 0],
+    ],
+  ),
+  /** An FBD operand: a bit read where its wire starts (its address printed beside it). */
+  "fbd-in": {
+    pins: { t: pin([0, 0], "away-from-label", false) },
+    box: [-2, -2, 2, 2],
+    orientation: { by: "any" },
+    leads: "",
+    body: "",
+  },
+  /** FBD's AND (&) and OR (>=1) boxes. */
+  "fbd-and": fbdBox("&", 2),
+  "fbd-or": fbdBox(">=1", 2),
+  /** FBD's negation: the small circle on a line. */
+  "fbd-not": {
+    pins: { in: pin([-20, 0], W), out: pin([20, 0], E) },
+    box: [-6, -6, 6, 6],
+    orientation: { by: "pin", pin: "out" },
+    leads: "M-20 0H-5M5 0H20",
+    body: "",
+    circles: [[0, 0, 5]],
+  },
+  /** FBD's assignment (=), set (S) and reset (R) boxes, their operand above. */
+  "fbd-assign": fbdBox("=", 1),
+  "fbd-s": fbdBox("S", 1),
+  "fbd-r": fbdBox("R", 1),
 } as const satisfies Record<string, SymbolDef>;
 
 export type SymbolKind = keyof typeof SYMBOLS;

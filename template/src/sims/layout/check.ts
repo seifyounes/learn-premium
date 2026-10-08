@@ -40,8 +40,11 @@ const fraction = z.number().min(0).max(1);
 /**
  * A Blind reader's account of the Professor's figure, written without seeing any builder file. It
  * sits in the Course's build records beside the recompute logs. Parts are keyed by the label the
- * figure prints; every ground pin is `GND.g` and every rail pin `RAIL.t`, since unlabelled symbols
- * can't be keyed, and an unlabelled kind with a `figureKey` (a summing junction) is keyed by it.
+ * figure prints; every ground pin is `GND.g`, every rail pin `RAIL.t` and every ladder power rail
+ * pin `POWER.t`, since unlabelled symbols can't be keyed, and an unlabelled kind with a `figureKey`
+ * (a summing junction) is keyed by it. A STEP 7 editor screenshot prints one
+ * operand on several parts (a contact and the coil it seals in), so its parts are keyed by network,
+ * kind and operand instead: `N1 no Q 4.0`, `N1 coil Q 4.0`, with ` #2` on a repeat in one network.
  */
 export const figureReading = z.strictObject({
   reading: z.literal(FIGURE_READING),
@@ -197,8 +200,18 @@ function diffPartitions(want: string[][], got: string[][], say: Phrasing): strin
 function labelProblems(d: Drawing, model: SchematicModel): string[] {
   return model.parts.flatMap((m) => {
     const p = d.parts.find((q) => q.id === m.id);
-    if (!p || m.label === undefined || p.label?.text === m.label) return [];
-    return [`${m.id}'s label is ${p.label ? `"${p.label.text}"` : "missing"}, the model says "${m.label}"`];
+    if (!p) return [];
+    const out: string[] = [];
+    if (m.label !== undefined && p.label?.text !== m.label)
+      out.push(`${m.id}'s label is ${p.label ? `"${p.label.text}"` : "missing"}, the model says "${m.label}"`);
+    // A part's values print in its symbol's slots: each one the model gives, and nothing else.
+    const want = Object.values(m.notes ?? {}).sort();
+    const got = (p.notes ?? []).map((n) => n.text).sort();
+    if (want.join("\n") !== got.join("\n"))
+      out.push(
+        `${m.id} prints ${got.length > 0 ? got.map((t) => `"${t}"`).join(", ") : "no values"}, the model gives ${want.length > 0 ? want.map((t) => `"${t}"`).join(", ") : "none"}`,
+      );
+    return out;
   });
 }
 
@@ -277,7 +290,10 @@ function segmentHitsBox([a, b]: [Point, Point], [x0, y0, x1, y1]: Box): boolean 
 
 function legibilityProblems(d: Drawing): string[] {
   const out: string[] = [];
-  const labels = d.parts.flatMap((p) => (p.label ? [{ text: p.label, owner: p.id }] : []));
+  const labels = d.parts.flatMap((p) => [
+    ...(p.label ? [{ text: p.label, owner: p.id }] : []),
+    ...(p.notes ?? []).map((text) => ({ text, owner: p.id })),
+  ]);
   const bodies = d.parts.map((p) => ({ id: p.id, part: p, box: boxOf(p) as Box }));
   for (const { text, owner } of labels) {
     const tb = textBox(text);
@@ -340,11 +356,14 @@ function tidinessProblems(d: Drawing): string[] {
 
 // ---------- against the figure ----------
 
+/** Every power rail pin in a figure reading: a ladder's left rail is one conductor, however many networks show it. */
+export const POWER_RAIL = "POWER.t";
+
 /** The reading's key for each model part: its printed label, or its id when the figure prints that. */
 function readingKeys(model: SchematicModel, reading: FigureReading): Map<string, string> {
   const byKey = new Map<string, string>();
   for (const key of Object.keys(reading.parts)) {
-    const hit = model.parts.find((p) => p.id === key || p.label === key);
+    const hit = model.parts.find((p) => p.key === key) ?? model.parts.find((p) => p.id === key || p.label === key);
     if (hit) byKey.set(key, hit.id);
   }
   return byKey;
@@ -398,8 +417,10 @@ function figureChecks(
     if (kind === "rail") return "RAIL.t";
     const figureKey = kind && symbolOf(kind).figureKey;
     if (figureKey && !keyOf.has(id)) return `${figureKey}.${pin}`;
+    if (kind === "power-rail") return POWER_RAIL;
     return `${keyOf.get(id) ?? `?${id}`}.${pin}`;
   };
+  const implicitPin = (k: string) => k === "GND.g" || k === "RAIL.t" || k === POWER_RAIL;
 
   // model ↔ figure: the nets, a swappable pair's wires allowed to swap where that fits the figure.
   const modelled = modelNets(model, model.nets).map((n) => [...new Set(n.map(canon))]);
@@ -461,7 +482,7 @@ function figureChecks(
   // Junction dots copy the figure: each joint is dotted exactly when the figure dots its net.
   const dotted = (net: string[]) => {
     const keysOnNet = new Set(net.map(canon));
-    const index = figured.findIndex((n) => n.some((k) => k !== "GND.g" && k !== "RAIL.t" && keysOnNet.has(k)));
+    const index = figured.findIndex((n) => n.some((k) => !implicitPin(k) && keysOnNet.has(k)));
     return index < 0 ? undefined : (reading.nets[index]?.dotted ?? false);
   };
   const dots = joints.flatMap((j) => {

@@ -93,6 +93,7 @@ export function route(
       [x0, y0, x1, y1] = [Math.min(x0, px, bx0), Math.min(y0, py, by0), Math.max(x1, px, bx1), Math.max(y1, py, by1)];
     }
     if (part.label) markText(part.label, soft);
+    for (const note of part.notes ?? []) markText(note, soft);
   }
   for (const p of pins.values()) {
     pinAt.set(key(...p.cell), p);
