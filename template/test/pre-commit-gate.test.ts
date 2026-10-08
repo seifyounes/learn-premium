@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -144,6 +144,14 @@ describe("the pre-commit gate", () => {
     expect(checkCommit(repo).findings.map((f) => f.message)).toEqual([
       "is the Materials file Lecture 4.pdf: Materials are referenced by path, never committed",
     ]);
+  });
+
+  it("can't run, and says so, when no Materials folder the ledgers name is there to scan", () => {
+    const { repo, materials } = courseProject();
+    cpSync(materials, `${materials}-moved`, { recursive: true });
+    rmSync(materials, { recursive: true, force: true });
+    stage(repo, { "content/x.yaml": "x: 1\n" });
+    expect(() => checkCommit(repo)).toThrow(/can't reach the Materials folder/);
   });
 
   it("can't run without the Build ledger, and says so", () => {

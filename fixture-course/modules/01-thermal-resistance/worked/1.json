@@ -144,6 +144,7 @@
     ],
     "slips": [
       {
+        "cell": "D4",
         "value": "$R_\\text{total} = 1.54\\ \\text{K/W}$",
         "sheet": "$1.45\\ \\text{K/W}$",
         "note": "The sheet's total row swaps two digits: its own layers add to $1.54$, and its heat loss uses $1.54$."

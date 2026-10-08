@@ -138,22 +138,35 @@ async function run(input: GateInput): Promise<GateRun> {
       if (!worked.has(cell))
         block(`the recompute log ${logEntry} gives ${cell}, which isn't a number the sheet works out`);
     }
-    // A Slip ships its corrected value to students: it must be a number the recompute gives.
-    const recomputed = Object.values(log.data.cells);
+    // A Slip ships its corrected value to students: it must be the recompute of the cell it corrects.
     for (const slip of provenance.slips) {
+      const on = rulingValues(slip.sheet).join(", ");
+      if (slip.cell === undefined) {
+        block(
+          `the Slip on ${on} names no cell: give the sheet cell it corrects (cell), so its corrected value can be checked`,
+        );
+        continue;
+      }
+      const recomputed = log.data.cells[slip.cell] ?? (fromSims.has(slip.cell) ? undefined : null);
+      // A cell a live sim maps is checked by sim-numbers, three ways.
+      if (recomputed === undefined) continue;
+      if (recomputed === null) {
+        block(`the Slip on ${on} corrects cell ${slip.cell}, which the recompute log doesn't give`);
+        continue;
+      }
       const shipped = numbersIn(slip.value);
       const matches = (n: { value: number; written: string }) =>
-        recomputed.some((r) =>
-          agreesAtPrint(Math.abs(r), {
-            value: n.value,
-            decimals: (n.written.split(".")[1] ?? "").length,
-            written: n.written,
-          }),
-        );
-      if (shipped.length > 0 && !shipped.some(matches))
+        agreesAtPrint(Math.abs(recomputed), {
+          value: n.value,
+          decimals: (n.written.split(".")[1] ?? "").length,
+          written: n.written,
+        });
+      if (!shipped.some(matches)) {
+        const decimals = Math.max(0, ...shipped.map((n) => (n.written.split(".")[1] ?? "").length));
         block(
-          `the Slip on ${rulingValues(slip.sheet).join(", ")} ships ${shipped.map((n) => n.written).join(", ")} as the corrected value, which no number the independent recompute gives matches`,
+          `the Slip on ${on} (cell ${slip.cell}) ships ${shipped.map((n) => n.written).join(", ") || "no number"} as the corrected value, but the independent recompute gives ${printAt(recomputed, decimals)} for ${slip.cell}`,
         );
+      }
     }
     for (const [cell, printed] of worked) {
       if (typeof printed === "string") {

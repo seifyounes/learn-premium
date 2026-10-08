@@ -121,7 +121,15 @@ export const provenance = z.strictObject({
   assumed: z.array(z.string().min(1)).default([]),
   /** The Owner ruled the Professor's result a mistake: the site ships `value`, and shows `sheet` too. */
   slips: z
-    .array(z.strictObject({ value: z.string().min(1), sheet: z.string().min(1), note: z.string().min(1).optional() }))
+    .array(
+      z.strictObject({
+        /** In a Worked example, the sheet cell it corrects (`D4`): its corrected value is checked against that cell's recompute. */
+        cell: z.string().regex(CELL_REF, "a cell is named by its column letter and row number, e.g. D2").optional(),
+        value: z.string().min(1),
+        sheet: z.string().min(1),
+        note: z.string().min(1).optional(),
+      }),
+    )
     .default([]),
   /** The Owner ruled the Professor's result the exam's truth: `value` ships, `note` says what the recompute or the real system gives. */
   divergences: z.array(z.strictObject({ value: z.string().min(1), note: z.string().min(1) })).default([]),
