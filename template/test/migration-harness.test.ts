@@ -206,6 +206,31 @@ describe("proveAllUpgrades", () => {
     expect(proofs.find((p) => p.previous === "v1.0.0")?.problems.join("\n")).toMatch(/legacyTitle/);
   });
 
+  it("checks every release of a major, building only its last (negative control on an earlier one)", async () => {
+    const repo = repoWithFixture();
+    editFixture(repo, "course.yaml", LEGACY_FIELD);
+    commit(repo, "a field only v1.0.0's Fixture Course keeps");
+    git(repo, "tag", "v1.0.0");
+    editFixture(repo, "course.yaml", (s) => s.replace(/^legacyTitle:.*\n/m, ""));
+    commit(repo, "v1.1.0 no longer uses it");
+    git(repo, "tag", "v1.1.0");
+    commit(repo, "the next release");
+    const fullyProved: string[] = [];
+    const proofs = await proveAllUpgrades({
+      repo,
+      dir: migrations(),
+      prove: async (dir) => {
+        fullyProved.push(readFileSync(join(dir, "course.yaml"), "utf8").includes("legacyTitle") ? "v1.0.0" : "v1.1.0");
+        return contractProblems(dir);
+      },
+      quickProve: contractProblems,
+    });
+    expect(proofs.map((p) => p.previous)).toEqual(["v1.0.0", "v1.1.0"]);
+    expect(fullyProved).toEqual(["v1.1.0"]);
+    expect(proofs[0]?.problems.join("\n")).toMatch(/legacyTitle/);
+    expect(proofs[1]?.problems).toEqual([]);
+  });
+
   it("has nothing to upgrade before the first release", async () => {
     const proofs = await proveAllUpgrades({ repo: repoWithFixture(), dir: migrations(), prove: contractProblems });
     expect(proofs).toEqual([]);
