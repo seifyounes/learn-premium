@@ -134,6 +134,15 @@ export class GhForge implements Forge {
     return null;
   }
 
+  async tagCreatedAt(tag: string): Promise<string | null> {
+    const ref = this.#api<{ object: { type: string; sha: string } }>(`repos/{owner}/{repo}/git/ref/tags/${tag}`);
+    // A lightweight tag has no tagger date; every release tag is annotated.
+    if (ref.object.type !== "tag") return null;
+    return (
+      this.#api<{ tagger?: { date?: string } }>(`repos/{owner}/{repo}/git/tags/${ref.object.sha}`).tagger?.date ?? null
+    );
+  }
+
   async createRelease(tag: string, title: string, notes: string): Promise<string> {
     return this.#gh(["release", "create", tag, "--verify-tag", "--title", title, "--notes-file", "-"], notes).trim();
   }
