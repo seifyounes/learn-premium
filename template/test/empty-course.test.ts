@@ -28,9 +28,11 @@ sittings: []
 const CONTENT_GATES = [
   "content-contract",
   "katex",
+  "notation",
   "teaching-method",
   "provenance",
   "master-rules",
+  "worked-numbers",
   "sim-numbers",
   "truth-table",
   "stl",
