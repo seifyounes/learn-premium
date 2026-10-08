@@ -9,7 +9,7 @@
 // Exit codes: 0 done (or ready), 1 refused (or not ready), 2 bad usage.
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { NotesError, parseNotes, renderNotes, withPhonePass, type Bump } from "./notes.ts";
+import { NotesError, parseNotes, renderNotes, withPhonePass, type Bump, type ParsedNotes } from "./notes.ts";
 import { draftNotes, PHONE_PASS_CONTEXT, plan, steps, type Deps, type Plan, type Steps } from "./sequence.ts";
 
 export interface CliDeps extends Deps {
@@ -42,6 +42,26 @@ function stepLines(s: Steps): string[] {
     ...block(2, "Tool gallery deployed, live gates green", s.gallery),
     ...block(3, "Real-phone pass", s.pass),
   ];
+}
+
+/**
+ * Why an Owner-edited notes file no longer fits the release: written for another version or
+ * commit, or its gate gaps and overrides (which the Upgrade wave reads) differ from a fresh draft,
+ * because an issue or a release changed since it was drafted. Only the wording is the Owner's.
+ */
+function staleNotes(file: string, given: ParsedNotes, fresh: ParsedNotes, version: string, sha: string): string[] {
+  const problems: string[] = [];
+  if (given.version !== version)
+    problems.push(`${file} is written for ${given.version ?? "no version"}, not ${version}`);
+  if (given.sha !== sha) problems.push(`${file} is written for commit ${given.sha ?? "(none)"}, not ${sha}`);
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  if (!same(given.gateGapsClosed, fresh.gateGapsClosed) || !same(given.overridesRetired, fresh.overridesRetired)) {
+    problems.push(
+      `${file} lists gate gaps or Course overrides that no longer match the issues ` +
+        `(now: gate gaps ${fresh.gateGapsClosed.map((n) => `#${n}`).join(", ") || "none"}); draft it again with notes`,
+    );
+  }
+  return problems;
 }
 
 function planLines(p: Plan): string[] {
@@ -196,30 +216,25 @@ async function main(argv: string[], deps: CliDeps, out: string[]): Promise<numbe
       ];
       let notes: string | null = null;
       if (refusals.length === 0 && p.version !== null && p.kind !== null) {
+        // Drafted now, from the issues and tags as they stand at tagging time.
+        const draft = await draftNotes(
+          deps,
+          sha,
+          { version: p.version, previous: p.previous, kind: p.kind },
+          s.pass.pass,
+        );
+        const fresh = renderNotes(draft.input);
+        out.push(...draft.checks.map((check) => `check: ${check}`));
         if (values.notes !== undefined) {
           // The Owner words the notes; the pass section always states the pass as recorded.
           notes = withPhonePass(readFileSync(values.notes, "utf8"), s.pass.pass);
           try {
-            // A draft made for another version or commit would advertise the wrong release.
-            const parsed = parseNotes(notes);
-            if (parsed.version !== p.version)
-              refusals.push(`${values.notes} is written for ${parsed.version ?? "no version"}, not ${p.version}`);
-            if (parsed.sha !== sha)
-              refusals.push(`${values.notes} is written for commit ${parsed.sha ?? "(none)"}, not ${sha}`);
+            refusals.push(...staleNotes(values.notes, parseNotes(notes), parseNotes(fresh), p.version, sha));
           } catch (error) {
             if (!(error instanceof NotesError)) throw error;
             refusals.push(`${values.notes}: ${error.message}`);
           }
-        } else {
-          const draft = await draftNotes(
-            deps,
-            sha,
-            { version: p.version, previous: p.previous, kind: p.kind },
-            s.pass.pass,
-          );
-          notes = renderNotes(draft.input);
-          out.push(...draft.checks.map((check) => `check: ${check}`));
-        }
+        } else notes = fresh;
       }
       if (refusals.length > 0 || notes === null || p.version === null) {
         out.push(...stepLines(s), "4. Tag:", ...planLines(p), ...refusals.map((r) => `refused: ${r}`));

@@ -65,8 +65,11 @@ export interface Forge {
   galleryUrl(sha: string): Promise<string | null>;
   /** Publishes the GitHub Release for an existing tag; returns its URL. */
   createRelease(tag: string, title: string, notes: string): Promise<string>;
-  /** When an annotated release tag was made (its tagger date), or null when GitHub can't say. */
-  tagCreatedAt(tag: string): Promise<string | null>;
+  /**
+   * When GitHub published the release's GitHub Release (its server clock, made right after the
+   * tag's push), or null when there's none. A tag's own date comes from the Owner's clock.
+   */
+  releasePublishedAt(tag: string): Promise<string | null>;
 }
 
 /** The workflow whose result depends on which release is the latest: it upgrades that one's Fixture Course. */
@@ -92,14 +95,15 @@ const workflowFile = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
 /**
  * Step 1: the latest attempt of every required workflow on the candidate is green. The migration
- * harness must also have run after the latest release was tagged: it upgrades the Fixture Course
- * of whichever release was latest when it ran, so an older run proved the wrong upgrade.
+ * harness must also have started after the latest release was published (GitHub's own clock on
+ * both sides): it upgrades the Fixture Course of whichever release was latest when it ran, so an
+ * older run proved the wrong upgrade.
  */
 export async function ciStep(
   forge: Forge,
   sha: string,
   onMainTip: boolean,
-  latestRelease: { name: string; taggedAt: string | null } | null = null,
+  latestRelease: { name: string; publishedAt: string | null } | null = null,
 ): Promise<Step> {
   const runs = await forge.runs(sha);
   const lines: string[] = [];
@@ -122,10 +126,16 @@ export async function ciStep(
     } else if (newest.conclusion !== "success") {
       ok = false;
       lines.push(`${file}: ${newest.conclusion ?? "no conclusion"} (${newest.url})`);
+    } else if (workflow === HARNESS_WORKFLOW && latestRelease !== null && latestRelease.publishedAt === null) {
+      ok = false;
+      lines.push(
+        `${file}: ${latestRelease.name} has no published GitHub Release to date it by; publish it ` +
+          `(gh release create ${latestRelease.name} --verify-tag --notes-from-tag), then re-run this workflow`,
+      );
     } else if (
       workflow === HARNESS_WORKFLOW &&
-      latestRelease?.taggedAt != null &&
-      Date.parse(newest.startedAt) < Date.parse(latestRelease.taggedAt)
+      latestRelease?.publishedAt != null &&
+      Date.parse(newest.startedAt) < Date.parse(latestRelease.publishedAt)
     ) {
       ok = false;
       lines.push(
@@ -184,7 +194,7 @@ export async function passStep(forge: Forge, sha: string): Promise<Steps["pass"]
 export async function steps(deps: Deps, sha: string): Promise<Steps> {
   const onMainTip = deps.git.resolve(deps.git.mainRef) === sha;
   const latest = latestRelease(deps.git);
-  const released = latest === null ? null : { name: latest, taggedAt: await deps.forge.tagCreatedAt(latest) };
+  const released = latest === null ? null : { name: latest, publishedAt: await deps.forge.releasePublishedAt(latest) };
   return {
     ci: await ciStep(deps.forge, sha, onMainTip, released),
     gallery: await galleryStep(deps.forge, sha),

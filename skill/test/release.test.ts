@@ -63,14 +63,13 @@ class FakeForge implements Forge {
   async galleryUrl() {
     return this.gallery;
   }
-  /** Tag times on the runs' own clock, so "a run before the tag" means an earlier tick. */
-  tagTimes = new Map<string, string>();
-  async tagCreatedAt(tag: string) {
-    return this.tagTimes.get(tag) ?? null;
+  /** GitHub Releases' publication times, on the runs' own clock: "a run before it" is an earlier tick. */
+  publishedAt = new Map<string, string>();
+  async releasePublishedAt(tag: string) {
+    return this.publishedAt.get(tag) ?? null;
   }
   async createRelease(tag: string, title: string, notes: string) {
-    // The tag was pushed just before its GitHub Release.
-    this.tagTimes.set(tag, new Date(Date.UTC(2026, 9, 7, 0, 0, this.clock++)).toISOString());
+    this.publishedAt.set(tag, new Date(Date.UTC(2026, 9, 7, 0, 0, this.clock++)).toISOString());
     this.releases.push({ tag, title, notes });
     return `https://github.example/releases/${tag}`;
   }
@@ -349,6 +348,19 @@ describe("tag", () => {
     expect(r.originTags().split("\n")).toEqual(["v0.1.0", "v0.1.1"]);
   });
 
+  test("dates the latest release by its published GitHub Release, and asks for one when it's missing", async () => {
+    const r = repo();
+    const first = readyButForThePass(r);
+    r.forge.ownerPass(first);
+    expect((await r.release("tag", "--bump", "minor")).code).toBe(0);
+    r.forge.publishedAt.delete("v0.1.0");
+    const sha = readyButForThePass(r, "a patch");
+    r.forge.ownerPass(sha);
+    const { code, stdout } = await r.release("tag", "--bump", "patch");
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/v0\.1\.0 has no published GitHub Release to date it by/);
+  });
+
   test("refuses a candidate that isn't on origin's main", async () => {
     const r = repo();
     readyButForThePass(r);
@@ -509,6 +521,20 @@ describe("notes", () => {
     const message = git(r.origin, "tag", "-l", "--format=%(contents)", "v0.1.0");
     expect(message).toContain("## Real-phone pass\n\niPhone 13 Safari · Pyodide 14 s\n\nRecorded by @seifyounes");
     expect(message).not.toContain("Not recorded yet.");
+  });
+
+  test("a notes file whose gate gaps changed since it was drafted is refused", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r, "fix: the overflow gate (ticket #12)");
+    r.forge.ownerPass(sha);
+    const file = join(tempDir("notes"), "notes.md");
+    expect((await r.release("notes", "--bump", "minor", "--out", file)).code).toBe(0);
+    // The gate gap's issue closes after the draft was written.
+    r.forge.gaps = [{ number: 12, title: "Overflow", body: "Course override: `src/a.ts`", stateReason: "completed" }];
+    const { code, stdout } = await r.release("tag", "--bump", "minor", "--notes", file);
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/no longer match the issues \(now: gate gaps #12\)/);
+    expect(r.originTags()).toBe("");
   });
 
   test("a notes file written for another version or commit is refused", async () => {
