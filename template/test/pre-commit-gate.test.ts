@@ -115,6 +115,23 @@ describe("the pre-commit gate", () => {
     ]);
   });
 
+  it("still holds the committed ledger's Materials when the same commit empties the ledger (negative control)", () => {
+    const { repo } = courseProject();
+    stage(repo, {
+      "build-ledger.json": JSON.stringify({ intake: { materialsPath: "/nowhere" }, materials: [] }),
+      "content/modules/01-intro/figure.png": LECTURE,
+      "notes.txt": NOTES.replace(/\r\n/g, "\n"),
+    });
+    expect(
+      checkCommit(repo)
+        .findings.map((f) => f.message)
+        .sort(),
+    ).toEqual([
+      "is the Materials file Lecture 1.pdf: Materials are referenced by path, never committed",
+      "is the Materials file Lecture 2/notes.txt: Materials are referenced by path, never committed",
+    ]);
+  });
+
   it("can't run without the Build ledger, and says so", () => {
     const { repo } = courseProject();
     git(repo, "rm", "-q", "--cached", "build-ledger.json");

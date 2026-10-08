@@ -686,6 +686,56 @@ describe("ready, the Module wave's merge gate", () => {
     }
   });
 
+  test("a Material changed since the wave started, two rulings on one Owner answer, and an STL item without a ruling keep it from merging", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    const answer = (key: string, question: string, ruling?: string) =>
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", key, "--question", question, "--answer", "a"],
+          ...(ruling === undefined ? [] : ["--ruling", ruling]),
+        ),
+      );
+    const [sheetItem, unreadable] = must(checkpointOf(project)).open as { key: string; question: string }[];
+    answer(sheetItem?.key ?? "", sheetItem?.question ?? "", "slip");
+    answer(unreadable?.key ?? "", "eq-2");
+    gateReports(project, []);
+    const shipped = (n: number) => ({
+      verifier: {
+        verify: () => ({ green: true, problems: [] }),
+        rulings: () =>
+          Array.from({ length: n }, () => ({
+            entry: "modules/01-m01/worked/1.json",
+            kind: "slip" as const,
+            printed: [1.45],
+          })),
+      },
+    });
+    expect(ready(project, waveId, shipped(1)).out.problems).toEqual([]);
+    // Two cells ruled on the one value the Owner answered for once.
+    expect(ready(project, waveId, shipped(2)).out.problems).toEqual([expect.stringContaining("ships a slip on 1.45")]);
+
+    // The stl gate's sheet item needs a ruling like any other sheet item.
+    gateReports(project, [
+      {
+        gate: "stl",
+        outcome: "checkpoint",
+        at: "modules/01-m01/worked/1.json",
+        message: "sheet cell C2 prints 7, but awlsim gives 8: rule it a Slip or a Divergence",
+      },
+    ]);
+    const stl = (must(checkpointOf(project)).open as { key: string; sheet: boolean }[])[0];
+    expect(stl).toMatchObject({ sheet: true });
+    gateReports(project, []);
+
+    writeFiles(materialsOf(project), { "L01.pdf": "edited after the readers read it" });
+    expect(ready(project, waveId, shipped(1)).out.problems).toEqual([
+      expect.stringMatching(/L01\.pdf changed since wave module-01-1 started/),
+    ]);
+  });
+
   test("with no template layer to verify with, every Gate report counts as not green", () => {
     const { project, waveId } = waveAtCheckpoint();
 

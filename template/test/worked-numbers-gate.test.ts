@@ -89,6 +89,21 @@ describe("the worked-numbers gate", () => {
     expect((await run(course)).findings).toEqual([]);
   });
 
+  it("lets one Divergence on a value cover one cell: a second cell printing the same wrong value is asked again", async () => {
+    const course = fixtureWith(WORKED, (s) =>
+      s
+        .replace('"0.25", "4.06"', '"0.25", "4.60"')
+        .replace('"0.04", "0.65"', '"0.04", "4.60"')
+        .replace(
+          '"slips": [',
+          '"divergences": [{ "value": "$4.60$", "note": "The recompute gives 4.06." }], "slips": [',
+        ),
+    );
+    expect((await run(course)).findings).toEqual([
+      expect.objectContaining({ outcome: "checkpoint", message: expect.stringMatching(/^sheet cell E2 prints 4\.60/) }),
+    ]);
+  });
+
   it("blocks a value the Owner ruled a Slip that the sheet still prints", async () => {
     // The Fixture's own Slip: the sheet printed 1.45 for the total, the site ships 1.54.
     const course = fixtureWith(WORKED, (s) =>

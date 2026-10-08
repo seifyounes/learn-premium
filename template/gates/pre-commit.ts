@@ -84,23 +84,42 @@ function stagedFiles(repo: string): { path: string; bytes: Buffer }[] {
 interface LedgerMaterials {
   /** Materials file → its sha256, superseded rows too (an old version is still the Professor's). */
   hashes: Map<string, string>;
-  folder: string | null;
+  /** The Materials folders the ledgers name. */
+  folders: string[];
 }
 
+/** One Build ledger's Materials inventory and folder; null when its text isn't one. */
+function ledgerMaterials(text: string): LedgerMaterials | null {
+  let ledger: { materials?: { path?: unknown; hash?: unknown }[]; intake?: { materialsPath?: unknown } };
+  try {
+    ledger = JSON.parse(text) as typeof ledger;
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(ledger.materials)) return null;
+  const hashes = new Map<string, string>();
+  for (const m of ledger.materials)
+    if (typeof m.hash === "string" && typeof m.path === "string") hashes.set(m.hash.toLowerCase(), m.path);
+  const folder = ledger.intake?.materialsPath;
+  return { hashes, folders: typeof folder === "string" ? [folder] : [] };
+}
+
+/**
+ * The Materials the commit is checked against: the ledger as committed at HEAD and as it stands
+ * now, together, so a commit that also empties or repoints the ledger can't switch off its own check.
+ */
 function readLedger(repo: string): LedgerMaterials {
   const path = join(repo, LEDGER_FILE);
   if (!existsSync(path))
     throw new Error(`no Build ledger at ${LEDGER_FILE}, so the staged files can't be checked against the Materials`);
-  const ledger = JSON.parse(readFileSync(path, "utf8")) as {
-    materials?: { path?: unknown; hash?: unknown }[];
-    intake?: { materialsPath?: unknown };
+  const now = ledgerMaterials(readFileSync(path, "utf8"));
+  if (now === null) throw new Error(`${LEDGER_FILE} has no Materials inventory`);
+  const committed = spawnSync("git", ["-C", repo, "show", `HEAD:${LEDGER_FILE}`], { maxBuffer: 2 ** 31 - 1 });
+  const atHead = committed.status === 0 ? ledgerMaterials(committed.stdout.toString("utf8")) : null;
+  return {
+    hashes: new Map([...(atHead?.hashes ?? []), ...now.hashes]),
+    folders: [...new Set([...(atHead?.folders ?? []), ...now.folders])],
   };
-  if (!Array.isArray(ledger.materials)) throw new Error(`${LEDGER_FILE} has no Materials inventory`);
-  const hashes = new Map<string, string>();
-  for (const m of ledger.materials)
-    if (typeof m.hash === "string" && typeof m.path === "string") hashes.set(m.hash.toLowerCase(), m.path);
-  const folder = typeof ledger.intake?.materialsPath === "string" ? ledger.intake.materialsPath : null;
-  return { hashes, folder };
 }
 
 /**
@@ -129,9 +148,8 @@ export function checkCommit(repo: string): CommitCheck {
   const ledger = readLedger(repo);
   const known = new Map(ledger.hashes);
   const forms = staged.map(({ path, bytes }) => ({ path, forms: variants(bytes) }));
-  if (ledger.folder !== null && existsSync(ledger.folder)) {
-    hashFolder(ledger.folder, new Set(forms.flatMap((f) => f.forms.map((b) => b.length))), known);
-  }
+  const sizes = new Set(forms.flatMap((f) => f.forms.map((b) => b.length)));
+  for (const folder of ledger.folders) if (existsSync(folder)) hashFolder(folder, sizes, known);
   // An empty Material matches every empty file (a .gitkeep), so it carries nothing to leak.
   known.delete(EMPTY_SHA256);
   for (const { path, forms: bytes } of forms) {

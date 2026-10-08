@@ -57,8 +57,20 @@ function simCells(files: CourseFile[]): Map<string, Set<string>> {
   return mapped;
 }
 
-/** The magnitudes a ruling list names. */
-const numbersOf = (written: readonly string[]) => new Set(written.flatMap(rulingValues));
+/** How many rulings name each magnitude. */
+function countsOf(written: readonly string[]): Map<number, number> {
+  const counts = new Map<number, number>();
+  for (const n of written.flatMap(rulingValues)) counts.set(n, (counts.get(n) ?? 0) + 1);
+  return counts;
+}
+
+/** Uses up one ruling on `value`, if one is left. */
+function take(counts: Map<number, number>, value: number): boolean {
+  const left = counts.get(value) ?? 0;
+  if (left === 0) return false;
+  counts.set(value, left - 1);
+  return true;
+}
 
 async function run(input: GateInput): Promise<GateRun> {
   const files = courseFiles(input);
@@ -119,8 +131,9 @@ async function run(input: GateInput): Promise<GateRun> {
       block(`the recompute log ${logEntry} isn't one: ${problems(log.error)}`);
       continue;
     }
-    const divergences = numbersOf(provenance.divergences.map((d) => d.value));
-    const slips = numbersOf(provenance.slips.map((s) => s.sheet));
+    // Each ruling covers one cell: a value ruled once doesn't also cover another cell printing it.
+    const divergences = countsOf(provenance.divergences.map((d) => d.value));
+    const slips = countsOf(provenance.slips.map((s) => s.sheet));
     for (const cell of Object.keys(log.data.cells)) {
       if (!worked.has(cell))
         block(`the recompute log ${logEntry} gives ${cell}, which isn't a number the sheet works out`);
@@ -136,10 +149,10 @@ async function run(input: GateInput): Promise<GateRun> {
         continue;
       }
       coverage.cells += 1;
-      if (agreesAtPrint(recomputed, printed) || divergences.has(Math.abs(printed.value))) continue;
+      if (agreesAtPrint(recomputed, printed) || take(divergences, Math.abs(printed.value))) continue;
       const computed = printAt(recomputed, printed.decimals);
       findings.push(
-        slips.has(Math.abs(printed.value))
+        take(slips, Math.abs(printed.value))
           ? {
               outcome: "block",
               at: file.entry,
