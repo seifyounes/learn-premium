@@ -23,7 +23,8 @@ refuses to tag until every step below holds on that exact commit.
    live gates passed on it (the `learn-premium/live-gates` status, `docs/deploy.md`). `status`
    prints the commit's own Tool gallery URL: its Production deployment's URL, which serves only that
    build. The production URL moves on to newer commits, so it never stands in: with no deployment
-   URL for the commit, this step isn't green.
+   URL for the commit, this step isn't green. The live gates' green must also be newer than that
+   deployment, so a redeploy of the same commit waits for its own live-gates run.
 3. **The Owner's real-phone pass.** The Owner opens that Tool gallery on a real phone. They use
    every sim by touch, orbit and zoom the 3D viewer, and time the Pyodide run from its "Run live"
    tap to its plot. Then, in their own terminal, they record the pass on the commit:

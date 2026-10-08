@@ -61,8 +61,11 @@ export interface Forge {
   viewer(): Promise<string>;
   /** Closed issues labelled `gate-gap`. */
   closedGateGaps(): Promise<GateGapIssue[]>;
-  /** The Tool gallery of this commit's Fixture Course deployment, when one is known. */
-  galleryUrl(sha: string): Promise<string | null>;
+  /**
+   * The Tool gallery on this commit's newest successful Production deployment, and when that
+   * deployment went live (GitHub's clock), or null when GitHub knows none.
+   */
+  gallery(sha: string): Promise<{ url: string; deployedAt: string } | null>;
   /** Publishes the GitHub Release for an existing tag; returns its URL. */
   createRelease(tag: string, title: string, notes: string): Promise<string>;
   /**
@@ -153,19 +156,28 @@ export async function ciStep(
 /** The newest status of one context on a commit. */
 const newest = (statuses: CommitStatus[], context: string) => statuses.find((s) => s.context === context);
 
-/** Step 2: the Fixture Course deployed from the candidate, and its live gates passed. */
+/**
+ * Step 2: the Fixture Course deployed from the candidate, and its live gates passed on that
+ * deployment: the green status must be newer than the deployment whose gallery the Owner tests.
+ * A redeploy of the same commit needs its own green run.
+ */
 export async function galleryStep(forge: Forge, sha: string): Promise<Steps["gallery"]> {
   const live = newest(await forge.statuses(sha), LIVE_CONTEXT);
-  const url = await forge.galleryUrl(sha);
+  const gallery = await forge.gallery(sha);
+  const url = gallery?.url ?? null;
   // The phone pass needs a URL that serves this commit's build and nothing newer.
-  const ok = live?.state === "success" && url !== null;
+  const greenOnIt =
+    live?.state === "success" && gallery !== null && Date.parse(live.createdAt) > Date.parse(gallery.deployedAt);
   const lines = [
     live === undefined
       ? `no ${LIVE_CONTEXT} status on this commit: it hasn't deployed, or the live gates haven't run (fixture-live.yml)`
       : `${LIVE_CONTEXT}: ${live.state}${live.description ? ` (${live.description})` : ""}`,
     `Tool gallery: ${url ?? "GitHub knows no deployment URL of this commit's own build, so there's nothing to test"}`,
+    ...(live?.state === "success" && gallery !== null && !greenOnIt
+      ? [`the live gates' green predates this deployment (${gallery.deployedAt}); wait for its own live-gates run`]
+      : []),
   ];
-  return { ok, lines, url };
+  return { ok: greenOnIt, lines, url };
 }
 
 /** Step 3: the Owner's real-phone pass, recorded on exactly this commit by the Owner. */
