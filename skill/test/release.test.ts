@@ -36,7 +36,7 @@ class FakeForge implements Forge {
   gaps: GateGapIssue[] = [];
   releases: { tag: string; title: string; notes: string }[] = [];
   viewerLogin = OWNER;
-  gallery: string | null = "https://fixture-abc123.example.app/tool-gallery/";
+  galleryLink: string | null = "https://fixture-abc123.example.app/tool-gallery/";
   clock = 0;
 
   async runs(sha: string) {
@@ -60,8 +60,10 @@ class FakeForge implements Forge {
   async closedGateGaps() {
     return this.gaps;
   }
-  async galleryUrl() {
-    return this.gallery;
+  /** When the gallery's deployment went live: before every status these tests add, unless moved. */
+  deployedAt = "2026-10-06T00:00:00.000Z";
+  async gallery() {
+    return this.galleryLink === null ? null : { url: this.galleryLink, deployedAt: this.deployedAt };
   }
   /** GitHub Releases' publication times, on the runs' own clock: "a run before it" is an earlier tick. */
   publishedAt = new Map<string, string>();
@@ -108,7 +110,7 @@ class FakeForge implements Forge {
       context: PHONE_PASS_CONTEXT,
       state: "success",
       description: "iPhone 13 Safari · Pyodide 14 s",
-      targetUrl: this.gallery,
+      targetUrl: this.galleryLink,
       creator,
     });
   }
@@ -573,10 +575,30 @@ describe("record-phone-pass", () => {
     expect(r.forge.statusesBySha.get(sha)?.some((s) => s.context === PHONE_PASS_CONTEXT) ?? false).toBe(false);
   });
 
+  test("refuses when the commit was redeployed after its live gates went green", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r);
+    // Vercel redeploys the same commit; its own live-gates run hasn't reported yet.
+    r.forge.deployedAt = "2026-10-08T00:00:00.000Z";
+    const { code, stdout } = await r.release(
+      "record-phone-pass",
+      "--sha",
+      sha,
+      "--devices",
+      "iPhone 13 Safari",
+      "--pyodide-seconds",
+      "14",
+    );
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/2\. Tool gallery deployed, live gates green: no/);
+    expect(stdout).toMatch(/live gates' green predates this deployment/);
+    expect(r.forge.statusesBySha.get(sha)?.some((s) => s.context === PHONE_PASS_CONTEXT)).toBe(false);
+  });
+
   test("refuses when there's no deployment URL serving that commit's own build to test", async () => {
     const r = repo();
     const sha = readyButForThePass(r);
-    r.forge.gallery = null;
+    r.forge.galleryLink = null;
     const { code, stdout } = await r.release(
       "record-phone-pass",
       "--sha",

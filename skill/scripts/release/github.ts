@@ -118,18 +118,21 @@ export class GhForge implements Forge {
 
   /**
    * The Tool gallery on this commit's own Production deployment: a URL that serves only this
-   * commit's build. Never the production URL, which moves on to newer commits.
+   * commit's build. Never the production URL, which moves on to newer commits. GitHub lists
+   * deployments newest first, so a redeploy of the commit is the one returned.
    */
-  async galleryUrl(sha: string): Promise<string | null> {
+  async gallery(sha: string): Promise<{ url: string; deployedAt: string } | null> {
     const deployments = this.#api<{ id: number; environment: string }[]>(
       `repos/{owner}/{repo}/deployments?sha=${sha}&per_page=100`,
     ).filter((d) => d.environment.startsWith("Production"));
     for (const deployment of deployments) {
-      const statuses = this.#api<{ state: string; environment_url?: string | null }[]>(
+      const statuses = this.#api<{ state: string; environment_url?: string | null; created_at: string }[]>(
         `repos/{owner}/{repo}/deployments/${deployment.id}/statuses?per_page=100`,
       );
-      const url = statuses.find((s) => s.state === "success" && s.environment_url)?.environment_url;
-      if (url) return `${url.replace(/\/$/, "")}/tool-gallery/`;
+      const live = statuses.find((s) => s.state === "success" && s.environment_url);
+      if (live?.environment_url) {
+        return { url: `${live.environment_url.replace(/\/$/, "")}/tool-gallery/`, deployedAt: live.created_at };
+      }
     }
     return null;
   }
