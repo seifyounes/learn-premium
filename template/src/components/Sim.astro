@@ -3,6 +3,7 @@ import { getEntry } from "astro:content";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { prose, type SimRef } from "../content/course";
+import ControlSim from "../islands/ControlSim";
 import GradientDescentSim from "../islands/GradientDescentSim";
 import LogicSim from "../islands/LogicSim";
 import PlaneWallSim from "../islands/PlaneWallSim";
@@ -10,9 +11,10 @@ import SclSim from "../islands/SclSim";
 import StepThrough from "../islands/StepThrough";
 import StlSim from "../islands/StlSim";
 import { buildContentDir } from "../content/layout";
+import { pinnedIn } from "../content/style-sheet";
 import TangentSim from "../islands/TangentSim";
 import { provenanceNotes } from "../provenance/notes";
-import { isLive } from "../sims/kinds";
+import { definitionsFor, isLive } from "../sims/kinds";
 import { inkNets } from "../sims/layout/geometry";
 import { layOut } from "../sims/layout/layout";
 import { printedDecimals } from "../sims/precision";
@@ -76,6 +78,11 @@ const missing =
         [st.op, st.text].filter(Boolean).join(" "),
       )
     : [];
+// A control loop's block diagram is laid out the same way, and its step response is read by the
+// definitions the Course style sheet pins: a build without them fails, naming the missing one.
+const control = live?.kind === "control" ? live : undefined;
+const controlDrawing = control && layOut(control.model, control.layout);
+const controlDefinitions = control && definitionsFor(control, pinnedIn(buildContentDir()));
 ---
 
 <article class="sim-card" id={`sim-${ref.module}-${ref.name}`} data-sim-kind={s.kind} data-recompute={s.recompute}>
@@ -170,6 +177,39 @@ const missing =
         toZero: math("h \\to 0"),
         p: math("P"),
         q: math("Q"),
+      }}
+    />
+  ) : control && controlDrawing && controlDefinitions ? (
+    <ControlSim
+      client:visible
+      model={{ plant: control.model.plant }}
+      drawing={controlDrawing}
+      nets={inkNets(controlDrawing, control.model.nets)}
+      start={control.start}
+      tune={control.tune}
+      definitions={controlDefinitions}
+      decimals={decimals}
+      label={label}
+      mathHtml={{
+        K: math("K"),
+        sigma: math("\\sigma"),
+        jw: math("j\\omega"),
+        t: withUnit("t", "s"),
+        y: math("y(t)"),
+        w: withUnit("\\omega", "rad/s"),
+        magnitude: withUnit("|KG(j\\omega)|", "dB"),
+        phase: withUnit("\\angle KG(j\\omega)", "°"),
+        re: math("\\mathrm{Re}"),
+        im: math("\\mathrm{Im}"),
+        zeta: math("\\zeta"),
+        wn: math("\\omega_n"),
+        wd: math("\\omega_d"),
+        overshoot: prose("overshoot"),
+        Tp: math("T_p"),
+        Tr: math("T_r"),
+        Ts: math("T_s"),
+        wc: math("\\omega_c"),
+        PM: prose("PM"),
       }}
     />
   ) : live?.kind === "plane-wall" ? (

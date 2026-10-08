@@ -1,0 +1,56 @@
+{
+  "kind": "control",
+  "title": "The loop on its root locus",
+  "caption": "Drag a closed-loop pole along the locus, or slide $K$, and watch the step response, the Bode plot and the Nyquist plot follow. The red pen marks the overshoot and the settling time.",
+  "recompute": "independent",
+  "worked": "1",
+  "sheet": {
+    "B1": "wn",
+    "B2": "zeta",
+    "B3": "pole[0].re",
+    "B4": "pole[0].im",
+    "B5": "overshoot",
+    "B6": "Tp",
+    "B7": "Tr",
+    "B8": "Ts",
+    "B9": "wc",
+    "B10": "PM"
+  },
+  "model": {
+    "plant": { "gain": 1, "zeros": [], "poles": [0, -2] },
+    "loop": { "input": "R", "sum": "E", "gain": "K", "plant": "G", "output": "Y" },
+    "parts": [
+      { "id": "R", "kind": "port", "label": "R(s)" },
+      { "id": "E", "kind": "sum" },
+      { "id": "K", "kind": "block", "label": "K" },
+      { "id": "G", "kind": "block", "label": "G(s)" },
+      { "id": "Y", "kind": "port", "label": "Y(s)" }
+    ],
+    "nets": [
+      { "id": "r", "pins": ["R.t", "E.in1"] },
+      { "id": "e", "pins": ["E.out", "K.in"] },
+      { "id": "u", "pins": ["K.out", "G.in"] },
+      { "id": "y", "pins": ["G.out", "Y.t", "E.in2"] }
+    ]
+  },
+  "layout": {
+    "parts": {
+      "R": { "at": [0, 0], "label": "left" },
+      "E": { "at": [1, 0] },
+      "K": { "at": [2.4, 0] },
+      "G": { "at": [4, 0] },
+      "Y": { "at": [5.4, 0], "label": "right" }
+    },
+    "dots": ["y"]
+  },
+  "start": { "K": 4 },
+  "tune": { "K": { "min": 0.5, "max": 20, "step": 0.5 } },
+  "provenance": {
+    "stated": [
+      "$G(s) = \\frac{1}{s(s + 2)}$",
+      "open-loop poles at $s = 0$ and $s = -2$",
+      "the gain $K = 4$"
+    ],
+    "assumed": ["$K$ tuned from $0.5$ to $20$ in steps of $0.5$"]
+  }
+}

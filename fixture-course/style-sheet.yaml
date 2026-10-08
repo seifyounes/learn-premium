@@ -11,6 +11,10 @@ tableForms:
 definitions:
   - term: thermal resistance
     definition: 'The temperature drop per unit heat rate, $R = \frac{L}{kA}$ for a plane layer.'
+  - term: settling time
+    definition: 'The time after which the step response stays within $2\ \%$ of its final value, read off the response.'
+  - term: rise time
+    definition: 'The time the step response takes to climb from $10\ \%$ to $90\ \%$ of its final value.'
 idealisedModels:
   - device: plane wall
     model: 'One-dimensional conduction, constant conductivity, no contact resistance between layers.'
@@ -27,3 +31,11 @@ notation:
 units:
   - write: 'W/(m·K)'
     not: ['W/mK', 'W/m.K']
+# Machine-readable: the numbers of the settling-time and rise-time definitions above, which the
+# control engine and its recompute both work to (the pinned-definitions gate holds them to it).
+pinned:
+  settlingTime:
+    band: 0.02
+  riseTime:
+    from: 0.1
+    to: 0.9

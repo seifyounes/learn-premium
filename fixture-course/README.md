@@ -15,6 +15,9 @@ Layout (content contract v0):
   Professor's voice, table forms, pinned definitions and idealised models, and its machine-readable
   part, `notation` (each symbol as written, what it means, the variants `not` to write) and `units`.
   The notation lint holds every content file to that part.
+- `style-sheet.yaml` also pins, under `pinned`, the numbers of the definitions an engine and its
+  recompute both work to: the settling band (`settlingTime.band`, here 2 %) and the rise time's
+  limits (`riseTime`, here 10 % to 90 %), which the control sim reads.
 - `modules/<NN>-<slug>/module.yaml`: one Module; the folder name is its route. `highYield: true`
   rings it in red pen on the contents sheet.
 - `modules/<NN>-<slug>/rules.yaml` (optional): the Module's rules for Master Rules and Revision,
@@ -50,6 +53,9 @@ Layout (content contract v0):
 - `build-records/recompute/<NN>-<slug>/worked-<n>.json`: a Worked example's recompute log, every
   number its sheet works out by cell (`cells`), for the cells no live sim maps; the worked-numbers
   gate compares the sheet with it. W01.1's is written by `tools/recompute-composite-wall.py`, W06.1's by `tools/recompute-tank-volume.py`, W07.1's by `tools/recompute-hub-volume.py`, W09.1's by `tools/recompute-blender.py`.
+- `tools/recompute-control.py` recomputes Module 8's control sim with python-control (the machine
+  venv's, run with `uv`) as the oracle, reads the settling band and rise limits from the style
+  sheet's `pinned`, and records them in its log's `definitions`.
 - A schematic sim (`kind: logic`) also gives its Layout hints (`layout`): each part's cell on the
   figure's coarse grid, its turn and label side, and the nets whose joints the figure dots; never a
   coordinate. `build-records/figure/<NN>-<slug>/<name>.json` is the Blind reader's account of its
@@ -128,6 +134,12 @@ OR, the figure the sim-layout prototype drew). W04.1 fills its truth table net b
 `sims/adder.json` sits inline in it, checked bit for bit against its recompute log and the sheet,
 and drawn by the layout core from its hints, checked against the Blind reader's reading of the
 figure.
+
+Module 8 (root locus) carries the control sim, on the synthetic loop K/(s(s + 2)) under unity
+feedback. W08.1 works the loop at K = 4 (ωn, ζ, the poles, overshoot, peak, rise and settling
+times by the style sheet's definitions, and the phase margin); `sims/loop.json` sits inline in it,
+checked three ways against python-control and the sheet, and its block diagram is drawn by the
+layout core from its hints, checked against the Blind reader's reading of the figure.
 
 Every string is prose: math is written between `$…$` (inline) or `$$…$$` (display), `\ce{…}`
 renders chemistry, and a literal dollar sign is written `\$`. In JSON every backslash is doubled;

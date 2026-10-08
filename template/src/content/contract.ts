@@ -2,6 +2,8 @@
 // major Template release, because every Course's content is checked against it.
 import { z } from "astro/zod";
 import { isPadKey, PAD_COLOUR, PAD_KEYS } from "../pads/catalogue.ts";
+import { loopProblems } from "../sims/control/loop.ts";
+import { BLOCK_DIAGRAM_KINDS } from "../sims/layout/block-diagram.ts";
 import { turnSchema } from "../sims/layout/check.ts";
 import { SIDES } from "../sims/layout/symbols.ts";
 import { schematicProblems } from "../sims/layout/validate.ts";
@@ -532,6 +534,45 @@ export const stlListing = z
     for (const p of stlProblems(l.model, l.start, l.tune, l.cases)) ctx.addIssue({ code: "custom", ...p });
   });
 
+/** A root of G(s) as the Materials write it: a real number, or a complex pair re ± j·im as [re, im]. */
+const root = z.union([z.number(), z.tuple([z.number(), z.number().positive()])]);
+const degree = (roots: readonly z.infer<typeof root>[]) =>
+  roots.reduce<number>((n, r) => n + (typeof r === "number" ? 1 : 2), 0);
+
+/**
+ * A control loop (`src/sims/control/engine.ts`): the gain K in front of the Professor's plant G(s),
+ * under unity negative feedback, its block diagram drawn by the layout core from its hints. Every
+ * view (root locus, step, Bode, Nyquist) is drawn on JSXGraph; the step characteristics are read by
+ * the definitions the Course style sheet pins. Students tune K, by slider or by dragging a
+ * closed-loop pole along the locus, never the plant.
+ */
+const controlSim = z.strictObject({
+  kind: z.literal("control"),
+  ...simCommon,
+  model: z.strictObject({
+    /** G(s) = gain · Π(s − zero) / Π(s − pole), strictly proper. */
+    plant: z
+      .strictObject({
+        gain: z.number().refine((g) => g !== 0, "a plant's gain is never 0"),
+        zeros: z.array(root),
+        poles: z.array(root).min(1),
+      })
+      .refine((p) => degree(p.zeros) < degree(p.poles), "G(s) is strictly proper: it has fewer zeros than poles"),
+    /** Which part of the block diagram plays each role in the loop. */
+    loop: z.strictObject({ input: partId, sum: partId, gain: partId, plant: partId, output: partId }),
+    parts: z
+      .array(z.strictObject({ id: partId, kind: z.enum(BLOCK_DIAGRAM_KINDS), label: z.string().min(1).optional() }))
+      .min(1),
+    nets: z.array(z.strictObject({ id: z.string().min(1), pins: z.array(pinRef).min(1) })).min(1),
+  }),
+  layout: layoutHints,
+  /** The example's gain: the sim opens on it. */
+  start: z.strictObject({ K: z.number().positive() }).optional(),
+  tune: z
+    .strictObject({ K: tuneRange.refine((r) => r.min > 0, "a loop's gain is above 0: start K's range above 0") })
+    .optional(),
+});
+
 /**
  * An SCL listing (`src/sims/scl/engine.ts`), run live on the S7 core: each scan calls the listing's
  * FUNCTION_BLOCK once, students set its inputs and step a statement or a scan at a time, with a
@@ -596,7 +637,7 @@ const sclSim = z.strictObject({
  * the same way in Node at build and in the page. Students tune it, never rewire it.
  */
 export const sim = z
-  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim, stlSim, sclSim])
+  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim, stlSim, sclSim, controlSim])
   .superRefine((s, ctx) => {
     if (s.kind === "stl")
       for (const p of stlProblems(s.model, s.start, s.tune, s.cases)) ctx.addIssue({ code: "custom", ...p });
@@ -617,6 +658,11 @@ export const sim = z
             message: `${key} gives ${given.join(", ") || "nothing"}, but the inputs are ${s.model.inputs.join(", ")}, in that order`,
           });
       }
+    }
+    if (s.kind === "control") {
+      const structure = schematicProblems(s.model, s.layout);
+      for (const message of structure.length > 0 ? structure : loopProblems(s.model))
+        ctx.addIssue({ code: "custom", path: ["model"], message });
     }
     if (s.recompute === "independent") {
       for (const key of ["start", "tune"] as const) {
@@ -671,6 +717,7 @@ export const SIM_KINDS = [
   "plane-wall",
   "stl",
   "scl",
+  "control",
 ] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /**

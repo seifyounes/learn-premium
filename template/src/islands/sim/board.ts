@@ -65,11 +65,33 @@ export function axesFor(box: Box): Axes {
   };
 }
 
+/** An axis's own tick text, and where its labels sit (JSXGraph's label `offset` and anchors). */
+export interface TickStyle {
+  text?: (v: number) => string;
+  /** Label the tick at 0 too: on a log axis it is 10⁰ = 1, no crossing. */
+  zero?: boolean;
+  label?: { offset?: [number, number]; anchorX?: "left" | "middle" | "right"; anchorY?: "top" | "middle" | "bottom" };
+}
+
+/** Tick labels left of a vertical axis, clear of a curve that climbs along it. */
+export const LABELS_LEFT: TickStyle = { label: { offset: [-7, 0], anchorX: "right", anchorY: "middle" } };
+
 /**
  * A board with pencil axes. Ticks step from the axes' crossing, so it sits on a tick, and each
  * label prints its own coordinate.
  */
-export function makeBoard(JXG: JXG, el: HTMLElement, box: Box, inks: Inks, axes: Axes = axesFor(box)): Board {
+export function makeBoard(
+  JXG: JXG,
+  el: HTMLElement,
+  box: Box,
+  inks: Inks,
+  axes: Axes = axesFor(box),
+  /**
+   * How an axis prints its ticks, when not as the coordinate (a log axis prints 10 to it), and
+   * where, when not JSXGraph's default side (a curve that climbs along the axis wants them outside).
+   */
+  ticks: { x?: TickStyle; y?: TickStyle } = {},
+): Board {
   const { cross, spacing } = axes;
   const board = JXG.JSXGraph.initBoard(el, {
     boundingBox: box,
@@ -95,10 +117,12 @@ export function makeBoard(JXG: JXG, el: HTMLElement, box: Box, inks: Inks, axes:
         ticksDistance: distance,
         // The axes' crossing is unlabelled: both its labels would sit on each other, and under a
         // handle that starts there.
-        drawZero: false,
+        drawZero: (coordinate === 1 ? ticks.x : ticks.y)?.zero ?? false,
         // A tick prints where it is, not how far it is from the crossing.
         generateLabelText(this: { formatLabelText(v: number): string }, tick: { usrCoords: number[] }) {
-          return this.formatLabelText(tick.usrCoords[coordinate] ?? 0);
+          const v = tick.usrCoords[coordinate] ?? 0;
+          const own = (coordinate === 1 ? ticks.x : ticks.y)?.text;
+          return own ? own(v) : this.formatLabelText(v);
         },
         label: {
           cssClass: "sim-tick",
@@ -108,6 +132,7 @@ export function makeBoard(JXG: JXG, el: HTMLElement, box: Box, inks: Inks, axes:
           strokeColor: inks.pencil,
           highlight: false,
           display: "html",
+          ...(coordinate === 1 ? ticks.x : ticks.y)?.label,
         },
       },
     });

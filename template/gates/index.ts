@@ -3,6 +3,7 @@
 import { BROWSER_GATES } from "./browser.ts";
 import { padGate, redHueRule } from "./colour.ts";
 import { contentContract, katexGate } from "./content.ts";
+import { pinnedDefinitionsGate } from "./definitions.ts";
 import { drawingGate } from "./drawing.ts";
 import { licencesFileGate, licencesGate } from "./licences.ts";
 import { liveHeaders, livePrivatePaths, liveRoutes } from "./live.ts";
@@ -32,6 +33,7 @@ export const GATES: readonly Gate[] = [
   truthTableGate,
   stlGate,
   sclGate,
+  pinnedDefinitionsGate,
   drawingGate,
   partChecks,
   toolsGate,

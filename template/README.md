@@ -157,6 +157,7 @@ kinds:
 | `logic`            | logic         | every net's level on every truth-table row                         | the input bits                    | each net walked back to its gate          |
 | `stl`              | automation    | the Professor's STL listing on the S7 core, statement by statement | the inputs (switches, raw values) | awlsim, bit for bit after every statement |
 | `scl`              | automation    | the Professor's SCL function block on the S7 core, a call a scan   | the block's inputs                | the blind interpreter, on every scan      |
+| `control`          | control       | K·G(s) under unity feedback: poles, exact step, Bode, margins      | K (a pole drags)                  | python-control (build-time oracle)        |
 
 - **Gradient descent** (`src/islands/GradientDescentSim.tsx`): its table fills in hand order and
   the red pen rings each new θ. The path moves on the contours of J, and α can diverge.
@@ -248,6 +249,33 @@ points (#37) on both and names who decides. A listing that reaches one raises a 
 until the Owner's ruling is recorded under `silent` (`at`: the variable, or `line N`; `point`;
 `ruling`).
 
+The control sim (`src/sims/control/engine.ts`, `src/islands/ControlSim.tsx`): the gain K in front of
+the Professor's plant G(s) under unity negative feedback. Its `model` gives the plant (`plant`:
+`gain`, `zeros` and `poles`, a complex pair written `[re, im]`, strictly proper), the block diagram
+as the figure draws it (`parts` and `nets` in the block-diagram kinds `port`, `sum` and `block`,
+drawn by the layout core from its `layout` hints) and which part plays each role in the loop
+(`loop`: `input`, `sum`, `gain`, `plant`, `output`); the contract refuses a diagram that isn't the
+unity-feedback loop the engine models. Students tune K by slider, or by dragging a closed-loop pole
+along the root locus, which snaps K to the slider's nearest step. Four tabs on JSXGraph (each board
+made the first time its tab shows): the root locus, the step response (its final value and settling
+band dashed, the red pen's strokes on the overshoot and the settling time), the open loop's Bode
+plot on a log frequency axis (the gain crossover and phase margin marked) and its Nyquist plot round
+−1. The engine closes the loop, steps it exactly (the matrix exponential of the closed loop's
+state-space form, as python-control does), and pins each step characteristic down by bisection
+between samples, so it agrees with its recompute to 1e-9 on and off the sheet. Its quantities:
+`pole[i].re`/`.im` (upper half-plane first), `wn` and `zeta` for a second-order loop, `final`,
+`peak`, `overshoot` (%), `Tp`, `Tr`, `Ts`, and the margins `wc`, `PM` (°) and, where the phase
+crosses −180°, `wpc`, `GM` (dB). Rise and settling are read by the Professor's definitions in the
+Course style sheet (below); python-control, the recompute's oracle, runs at build only and never
+loads in the page.
+
+The Course style sheet (`style-sheet.yaml`, `src/content/style-sheet.ts`) pins the numbers of the
+Professor's definitions under `pinned`: `settlingTime.band` (the
+response stays within ±band of its final value from Ts on) and `riseTime.from`/`to` (fractions of
+the final value). A kind names the definitions its engine works to (`definitions` in
+`src/sims/kinds.ts`); the page and the gates hand them to the engine, and a build of a sim whose
+definitions the style sheet doesn't pin fails, naming the missing one.
+
 ### The layout core
 
 A schematic sim (logic now; circuits, ladder, pneumatics, block diagrams and FSMs to come) is drawn
@@ -264,6 +292,13 @@ first; a wire meets a pin from the side the pin faces, crosses another net only 
 never runs along one, pays to run beside one, and meets its own net at a T. The page gets the
 drawing made at build (`Sim.astro`), the one the Drawing gate checked; `src/islands/sim/Schematic.tsx`
 draws it at its own size, so a wide circuit scrolls inside its box rather than shrinking its labels.
+
+Symbol packs join the kit in `symbols.ts` as one spread each. The block-diagram pack
+(`block-diagram.ts`) adds a transfer-function `block` (its label, K or G(s), printed inside the box:
+`labelInside`) and a summing junction `sum` (plus on the left input, minus on the input from below,
+three grid steps down so a terminal on the forward path is never pulled into line with it), each
+with the signal's arrowhead where it enters. A figure never labels a summing junction, so a Blind
+reader keys it `SUM` (its `figureKey`), as grounds are `GND`.
 
 - `recompute: independent`: the independent recompute logs what it worked out from the Materials in
   the Course's `build-records/recompute/<module>/<name>.json`, and the sim ships live.
@@ -430,6 +465,7 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `worked-numbers`      | job, deploy    | every number a Worked example's sheet works out against the independent recompute's log (`worked-<n>.json`) at the printed precision: a missing recompute blocks; sheet ≠ recompute is a Checkpoint item                                                                                                                                                                 |
 | `sim-numbers`         | job, deploy    | a live sim's numbers three ways at the sheet's printed precision: engine ≠ recompute blocks; both ≠ sheet is a Checkpoint item                                                                                                                                                                                                                                           |
 | `truth-table`         | job, deploy    | a logic sim's truth table three ways, bit for bit: engine ≠ recompute blocks, a row the recompute leaves out blocks; both ≠ sheet is a Checkpoint item                                                                                                                                                                                                                   |
+| `pinned-definitions`  | job, deploy    | every definition a live sim's numbers are read by (settling band, rise limits) is pinned in the Course style sheet, and its recompute worked to exactly that one                                                                                                                                                                                                         |
 | `stl`                 | job, deploy    | every STL listing agrees with its awlsim log bit for bit after every statement of every case; every instruction it uses runs in a case; nine broken interpreters, each caught wherever the cases reach its defect; the sheet three ways; an unsupported instruction needs a Gate gap                                                                                     |
 | `scl`                 | job, deploy    | every SCL listing agrees with the blind interpreter on every variable after every scan of every case (a value they part on blocks unless listed `silent`); a result the manual leaves undefined is a Checkpoint item until ruled; every construct runs in a case; every Divergence line is reached; seven broken interpreters caught where reached; the sheet three ways |
 | `part-checks`         | job, deploy    | every machine part's GLB against its B-rep record (each tagged dimension and the bounding box within 0.01 mm), its volume against the independent sum of the drawing's primitives (0.5 %); a scaled or assumed dimension is a Checkpoint item linking to the viewer                                                                                                      |
@@ -526,6 +562,13 @@ The sim gates in detail (`gates/sims.ts`):
   mouse-only handler. Every number in the model is tagged stated or scaled, so it comes from the
   Materials. The engine runs in Node to finite numbers at the example's values and at every
   slider's min, mid and max.
+- **`tools`** also blocks a Pyodide tool that lists or imports python-control: it is the control
+  sims' build-time oracle and never loads in the page.
+- **`pinned-definitions`** (`gates/definitions.ts`): a live sim whose kind works to pinned
+  definitions blocks when the Course style sheet doesn't pin one, and when its recompute log's
+  `definitions` (what the recompute read from the style sheet) leave one out or differ from it.
+  Its negative controls: a log worked to a 5 % band, a log naming no definitions, a style sheet
+  with no settling band.
 - A Module with no sim passes each, having looked in it; a Module that doesn't exist covers
   nothing and fails.
 
@@ -561,7 +604,9 @@ gallery), and only once its map is opened, and on a 4×-throttled phone it start
 JSXGraph's start, not the dist bundle's 26×. Every label on a sim's plots is drawn at the same size
 at 1280 and 320px, and never under 12px. `test/maths-heat-sims.test.ts` holds the tangent and the
 plane wall to the sim gates. `test/layout-core.test.ts` holds the layout core to its public
-interface: hints in, drawing out.
+interface: hints in, drawing out. `test/control-engine.test.ts` holds the control engine to the
+second-order forms worked by hand, and `test/control-sim.test.ts` holds the control sim to the sim
+gates, the pinned-definitions gate and the Drawing gate.
 
 The gates run on Node's own TypeScript support, so files they import use `.ts` extensions and
 erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).

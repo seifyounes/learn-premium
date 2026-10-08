@@ -8,6 +8,7 @@
 // gives. Pure: the gate reads the files.
 import { z } from "astro/zod";
 import { parseCell } from "../worked/cells.ts";
+import { definitions, type PinnedDefinitions } from "./definitions.ts";
 import { engineQuantities, type LiveSim } from "./kinds.ts";
 import { agreesAtPrint, printAt, readPrinted, rulingValues, type Printed } from "./precision.ts";
 
@@ -20,6 +21,8 @@ export const recomputeLog = z.strictObject({
   by: z.string().min(1),
   /** The inputs it took from the Materials: the sim must open on the same. */
   inputs: z.strictObject({ model: z.unknown(), start: z.record(z.string(), z.number()) }),
+  /** The Course style sheet's definitions it worked to (the settling band…), as it read them. */
+  definitions: definitions.optional(),
   /** Every number it worked out, by the engine's names for them. */
   values: z.record(z.string(), z.number()),
 });
@@ -57,13 +60,15 @@ const RELATIVE = 1e-9;
 export interface Comparison {
   /** Bit for bit, every value the engine gives recomputed: a truth table. Else at the sheet's printed precision. */
   exact: boolean;
+  /** The Course style sheet's pinned definitions, which the engine works to. */
+  pinned?: PinnedDefinitions | undefined;
 }
 
 export function threeWay(
   s: LiveSim,
   log: RecomputeLog,
   sheet: Sheet | undefined,
-  { exact }: Comparison = { exact: false },
+  { exact, pinned }: Comparison = { exact: false },
 ): ThreeWay {
   const result: ThreeWay = { problems: [], sheetValues: 0, recomputedValues: 0 };
   const agrees = (value: number, printed: Printed) => (exact ? value === printed.value : agreesAtPrint(value, printed));
@@ -82,7 +87,13 @@ export function threeWay(
     return result;
   }
 
-  const engine = engineQuantities(s);
+  let engine: Record<string, number>;
+  try {
+    engine = engineQuantities(s, s.start, pinned);
+  } catch (error) {
+    block(`can't run the engine: ${(error as Error).message}`);
+    return result;
+  }
   // Each ruling settles one cell: a value ruled once doesn't also settle another cell printing it.
   const counts = (written: readonly string[] = []) => {
     const found = new Map<number, number>();

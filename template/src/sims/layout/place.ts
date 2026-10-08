@@ -108,6 +108,8 @@ function labelFor(part: PlacedPart, text: string, side: Side) {
   const w = textWidth(text);
   const cx = (x0 + x1) / 2;
   const cy = (y0 + y1) / 2;
+  // A block's transfer function is printed inside it, whatever side a hint names.
+  if (symbolOf(part.kind).labelInside) return { text, x: Math.round(cx - w / 2), y: Math.round(cy + 5) };
   // A terminal's text sits beside its circle; a part's beside its body.
   const terminal = symbolOf(part.kind).pins.t !== undefined;
   const gap = terminal ? 10 : 8;
