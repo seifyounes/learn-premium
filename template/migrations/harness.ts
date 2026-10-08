@@ -1,8 +1,9 @@
-// The migration harness. A Template release must carry every Course from the release before it:
-// CI takes the previous release's Fixture Course (the latest release tag behind HEAD), copies it
-// out of git, runs every newer major's migration on the copy in order, and checks the result with
-// this template. Within one major no migration runs, so the old content must pass as it is: a
-// content-contract change that breaks it needs a major release and its migration.
+// The migration harness. A Template release must carry every Course from earlier releases: CI
+// takes the Fixture Course of the previous release (the latest release tag behind HEAD) and of the
+// last release of every older major, copies each out of git, runs every newer major's migration on
+// the copy in order, and checks the result with this template. Within one major no migration
+// runs, so the old content must pass as it is: a content-contract change that breaks it needs a
+// major release and its migration.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -43,15 +44,30 @@ function newer(a: string, b: string): number {
   return 0;
 }
 
-/** The latest Template release behind `head`: reachable from it, and not on `head` itself. */
-export function previousRelease(repo: string, head = "HEAD"): string | null {
+/** The Template releases behind `head` (reachable from it, and not on `head` itself), oldest first. */
+function releasesBehind(repo: string, head: string): string[] {
   const headCommit = git(repo, ["rev-parse", `${head}^{commit}`]);
-  const tags = git(repo, ["tag", "--merged", headCommit, "--list", "v*"])
+  return git(repo, ["tag", "--merged", headCommit, "--list", "v*"])
     .split("\n")
     .filter((tag) => RELEASE_TAG.test(tag))
     .filter((tag) => git(repo, ["rev-parse", `${tag}^{commit}`]) !== headCommit)
     .sort(newer);
-  return tags.at(-1) ?? null;
+}
+
+/** The latest Template release behind `head`: reachable from it, and not on `head` itself. */
+export function previousRelease(repo: string, head = "HEAD"): string | null {
+  return releasesBehind(repo, head).at(-1) ?? null;
+}
+
+/**
+ * The releases an upgrade starts from: the latest release of every major behind `head`. A Course
+ * on an older major upgrades through each later major's migration in turn, so each major's last
+ * Fixture Course is replayed through the whole chain, not only the previous release's.
+ */
+export function startingReleases(repo: string, head = "HEAD"): string[] {
+  const lastOfMajor = new Map<number, string>();
+  for (const tag of releasesBehind(repo, head)) lastOfMajor.set(version(tag)[0] ?? 0, tag);
+  return [...lastOfMajor.values()];
 }
 
 /** Copies the Fixture Course as it was at `tag` into a fresh folder, through a throwaway index. */
@@ -79,10 +95,12 @@ export const contractProblems: Prover = async (contentDir) => {
 export async function proveUpgrade(options: {
   repo: string;
   head?: string;
+  /** The release to upgrade from; the previous release by default. */
+  from?: string;
   dir?: string;
   prove: Prover;
 }): Promise<UpgradeProof> {
-  const previous = previousRelease(options.repo, options.head);
+  const previous = options.from ?? previousRelease(options.repo, options.head);
   if (previous === null) return { previous, migrations: [], problems: [] };
   const contentDir = fixtureAt(options.repo, previous);
   let migrations: MigrationRun[];
@@ -93,4 +111,21 @@ export async function proveUpgrade(options: {
     return { previous, migrations: [], problems: [error.message], contentDir };
   }
   return { previous, migrations, problems: await options.prove(contentDir), contentDir };
+}
+
+/**
+ * Upgrades the Fixture Course of every starting release (the last of each major behind `head`)
+ * through the remaining migrations, and checks each. Empty before the first release.
+ */
+export async function proveAllUpgrades(options: {
+  repo: string;
+  head?: string;
+  dir?: string;
+  prove: Prover;
+}): Promise<UpgradeProof[]> {
+  const proofs: UpgradeProof[] = [];
+  for (const from of startingReleases(options.repo, options.head)) {
+    proofs.push(await proveUpgrade({ ...options, from }));
+  }
+  return proofs;
 }

@@ -6,7 +6,7 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { contractProblems, proveUpgrade } from "../migrations/harness.ts";
+import { contractProblems, proveAllUpgrades, proveUpgrade } from "../migrations/harness.ts";
 import { FIXTURE_COURSE } from "./build-course";
 
 function git(repo: string, ...args: string[]): string {
@@ -162,5 +162,52 @@ describe("proveUpgrade", () => {
     });
     expect(result.problems).toEqual(["the v2 migration failed: boom"]);
     expect(proved).toBe(false);
+  });
+});
+
+describe("proveAllUpgrades", () => {
+  /** v1.0.0's course.yaml carries legacyTitle; v2.0.0's no longer does (its migration dropped it). */
+  function twoMajors(): string {
+    const repo = repoWithFixture();
+    editFixture(repo, "course.yaml", LEGACY_FIELD);
+    commit(repo, "a course.yaml field the v2 contract drops");
+    git(repo, "tag", "v1.0.0");
+    git(repo, "tag", "v1.0.1-rc1");
+    editFixture(repo, "course.yaml", (s) => s.replace(/^legacyTitle:.*\n/m, ""));
+    commit(repo, "the v2 contract");
+    git(repo, "tag", "v2.0.0");
+    commit(repo, "the next release");
+    return repo;
+  }
+  const noop = (describe: string) => `export const describe = "${describe}";\nexport function migrate(): void {}\n`;
+
+  it("replays the last release of every major through the rest of the chain", async () => {
+    const repo = twoMajors();
+    const proofs = await proveAllUpgrades({
+      repo,
+      dir: migrations({ "v2.ts": DROP_LEGACY_FIELD, "v3.ts": noop("v3 step") }),
+      prove: contractProblems,
+    });
+    expect(proofs.map((p) => [p.previous, p.migrations.map((m) => m.major), p.problems])).toEqual([
+      ["v1.0.0", [2, 3], []],
+      ["v2.0.0", [3], []],
+    ]);
+  });
+
+  it("is red when an older major's Course breaks on the chain, though the previous release upgrades (negative control)", async () => {
+    const repo = twoMajors();
+    // A v2 migration that no longer drops the field: v2.0.0's own Fixture Course never needed it.
+    const proofs = await proveAllUpgrades({
+      repo,
+      dir: migrations({ "v2.ts": noop("forgets legacyTitle"), "v3.ts": noop("v3 step") }),
+      prove: contractProblems,
+    });
+    expect(proofs.find((p) => p.previous === "v2.0.0")?.problems).toEqual([]);
+    expect(proofs.find((p) => p.previous === "v1.0.0")?.problems.join("\n")).toMatch(/legacyTitle/);
+  });
+
+  it("has nothing to upgrade before the first release", async () => {
+    const proofs = await proveAllUpgrades({ repo: repoWithFixture(), dir: migrations(), prove: contractProblems });
+    expect(proofs).toEqual([]);
   });
 });
