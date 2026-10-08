@@ -5,9 +5,9 @@
 //          Runs every shipped migration newer than the release the content was written at (up to
 //          --to), oldest first, rewriting DIR in place. The Upgrade wave runs it on its branch.
 //   prove  [--repo DIR]
-//          The migration harness: upgrades a copy of the Fixture Course of the last release of
-//          every major behind HEAD (the previous release among them) through the remaining
-//          migrations, and checks each against the content contract, then builds it.
+//          The migration harness: upgrades a copy of the Fixture Course of every release behind
+//          HEAD through the remaining migrations and checks each against the content contract;
+//          the last release of each major (the previous release among them) is also built.
 //
 // Exit codes: 0 green, 1 red, 2 bad usage.
 import { spawnSync } from "node:child_process";
@@ -74,6 +74,7 @@ async function main(argv: string[]): Promise<number> {
       const proofs = await proveAllUpgrades({
         repo: resolve(values.repo ?? join(TEMPLATE_DIR, "..")),
         prove: contractThenBuild,
+        quickProve: contractProblems,
       });
       if (proofs.length === 0) {
         console.log("green: no Template release yet, so no earlier Fixture Course to upgrade");

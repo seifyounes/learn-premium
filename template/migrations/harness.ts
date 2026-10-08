@@ -1,7 +1,7 @@
 // The migration harness. A Template release must carry every Course from earlier releases: CI
-// takes the Fixture Course of the previous release (the latest release tag behind HEAD) and of the
-// last release of every older major, copies each out of git, runs every newer major's migration on
-// the copy in order, and checks the result with this template. Within one major no migration
+// takes the Fixture Course of every release behind HEAD, copies each out of git, runs every newer
+// major's migration on the copy in order, and checks the result with this template (the last
+// release of each major, the previous release among them, is built as well). Within one major no migration
 // runs, so the old content must pass as it is: a content-contract change that breaks it needs a
 // major release and its migration.
 import { spawnSync } from "node:child_process";
@@ -114,18 +114,25 @@ export async function proveUpgrade(options: {
 }
 
 /**
- * Upgrades the Fixture Course of every starting release (the last of each major behind `head`)
- * through the remaining migrations, and checks each. Empty before the first release.
+ * Upgrades the Fixture Course of every release behind `head` through the remaining migrations,
+ * and checks each: a Course may sit on any of them. The last release of each major gets `prove`
+ * (the full check, a build included); every other release gets `quickProve` (the content
+ * contract, seconds each), so the harness's cost stays flat as releases pile up. Empty before the
+ * first release.
  */
 export async function proveAllUpgrades(options: {
   repo: string;
   head?: string;
   dir?: string;
   prove: Prover;
+  quickProve?: Prover;
 }): Promise<UpgradeProof[]> {
+  const head = options.head ?? "HEAD";
+  const full = new Set(startingReleases(options.repo, head));
   const proofs: UpgradeProof[] = [];
-  for (const from of startingReleases(options.repo, options.head)) {
-    proofs.push(await proveUpgrade({ ...options, from }));
+  for (const from of releasesBehind(options.repo, head)) {
+    const prove = full.has(from) ? options.prove : (options.quickProve ?? options.prove);
+    proofs.push(await proveUpgrade({ repo: options.repo, from, prove, ...(options.dir ? { dir: options.dir } : {}) }));
   }
   return proofs;
 }
