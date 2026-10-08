@@ -1,0 +1,14 @@
+{
+  "recompute": "learn-premium worked recompute v1",
+  "by": "fixture-course/tools/recompute-tank-volume.py: circular-segment area from the level, apart from the sheet and the listing",
+  "cells": {
+    "B1": 6912.0,
+    "C1": 0.5,
+    "D1": 0.6141848493043786,
+    "E1": 2456.739397217514,
+    "B3": 20736.0,
+    "C3": 1.5,
+    "D3": 2.527407804285415,
+    "E3": 10109.63121714166
+  }
+}

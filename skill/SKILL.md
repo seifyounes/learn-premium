@@ -129,7 +129,7 @@ On a new Course, Module 01's wave runs alone and writes the Course style sheet, 
 refuses any other Module's wave until it merges. After that, ready Modules run in parallel, each its
 own wave on its own branch. A Module waiting at its Checkpoint never holds up the others. `$W` is
 `scripts/wave.ts` (`scripts/wave/README.md`), `$L` is the ledger, and `<P>` is the Course project.
-The Private folder is `<Materials folder> (private)`. Record every job with `$L record job --wave
+The Private folder is `<Materials folder>-private`. Record every job with `$L record job --wave
 <W> --job <name> --result … --started-at <when you launched it>`, timed by you, not self-reported.
 A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
 
