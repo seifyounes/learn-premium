@@ -241,6 +241,15 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
         const r = asObject(range);
         for (const end of ["min", "max", "step"]) quantity(r[end], `tune.${key}`);
       }
+      // An SCL listing's build steps and Divergence rulings are prose the page prints.
+      asArray(entry.walkthrough).forEach((step, i) => {
+        prose(asObject(step).title, `walkthrough.${i}.title`);
+        prose(asObject(step).note, `walkthrough.${i}.note`);
+      });
+      asArray(entry.divergences).forEach((d, i) => {
+        prose(asObject(d).exam, `divergences.${i}.exam`);
+        prose(asObject(d).note, `divergences.${i}.note`);
+      });
       const stepped = asObject(entry.stepThrough);
       figure(stepped.figure, "stepThrough.figure");
       asArray(stepped.steps).forEach((step, i) => prose(asObject(step).caption, `stepThrough.steps.${i}.caption`));

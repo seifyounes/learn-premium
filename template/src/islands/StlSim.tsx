@@ -7,7 +7,7 @@
 // A listing with an instruction the interpreter lacks plays awlsim's own trace of the example's
 // values instead (`replay`): the same view, stepping through precomputed scans, inputs fixed.
 import { useEffect, useId, useMemo, useState } from "react";
-import { fits, S7Memory, type S7Type } from "../sims/s7/core.ts";
+import { fits, S7Memory } from "../sims/s7/core.ts";
 import { StlRun, type Inputs, type StlModel, type TraceEntry } from "../sims/stl/engine.ts";
 import {
   accumulatorTypes,
@@ -18,6 +18,7 @@ import {
   type ReplayScan,
 } from "../sims/stl/view.ts";
 import type { Range } from "../sims/tuning.ts";
+import { InputKeys } from "./sim/s7-inputs.tsx";
 import { Listing, Registers, Trace, WatchTable } from "./sim/stl-view.tsx";
 
 interface Props {
@@ -214,7 +215,7 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
               The inputs stay at the example's values: a step-through plays the oracle's scans, it doesn't run them.
             </p>
           ) : (
-            <InputKeys model={model} tune={tune} inputs={inputs} ready={ready} onChange={setInput} />
+            <InputKeys types={model.inputs} tune={tune} inputs={inputs} ready={ready} onChange={setInput} />
           )}
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -264,103 +265,5 @@ export default function StlSim({ model, start: given, tune, label, replay, negat
         </div>
       </div>
     </section>
-  );
-}
-
-interface InputKeysProps {
-  model: StlModel;
-  tune: Record<string, Range>;
-  inputs: Inputs;
-  ready: boolean;
-  onChange(operand: string, value: number): void;
-}
-
-/** A key for each BOOL a student sets, and a slider with its value for each number. */
-function InputKeys({ model, tune, inputs, ready, onChange }: InputKeysProps) {
-  const tuned = Object.entries(model.inputs).filter(([operand]) => tune[operand] !== undefined);
-  const bits = tuned.filter(([, type]) => type === "BOOL");
-  const numbers = tuned.filter(([, type]) => type !== "BOOL");
-  return (
-    <div className="stl-inputs">
-      {bits.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {bits.map(([operand]) => (
-            <button
-              key={operand}
-              type="button"
-              className="button-print note-button logic-input"
-              aria-pressed={inputs[operand] === 1}
-              disabled={!ready}
-              onClick={() => onChange(operand, inputs[operand] === 1 ? 0 : 1)}
-            >
-              <span className="font-quantity">{operand}</span>
-              <span className="font-quantity font-semibold tabular-nums">{inputs[operand] ?? 0}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {numbers.map(([operand, type]) => (
-        <NumberInput
-          key={operand}
-          operand={operand}
-          type={type}
-          range={tune[operand] as Range}
-          value={inputs[operand] ?? 0}
-          ready={ready}
-          onChange={(v) => onChange(operand, v)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function NumberInput(props: {
-  operand: string;
-  type: S7Type;
-  range: Range;
-  value: number;
-  ready: boolean;
-  onChange(v: number): void;
-}) {
-  const { operand, type, range, value, ready, onChange } = props;
-  const id = useId();
-  // What is typed stays as typed; a value the operand can hold, inside the range, is taken.
-  const [draft, setDraft] = useState<string | undefined>(undefined);
-  const take = (text: string) => {
-    setDraft(text);
-    const v = Number(text);
-    if (text.trim() !== "" && Number.isFinite(v) && v >= range.min && v <= range.max && fits(type, v)) onChange(v);
-  };
-  return (
-    <div className="sim-slider">
-      <div className="sim-slider-head">
-        <label htmlFor={id} className="font-quantity">
-          {operand} <span className="text-pencil">({type})</span>
-        </label>
-        <input
-          type="text"
-          inputMode={type === "REAL" ? "decimal" : "numeric"}
-          className="stl-number-input font-quantity tabular-nums"
-          aria-label={`${operand}, typed`}
-          value={draft ?? String(value)}
-          disabled={!ready}
-          onChange={(event) => take(event.currentTarget.value)}
-          onBlur={() => setDraft(undefined)}
-        />
-      </div>
-      <input
-        id={id}
-        type="range"
-        min={range.min}
-        max={range.max}
-        step={range.step}
-        value={value}
-        disabled={!ready}
-        onChange={(event) => {
-          setDraft(undefined);
-          onChange(Number(event.currentTarget.value));
-        }}
-      />
-    </div>
   );
 }

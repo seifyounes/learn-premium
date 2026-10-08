@@ -316,8 +316,18 @@ export function parseScl(source: string): Unit {
       const op = ops.find((o) => is(o) || (o === "AND" && is("&")));
       if (!op) return left;
       next();
+      signAfter(op);
       left = { kind: "binary", op, left, right: expr(level + 1) };
     }
+  }
+  /**
+   * Two arithmetic operators never follow each other (the manual, Arithmetic Expressions): `a * -b`
+   * is written `a * (-b)`. A signed constant is one operand, so `a * -1` reads.
+   */
+  function signAfter(op: BinaryOp) {
+    if (!["+", "-", "*", "/", "MOD", "DIV", "**"].includes(op)) return;
+    if ((is("-") || is("+")) && tokens[p + 1]?.t !== "num")
+      fail(`two arithmetic operators can't follow each other: write ${op} (${here().value}…) in brackets`);
   }
   /** Unary + − and NOT bind looser than **: −2 ** 2 is −(2 ** 2) (the manual's operator table). */
   function unary(): Expr {
@@ -332,12 +342,14 @@ export function parseScl(source: string): Unit {
     if (optional("NOT")) return { kind: "unary", op: "NOT", operand: unary() };
     return power();
   }
+  /** ** between operands of equal priority runs left to right: 2 ** 3 ** 2 is (2 ** 3) ** 2. */
   function power(): Expr {
-    const base = primary();
-    if (optional("**")) {
-      // −2 ** 2 reads −(2 ** 2); 2 ** −1 takes a signed exponent.
-      const exponent = is("-") || is("+") ? unary() : power();
-      return { kind: "binary", op: "**", left: base, right: exponent };
+    let base = primary();
+    while (optional("**")) {
+      signAfter("**");
+      // 2 ** −1 takes a signed constant as its exponent.
+      const exponent = is("-") || is("+") ? unary() : primary();
+      base = { kind: "binary", op: "**", left: base, right: exponent };
     }
     return base;
   }

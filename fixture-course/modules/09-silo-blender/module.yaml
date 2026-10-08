@@ -1,0 +1,2 @@
+title: A blending station in SCL
+summary: An S7-300 function block that weighs three silos, doses the short ones and mixes the batch, built up block by block and run scan by scan.

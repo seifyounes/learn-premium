@@ -293,7 +293,8 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
     ...SHARED_VIEW,
   ],
   // An STL listing's view runs it live, or steps through awlsim's trace when it names a Gate gap.
-  stl: ["src/islands/StlSim.tsx", "src/islands/sim/stl-view.tsx"],
+  stl: ["src/islands/StlSim.tsx", "src/islands/sim/stl-view.tsx", "src/islands/sim/s7-inputs.tsx"],
+  scl: ["src/islands/SclSim.tsx", "src/islands/sim/scl-view.tsx", "src/islands/sim/s7-inputs.tsx"],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 /** A Pyodide tool's view: its preview and live plot draw on the sheet's plotted figure. */

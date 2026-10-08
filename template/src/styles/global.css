@@ -2095,6 +2095,130 @@
     background: color-mix(in oklab, var(--color-graphite) 12%, transparent);
   }
 
+  /* The SCL sim: the STL sim's listing box, keys and tables, with build-step tabs over the listing,
+     a syntax fragment printed as static code, and a red-pen ruling on a Divergence line. The Step
+     bar sits right under the listing: on a phone it pins to the top of the screen once the listing
+     has scrolled past, so it lies over the state below it and never over the listing. On a laptop
+     the inputs, the bar and the watch table share the column beside the listing, above the trace,
+     so the table stays on screen at 1280×800. */
+  .scl-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "inputs" "source" "bar" "state";
+  }
+  .scl-grid .scl-inputs {
+    grid-area: inputs;
+  }
+  .scl-bar {
+    grid-area: bar;
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 5;
+    display: grid;
+    gap: 4px;
+    padding-block: 8px;
+    border-block-end: 1px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  /* Under the Module page's pinned section tabs. */
+  @media (width < 1200px) {
+    .module-page .scl-bar {
+      inset-block-start: 46px;
+    }
+  }
+  @container sim (width >= 900px) {
+    .scl-grid {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      grid-template-areas:
+        "source inputs"
+        "source bar"
+        "source state";
+      grid-template-rows: auto auto 1fr;
+      gap: 12px 28px;
+    }
+    .scl-bar {
+      position: static;
+      padding-block: 0;
+      border-block-end: 0;
+    }
+  }
+  .scl-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    margin-block-end: 8px;
+    border-block-end: 1.5px solid var(--color-pencil);
+  }
+  .scl-tab {
+    display: grid;
+    justify-items: start;
+    min-block-size: 44px;
+    padding: 4px 12px;
+    margin-block-end: -1.5px;
+    border: 1.5px solid transparent;
+    color: var(--color-pencil);
+    text-align: start;
+  }
+  .scl-tab[aria-selected="true"] {
+    border-color: var(--color-pencil);
+    border-block-end-color: var(--color-sheet);
+    background: var(--color-sheet);
+    color: var(--color-graphite);
+  }
+  .scl-tab:focus-visible {
+    outline: 2px solid var(--color-print);
+    outline-offset: -2px;
+  }
+  .scl-build-note {
+    max-inline-size: 68ch;
+    margin-block-end: 8px;
+  }
+  /* A line the build step added: written in graphite, ruled in the margin. */
+  .stl-line[data-added] .stl-code {
+    color: var(--color-graphite);
+  }
+  .stl-line[data-added] .stl-number {
+    border-inline-end: 3px solid var(--color-graphite);
+  }
+  .scl-fragment {
+    margin-block-start: 12px;
+  }
+  .scl-fragment pre {
+    margin-block-start: 4px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    border: 1.2px dashed var(--color-pencil);
+    font-family: var(--font-quantity);
+    font-size: 14px;
+    line-height: 22px;
+    color: var(--color-graphite);
+  }
+  /* A Divergence line: its number ringed in red pen, in the listing and the trace. */
+  .stl-line[data-divergence] .stl-number,
+  .stl-trace tr[data-divergence] .stl-td:first-child {
+    color: var(--color-red-pen);
+    font-weight: 700;
+    box-shadow: inset 0 -2px 0 var(--color-red-pen);
+  }
+  .scl-ruling {
+    display: grid;
+    gap: 10px;
+    padding-block: 4px;
+  }
+  .scl-exam {
+    display: grid;
+    gap: 2px;
+    padding: 6px 10px;
+  }
+  .scl-red-pen {
+    color: var(--color-red-pen);
+    font-size: var(--text-body-small);
+    line-height: var(--text-body-small--line-height);
+  }
+  .scl-red-pen .field-label {
+    color: var(--color-red-pen);
+  }
+
   /* A Pyodide tool: its plot on the sheet beside the code, the printed Run-live key and what the
      code printed. The code is the student's working, so it is written in graphite in a pencil box. */
   .python-tool {
