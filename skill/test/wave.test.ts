@@ -302,19 +302,26 @@ function waveAtCheckpoint() {
   gitIn(project, "init", "-q");
   gitIn(project, "config", "core.hooksPath", "template/gates/hooks");
   gitIn(project, "symbolic-ref", "HEAD", "refs/heads/module/01-m01");
+  gitIn(project, "config", "user.name", "Fixture");
+  gitIn(project, "config", "user.email", "fixture@example.test");
+  gitIn(project, "config", "commit.gpgsign", "false");
   chmodSync(join(project, "template/gates/hooks/pre-commit"), 0o755);
   return { project, privateFolder, waveId, holder };
 }
 
 const checkpointOf = (project: string) => wave(["checkpoint", "--project", project, "--module", "01"]);
 /**
- * Runs `ready`. By default the consistency pass is recorded again first, as the main agent does once
- * the Owner's answers are applied; `fresh: false` leaves the jobs as they are.
+ * Runs `ready`. By default the consistency pass is recorded again first and everything committed, as
+ * the main agent does once the Owner's answers are applied; `fresh: false` leaves things as they are.
  */
 function ready(project: string, waveId: string, deps: Partial<WaveDeps> = greenVerifier, fresh = true): Result {
   if (fresh) {
     const job = ["--project", project, "--holder", "session-a", "--wave", waveId, "--job", "consistency"];
     ledger("record", "job", ...job, "--result", "passed");
+    if (existsSync(join(project, ".git"))) {
+      gitIn(project, "add", "-A");
+      gitIn(project, "commit", "-q", "--allow-empty", "-m", "chore: the wave's records");
+    }
   }
   return wave(["ready", "--project", project, "--wave", waveId], deps);
 }
@@ -763,17 +770,38 @@ describe("ready, the Module wave's merge gate", () => {
       );
 
     // The unreadable region's answer came after the consistency pass recorded: the content may not carry it.
-    expect(ready(project, waveId, greenVerifier, false).out.problems).toEqual([
+    expect(ready(project, waveId, greenVerifier, false).out.problems).toContainEqual(
       expect.stringMatching(
         /the Owner answered .* after the consistency pass: apply the answers, then record consistency again/,
       ),
-    ]);
+    );
     expect(ready(project, waveId).out.problems).toEqual([]);
 
     // A template file the branch edited: its gates can't be trusted to verify the branch.
     writeFiles(project, { "template/gates/cli.ts": "process.exitCode = 0;\n" });
     expect(ready(project, waveId).out.problems).toEqual([
       expect.stringMatching(/the template layer isn't the pinned release's: added gates\/cli\.ts/),
+    ]);
+  });
+
+  test("uncommitted ledger rows or content keep the wave from merging: ready judges the commit that merges", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    for (const i of must(checkpointOf(project)).open as { key: string; question: string; sheet: boolean }[])
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", i.key, "--question", i.question, "--answer", "a"],
+          ...(i.sheet ? ["--ruling", "slip"] : []),
+        ),
+      );
+    gateReports(project, []);
+    expect(ready(project, waveId).out.problems).toEqual([]);
+
+    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", "consistency", "--result", "passed"));
+    expect(ready(project, waveId, greenVerifier, false).out.problems).toEqual([
+      expect.stringMatching(/uncommitted changes .*build-ledger\.json/),
     ]);
   });
 

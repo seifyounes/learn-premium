@@ -178,8 +178,9 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
    Divergence keeps the Professor's value with `provenance.divergences`, an unreadable region takes
    the Owner's reading, a conflict follows the Owner's pick. Re-run the gates and the Checkpoint until
    nothing is open or unapplied.
-10. **Merge only on green + answered:** `node "$W" ready --project <P> --wave <W>` must exit 0 on the
-    branch's HEAD. If `main` has moved since the branch was cut (another Module merged), rebase onto
+10. **Merge only on green + answered:** commit the ledger and build records first (the Owner's
+    answers and the job rows live there), then `node "$W" ready --project <P> --wave <W>` must exit 0
+    on the branch's HEAD with nothing uncommitted. If `main` has moved since the branch was cut (another Module merged), rebase onto
     it first and re-run the gates and `ready`: a Gate report is bound to the commit it checked. Then
     fast-forward `main` to the branch and push. Record `$L wave end --wave <W> --result merged --commit <full sha>`. Once Vercel deploys
     `main`, run the live gates on the live URL (`run --point live --url <live URL>`). A red live run

@@ -80,6 +80,20 @@ describe("the sim-numbers gate", () => {
     expect((await run(course)).findings).toEqual([]);
   });
 
+  it("lets one Divergence settle one cell: a second cell printing the same value is asked again", async () => {
+    const course = fixtureWith(WORKED, (s) =>
+      s
+        .replace('"0.2667", "0.3667"', '"0.3700", "0.3700"')
+        .replace(
+          '"stated": [',
+          '"divergences": [{ "value": "$\\\\theta_1^{(1)} = 0.3700$", "note": "The engine and the recompute give $0.3667$." }],\n    "stated": [',
+        ),
+    );
+    expect((await run(course)).findings.map((f) => [f.outcome, f.message.slice(0, 30)])).toEqual([
+      ["checkpoint", "sheet cell C2 prints 0.3700, b"],
+    ]);
+  });
+
   it("blocks a sheet still printing a value the Owner ruled a Slip, rather than asking again", async () => {
     const course = fixtureWith(WORKED, (s) =>
       s
