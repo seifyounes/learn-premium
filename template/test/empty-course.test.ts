@@ -33,6 +33,7 @@ const CONTENT_GATES = [
   "master-rules",
   "sim-numbers",
   "truth-table",
+  "stl",
   "drawing",
   "tools",
 ];
