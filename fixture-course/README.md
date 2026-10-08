@@ -73,6 +73,11 @@ Layout (content contract v0):
   `scl` gate runs it on the blind interpreter at every build, so no oracle log is kept. The blending
   station is written for the Fixture Course, no Professor's text, and its Divergence (REAL_TO_INT
   of 12.5) is a fixture ruling, not the Owner's.
+- A ladder or FBD sim (`kind: ladder`, Module 10) holds its networks as a netlist of the PLC pack's
+  symbols (each part with its `network`, `operand` and `params`), the scan `cycle`, the example's
+  input bits (`start`) and timeline (`scenario`), and more timelines as `cases`. Its log in
+  `build-records/oracle/<NN>-<slug>/<name>.json` is awlsim's run of the networks compiled to STL,
+  scan by scan; the `ladder` gate checks the engine against it bit for bit.
 - `modules/<NN>-<slug>/parts/<name>.json` (JSON only) and `<name>.py`: one machine part each, its
   build123d script and the dimensions its drawing gives (each between two points on the part, with
   its Provenance tag; `confirmed` once the Owner has ruled on a scaled or assumed one). `<name>.glb`
@@ -140,6 +145,12 @@ feedback. W08.1 works the loop at K = 4 (ωn, ζ, the poles, overshoot, peak, ri
 times by the style sheet's definitions, and the phase margin); `sims/loop.json` sits inline in it,
 checked three ways against python-control and the sheet, and its block diagram is drawn by the
 layout core from its hints, checked against the Blind reader's reading of the figure.
+
+Module 10 (two conveyors) carries the ladder sim: a start/stop latch on conveyor 1 and a TON that
+starts conveyor 2 five seconds later. W10.1 fills a timing table from the example's timeline
+(Start pressed at 1.0 s, Stop at 8.0 s), the key the `ladder` gate checks three ways. Its figure is
+a synthetic STEP 7 LAD editor screenshot (`build-records/figure/10-two-conveyors/conveyors.png`); a
+Blind reader read it, never seeing a builder file, keying each part by network, kind and operand.
 
 Every string is prose: math is written between `$…$` (inline) or `$$…$$` (display), `\ce{…}`
 renders chemistry, and a literal dollar sign is written `\$`. In JSON every backslash is doubled;
