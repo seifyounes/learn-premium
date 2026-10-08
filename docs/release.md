@@ -16,8 +16,9 @@ refuses to tag until every step below holds on that exact commit.
 1. **CI green.** The newest run of each of these workflows on the commit succeeded: Template CI,
    Skill CI and the Migration harness. A workflow only runs on a push that touches its paths, so
    `status` prints the `gh workflow run … --ref main` command for any that have no run on the
-   commit. The Migration harness run must also have started after the latest release was tagged:
-   it upgrades whichever release was latest when it ran.
+   commit. The Migration harness run must also have started after the latest release's GitHub
+   Release was published (GitHub's clock on both sides), because it upgrades whichever release was
+   latest when it ran.
 2. **The Tool gallery deployed, live gates green.** Vercel deployed the commit and the Fixture
    live gates passed on it (the `learn-premium/live-gates` status, `docs/deploy.md`). `status`
    prints the commit's own Tool gallery URL: its Production deployment's URL, which serves only that
@@ -82,8 +83,11 @@ have these sections:
 
 A gate gap that is closed but named by no commit isn't listed. `notes` and `tag` print a
 `check:` line for it, so the Owner can confirm it before tagging. To change the wording, edit the
-draft and pass it to `tag --notes notes.md`. The tag refuses a notes file that has lost either of
-the first two sections. `parseNotes` in `skill/scripts/release/notes.ts` reads the notes back for
+draft and pass it to `tag --notes notes.md`. Only the wording is the Owner's. The tag refuses a
+notes file that has lost either of the first two sections, or was written for another version or
+commit. It also refuses one whose gate gaps or overrides no longer match a fresh draft, which
+happens when an issue changed after drafting. Its phone-pass section is always rewritten from the
+recorded pass. `parseNotes` in `skill/scripts/release/notes.ts` reads the notes back for
 the Upgrade wave's offer.
 
 A `gate-gap` issue names its Course and overrides on lines of their own, which the notes read:
