@@ -363,7 +363,11 @@ export const POWER_RAIL = "POWER.t";
 function readingKeys(model: SchematicModel, reading: FigureReading): Map<string, string> {
   const byKey = new Map<string, string>();
   for (const key of Object.keys(reading.parts)) {
-    const hit = model.parts.find((p) => p.key === key) ?? model.parts.find((p) => p.id === key || p.label === key);
+    // A screenshot key matches however the editor spaced its operand (`I0.0` or `I 0.0`).
+    const spaced = key.replace(/\s+/g, "");
+    const hit =
+      model.parts.find((p) => p.key !== undefined && p.key.replace(/\s+/g, "") === spaced) ??
+      model.parts.find((p) => p.id === key || p.label === key);
     if (hit) byKey.set(key, hit.id);
   }
   return byKey;
@@ -436,9 +440,16 @@ function figureChecks(
   }
   const unread = Object.keys(reading.parts).filter((k) => !keys.has(k));
   const unshown = model.parts.filter((p) => p.label !== undefined && !keyOf.has(p.id));
+  // A pin the model wires that no net of the reading holds: the figure leaves it open.
+  const figuredPins = new Set(figured.flat());
+  const open = modelled
+    .filter((n) => n.length > 1)
+    .flat()
+    .filter((k) => !implicitPin(k) && !k.startsWith("?") && !figuredPins.has(k));
   const netlist = check("netlist", "model ↔ figure", [
     ...unread.map((k) => `the figure's ${k} has no part in the model`),
     ...unshown.map((p) => `${p.id} is in the model but not in the figure`),
+    ...open.map((k) => `${k} is wired in the model, but the figure leaves it unconnected`),
     ...diffPartitions(figured, modelled, AGAINST_FIGURE),
   ]);
 

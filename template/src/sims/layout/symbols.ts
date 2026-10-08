@@ -322,11 +322,12 @@ export const SYMBOLS = {
   /** A ladder network's left power rail; every rail is the one rail, so they join without a wire. */
   "power-rail": {
     pins: { t: pin([20, 0], E) },
-    box: [-2, -30, 2, 30],
+    // Nearly a whole row tall, so a network's rails, one a row, read as one line.
+    box: [-2, -48, 2, 48],
     orientation: { by: "any" },
     implicit: () => "power rail",
     leads: "M2 0H20",
-    body: "M0 -30V30",
+    body: "M0 -48V48",
   },
   /** A normally open contact, -| |-. */
   no: contact(false),
