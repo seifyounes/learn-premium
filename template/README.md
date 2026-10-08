@@ -460,9 +460,11 @@ erasable syntax only (`erasableSyntaxOnly` in `tsconfig.json` enforces it).
 ## Deploy
 
 A Course deploys to its own Vercel project through the Git integration, as plain static files
-(`vercel.json`: Vercel's Astro preset, `dist/`, trailing slashes, and `X-Robots-Tag: noindex` on
-every path). Vercel compresses text with Brotli on its own. The Fixture Course's project and its
-setup are in `../docs/deploy.md`.
+(`vercel.json`: Vercel's Astro preset, `dist/`, and `X-Robots-Tag: noindex` on every path). It
+sets no `trailingSlash`: Vercel's trailing-slash redirect goes by path shape before any file is
+looked up, so it would answer a private path like `/.git/config` with a 308 instead of a 404. A page
+answers with or without its slash. Vercel compresses text with Brotli on its own. The Fixture
+Course's project and its setup are in `../docs/deploy.md`.
 
 - **Before merge**, the `deploy` gates run on a production build (`VERCEL_ENV=production`, so no
   Trap page): no Materials file, nothing from Build evidence, noindex everywhere, the licence

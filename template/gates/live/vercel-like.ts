@@ -1,7 +1,8 @@
 // Serves a built site the way Vercel serves it under the Site template's vercel.json, for the live
 // gates when they have no live URL (their negative controls, and template CI before a deploy):
-// static files only, `/route/` from `route/index.html`, the config's `trailingSlash` redirects and
-// `headers`, and Brotli (or gzip) on text when the request accepts it. Nothing outside the site.
+// static files only, `/route/` from `route/index.html`, the config's `trailingSlash` redirects (by
+// path shape, before any file is looked up, as Vercel does) and `headers`, and Brotli (or gzip) on
+// text when the request accepts it. Nothing outside the site.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -39,6 +40,25 @@ export function sourcePattern(source: string): RegExp {
   return new RegExp(`^${pattern}$`);
 }
 
+/**
+ * Where Vercel's `trailingSlash` sends a request path, if anywhere: its own route patterns
+ * (`convertTrailingSlash` in @vercel/routing-utils), which run before the filesystem and before the
+ * config's headers. So `true` redirects `/.git/config` to `/.git/config/` though no file is there.
+ */
+function trailingSlashRedirect(trailingSlash: boolean | undefined, pathname: string): string | undefined {
+  if (trailingSlash === true) {
+    if (/^\/\.well-known(?:\/.*)?$/.test(pathname)) return undefined;
+    const add = /^\/((?:[^/]+\/)*[^/.]+)$/.exec(pathname);
+    if (add) return `/${add[1]}/`;
+    const drop = /^\/((?:[^/]+\/)*[^/]+\.\w+)\/$/.exec(pathname);
+    if (drop) return `/${drop[1]}`;
+  } else if (trailingSlash === false) {
+    const drop = /^\/(.*)\/$/.exec(pathname);
+    if (drop) return `/${drop[1]}`;
+  }
+  return undefined;
+}
+
 export async function serveLikeVercel(distDir: string, config: VercelConfig): Promise<ServedSite> {
   const root = normalize(distDir);
   const headerRules = (config.headers ?? []).map((rule) => ({
@@ -63,12 +83,9 @@ export async function serveLikeVercel(distDir: string, config: VercelConfig): Pr
     for (const rule of headerRules)
       if (rule.test.test(path)) for (const { key, value } of rule.headers) headers[key.toLowerCase()] = value;
 
-    const redirect = (to: string) =>
-      response.writeHead(308, { ...headers, location: `${to}${url.search}` }).end(`Redirecting to ${to}`);
-    if (config.trailingSlash === true && !path.endsWith("/") && !fileAt(path) && fileAt(`${path}/index.html`))
-      return void redirect(`${path}/`);
-    if (config.trailingSlash === false && path !== "/" && path.endsWith("/") && fileAt(`${path}index.html`))
-      return void redirect(path.slice(0, -1));
+    const to = trailingSlashRedirect(config.trailingSlash, url.pathname);
+    if (to !== undefined)
+      return void response.writeHead(308, { location: `${to}${url.search}` }).end(`Redirecting to ${to}`);
 
     const file = fileAt(path.endsWith("/") ? `${path}index.html` : path) ?? fileAt(`${path}/index.html`);
     if (file === undefined) {
