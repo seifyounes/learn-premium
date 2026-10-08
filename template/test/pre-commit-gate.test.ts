@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -132,10 +132,25 @@ describe("the pre-commit gate", () => {
     ]);
   });
 
+  it("holds the staged ledger's Materials, whatever the working copy says", () => {
+    const { repo } = courseProject();
+    const extra = "a lecture the staged ledger lists";
+    stage(repo, {
+      "build-ledger.json": JSON.stringify({ materials: [{ path: "Lecture 4.pdf", hash: sha256(extra) }] }),
+      "copy.bin": extra,
+    });
+    // The working copy then drops the inventory, unstaged.
+    write(repo, { "build-ledger.json": JSON.stringify({ materials: [] }) });
+    expect(checkCommit(repo).findings.map((f) => f.message)).toEqual([
+      "is the Materials file Lecture 4.pdf: Materials are referenced by path, never committed",
+    ]);
+  });
+
   it("can't run without the Build ledger, and says so", () => {
     const { repo } = courseProject();
-    git(repo, "rm", "-q", "--cached", "build-ledger.json");
-    rmSync(join(repo, "build-ledger.json"));
+    git(repo, "rm", "-q", "build-ledger.json");
+    git(repo, "commit", "-q", "-m", "chore: no ledger");
+    stage(repo, { "content/x.yaml": "x: 1\n" });
     expect(() => checkCommit(repo)).toThrow(/no Build ledger/);
   });
 

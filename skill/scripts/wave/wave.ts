@@ -13,7 +13,7 @@ import { HOOKS_PATH, privateFolderOf } from "../intake/create.ts";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
-import { requireLedger } from "../ledger/ledger.ts";
+import { requireLedger, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
 
@@ -354,10 +354,23 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   const settledProblem = settledReadingProblem(privateFolder, id);
   if (settledProblem !== null) problems.push(settledProblem);
 
-  for (const point of MERGE_POINTS) {
-    const verdict = verifier.verify(project, point, point === "deploy" ? undefined : folder);
-    if (!verdict.green)
-      problems.push(`the ${point} Gate report isn't green for HEAD: ${verdict.problems.join("; ") || "red"}`);
+  // The template layer's own gates verify the branch: an edited layer could verify anything.
+  const integrity = verifyIntegrity(project);
+  if (!integrity.intact) {
+    const changes = [
+      ...integrity.modified.map((p) => `modified ${p}`),
+      ...integrity.added.map((p) => `added ${p}`),
+      ...integrity.missing.map((p) => `missing ${p}`),
+    ];
+    problems.push(
+      `the template layer isn't the pinned release's: ${changes.join(", ")}; its gates can't verify this wave (a fix goes in as a Course override)`,
+    );
+  } else {
+    for (const point of MERGE_POINTS) {
+      const verdict = verifier.verify(project, point, point === "deploy" ? undefined : folder);
+      if (!verdict.green)
+        problems.push(`the ${point} Gate report isn't green for HEAD: ${verdict.problems.join("; ") || "red"}`);
+    }
   }
   const preview = readReport(project, "module", folder)?.["url"];
   if (typeof preview !== "string" || !/^https:\/\//.test(preview))
@@ -373,7 +386,19 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
       `Checkpoint item ${item.key} was ruled a ${item.ruling}, but the content doesn't carry the ruling yet (provenance ${item.ruling === "slip" ? "slips" : "divergences"})`,
     );
 
-  problems.push(...unruled(ledger, id, verifier.rulings(project, folder)));
+  if (integrity.intact) problems.push(...unruled(ledger, id, verifier.rulings(project, folder)));
+
+  // The Owner's answers reach the content through the writer and the consistency pass: one recorded
+  // before the latest answer can't have applied it.
+  const consistency = jobs.get("consistency");
+  const latest = current(ledger.checkpoints)
+    .filter((c) => c.wave === waveId)
+    .sort((a, b) => a.answeredAt.localeCompare(b.answeredAt))
+    .at(-1);
+  if (consistency !== undefined && latest !== undefined && latest.answeredAt > consistency.recordedAt)
+    problems.push(
+      `the Owner answered ${latest.key} after the consistency pass: apply the answers, then record consistency again`,
+    );
 
   // The Materials as the wave took them in: an edit since leaves the readings and recompute stale.
   const onDisk = hashTree(ledger.intake.materialsPath);

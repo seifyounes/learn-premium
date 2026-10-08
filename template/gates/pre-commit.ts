@@ -105,20 +105,29 @@ function ledgerMaterials(text: string): LedgerMaterials | null {
 }
 
 /**
- * The Materials the commit is checked against: the ledger as committed at HEAD and as it stands
- * now, together, so a commit that also empties or repoints the ledger can't switch off its own check.
+ * The Materials the commit is checked against: the ledger as committed at HEAD, as staged (what
+ * this commit records) and as it stands in the working tree, together, so a commit that also
+ * empties or repoints the ledger, staged or not, can't switch off its own check.
  */
 function readLedger(repo: string): LedgerMaterials {
+  const show = (spec: string) => {
+    const child = spawnSync("git", ["-C", repo, "show", spec], { maxBuffer: 2 ** 31 - 1 });
+    return child.status === 0 ? child.stdout.toString("utf8") : null;
+  };
   const path = join(repo, LEDGER_FILE);
-  if (!existsSync(path))
+  const texts = [
+    existsSync(path) ? readFileSync(path, "utf8") : null,
+    show(`:${LEDGER_FILE}`),
+    show(`HEAD:${LEDGER_FILE}`),
+  ];
+  const present = texts.filter((t): t is string => t !== null);
+  if (present.length === 0)
     throw new Error(`no Build ledger at ${LEDGER_FILE}, so the staged files can't be checked against the Materials`);
-  const now = ledgerMaterials(readFileSync(path, "utf8"));
-  if (now === null) throw new Error(`${LEDGER_FILE} has no Materials inventory`);
-  const committed = spawnSync("git", ["-C", repo, "show", `HEAD:${LEDGER_FILE}`], { maxBuffer: 2 ** 31 - 1 });
-  const atHead = committed.status === 0 ? ledgerMaterials(committed.stdout.toString("utf8")) : null;
+  const ledgers = present.map(ledgerMaterials).filter((l): l is LedgerMaterials => l !== null);
+  if (ledgers.length === 0) throw new Error(`${LEDGER_FILE} has no Materials inventory`);
   return {
-    hashes: new Map([...(atHead?.hashes ?? []), ...now.hashes]),
-    folders: [...new Set([...(atHead?.folders ?? []), ...now.folders])],
+    hashes: new Map(ledgers.flatMap((l) => [...l.hashes])),
+    folders: [...new Set(ledgers.flatMap((l) => l.folders))],
   };
 }
 

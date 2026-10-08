@@ -22,10 +22,13 @@ export function fixtureCourse(
     liveSittings?: string[];
     pad?: string;
     materials?: Record<string, Record<string, string | Buffer>>;
+    /** Template-layer files (path under `template/` → content), in place before `init` pins their hashes. */
+    template?: Record<string, string>;
   },
 ): string {
   const { sittings = [], live = [], planned = [], liveSittings = [], pad = "green" } = options;
   const project = tempDir("project");
+  writeFiles(project, Object.fromEntries(Object.entries(options.template ?? {}).map(([p, c]) => [`template/${p}`, c])));
   const folder = tempDir("materials");
   const modules = [...live, ...planned];
   const feeds = (id: string) => options.materials?.[id] ?? { [`L${id}.pdf`]: `${name} ${id}` };

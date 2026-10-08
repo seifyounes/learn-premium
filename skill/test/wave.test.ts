@@ -24,7 +24,10 @@ function wave(args: string[], deps: Partial<WaveDeps> = {}): Result {
 
 /** A new Course with Modules 01 and 02 mapped, and its Private folder beside the Materials. */
 function newCourse() {
-  const project = fixtureCourse("Machine Learning", { planned: ["01", "02"] });
+  const project = fixtureCourse("Machine Learning", {
+    planned: ["01", "02"],
+    template: { "gates/hooks/pre-commit": "#!/bin/sh\n" },
+  });
   const privateFolder = privateFolderOf(materialsOf(project));
   privates.push(privateFolder);
   return { project, privateFolder };
@@ -281,7 +284,6 @@ function waveAtCheckpoint() {
   writeFiles(project, {
     "content/style-sheet.yaml": "writtenFrom: 01-m01\n",
     "content/modules/01-m01/module.yaml": "title: Module 01\n",
-    "template/gates/hooks/pre-commit": "#!/bin/sh\n",
   });
   for (const job of [
     "blind-reader-a",
@@ -305,8 +307,17 @@ function waveAtCheckpoint() {
 }
 
 const checkpointOf = (project: string) => wave(["checkpoint", "--project", project, "--module", "01"]);
-const ready = (project: string, waveId: string, deps: Partial<WaveDeps> = greenVerifier) =>
-  wave(["ready", "--project", project, "--wave", waveId], deps);
+/**
+ * Runs `ready`. By default the consistency pass is recorded again first, as the main agent does once
+ * the Owner's answers are applied; `fresh: false` leaves the jobs as they are.
+ */
+function ready(project: string, waveId: string, deps: Partial<WaveDeps> = greenVerifier, fresh = true): Result {
+  if (fresh) {
+    const job = ["--project", project, "--holder", "session-a", "--wave", waveId, "--job", "consistency"];
+    ledger("record", "job", ...job, "--result", "passed");
+  }
+  return wave(["ready", "--project", project, "--wave", waveId], deps);
+}
 
 describe("the batched Checkpoint", () => {
   test("gathers the Module's open items once each: sheet-vs-recompute linked to its spot on the preview, unreadable with its crop", () => {
@@ -416,7 +427,7 @@ describe("ready, the Module wave's merge gate", () => {
       },
     };
 
-    const { code, out } = ready(project, waveId, red);
+    const { code, out } = ready(project, waveId, red, false);
 
     expect(code).toBe(1);
     expect(out.ready).toBe(false);
@@ -733,6 +744,36 @@ describe("ready, the Module wave's merge gate", () => {
     writeFiles(materialsOf(project), { "L01.pdf": "edited after the readers read it" });
     expect(ready(project, waveId, shipped(1)).out.problems).toEqual([
       expect.stringMatching(/L01\.pdf changed since wave module-01-1 started/),
+    ]);
+  });
+
+  test("an edited template layer, and Owner answers newer than the consistency pass, keep the wave from merging", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    const open = must(checkpointOf(project)).open as { key: string; question: string; sheet: boolean }[];
+    gateReports(project, []);
+    for (const i of open)
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", i.key, "--question", i.question, "--answer", "a"],
+          ...(i.sheet ? ["--ruling", "slip"] : []),
+        ),
+      );
+
+    // The unreadable region's answer came after the consistency pass recorded: the content may not carry it.
+    expect(ready(project, waveId, greenVerifier, false).out.problems).toEqual([
+      expect.stringMatching(
+        /the Owner answered .* after the consistency pass: apply the answers, then record consistency again/,
+      ),
+    ]);
+    expect(ready(project, waveId).out.problems).toEqual([]);
+
+    // A template file the branch edited: its gates can't be trusted to verify the branch.
+    writeFiles(project, { "template/gates/cli.ts": "process.exitCode = 0;\n" });
+    expect(ready(project, waveId).out.problems).toEqual([
+      expect.stringMatching(/the template layer isn't the pinned release's: added gates\/cli\.ts/),
     ]);
   });
 
