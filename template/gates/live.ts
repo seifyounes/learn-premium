@@ -281,5 +281,11 @@ export const livePrivatePaths: Gate = {
         return siteFilesWith(copy, scratch, { "Lecture 3/notes.pdf": "%PDF-1.7 planted\n" });
       },
     },
+    {
+      // Vercel's trailing-slash redirect runs before any file is looked up (#125).
+      defect: "vercel.json with trailingSlash: true, which answers /.git/config with a 308 before any 404",
+      plant: (good, scratch) =>
+        templateWith(good, scratch, { config: (config) => ({ ...config, trailingSlash: true }) }),
+    },
   ],
 };
