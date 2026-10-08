@@ -157,9 +157,11 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
    Fix what you find.
 8. **Commit, then gate the commit.** A Gate report taken on uncommitted changes binds to no commit
    and never verifies, so: commit the content (the pre-commit gate checks every commit), re-run the
-   job gates on it, and commit the job report. Push the branch and wait for its Vercel preview.
-   **Per-Module gates on the preview:** `npm run gates -- run --point module --module NN-<slug>
-   --content ../content --url <preview URL>`. Then the **deploy gates** on a production build of the
+   job gates on it, and commit the job report. Push the branch and wait for its Vercel preview of
+   that commit. **Per-Module gates on the preview:** build the same commit first
+   (`CONTENT_DIR=../content npm run build`, into `dist/`; the page gates read it), then `npm run gates
+   -- run --point module --module NN-<slug> --content ../content --dist dist --url <preview URL>`.
+   Then the **deploy gates** on a production build of the
    Course's content: `CONTENT_DIR=../content VERCEL_ENV=production npm run build -- --outDir
    dist-production`, then `npm run gates -- run --point deploy --content ../content --dist
    dist-production`. Commit the Gate reports (only build records change, so they still prove the

@@ -104,6 +104,23 @@ describe("the worked-numbers gate", () => {
     ]);
   });
 
+  it("blocks a Slip whose corrected value is no number the recompute gives", async () => {
+    const course = fixtureWith(WORKED, (s) =>
+      s.replace(
+        '"value": "$R_\\\\text{total} = 1.54\\\\ \\\\text{K/W}$"',
+        '"value": "$R_\\\\text{total} = 1.64\\\\ \\\\text{K/W}$"',
+      ),
+    );
+    expect((await run(course)).findings).toEqual([
+      {
+        outcome: "block",
+        at: WORKED,
+        message:
+          "the Slip on 1.45 ships 1.64 as the corrected value, which no number the independent recompute gives matches",
+      },
+    ]);
+  });
+
   it("blocks a value the Owner ruled a Slip that the sheet still prints", async () => {
     // The Fixture's own Slip: the sheet printed 1.45 for the total, the site ships 1.54.
     const course = fixtureWith(WORKED, (s) =>

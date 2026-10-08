@@ -138,6 +138,23 @@ async function run(input: GateInput): Promise<GateRun> {
       if (!worked.has(cell))
         block(`the recompute log ${logEntry} gives ${cell}, which isn't a number the sheet works out`);
     }
+    // A Slip ships its corrected value to students: it must be a number the recompute gives.
+    const recomputed = Object.values(log.data.cells);
+    for (const slip of provenance.slips) {
+      const shipped = numbersIn(slip.value);
+      const matches = (n: { value: number; written: string }) =>
+        recomputed.some((r) =>
+          agreesAtPrint(Math.abs(r), {
+            value: n.value,
+            decimals: (n.written.split(".")[1] ?? "").length,
+            written: n.written,
+          }),
+        );
+      if (shipped.length > 0 && !shipped.some(matches))
+        block(
+          `the Slip on ${rulingValues(slip.sheet).join(", ")} ships ${shipped.map((n) => n.written).join(", ")} as the corrected value, which no number the independent recompute gives matches`,
+        );
+    }
     for (const [cell, printed] of worked) {
       if (typeof printed === "string") {
         block(`sheet cell ${cell} can't be compared with the recompute: ${printed}`);
