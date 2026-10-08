@@ -36,6 +36,7 @@ const CONTENT_GATES = [
   "sim-numbers",
   "truth-table",
   "stl",
+  "scl",
   "drawing",
   "part-checks",
   "tools",

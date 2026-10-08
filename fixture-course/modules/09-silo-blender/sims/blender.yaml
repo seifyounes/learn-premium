@@ -142,6 +142,9 @@ cases:
       - { start: 1 }
       - { start: 1 }
       - { start: 1 }
+  - name: a load cell between whole kilograms, where every REAL step rounds
+    scans:
+      - { raw1: 10000, raw2: 5000 }
 walkthrough:
   - title: The data
     lines: 1-20
