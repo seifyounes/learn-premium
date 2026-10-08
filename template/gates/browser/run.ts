@@ -86,9 +86,21 @@ const TRAP_CATCHES: Record<TrapDefect, { gate: BrowserGateId; kinds: Kind[] }> =
  * address asked for (a request to another site is blocked, but still asked for) or by the body.
  */
 const HEAVY_LIBRARIES = [
-  { name: "three.js", url: /(?:^|[/._-])three(?:[._@-]|\.module)/i, body: /\bWebGLRenderer\b/ },
-  { name: "Pyodide", url: /pyodide/i, body: /\bloadPyodide\b/ },
-  { name: "Plotly", url: /plotly/i, body: /\bPlotly\b[\s\S]*\bnewPlot\b|\bnewPlot\b[\s\S]*\bPlotly\b/ },
+  // A 3D viewer on screen loads three.js after first paint, once the page has loaded: only before
+  // the load event is it "with the page".
+  {
+    name: "three.js",
+    url: /(?:^|[/._-])three(?:[._@-]|\.module)/i,
+    body: /\bWebGLRenderer\b/,
+    afterFirstPaint: true,
+  },
+  { name: "Pyodide", url: /pyodide/i, body: /\bloadPyodide\b/, afterFirstPaint: false },
+  {
+    name: "Plotly",
+    url: /plotly/i,
+    body: /\bPlotly\b[\s\S]*\bnewPlot\b|\bnewPlot\b[\s\S]*\bPlotly\b/,
+    afterFirstPaint: false,
+  },
 ];
 
 /** The controls an island renders, which it must keep off until it hydrates. */
@@ -541,36 +553,48 @@ async function sweepPage(
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(firstLine(error)));
-    // The initial load: every address the page asked for before its load event (a request to
-    // another site is blocked, but was still asked for), and the body of every script among them
-    // that arrived. A 3D viewer on screen asks for three.js only once the page has loaded and
-    // painted: after first paint, not with the page.
-    const asked: string[] = [];
-    const initialRequests = new Set<Request>();
-    const bodies: Promise<string>[] = [];
+    // The initial load: every address the page asked for until its load event and the moment after
+    // it (a request to another site is blocked, but was still asked for), and the body of every
+    // script among them that arrived, each marked by whether it was asked for before the load event.
+    // A 3D viewer on screen asks for three.js once the page has loaded and painted, after first
+    // paint, so three.js counts only before the load event; Pyodide and Plotly count in the moment
+    // after it too.
+    const asked: { url: string; beforeLoad: boolean }[] = [];
+    const initialRequests = new Map<Request, boolean>();
+    const bodies: Promise<{ body: string; beforeLoad: boolean }>[] = [];
     let loading = true;
+    let initial = true;
     page.on("request", (request) => {
-      if (!loading) return;
-      asked.push(request.url());
-      initialRequests.add(request);
+      if (!initial) return;
+      asked.push({ url: request.url(), beforeLoad: loading });
+      initialRequests.set(request, loading);
     });
     page.once("load", () => {
       loading = false;
     });
     page.on("response", (response) => {
-      if (!initialRequests.has(response.request())) return;
+      const beforeLoad = initialRequests.get(response.request());
+      if (beforeLoad === undefined) return;
       const script = response.request().resourceType() === "script" || /\.(?:m?js|wasm)(?:[?#]|$)/.test(response.url());
-      if (script) bodies.push(response.text().catch(() => ""));
+      if (script)
+        bodies.push(
+          response.text().then(
+            (body) => ({ body, beforeLoad }),
+            () => ({ body: "", beforeLoad }),
+          ),
+        );
     });
     const response = await page.goto(url, { waitUntil: "load" });
     if (!response || response.status() >= 400) return "missing";
     loading = false;
-    // Responses to what the load asked for may still be landing.
+    // What the load started may still be landing, and what it starts at once is still the load's.
     await page.waitForTimeout(LOAD_SETTLES_MS);
+    initial = false;
     const scripts = await Promise.all(bodies);
     for (const library of HEAVY_LIBRARIES) {
-      const address = asked.find((a) => library.url.test(new URL(a).pathname));
-      if (address === undefined && !scripts.some((body) => library.body.test(body))) continue;
+      const counts = (beforeLoad: boolean) => beforeLoad || !library.afterFirstPaint;
+      const address = asked.find((a) => counts(a.beforeLoad) && library.url.test(new URL(a.url).pathname))?.url;
+      if (address === undefined && !scripts.some((s) => counts(s.beforeLoad) && library.body.test(s.body))) continue;
       observe({
         gate: "initial-load",
         route,

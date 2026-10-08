@@ -261,12 +261,13 @@ function checkPart({ contentDir }: GateInput, { file, module, name }: PartSite) 
     return result();
   }
   counted.volumes += 1;
-  const readings = p.dimensions.filter((d) => d.id in log.data.inputs);
-  if (readings.length === 0)
+  // It works from the whole drawing: every dimension the part tags, as read there.
+  const unread = p.dimensions.filter((d) => !(d.id in log.data.inputs)).map((d) => d.id);
+  if (unread.length > 0)
     block(
-      `the independent recompute ${logEntry} took none of the part's dimensions, so it didn't work from its drawing`,
+      `the independent recompute ${logEntry} doesn't say what it took for ${unread.join(", ")}: it logs every dimension of the drawing it works from`,
     );
-  for (const d of readings) {
+  for (const d of p.dimensions.filter((x) => x.id in log.data.inputs)) {
     const took = log.data.inputs[d.id] ?? NaN;
     if (Math.abs(took - d.value) > 1e-9)
       block(
