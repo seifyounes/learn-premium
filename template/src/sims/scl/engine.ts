@@ -194,6 +194,8 @@ export class SclRun {
   scans = 0;
   /** Every listing line a statement ran on, in any scan (a FUNCTION's statements too). */
   readonly ran = new Set<number>();
+  /** Every construct a statement ran (`FOR`, `MOD`, `REAL_TO_INT`, `FUNCTION ToKg`): see `constructsIn`. */
+  readonly constructs = new Set<string>();
   /** A scan stops here: a listing that loops longer than this never ends its scan. */
   static readonly STEP_LIMIT = 100_000;
 
@@ -536,6 +538,7 @@ export class SclRun {
   }
 
   private statement(s: Statement, frame: Frame): Flow {
+    this.constructs.add(STATEMENT_CONSTRUCT[s.kind]);
     switch (s.kind) {
       case "assign": {
         this.entry(s, "assign");
@@ -657,6 +660,8 @@ export class SclRun {
   // ---- expressions ----
 
   private ev(e: Expr, frame: Frame): Value {
+    const construct = expressionConstruct(e);
+    if (construct) this.constructs.add(construct);
     switch (e.kind) {
       case "literal":
         return { type: e.type, value: e.type === "REAL" ? this.interpreter.real(e.value) : e.value };
@@ -878,6 +883,99 @@ export class SclRun {
   }
 }
 
+// ---- constructs: what a gate case must run ------------------------------------------------------
+
+/**
+ * A construct is what must run in some gate case before the listing counts as checked: each kind of
+ * statement, operator and function the listing uses (the `*I` lesson of #37: an instruction no case
+ * runs is never compared).
+ */
+const STATEMENT_CONSTRUCT: Record<Statement["kind"], string> = {
+  assign: ":=",
+  call: "a call",
+  if: "IF",
+  case: "CASE",
+  for: "FOR",
+  while: "WHILE",
+  repeat: "REPEAT",
+  exit: "EXIT",
+  continue: "CONTINUE",
+  return: "RETURN",
+};
+
+function expressionConstruct(e: Expr): string | undefined {
+  switch (e.kind) {
+    case "binary":
+      return e.op;
+    case "unary":
+      return e.op === "+" ? undefined : e.op === "-" ? "unary -" : e.op;
+    case "call":
+      return STANDARD[e.name.toUpperCase()] ? e.name.toUpperCase() : `FUNCTION ${e.name}`;
+    default:
+      return undefined;
+  }
+}
+
+/** Every construct the listing's blocks use, with the line (0-based) each is first used on. */
+export function constructsIn(unit: Unit): Map<string, number> {
+  const found = new Map<string, number>();
+  const add = (construct: string | undefined, line: number) => {
+    if (construct && !found.has(construct)) found.set(construct, line);
+  };
+  const expression = (e: Expr | undefined, line: number): void => {
+    if (!e) return;
+    add(expressionConstruct(e), line);
+    switch (e.kind) {
+      case "unary":
+        expression(e.operand, line);
+        break;
+      case "binary":
+        expression(e.left, line);
+        expression(e.right, line);
+        break;
+      case "call":
+        for (const a of e.args) expression(a.value, line);
+        break;
+      case "ref":
+        for (const s of e.ref.selectors) if ("index" in s) for (const i of s.index) expression(i, line);
+        break;
+    }
+  };
+  const reference = (r: Reference, line: number) => expression({ kind: "ref", ref: r }, line);
+  for (const block of unit.blocks)
+    for (const s of statementsIn(block.body)) {
+      add(STATEMENT_CONSTRUCT[s.kind], s.line);
+      switch (s.kind) {
+        case "assign":
+          reference(s.target, s.line);
+          expression(s.value, s.line);
+          break;
+        case "call":
+          expression(s.call, s.line);
+          break;
+        case "if":
+          for (const arm of s.arms) expression(arm.condition, arm.line);
+          break;
+        case "case":
+          expression(s.selector, s.line);
+          break;
+        case "for":
+          reference(s.variable, s.line);
+          expression(s.from, s.line);
+          expression(s.to, s.line);
+          expression(s.by, s.line);
+          break;
+        case "while":
+          expression(s.condition, s.line);
+          break;
+        case "repeat":
+          expression(s.condition, s.untilLine);
+          break;
+      }
+    }
+  return found;
+}
+
 /** The line an expression starts on, if it names one (a constant alone doesn't). */
 const lineIn = (e: Expr): number | undefined => {
   switch (e.kind) {
@@ -1045,7 +1143,7 @@ export function runCase(
   scans: readonly Inputs[],
   interpreter: Interpreter = INTERPRETER,
   unit: Unit = parseScl(model.source),
-): { scans: ScanResult[]; ran: Set<number> } {
+): { scans: ScanResult[]; ran: Set<number>; constructs: Set<string> } {
   const run = new SclRun(model, unit, interpreter);
   const results: ScanResult[] = [];
   for (const inputs of scans) {
@@ -1053,7 +1151,7 @@ export function runCase(
     results.push({ trace, values: run.values(), ...(error === undefined ? {} : { error }) });
     if (error !== undefined) break;
   }
-  return { scans: results, ran: run.ran };
+  return { scans: results, ran: run.ran, constructs: run.constructs };
 }
 
 /** Every value the engine gives for a model at these inputs: every variable after one scan from a cold start, by path. */

@@ -65,8 +65,15 @@ export function Listing({ lines, current, ran, ruled, label }: ListingProps) {
 
 /** The listing as a build step left it: the lines it added marked, nothing run. */
 export function StageListing({ lines, label }: { lines: readonly StageLine[]; label: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  // Open on the first line the step added, inside the box.
+  useEffect(() => {
+    const el = box.current;
+    const row = el?.querySelector<HTMLElement>("[data-added]");
+    if (el && row) el.scrollTop = Math.max(0, row.offsetTop - el.offsetTop - 8);
+  }, [lines]);
   return (
-    <div className="stl-listing scl-listing" role="region" aria-label={label} tabIndex={0} dir="ltr">
+    <div ref={box} className="stl-listing scl-listing" role="region" aria-label={label} tabIndex={0} dir="ltr">
       <ol className="stl-lines">
         {lines.map((l) => (
           <li key={l.line} className="stl-line" data-added={l.added || undefined}>
