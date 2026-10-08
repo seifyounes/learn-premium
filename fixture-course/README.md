@@ -76,7 +76,7 @@ Every Worked example, Practice item and Summary beat tags each number it shows i
 block: `stated` (in the Materials), `derived` (worked out, no official key), `scaled` (measured
 off a drawing) or `assumed` (supplied here). A value can be written bare (`0.25`) or in context
 (`$L = 0.25\ \text{m}$`), and every number in it counts as tagged. `slips` (`value`, `sheet`,
-`note`) and `divergences` (`value`, `note`) record the Owner's rulings. The provenance gate
+`note`, and in a Worked example the `cell` it corrects) and `divergences` (`value`, `note`) record the Owner's rulings. The provenance gate
 blocks a number no list tags. In this synthetic Course, "the sheet" and "the Professor" are
 invented too: the Slip on the Worked example and the Divergence on Practice item 1 are there to
 exercise the page.

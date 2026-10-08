@@ -104,20 +104,24 @@ describe("the worked-numbers gate", () => {
     ]);
   });
 
-  it("blocks a Slip whose corrected value is no number the recompute gives", async () => {
-    const course = fixtureWith(WORKED, (s) =>
-      s.replace(
-        '"value": "$R_\\\\text{total} = 1.54\\\\ \\\\text{K/W}$"',
-        '"value": "$R_\\\\text{total} = 1.64\\\\ \\\\text{K/W}$"',
-      ),
-    );
-    expect((await run(course)).findings).toEqual([
+  it("blocks a Slip whose corrected value isn't its own cell's recomputed value, or that names no cell", async () => {
+    const slip = (value: string, cell: string) =>
+      fixtureWith(WORKED, (s) =>
+        s
+          .replace('"value": "$R_\\\\text{total} = 1.54\\\\ \\\\text{K/W}$"', `"value": "${value}"`)
+          .replace('"cell": "D4",', cell),
+      );
+    // 25.00 is a number the recompute gives (E4), but not D4's, the cell the Slip corrects.
+    expect((await run(slip("$25.00$", '"cell": "D4",'))).findings).toEqual([
       {
         outcome: "block",
         at: WORKED,
         message:
-          "the Slip on 1.45 ships 1.64 as the corrected value, which no number the independent recompute gives matches",
+          "the Slip on 1.45 (cell D4) ships 25.00 as the corrected value, but the independent recompute gives 1.54 for D4",
       },
+    ]);
+    expect((await run(slip("$1.54$", ""))).findings.map((f) => f.message)).toEqual([
+      "the Slip on 1.45 names no cell: give the sheet cell it corrects (cell), so its corrected value can be checked",
     ]);
   });
 

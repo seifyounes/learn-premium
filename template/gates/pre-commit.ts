@@ -158,7 +158,14 @@ export function checkCommit(repo: string): CommitCheck {
   const known = new Map(ledger.hashes);
   const forms = staged.map(({ path, bytes }) => ({ path, forms: variants(bytes) }));
   const sizes = new Set(forms.flatMap((f) => f.forms.map((b) => b.length)));
-  for (const folder of ledger.folders) if (existsSync(folder)) hashFolder(folder, sizes, known);
+  // A Material not yet in the Module map is caught only by scanning the folder: none reachable (a
+  // disconnected drive, a moved folder) means the check can't be complete, so it blocks.
+  const reachable = ledger.folders.filter((folder) => existsSync(folder));
+  if (reachable.length === 0)
+    throw new Error(
+      `can't reach the Materials folder (${ledger.folders.join(", ") || "the ledger names none"}), so a Material not yet mapped can't be caught`,
+    );
+  for (const folder of reachable) hashFolder(folder, sizes, known);
   // An empty Material matches every empty file (a .gitkeep), so it carries nothing to leak.
   known.delete(EMPTY_SHA256);
   for (const { path, forms: bytes } of forms) {
