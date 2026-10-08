@@ -10,11 +10,15 @@
 //   setup  Makes the venv this folder's oracle runs from (.oracle-venv), with awlsim at the version
 //          the machine venv pins (skill/uv.lock). A Course build uses the machine venv instead.
 //
+// Each command runs the ladder and FBD sims too (and, with --corpus, test/ladder/): compiled to STL,
+// scan by scan at the scans' own times.
+//
 // Exit codes: 0 done (or current), 1 a log is stale or awlsim failed, 2 bad usage.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { courseLadders, ladderCorpus, runAwlsimLadder, serialiseLadder } from "./ladder.ts";
 import { corpusListings, courseListings, runAwlsim, serialise, type Listing } from "./listings.ts";
 
 const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
@@ -62,6 +66,13 @@ function listings(values: { content?: string; module?: string; corpus?: boolean 
   return [...(values.corpus ? [...corpusListings(), ...corpusListings({ stepThroughs: true })] : []), ...course];
 }
 
+function ladders(values: { content?: string; module?: string; corpus?: boolean }) {
+  const contentDir = resolve(values.content ?? process.env.CONTENT_DIR ?? join(TEMPLATE_DIR, "../fixture-course"));
+  const { listings: course, unreadable } = courseLadders(contentDir, values.module);
+  if (unreadable.length > 0) throw new Error(unreadable.map((u) => `${u.entry} can't be run: ${u.problem}`).join("\n"));
+  return [...(values.corpus ? ladderCorpus() : []), ...course];
+}
+
 function main(argv: string[]): number {
   const { positionals, values } = parseArgs({
     args: argv,
@@ -74,14 +85,19 @@ function main(argv: string[]): number {
     console.error("usage: npm run oracle -- write|check [--content DIR] [--module NN-slug] [--corpus] | setup");
     return 2;
   }
+  // Each listing (STL) and each ladder or FBD model, with the log awlsim gives for it now.
+  const runs: { entry: string; logPath: string; cases: number; text: () => string }[] = [
+    ...listings(values).map((l) => ({ ...l, cases: l.cases.length, text: () => serialise(runAwlsim(l)) })),
+    ...ladders(values).map((l) => ({ ...l, cases: l.cases.length, text: () => serialiseLadder(runAwlsimLadder(l)) })),
+  ];
   let stale = 0;
-  for (const listing of listings(values)) {
-    const text = serialise(runAwlsim(listing));
+  for (const listing of runs) {
+    const text = listing.text();
     const steps = text.split("\n").length;
     if (command === "write") {
       mkdirSync(dirname(listing.logPath), { recursive: true });
       writeFileSync(listing.logPath, text);
-      console.log(`wrote ${listing.logPath} (${listing.cases.length} cases, ${steps} lines)`);
+      console.log(`wrote ${listing.logPath} (${listing.cases} cases, ${steps} lines)`);
     } else if (!existsSync(listing.logPath) || readFileSync(listing.logPath, "utf8") !== text) {
       stale += 1;
       console.error(

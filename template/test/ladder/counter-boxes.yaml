@@ -1,0 +1,86 @@
+covers: the S5 counter boxes (S_CU, S_CD, S_CUD) with CU, CD, S, PV, R, CV, CV_BCD and Q, and a box left with R and S open, in LAD
+model:
+  language: LAD
+  parts:
+    - { id: R1, kind: power-rail, network: 1 }
+    - { id: U1, kind: "no", network: 1, operand: I 0.0 }
+    - { id: D1, kind: "no", network: 1, operand: I 0.1 }
+    - { id: S1, kind: "no", network: 1, operand: I 0.2 }
+    - { id: X1, kind: "no", network: 1, operand: I 0.3 }
+    - { id: B1, kind: s-cud, network: 1, operand: C 1, params: { PV: C#5, CV: MW 10, CV_BCD: MW 12 } }
+    - { id: K1, kind: coil, network: 1, operand: Q 4.0 }
+    - { id: R2, kind: power-rail, network: 2 }
+    - { id: U2, kind: "no", network: 2, operand: I 0.0 }
+    - { id: S2, kind: "no", network: 2, operand: I 0.2 }
+    - { id: X2, kind: "no", network: 2, operand: I 0.3 }
+    - { id: B2, kind: s-cu, network: 2, operand: C 2, params: { PV: C#998, CV: MW 14 } }
+    - { id: K2, kind: coil, network: 2, operand: Q 4.1 }
+    - { id: R3, kind: power-rail, network: 3 }
+    - { id: D3, kind: "no", network: 3, operand: I 0.1 }
+    - { id: S3, kind: "no", network: 3, operand: I 0.2 }
+    - { id: B3, kind: s-cd, network: 3, operand: C 3, params: { PV: C#2, CV_BCD: MW 16 } }
+    - { id: N3, kind: nc, network: 3, operand: I 0.4 }
+    - { id: K3, kind: coil, network: 3, operand: Q 4.2 }
+    - { id: R4, kind: power-rail, network: 4 }
+    - { id: U4, kind: "no", network: 4, operand: I 0.0 }
+    - { id: B4, kind: s-cu, network: 4, operand: C 4, params: { CV: MW 18 } }
+  nets:
+    - { id: rail1, pins: [R1.t, U1.in, D1.in, S1.in, X1.in] }
+    - { id: cu1, pins: [U1.out, B1.CU] }
+    - { id: cd1, pins: [D1.out, B1.CD] }
+    - { id: s1, pins: [S1.out, B1.S] }
+    - { id: r1, pins: [X1.out, B1.R] }
+    - { id: q1, pins: [B1.Q, K1.in] }
+    - { id: rail2, pins: [R2.t, U2.in, S2.in, X2.in] }
+    - { id: cu2, pins: [U2.out, B2.CU] }
+    - { id: s2, pins: [S2.out, B2.S] }
+    - { id: r2, pins: [X2.out, B2.R] }
+    - { id: q2, pins: [B2.Q, K2.in] }
+    - { id: rail3, pins: [R3.t, D3.in, S3.in] }
+    - { id: cd3, pins: [D3.out, B3.CD] }
+    - { id: s3, pins: [S3.out, B3.S] }
+    - { id: r3, pins: [B3.R] }
+    - { id: q3, pins: [B3.Q, N3.in] }
+    - { id: y3, pins: [N3.out, K3.in] }
+    - { id: rail4, pins: [R4.t, U4.in] }
+    - { id: cu4, pins: [U4.out, B4.CU] }
+    - { id: s4, pins: [B4.S] }
+    - { id: r4, pins: [B4.R] }
+    - { id: q4, pins: [B4.Q] }
+  inputs: [I 0.0, I 0.1, I 0.2, I 0.3, I 0.4]
+  watch: { Q 4.0: BOOL, Q 4.1: BOOL, Q 4.2: BOOL, MW 10: INT, MW 14: INT, MW 16: WORD }
+cycle: 100
+start: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 0, I 0.4: 0 }
+cases:
+  - name: count up, down, set, past 999, and reset
+    until: 2400
+    events:
+      - { at: 0, set: { I 0.0: 1 } }
+      - { at: 100, set: { I 0.0: 0 } }
+      - { at: 200, set: { I 0.0: 1 } }
+      - { at: 300, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 400, set: { I 0.1: 0 } }
+      - { at: 500, set: { I 0.1: 1 } }
+      - { at: 600, set: { I 0.1: 0 } }
+      - { at: 700, set: { I 0.1: 1 } }
+      - { at: 800, set: { I 0.1: 0, I 0.2: 1 } }
+      - { at: 900, set: { I 0.0: 1 } }
+      - { at: 1000, set: { I 0.0: 0, I 0.2: 0 } }
+      - { at: 1100, set: { I 0.0: 1, I 0.4: 1 } }
+      - { at: 1200, set: { I 0.0: 0 } }
+      - { at: 1300, set: { I 0.0: 1, I 0.1: 1 } }
+      - { at: 1400, set: { I 0.0: 0, I 0.1: 0, I 0.4: 0 } }
+      - { at: 1500, set: { I 0.3: 1 } }
+      - { at: 1600, set: { I 0.0: 1 } }
+      - { at: 1700, set: { I 0.0: 0, I 0.3: 0 } }
+      - { at: 1800, set: { I 0.1: 1 } }
+      - { at: 1900, set: { I 0.1: 0 } }
+      - { at: 2000, set: { I 0.1: 1 } }
+      - { at: 2100, set: { I 0.1: 0 } }
+      - { at: 2200, set: { I 0.1: 1 } }
+      - { at: 2300, set: { I 0.0: 1 } }
+  - name: CU held for several scans counts once
+    until: 800
+    events:
+      - { at: 100, set: { I 0.0: 1 } }
+      - { at: 600, set: { I 0.0: 0 } }

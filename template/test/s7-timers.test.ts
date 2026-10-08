@@ -124,6 +124,18 @@ describe("the five S5 timers, against awlsim", () => {
     ]);
   });
 
+  it("loads its BCD value with the time base in bits 12–13, as LC T does", () => {
+    expect(
+      drive("SD", "S5T#20S", [
+        [0, 1],
+        [1000, 1],
+      ]),
+    ).toEqual([
+      [0, 0, 200, 0x1200],
+      [1000, 0, 190, 0x1190],
+    ]);
+  });
+
   it("SS settles its Q only when it is read: restarted unread after its time, it stays 0 (awlsim; a real S7 holds 1)", () => {
     const timer = new S5Timer();
     const s5t = parseS5Time("S5T#2S");

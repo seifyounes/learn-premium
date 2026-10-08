@@ -12,6 +12,7 @@ import {
   type PinnedDefinitions,
 } from "./definitions.ts";
 import * as gradientDescent from "./gradient-descent/engine.ts";
+import * as ladder from "./ladder/engine.ts";
 import * as logic from "./logic/engine.ts";
 import * as planeWall from "./plane-wall/engine.ts";
 import * as scl from "./scl/engine.ts";
@@ -35,9 +36,10 @@ interface Kind<K extends SimKind> {
    * The gate that checks its numbers three ways: `sim-numbers` at the sheet's printed precision,
    * or `truth-table` bit for bit, every row of it; an STL listing is checked by `stl`, bit for bit
    * against awlsim after every statement, and an SCL listing by `scl`, against the blind
-   * interpreter on every scan.
+   * interpreter on every scan; a ladder or FBD sim by `ladder`, bit for bit against awlsim after
+   * every scan.
    */
-  checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl";
+  checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl" | "ladder";
   /** The Professor's definitions its engine works to, pinned in the Course style sheet. */
   definitions?: readonly DefinitionName[];
 }
@@ -56,6 +58,12 @@ export const KINDS: { [K in SimKind]: Kind<K> } = {
   stl: { quantities: stl.quantities, checkedBy: "stl" },
   scl: { quantities: scl.quantities, checkedBy: "scl" },
   control: { quantities: control.quantities, checkedBy: "sim-numbers", definitions: ["settlingTime", "riseTime"] },
+  // The watch table after one scan at the inputs; the sheet's values come from the example's
+  // timeline, which `engineQuantities` runs.
+  ladder: {
+    quantities: (model, inputs) => ladder.quantities(model, inputs, { until: 0, events: [] }, 1),
+    checkedBy: "ladder",
+  },
 };
 
 /**
@@ -109,6 +117,9 @@ export function engineQuantities(
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
     case "control":
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs }, definitionsFor(s, pinned));
+    case "ladder":
+      // Every watched value after every scan of the example's timeline, from these inputs.
+      return ladder.quantities(s.model, { ...s.start, ...inputs }, s.scenario, s.cycle);
   }
 }
 

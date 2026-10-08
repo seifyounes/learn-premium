@@ -1,0 +1,93 @@
+covers: the S5 timer and counter coils (SP, SE, SD, SS, SF, CU, CD, SC), contacts on timers and counters, NO and NC contacts in series and parallel, and the set and reset coils, in LAD
+model:
+  language: LAD
+  parts:
+    - { id: R1, kind: power-rail, network: 1 }
+    - { id: A1, kind: "no", network: 1, operand: I 0.0 }
+    - { id: P1, kind: coil-sp, network: 1, operand: T 1, params: { preset: S5T#1S } }
+    - { id: E1, kind: coil-se, network: 1, operand: T 2, params: { preset: S5T#1S } }
+    - { id: D1, kind: coil-sd, network: 1, operand: T 3, params: { preset: S5T#1S } }
+    - { id: H1, kind: coil-ss, network: 1, operand: T 4, params: { preset: S5T#1S } }
+    - { id: F1, kind: coil-sf, network: 1, operand: T 5, params: { preset: S5T#1S } }
+    - { id: R2, kind: power-rail, network: 2 }
+    - { id: T1, kind: "no", network: 2, operand: T 1 }
+    - { id: T2, kind: "no", network: 2, operand: T 2 }
+    - { id: T3, kind: "no", network: 2, operand: T 3 }
+    - { id: T4, kind: "no", network: 2, operand: T 4 }
+    - { id: T5, kind: nc, network: 2, operand: T 5 }
+    - { id: Y1, kind: coil, network: 2, operand: Q 4.0 }
+    - { id: Y2, kind: coil, network: 2, operand: Q 4.1 }
+    - { id: Y3, kind: coil, network: 2, operand: Q 4.2 }
+    - { id: Y4, kind: coil, network: 2, operand: Q 4.3 }
+    - { id: Y5, kind: coil, network: 2, operand: Q 4.4 }
+    - { id: R3, kind: power-rail, network: 3 }
+    - { id: U3, kind: "no", network: 3, operand: I 0.1 }
+    - { id: V3, kind: "no", network: 3, operand: I 0.2 }
+    - { id: W3, kind: "no", network: 3, operand: I 0.3 }
+    - { id: CU3, kind: coil-cu, network: 3, operand: C 1 }
+    - { id: CD3, kind: coil-cd, network: 3, operand: C 1 }
+    - { id: SC3, kind: coil-sc, network: 3, operand: C 1, params: { preset: C#3 } }
+    - { id: R4, kind: power-rail, network: 4 }
+    - { id: C4, kind: "no", network: 4, operand: C 1 }
+    - { id: N4, kind: nc, network: 4, operand: I 0.4 }
+    - { id: O4, kind: "no", network: 4, operand: I 0.5 }
+    - { id: Y6, kind: coil, network: 4, operand: Q 5.0 }
+    - { id: R5, kind: power-rail, network: 5 }
+    - { id: S5, kind: "no", network: 5, operand: I 0.4 }
+    - { id: X5, kind: nc, network: 5, operand: I 0.5 }
+    - { id: M5, kind: "no", network: 5, operand: M 0.0 }
+    - { id: K5, kind: coil-s, network: 5, operand: M 0.0 }
+    - { id: L5, kind: coil-r, network: 5, operand: M 0.1 }
+    - { id: Z5, kind: coil, network: 5, operand: Q 5.1 }
+  nets:
+    - { id: rail1, pins: [R1.t, A1.in] }
+    - { id: a1, pins: [A1.out, P1.in, E1.in, D1.in, H1.in, F1.in] }
+    - { id: rail2, pins: [R2.t, T1.in, T2.in, T3.in, T4.in, T5.in] }
+    - { id: t1, pins: [T1.out, Y1.in] }
+    - { id: t2, pins: [T2.out, Y2.in] }
+    - { id: t3, pins: [T3.out, Y3.in] }
+    - { id: t4, pins: [T4.out, Y4.in] }
+    - { id: t5, pins: [T5.out, Y5.in] }
+    - { id: rail3, pins: [R3.t, U3.in, V3.in, W3.in] }
+    - { id: u3, pins: [U3.out, CU3.in] }
+    - { id: v3, pins: [V3.out, CD3.in] }
+    - { id: w3, pins: [W3.out, SC3.in] }
+    - { id: rail4, pins: [R4.t, C4.in, O4.in] }
+    - { id: c4, pins: [C4.out, N4.in] }
+    - { id: q50, pins: [N4.out, O4.out, Y6.in] }
+    - { id: rail5, pins: [R5.t, S5.in, M5.in] }
+    - { id: s5, pins: [S5.out, X5.in] }
+    - { id: set5, pins: [X5.out, M5.out, K5.in, L5.in, Z5.in] }
+  inputs: [I 0.0, I 0.1, I 0.2, I 0.3, I 0.4, I 0.5]
+  watch: { Q 4.0: BOOL, Q 4.1: BOOL, Q 4.2: BOOL, Q 4.3: BOOL, Q 4.4: BOOL, Q 5.0: BOOL, Q 5.1: BOOL, M 0.0: BOOL }
+cycle: 100
+start: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 0, I 0.4: 0, I 0.5: 0 }
+cases:
+  - name: each timer coil through a short and a long RLO
+    until: 4000
+    events:
+      - { at: 100, set: { I 0.0: 1 } }
+      - { at: 500, set: { I 0.0: 0 } }
+      - { at: 1500, set: { I 0.0: 1 } }
+      - { at: 2800, set: { I 0.0: 0 } }
+  - name: a counter counted up and down, set to its preset, and read through series and parallel contacts
+    until: 2500
+    events:
+      - { at: 0, set: { I 0.1: 1 } }
+      - { at: 100, set: { I 0.1: 0 } }
+      - { at: 200, set: { I 0.1: 1 } }
+      - { at: 300, set: { I 0.1: 0, I 0.2: 1 } }
+      - { at: 400, set: { I 0.2: 0 } }
+      - { at: 500, set: { I 0.2: 1 } }
+      - { at: 600, set: { I 0.2: 0, I 0.4: 1 } }
+      - { at: 800, set: { I 0.3: 1, I 0.4: 0 } }
+      - { at: 900, set: { I 0.3: 0, I 0.5: 1 } }
+      - { at: 1100, set: { I 0.5: 0, I 0.2: 1 } }
+      - { at: 1200, set: { I 0.2: 0 } }
+      - { at: 1300, set: { I 0.2: 1 } }
+      - { at: 1400, set: { I 0.2: 0 } }
+      - { at: 1500, set: { I 0.2: 1 } }
+      - { at: 1600, set: { I 0.2: 0 } }
+      - { at: 1700, set: { I 0.2: 1 } }
+      - { at: 1800, set: { I 0.4: 1 } }
+      - { at: 2000, set: { I 0.4: 0 } }

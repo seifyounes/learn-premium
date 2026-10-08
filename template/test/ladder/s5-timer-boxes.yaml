@@ -1,0 +1,76 @@
+covers: the five S5 timer boxes (S_PULSE, S_PEXT, S_ODT, S_ODTS, S_OFFDT), each with S, R, TV, BI, BCD and Q, in LAD
+model:
+  language: LAD
+  parts:
+    - { id: R1, kind: power-rail, network: 1 }
+    - { id: S1, kind: "no", network: 1, operand: I 0.0 }
+    - { id: X1, kind: "no", network: 1, operand: I 0.1 }
+    - { id: B1, kind: s-pulse, network: 1, operand: T 1, params: { TV: S5T#2S, BI: MW 10, BCD: MW 12 } }
+    - { id: K1, kind: coil, network: 1, operand: Q 4.0 }
+    - { id: R2, kind: power-rail, network: 2 }
+    - { id: S2, kind: "no", network: 2, operand: I 0.0 }
+    - { id: X2, kind: "no", network: 2, operand: I 0.1 }
+    - { id: B2, kind: s-pext, network: 2, operand: T 2, params: { TV: S5T#2S, BI: MW 14, BCD: MW 16 } }
+    - { id: K2, kind: coil, network: 2, operand: Q 4.1 }
+    - { id: R3, kind: power-rail, network: 3 }
+    - { id: S3, kind: "no", network: 3, operand: I 0.0 }
+    - { id: X3, kind: "no", network: 3, operand: I 0.1 }
+    - { id: B3, kind: s-odt, network: 3, operand: T 3, params: { TV: S5T#2S, BI: MW 18, BCD: MW 20 } }
+    - { id: K3, kind: coil, network: 3, operand: Q 4.2 }
+    - { id: R4, kind: power-rail, network: 4 }
+    - { id: S4, kind: "no", network: 4, operand: I 0.0 }
+    - { id: X4, kind: "no", network: 4, operand: I 0.1 }
+    - { id: B4, kind: s-odts, network: 4, operand: T 4, params: { TV: S5T#2S, BI: MW 22, BCD: MW 24 } }
+    - { id: K4, kind: coil, network: 4, operand: Q 4.3 }
+    - { id: R5, kind: power-rail, network: 5 }
+    - { id: S5, kind: "no", network: 5, operand: I 0.0 }
+    - { id: X5, kind: "no", network: 5, operand: I 0.1 }
+    - { id: B5, kind: s-offdt, network: 5, operand: T 5, params: { TV: S5T#20S, BI: MW 26, BCD: MW 28 } }
+    - { id: K5, kind: coil, network: 5, operand: Q 4.4 }
+  nets:
+    - { id: rail1, pins: [R1.t, S1.in, X1.in] }
+    - { id: s1, pins: [S1.out, B1.S] }
+    - { id: r1, pins: [X1.out, B1.R] }
+    - { id: q1, pins: [B1.Q, K1.in] }
+    - { id: rail2, pins: [R2.t, S2.in, X2.in] }
+    - { id: s2, pins: [S2.out, B2.S] }
+    - { id: r2, pins: [X2.out, B2.R] }
+    - { id: q2, pins: [B2.Q, K2.in] }
+    - { id: rail3, pins: [R3.t, S3.in, X3.in] }
+    - { id: s3, pins: [S3.out, B3.S] }
+    - { id: r3, pins: [X3.out, B3.R] }
+    - { id: q3, pins: [B3.Q, K3.in] }
+    - { id: rail4, pins: [R4.t, S4.in, X4.in] }
+    - { id: s4, pins: [S4.out, B4.S] }
+    - { id: r4, pins: [X4.out, B4.R] }
+    - { id: q4, pins: [B4.Q, K4.in] }
+    - { id: rail5, pins: [R5.t, S5.in, X5.in] }
+    - { id: s5, pins: [S5.out, B5.S] }
+    - { id: r5, pins: [X5.out, B5.R] }
+    - { id: q5, pins: [B5.Q, K5.in] }
+  inputs: [I 0.0, I 0.1]
+  watch: { Q 4.0: BOOL, Q 4.1: BOOL, Q 4.2: BOOL, Q 4.3: BOOL, Q 4.4: BOOL, MW 10: INT, MW 26: INT }
+cycle: 100
+start: { I 0.0: 0, I 0.1: 0 }
+cases:
+  - name: S held, dropped, held past the time, dropped
+    until: 6000
+    events:
+      - { at: 0, set: { I 0.0: 1 } }
+      - { at: 1000, set: { I 0.0: 0 } }
+      - { at: 1500, set: { I 0.0: 1 } }
+      - { at: 3700, set: { I 0.0: 0 } }
+  - name: R part-way through each timer, and while S holds
+    until: 4000
+    events:
+      - { at: 200, set: { I 0.0: 1 } }
+      - { at: 1000, set: { I 0.1: 1 } }
+      - { at: 1100, set: { I 0.1: 0 } }
+      - { at: 2500, set: { I 0.0: 0 } }
+      - { at: 2600, set: { I 0.0: 1 } }
+      - { at: 3500, set: { I 0.1: 1 } }
+  - name: S and R together from the start, then R let go
+    until: 3000
+    events:
+      - { at: 0, set: { I 0.0: 1, I 0.1: 1 } }
+      - { at: 500, set: { I 0.1: 0 } }
