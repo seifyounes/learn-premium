@@ -46,7 +46,7 @@ describe("the tools gate: the five eligibility checks", () => {
         outcome: "block",
         at: at("sims/900.json"),
         message:
-          '"phet" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl, control); PhET and Falstad appear only as credited links, never as a tool',
+          '"phet" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl, control, ladder); PhET and Falstad appear only as credited links, never as a tool',
       },
     ]);
   });

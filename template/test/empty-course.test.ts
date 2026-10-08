@@ -38,6 +38,7 @@ const CONTENT_GATES = [
   "stl",
   "scl",
   "pinned-definitions",
+  "ladder",
   "drawing",
   "part-checks",
   "tools",

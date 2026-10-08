@@ -1,0 +1,64 @@
+{
+  "code": "W10.1",
+  "title": "Two conveyors and a TON",
+  "statement": "An S7-300 runs the two networks in the screenshot every $100$ ms. Start (I 0.0) is pressed at $t = 1.0$ s and let go at $1.5$ s; Stop (I 0.1, a normally closed button) is pressed at $8.0$ s. Fill in conveyor 1 (Q 4.0), the TON's elapsed time ET (MD 20) and conveyor 2 (Q 4.1) after the scan at each time.",
+  "given": [
+    "Start on I 0.0, Stop on I 0.1 (normally closed: $1$ until pressed)",
+    "the TON in DB 1, PT $= 5$ s, ET in MD 20"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "After the scan at each time",
+    "columns": [
+      { "label": "$t$", "unit": "s", "given": true },
+      { "label": "I 0.0", "given": true },
+      { "label": "I 0.1", "given": true },
+      { "label": "Q 4.0" },
+      { "label": "ET", "unit": "ms" },
+      { "label": "Q 4.1" }
+    ],
+    "rows": [
+      ["0.5", "0", "1", "0", "0", "0"],
+      ["1.0", "1", "1", "1", "0", "0"],
+      ["3.0", "0", "1", "1", "2000", "0"],
+      ["6.0", "0", "1", "1", "5000", "1"],
+      ["8.0", "0", "0", "0", "0", "0"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Network 1 latches conveyor 1",
+      "note": "Start closes its contact at $1.0$ s and Q 4.0 comes on; from the next scan its own contact Q 4.0 holds the rung, so letting Start go changes nothing. Stop reads $1$ until it is pressed: its NO contact opens only at $8.0$ s.",
+      "fill": ["D1", "D2", "D3", "D4", "D5"]
+    },
+    {
+      "title": "The TON counts ET",
+      "note": "Network 2 gives the TON's IN the value of Q 4.0. IN rises at $1.0$ s, so ET counts from there: $2000$ ms at $3.0$ s, and it stops at PT, $5000$ ms. When Q 4.0 drops, IN falls and ET goes back to $0$.",
+      "fill": ["E1", "E2", "E3", "E4", "E5"]
+    },
+    {
+      "title": "Q 4.1 once ET reaches PT",
+      "note": "The TON's Q, and so conveyor 2, comes on in the scan where ET reaches PT: $1.0 + 5 = 6.0$ s. It drops with IN at $8.0$ s.",
+      "fill": ["F1", "F2", "F3", "F4", "F5"],
+      "marks": ["F4"]
+    }
+  ],
+  "answer": "Conveyor 1 runs from $1.0$ s to $8.0$ s; conveyor 2 starts at $6.0$ s, when ET reaches PT $= 5000$ ms, and stops with conveyor 1.",
+  "provenance": {
+    "stated": [
+      "a scan every $100$ ms",
+      "Start pressed at $1.0$ s and let go at $1.5$ s",
+      "Stop pressed at $8.0$ s",
+      "the times $0.5$, $1.0$, $3.0$, $6.0$ and $8.0$ s",
+      "PT $= 5$ s",
+      "the input bits $0$ and $1$ in the table",
+      "the S7-300 and its addresses I 0.1, MD 20 and DB 1"
+    ],
+    "derived": [
+      "Q 4.0 and Q 4.1, $0$ or $1$",
+      "ET $= 0$, $2000$ and $5000$ ms",
+      "conveyor 2 at $1.0 + 5 = 6.0$ s"
+    ]
+  }
+}
