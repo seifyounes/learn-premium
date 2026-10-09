@@ -125,7 +125,8 @@ export function compileLadder(model: LadderModel): string {
     return net !== undefined && driversOf(model, net).length > 0;
   };
 
-  const tons = model.parts.filter((p) => p.kind === "ton").map(numberOf);
+  // One instance DB may serve several calls: declare its temporaries and its DB once.
+  const tons = [...new Set(model.parts.filter((p) => p.kind === "ton").map(numberOf))];
   const body: string[] = [];
   for (const { network, parts } of networksOf(model)) {
     body.push("NETWORK", `TITLE = ${network}`);

@@ -71,11 +71,13 @@ export function measures(model: LadderModel, history: readonly Moment[]): Measur
     history.forEach((m, i) => {
       const before = history[i - 1];
       const up = levelAt(m, model, part, input) === 1;
-      const wasUp = before ? levelAt(before, model, part, input) === 1 : false;
+      // A history that starts part-way through a run (older scans dropped) can't say when an
+      // input already up at its start rose, so only a run's first scan counts as rising from 0.
+      const wasUp = before ? levelAt(before, model, part, input) === 1 : m.ms !== 0 && up;
       if (up && !wasUp) rose = m.ms;
       if (!up && kind !== "SS") rose = undefined;
       const q = levelAt(m, model, part, "Q") === 1;
-      const wasQ = before ? levelAt(before, model, part, "Q") === 1 : false;
+      const wasQ = before ? levelAt(before, model, part, "Q") === 1 : m.ms !== 0 && q;
       if (q && !wasQ && rose !== undefined) {
         out.push({ part: part.id, from: rose, to: m.ms });
         rose = undefined;
