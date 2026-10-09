@@ -168,6 +168,7 @@ export function init(project: string, holder: string, release: string, intake: I
       lock: { holder, since: now(), tookOverFrom: null },
       gateGaps: [],
       done: null,
+      relaunches: [],
     };
     return { ledger, result: undefined };
   });
@@ -442,6 +443,7 @@ export function status(project: string) {
     checkpoints: current(ledger.checkpoints),
     gateGaps: current(ledger.gateGaps),
     done: ledger.done,
+    relaunches: current(ledger.relaunches),
     superseded: supersededRows(ledger),
     ...mediaItems(project),
   };
