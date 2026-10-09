@@ -1,0 +1,20 @@
+{
+  "review": "learn-premium review v1",
+  "module": "01",
+  "commit": "87390942487d6aab9260bc74bd4cbb8b0e91f505",
+  "findings": [
+    {
+      "kind": "meaning",
+      "content": "modules/01-thermal-resistance/summary/1.md",
+      "screenshot": "waves/01/review/shots/laptop.png",
+      "materials": {
+        "file": "L01.pdf",
+        "page": 1,
+        "box": [0.048, 0.4, 0.952, 0.49]
+      },
+      "site": "The Summary says that in layers in series the largest temperature drop falls across the layer with the smallest resistance.",
+      "source": "The Key point box on page 1 puts the largest temperature drop across the layer with the largest resistance (usually the insulation), and the smallest drop across the smallest resistance, since each layer's drop is the same heat rate times that layer's resistance.",
+      "why": "The comparison is reversed: with the same heat rate through every layer, a layer's drop grows with its resistance, so the site teaches the opposite of the Professor's rule (and of its own Worked example W01.1, where the insulation takes most of the drop)."
+    }
+  ]
+}

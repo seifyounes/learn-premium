@@ -1,7 +1,8 @@
 // The fresh reviewer's review (`wave.ts review`) through its command interface, on synthetic Course
 // projects and Private folders: the reviewer's findings, the main agent's verdict on each, and the
 // screenshots they were made on.
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave } from "../scripts/wave/cli.ts";
@@ -27,6 +28,57 @@ function newCourse() {
 }
 
 const reviewOf = (project: string) => wave(["review", "--project", project, "--module", "01"]);
+
+/**
+ * A rehearsal on the Fixture Course (ticket #70): Module 01's first Summary beat had a meaning slip
+ * seeded in it, the gates stay green on it (no number, notation or layout changes), and a fresh
+ * reviewer subagent run on its screenshots and a synthetic lecture page (`fixtures/seeded-slip/`)
+ * caught it. Its review.json is kept as it wrote it.
+ */
+const SEEDED = {
+  file: "modules/01-thermal-resistance/summary/1.md",
+  original: "and the same $\\dot{Q}$ passes through every layer.",
+  slip: "and the largest temperature drop falls across the layer with the smallest resistance.",
+};
+const FIXTURES = join(import.meta.dirname, "fixtures", "seeded-slip");
+
+describe("the seeded meaning slip in Fixture Module 01", () => {
+  test("is in the Fixture Module's beat, and the lecture page says the opposite", () => {
+    const beat = readFileSync(join(import.meta.dirname, "..", "..", "fixture-course", SEEDED.file), "utf8");
+    const lecture = readFileSync(join(FIXTURES, "lecture.html"), "utf8");
+
+    expect(beat).toContain(SEEDED.original);
+    expect(lecture).toMatch(/largest temperature drop falls across the layer with the largest\s+resistance/);
+  });
+
+  test("the fresh reviewer's adversarial read caught it, and once re-verified on its crop it blocks", () => {
+    const { project, privateFolder } = newCourse();
+    const caught = JSON.parse(readFileSync(join(FIXTURES, "review.json"), "utf8")) as {
+      commit: string;
+      findings: { content: string }[];
+    };
+    shots(privateFolder, caught.commit);
+    writeFiles(privateFolder, { "waves/01/review/review.json": JSON.stringify(caught) });
+
+    const found = reviewOf(project);
+    const [finding] = found.out.unverified as { key: string; kind: string; content: string; site: string }[];
+    writeFiles(privateFolder, { "waves/01/crops/review-slip.png": "png" });
+    verdicts(privateFolder, [
+      {
+        key: finding?.key,
+        verdict: "confirmed",
+        evidence: "waves/01/crops/review-slip.png",
+        fix: "writer",
+        reason: "The crop's Key point puts the largest drop across the largest resistance.",
+      },
+    ]);
+
+    expect(found.code).toBe(1);
+    expect(finding).toMatchObject({ kind: "meaning", content: SEEDED.file });
+    expect(finding?.site).toMatch(/largest temperature drop.*smallest resistance/);
+    expect(reviewOf(project).out.confirmed).toEqual([expect.objectContaining({ content: SEEDED.file, fix: "writer" })]);
+  });
+});
 
 describe("the fresh reviewer's review", () => {
   test("no review yet is open work", () => {
