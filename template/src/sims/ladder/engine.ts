@@ -151,12 +151,18 @@ export class LadderRun {
     for (const { parts } of networksOf(this.model)) {
       /** Box outputs already run this scan, by part id. */
       const ran = new Set<string>();
+      /**
+       * Reading for the drawing only (an output no element reads, a dangling branch): a timer is
+       * peeked, never settled, since the compiled STL reads nothing there and awlsim's state stays put.
+       */
+      let peeking = false;
+      const timerBit = (n: number): Bit => (peeking ? this.timer(n).peek(now) : this.timer(n).get(now));
       const read = (o: Operand): Bit => {
         switch (o.kind) {
           case "bit":
             return this.mem.read(o.address) as Bit;
           case "timer":
-            return this.timer(o.number).get(now);
+            return timerBit(o.number);
           case "counter":
             return this.counter(o.number).get();
           default:
@@ -189,7 +195,7 @@ export class LadderRun {
           case "s-odts":
           case "s-offdt":
             if (!ran.has(id)) throw new Error(`${id}'s Q is read before it runs`);
-            return this.timer(numberOf(operand)).get(now);
+            return timerBit(numberOf(operand));
           case "s-cu":
           case "s-cd":
           case "s-cud":
@@ -211,10 +217,24 @@ export class LadderRun {
         // Its output's net, as it now reads: what the inked drawing shows.
         const out = ELEMENTS[part.kind].output;
         const net = out && netOf(this.model, `${part.id}.${out}`);
-        if (net) levels[net.id] = output(part.id);
+        if (net) {
+          peeking = true;
+          levels[net.id] = output(part.id);
+          peeking = false;
+        }
       }
+      // A net of this network no element read (a dangling branch) shows as it reads at its end.
+      const own = new Set(parts.map((p) => p.id));
+      peeking = true;
+      for (const net of this.model.nets)
+        if (
+          !(net.id in levels) &&
+          net.pins.some((pin) => own.has(splitPin(pin)[0])) &&
+          driversOf(this.model, net).length > 0
+        )
+          level(net.id);
+      peeking = false;
     }
-    // A net no element read this scan (an output's own net, a dangling branch) shows as it reads at the end.
     for (const net of this.model.nets) if (!(net.id in levels)) levels[net.id] = 0;
     this.last = { ms, levels };
     return this.last;

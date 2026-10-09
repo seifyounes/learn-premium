@@ -132,6 +132,12 @@ export class S5Timer {
     return this.status;
   }
 
+  /** Q as `get` would give it, without settling anything: for a display that mustn't change the run. */
+  peek(now: number): 0 | 1 {
+    if (this.running && Math.max(0.0, this.deadline - now) <= 0.0) return this.setsOnDeadline ? 1 : 0;
+    return this.status;
+  }
+
   /** R: Q and the time drop. */
   reset(): void {
     this.running = false;

@@ -1,4 +1,4 @@
-covers: the five S5 timer boxes (S_PULSE, S_PEXT, S_ODT, S_ODTS, S_OFFDT), each with S, R, TV, BI, BCD and Q, in LAD
+covers: the five S5 timer boxes (S_PULSE, S_PEXT, S_ODT, S_ODTS, S_OFFDT), each with S, R, TV, BI, BCD and Q, in LAD; and an S_ODT whose Q nothing reads (no read settles its time), beside a branch that feeds nothing
 model:
   language: LAD
   parts:
@@ -27,6 +27,10 @@ model:
     - { id: X5, kind: "no", network: 5, operand: I 0.1 }
     - { id: B5, kind: s-offdt, network: 5, operand: T 5, params: { TV: S5T#20S, BI: MW 26, BCD: MW 28 } }
     - { id: K5, kind: coil, network: 5, operand: Q 4.4 }
+    - { id: R6, kind: power-rail, network: 6 }
+    - { id: S6, kind: "no", network: 6, operand: I 0.0 }
+    - { id: B6, kind: s-odt, network: 6, operand: T 6, params: { TV: S5T#1S } }
+    - { id: D6, kind: "no", network: 6, operand: I 0.1 }
   nets:
     - { id: rail1, pins: [R1.t, S1.in, X1.in] }
     - { id: s1, pins: [S1.out, B1.S] }
@@ -48,6 +52,11 @@ model:
     - { id: s5, pins: [S5.out, B5.S] }
     - { id: r5, pins: [X5.out, B5.R] }
     - { id: q5, pins: [B5.Q, K5.in] }
+    - { id: rail6, pins: [R6.t, S6.in, D6.in] }
+    - { id: s6, pins: [S6.out, B6.S] }
+    - { id: r6, pins: [B6.R] }
+    - { id: q6, pins: [B6.Q] }
+    - { id: dangling6, pins: [D6.out] }
   inputs: [I 0.0, I 0.1]
   watch: { Q 4.0: BOOL, Q 4.1: BOOL, Q 4.2: BOOL, Q 4.3: BOOL, Q 4.4: BOOL, MW 10: INT, MW 26: INT }
 cycle: 100

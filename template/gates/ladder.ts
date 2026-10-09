@@ -14,7 +14,8 @@ import { moduleOf } from "../src/content/layout.ts";
 import { readStructured } from "../src/content/loaders.ts";
 import { isLive, type LiveSim } from "../src/sims/kinds.ts";
 import { quantityName, runCase, watchValues, type ScanResult } from "../src/sims/ladder/engine.ts";
-import { driversOf, type LadderModel } from "../src/sims/ladder/model.ts";
+import { stlOperand } from "../src/sims/ladder/compile.ts";
+import { driversOf, netOf, type LadderModel } from "../src/sims/ladder/model.ts";
 import { runControls } from "../src/sims/ladder/mutants.ts";
 import { asLogged, compareWithOracle, ladderLog, type LadderLog } from "../src/sims/ladder/oracle.ts";
 import { AREAS, S7Memory } from "../src/sims/s7/core.ts";
@@ -60,12 +61,20 @@ export function unexercised(model: LadderModel, runs: readonly ScanResult[][]): 
     for (const [n, t] of Object.entries(s.state.timers)) if (t.status === 1) numbers.add(`T ${n}`);
     for (const [n, t] of Object.entries(s.state.tons)) if (t.Q === 1) numbers.add(`DB ${n}`);
   }
-  const first = scans[0]?.state;
-  for (const n of Object.keys(first?.timers ?? {}))
-    if (!numbers.has(`T ${n}`)) out.push(`timer T ${n} never sets its Q in any case`);
-  for (const n of Object.keys(first?.tons ?? {}))
+  // A box whose Q nothing reads never settles its timer's Q bit (awlsim's neither): its Q line,
+  // as the drawing shows it, says it ran out.
+  for (const part of model.parts) {
+    const net = netOf(model, `${part.id}.Q`);
+    if (part.operand && net && scans.some((s) => s.levels[net.id] === 1)) numbers.add(stlOperand(part.operand));
+  }
+  // Every timer, TON and counter any scan touched (one may first run in a later scan).
+  const touched = (key: "timers" | "tons" | "counters") => [
+    ...new Set(scans.flatMap((s) => Object.keys(s.state[key]))),
+  ];
+  for (const n of touched("timers")) if (!numbers.has(`T ${n}`)) out.push(`timer T ${n} never sets its Q in any case`);
+  for (const n of touched("tons"))
     if (!numbers.has(`DB ${n}`)) out.push(`the TON in DB ${n} never runs out in any case`);
-  for (const n of Object.keys(first?.counters ?? {})) {
+  for (const n of touched("counters")) {
     const counts = new Set(scans.map((s) => s.state.counters[Number(n)]));
     if (counts.size < 2) out.push(`counter C ${n} never changes its count in any case`);
   }
