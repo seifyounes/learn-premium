@@ -43,11 +43,22 @@ export function readControlInks(el: Element): ControlInks {
   return { ...readInks(el), redPen: getComputedStyle(el).getPropertyValue("--color-red-pen").trim() };
 }
 
-/** Every gain a student can set, min to max by the slider's step. */
+/** Gains a board samples the slider at, at most: a fine slider must not freeze a phone. */
+const MOST_GAINS = 400;
+
+/**
+ * The gains a student can set, min to max by the slider's step, snapped as the slider snaps them
+ * (a range its step doesn't divide ends on its max). A slider with more steps than `MOST_GAINS` is
+ * sampled evenly instead, its ends kept: the boards size and snap drags by these.
+ */
 export function gainsOf(range: Range): number[] {
-  // Snapped as the slider snaps them, so a range its step doesn't divide ends on its max.
   const n = Math.ceil((range.max - range.min) / range.step - 1e-9);
-  return [...new Set(Array.from({ length: n + 1 }, (_, i) => snap(range.min + i * range.step, range)))];
+  const count = Math.min(n, MOST_GAINS);
+  return [
+    ...new Set(
+      Array.from({ length: count + 1 }, (_, i) => snap(range.min + ((range.max - range.min) * i) / count, range)),
+    ),
+  ];
 }
 
 const fixedLine = { highlight: false, fixed: true } as const;

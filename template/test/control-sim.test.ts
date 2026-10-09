@@ -180,6 +180,10 @@ describe("python-control stays a build-time oracle", () => {
   it("lists the gains a pole drag can set as the slider snaps them, ending on its max", () => {
     expect(gainsOf({ min: 0.5, max: 1.8, step: 0.5 })).toEqual([0.5, 1, 1.5, 1.8]);
     expect(gainsOf({ min: 0.5, max: 2, step: 0.5 })).toEqual([0.5, 1, 1.5, 2]);
+    // A slider of millions of steps is sampled, ends kept, so a phone never solves millions of loops.
+    const fine = gainsOf({ min: 0.5, max: 20, step: 0.000001 });
+    expect(fine.length).toBeLessThanOrEqual(401);
+    expect([fine[0], fine.at(-1)]).toEqual([0.5, 20]);
   });
 
   it("breaks a plotted curve where it leaves its frame, never joining across the plane", () => {

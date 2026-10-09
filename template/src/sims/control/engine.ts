@@ -37,8 +37,16 @@ export const rootsOf = (list: readonly Root[]): Complex[] =>
 
 /** The plant's numerator and denominator polynomials, highest power first. */
 export function plantPolynomials(model: Model) {
-  const numerator = scale(fromRoots(rootsOf(model.plant.zeros)), model.plant.gain);
-  const denominator = fromRoots(rootsOf(model.plant.poles));
+  // A zero that cancels a pole leaves G(s) without that factor: the closed loop never has it.
+  const poles = rootsOf(model.plant.poles);
+  const zeros = rootsOf(model.plant.zeros).filter((z) => {
+    const i = poles.findIndex((p) => abs([p[0] - z[0], p[1] - z[1]]) <= 1e-12 * Math.max(1, abs(p)));
+    if (i < 0) return true;
+    poles.splice(i, 1);
+    return false;
+  });
+  const numerator = scale(fromRoots(zeros), model.plant.gain);
+  const denominator = fromRoots(poles);
   return { numerator, denominator };
 }
 
@@ -300,8 +308,8 @@ export interface Margins {
 }
 
 /**
- * The first gain and phase crossovers up the frequency axis, found exactly by bisection on log ω.
- * The scan starts round the plant's corners and widens a decade at a time while the loop gain
+ * The limiting gain and phase crossovers, as python-control's `margin` reports them: of every
+ * crossover, found exactly by bisection on log ω, the one with the smallest margin. The scan starts round the plant's corners and widens a decade at a time while the loop gain
  * still crosses 1 beyond it: the gain moves the crossover anywhere.
  */
 export function margins(model: Model, K: number): Margins {
@@ -339,22 +347,20 @@ export function margins(model: Model, K: number): Margins {
     .map(([, im]) => im);
   for (let k = 0; k < grid.length - 1; k++) {
     if (u(k) === u(k + 1)) continue;
-    if (out.wc === undefined && Math.sign(gain(u(k))) !== Math.sign(gain(u(k + 1))) && gain(u(k)) !== 0) {
-      out.wc = 10 ** crossing(gain, u(k), u(k + 1));
-      out.PM = wrapped(frequency(model, K, out.wc).phase + 180);
+    if (Math.sign(gain(u(k))) !== Math.sign(gain(u(k + 1))) && gain(u(k)) !== 0) {
+      const w = 10 ** crossing(gain, u(k), u(k + 1));
+      const PM = wrapped(frequency(model, K, w).phase + 180);
+      if (out.PM === undefined || Math.abs(PM) < Math.abs(out.PM)) Object.assign(out, { wc: w, PM });
     }
     if (
-      out.wpc === undefined &&
       Math.sign(imag(u(k))) !== Math.sign(imag(u(k + 1))) &&
       imag(u(k)) !== 0 &&
       !onAxis.some((w) => w >= 10 ** u(k) && w <= 10 ** u(k + 1))
     ) {
       const w = 10 ** crossing(imag, u(k), u(k + 1));
       const there = frequency(model, K, w);
-      if (there.re < 0) {
-        out.wpc = w;
-        out.GM = -20 * Math.log10(there.magnitude);
-      }
+      const GM = -20 * Math.log10(there.magnitude);
+      if (there.re < 0 && (out.GM === undefined || Math.abs(GM) < Math.abs(out.GM))) Object.assign(out, { wpc: w, GM });
     }
   }
   return out;
