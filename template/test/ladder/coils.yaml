@@ -1,4 +1,4 @@
-covers: the S5 timer and counter coils (SP, SE, SD, SS, SF, CU, CD, SC), contacts on timers and counters, NO and NC contacts in series and parallel, and the set and reset coils, in LAD
+covers: the S5 timer and counter coils (SP, SE, SD, SS, SF, CU, CD, SC), contacts on timers and counters, NO and NC contacts in series and parallel, the set and reset coils, and a timer contact beside a branch straight from the rail (still read), in LAD
 model:
   language: LAD
   parts:
@@ -39,6 +39,10 @@ model:
     - { id: K5, kind: coil-s, network: 5, operand: M 0.0 }
     - { id: L5, kind: coil-r, network: 5, operand: M 0.1 }
     - { id: Z5, kind: coil, network: 5, operand: Q 5.1 }
+    - { id: R6, kind: power-rail, network: 6 }
+    - { id: R6b, kind: power-rail, network: 6 }
+    - { id: T6, kind: "no", network: 6, operand: T 3 }
+    - { id: Z6, kind: coil, network: 6, operand: Q 5.2 }
   nets:
     - { id: rail1, pins: [R1.t, A1.in] }
     - { id: a1, pins: [A1.out, P1.in, E1.in, D1.in, H1.in, F1.in] }
@@ -58,6 +62,8 @@ model:
     - { id: rail5, pins: [R5.t, S5.in, M5.in] }
     - { id: s5, pins: [S5.out, X5.in] }
     - { id: set5, pins: [X5.out, M5.out, K5.in, L5.in, Z5.in] }
+    - { id: rail6, pins: [R6.t, T6.in] }
+    - { id: q52, pins: [T6.out, R6b.t, Z6.in] }
   inputs: [I 0.0, I 0.1, I 0.2, I 0.3, I 0.4, I 0.5]
   watch: { Q 4.0: BOOL, Q 4.1: BOOL, Q 4.2: BOOL, Q 4.3: BOOL, Q 4.4: BOOL, Q 5.0: BOOL, Q 5.1: BOOL, M 0.0: BOOL }
 cycle: 100

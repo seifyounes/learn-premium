@@ -35,15 +35,20 @@ export function stlOperand(text: string): string {
   }
 }
 
+// A constant that decides a chain (a FALSE in an AND, a TRUE in an OR) still leaves its other items
+// in it: STL reads every operand, and reading a timer settles it, as the engine's power flow does.
+
 function and(items: Expr[]): Expr {
   const flat = items.flatMap((e) => (e.kind === "and" ? e.items : [e])).filter((e) => !(e.kind === "const" && e.value));
-  if (flat.some((e) => e.kind === "const")) return FALSE;
+  const rest = flat.filter((e) => e.kind !== "const");
+  if (rest.length < flat.length) return rest.length === 0 ? FALSE : { kind: "and", items: [...rest, FALSE] };
   return flat.length === 0 ? TRUE : flat.length === 1 ? (flat[0] as Expr) : { kind: "and", items: flat };
 }
 
 function or(items: Expr[]): Expr {
   const flat = items.flatMap((e) => (e.kind === "or" ? e.items : [e])).filter((e) => !(e.kind === "const" && !e.value));
-  if (flat.some((e) => e.kind === "const")) return TRUE;
+  const rest = flat.filter((e) => e.kind !== "const");
+  if (rest.length < flat.length) return rest.length === 0 ? TRUE : { kind: "or", items: [...rest, TRUE] };
   return flat.length === 0 ? FALSE : flat.length === 1 ? (flat[0] as Expr) : { kind: "or", items: flat };
 }
 
