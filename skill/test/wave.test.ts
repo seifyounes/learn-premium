@@ -3,13 +3,17 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import { templateVerifier } from "../scripts/wave/wave.ts";
 import { COMMIT, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { ledger, writeFiles, type Result } from "./helpers.ts";
+import { MEANING_SLIP, review, shots, verdicts } from "./review-fixtures.ts";
+
+// Every wave here runs git several times (a commit per ready): the 30 s the other git-heavy suites have.
+vi.setConfig({ testTimeout: 30_000 });
 
 const privates: string[] = [];
 afterEach(() => {
@@ -248,7 +252,10 @@ const SHEET_ITEM = {
 function gitIn(repo: string, ...args: string[]) {
   const child = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
   if (child.status !== 0) throw new Error(`git ${args.join(" ")}: ${child.stderr}`);
+  return child.stdout;
 }
+
+const headOf = (repo: string) => gitIn(repo, "rev-parse", "HEAD").trim();
 
 /** The Module's Gate reports as the template's gate runner writes them, in the content's build records. */
 function gateReports(project: string, items: unknown[], url: string | null = PREVIEW) {
@@ -295,6 +302,7 @@ function waveAtCheckpoint() {
     "job-gates",
     "consistency",
     "module-gates",
+    "review",
     "deploy-gates",
   ])
     must(ledger("record", "job", ...holder, "--wave", waveId, "--job", job, "--result", "passed"));
@@ -306,6 +314,12 @@ function waveAtCheckpoint() {
   gitIn(project, "config", "user.email", "fixture@example.test");
   gitIn(project, "config", "commit.gpgsign", "false");
   chmodSync(join(project, "template/gates/hooks/pre-commit"), 0o755);
+  // The fresh reviewer reviewed the Module's content as committed, on its preview's screenshots, and found nothing.
+  gitIn(project, "add", "-A");
+  gitIn(project, "commit", "-q", "-m", "feat: Module 01");
+  const reviewed = headOf(project);
+  shots(privateFolder, reviewed);
+  review(privateFolder, [], reviewed);
   return { project, privateFolder, waveId, holder };
 }
 
@@ -324,6 +338,20 @@ function ready(project: string, waveId: string, deps: Partial<WaveDeps> = greenV
     }
   }
   return wave(["ready", "--project", project, "--wave", waveId], deps);
+}
+
+/** Answers every open Checkpoint item, a sheet one with a Slip ruling. */
+function answerEvery(project: string, waveId: string, holder: string[]) {
+  for (const i of must(checkpointOf(project)).open as { key: string; question: string; sheet: boolean }[])
+    must(
+      ledger(
+        "record",
+        "checkpoint",
+        ...holder,
+        ...["--wave", waveId, "--key", i.key, "--question", i.question, "--answer", "a"],
+        ...(i.sheet ? ["--ruling", "slip"] : []),
+      ),
+    );
 }
 
 describe("the batched Checkpoint", () => {
@@ -875,5 +903,79 @@ describe("ready, the Module wave's merge gate", () => {
 
     expect(asked).toEqual(["job 01-m01", "module 01-m01", "deploy (Course)"]);
     expect(out.problems).toEqual(["the module Gate report isn't green for HEAD: the report checked another commit"]);
+  });
+
+  test("the fresh reviewer: its review must be of HEAD's Module content, re-verified, with nothing confirmed left", () => {
+    const { project, privateFolder, waveId, holder } = waveAtCheckpoint();
+    answerEvery(project, waveId, holder);
+    gateReports(project, []);
+    expect(ready(project, waveId).out.problems).toEqual([]);
+
+    // The reviewer finds a meaning slip; until the main agent re-verifies it, the wave waits.
+    review(privateFolder, [MEANING_SLIP], headOf(project));
+    shots(privateFolder, headOf(project));
+    const unverified = ready(project, waveId).out.problems;
+    const key = (wave(["review", "--project", project, "--module", "01"]).out.unverified[0] as { key: string }).key;
+    writeFiles(privateFolder, { "waves/01/crops/slip.png": "png" });
+    verdicts(privateFolder, [
+      { key, verdict: "confirmed", evidence: "waves/01/crops/slip.png", fix: "writer", reason: "the crop agrees" },
+    ]);
+    const confirmed = ready(project, waveId).out.problems;
+    // The writer fixes it: the content changes, so the old review no longer speaks for HEAD.
+    writeFiles(project, { "content/modules/01-m01/summary/2.md": "The largest drop is across the largest R.\n" });
+    const stale = ready(project, waveId).out.problems;
+    // A fresh reviewer reviews the new commit and finds nothing.
+    review(privateFolder, [], headOf(project));
+    shots(privateFolder, headOf(project));
+    const fresh = ready(project, waveId);
+
+    expect(unverified).toEqual([
+      expect.stringMatching(/the fresh reviewer's finding r-[0-9a-f]{10} isn't re-verified/),
+    ]);
+    expect(confirmed).toEqual([
+      expect.stringMatching(/confirmed finding r-[0-9a-f]{10} .*summary\/2\.md.* goes back to writer/),
+    ]);
+    expect(stale).toEqual([
+      expect.stringMatching(/the review is of [0-9a-f]{40}, but modules\/01-m01 changed since: .*fresh reviewer/),
+    ]);
+    expect(fresh.out.problems).toEqual([]);
+  });
+
+  test("a wave with no review yet, or none recorded, doesn't merge (negative control)", () => {
+    const { project, privateFolder, waveId, holder } = waveAtCheckpoint();
+    answerEvery(project, waveId, holder);
+    gateReports(project, []);
+    rmSync(join(privateFolder, "waves/01/review/review.json"));
+
+    expect(ready(project, waveId).out.problems).toEqual([expect.stringMatching(/no review\.json/)]);
+  });
+
+  test("any blocked job of the wave keeps it red, a sim builder's too; one that fell back to its step-through doesn't", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    answerEvery(project, waveId, holder);
+    gateReports(project, []);
+    const sim = (result: string, detail: string) =>
+      must(
+        ledger(
+          "record",
+          "job",
+          ...holder,
+          "--wave",
+          waveId,
+          "--job",
+          "sim-ramp",
+          "--result",
+          result,
+          "--detail",
+          detail,
+        ),
+      );
+
+    [1, 2, 3].forEach(() => sim("blocked", "drawing gate red"));
+    const blocked = ready(project, waveId).out.problems;
+    sim("fell-back", "step-through of the ramp figure");
+
+    expect(blocked).toEqual(["job sim-ramp is blocked: its job fixes it, or it falls back"]);
+    expect(ready(project, waveId).out.problems).toEqual([]);
   });
 });

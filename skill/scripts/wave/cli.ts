@@ -8,6 +8,7 @@ import { moduleId } from "../ledger/model.ts";
 import { SchemaError } from "../ledger/schema.ts";
 import { LedgerError } from "../ledger/store.ts";
 import { reconcile } from "./reading.ts";
+import { reviewReport } from "./review.ts";
 import { checkpoint, readyProblems, templateVerifier, type Verifier } from "./wave.ts";
 
 export interface WaveDeps {
@@ -57,6 +58,10 @@ function dispatch(args: Args, deps: WaveDeps): Output {
     case "checkpoint": {
       const module = moduleId(args.required("--module"), "--module");
       return { ...checkpoint(project, module, args.optional("--preview")) };
+    }
+    case "review": {
+      const module = moduleId(args.required("--module"), "--module");
+      return reviewReport(privateFolderOf(requireLedger(project).intake.materialsPath), module);
     }
     case "ready": {
       const problems = readyProblems(project, args.required("--wave"), deps.verifier);

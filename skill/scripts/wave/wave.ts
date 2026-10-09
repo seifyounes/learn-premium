@@ -16,6 +16,7 @@ import { hashTree } from "../ledger/hash.ts";
 import { requireLedger, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
+import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
 
 /** The gate points a Module merges on: per job and per Module scoped to it, per deploy on the whole Course. */
 export const MERGE_POINTS = ["job", "module", "deploy"] as const;
@@ -89,6 +90,7 @@ export const WAVE_JOBS = [
   "job-gates",
   "consistency",
   "module-gates",
+  REVIEW_JOB,
   "deploy-gates",
 ] as const;
 export const STYLE_SHEET_JOB = "style-sheet";
@@ -354,6 +356,11 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
     if (job === undefined) problems.push(`job ${name} hasn't been recorded for ${waveId}`);
     else if (job.result === "blocked") problems.push(`job ${name} is blocked: its job fixes it, or it falls back`);
   }
+  // The wave's other jobs (a sim builder, a tool, a media item) can't leave it red either.
+  const required = new Set<string>([...WAVE_JOBS, STYLE_SHEET_JOB]);
+  for (const job of jobs.values())
+    if (!required.has(job.job) && job.result === "blocked")
+      problems.push(`job ${job.job} is blocked: its job fixes it, or it falls back`);
 
   if (!existsSync(join(project, CONTENT_DIR, STYLE_SHEET_FILE)))
     problems.push(
@@ -370,6 +377,8 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   }
   const settledProblem = settledReadingProblem(privateFolder, id);
   if (settledProblem !== null) problems.push(settledProblem);
+  // The fresh reviewer's eyes loop and adversarial read, of HEAD's Module content, re-verified.
+  problems.push(...reviewReadyProblems(project, privateFolder, id, folder));
 
   // The template layer's own gates verify the branch: an edited layer could verify anything.
   const integrity = verifyIntegrity(project);
