@@ -52,7 +52,7 @@ describe("the sim on the built pages", () => {
 
   it("is in the Lab with every other tool, and in the Tool gallery once per kind beside a step-through", () => {
     const lab = build.page("lab");
-    expect(lab.match(/class="sim-card"[^>]*data-sim-kind/g)).toHaveLength(7);
+    expect(lab.match(/class="sim-card"[^>]*data-sim-kind/g)).toHaveLength(8);
     const gallery = build.page("tool-gallery");
     expect(
       [...gallery.matchAll(/data-sim-kind="([^"]+)" data-recompute="([^"]+)"/g)].map((m) => `${m[1]}:${m[2]}`),
