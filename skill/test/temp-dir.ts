@@ -25,7 +25,16 @@ export default function setup(): () => void {
 function sweepStale(base: string): void {
   for (const name of readdirSync(base)) {
     const path = join(base, name);
-    if (name.startsWith("r-") && Date.now() - statSync(path).mtimeMs > STALE_MS) remove(path);
+    if (name.startsWith("r-") && Date.now() - mtime(path) > STALE_MS) remove(path);
+  }
+}
+
+// Another run may sweep the same folder between readdir and stat: a folder already gone isn't stale.
+function mtime(path: string): number {
+  try {
+    return statSync(path).mtimeMs;
+  } catch {
+    return Date.now();
   }
 }
 
