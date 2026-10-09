@@ -9,6 +9,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { LadderRun, scansOf, type Inputs, type Timeline } from "../sims/ladder/engine.ts";
 import { ELEMENTS, netOf, type LadderModel } from "../sims/ladder/model.ts";
 import { momentOf, timerParts, type Moment } from "../sims/ladder/view.ts";
+import { stlOperand } from "../sims/ladder/compile.ts";
 import type { Drawing } from "../sims/layout/drawing.ts";
 import type { InkNets } from "../sims/layout/geometry.ts";
 import { boxOf } from "../sims/layout/symbols.ts";
@@ -112,9 +113,13 @@ export default function LadderSim({ model, drawing, nets, start, scenario, cycle
     return !!net && level[net.id] === 1;
   };
   const scales = useMemo(() => {
+    // Each watched TIME a TON writes, matched by address however either is spelled (`MD 20`, `MD20`).
     const out: Record<string, number> = {};
-    for (const part of model.parts)
-      if (part.kind === "ton" && part.params?.ET && part.params.PT) out[part.params.ET] = parseTime(part.params.PT);
+    for (const part of model.parts) {
+      const et = part.kind === "ton" && part.params?.ET && part.params.PT ? stlOperand(part.params.ET) : undefined;
+      for (const operand of Object.keys(model.watch))
+        if (et && stlOperand(operand) === et) out[operand] = parseTime(part.params?.PT ?? "T#0S");
+    }
     return out;
   }, [model]);
   const gauges = timerParts(model).flatMap((part) => {
@@ -131,7 +136,8 @@ export default function LadderSim({ model, drawing, nets, start, scenario, cycle
     .filter((p) => p.kind === "ton")
     .map((p) => {
       const pt = parseTime(p.params?.PT ?? "T#0S");
-      const et = (p.params?.ET ? now?.watch[p.params.ET] : undefined) ?? Math.round((now?.gauges[p.id] ?? 0) * pt);
+      // The TON's own ET, from its gauge (ET over PT), whatever word it is also written to.
+      const et = Math.round((now?.gauges[p.id] ?? 0) * pt);
       return { id: p.id, name: p.label ?? p.operand ?? p.id, et, pt };
     });
 

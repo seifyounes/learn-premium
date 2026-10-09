@@ -32,9 +32,12 @@ export function gauges(run: LadderRun): Record<string, number> {
     } else {
       const timer = run.timers.get(n);
       const preset = s5tSeconds(parseS5Time(part.params?.TV ?? "S5T#0S"));
+      // Worked out at the scan's time from the deadline, never from fields only a read settles.
+      const now = (run.last?.ms ?? 0) / 1000;
+      const delay = TIMER_KIND[part.kind] === "SD" || TIMER_KIND[part.kind] === "SS";
       if (!timer || preset <= 0) out[part.id] = 0;
-      else if (timer.running) out[part.id] = Math.min(1, Math.max(0, 1 - timer.remaining / preset));
-      else out[part.id] = timer.status && (TIMER_KIND[part.kind] === "SD" || TIMER_KIND[part.kind] === "SS") ? 1 : 0;
+      else if (timer.running) out[part.id] = Math.min(1, Math.max(0, 1 - Math.max(0, timer.deadline - now) / preset));
+      else out[part.id] = timer.peek(now) && delay ? 1 : 0;
     }
   }
   return out;
