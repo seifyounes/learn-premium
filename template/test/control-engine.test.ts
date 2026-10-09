@@ -198,9 +198,25 @@ describe("the control engine", () => {
     // 1/(s + 1) at K = 1.0000001 crosses at √(K² − 1) ≈ 4.472·10⁻⁴ rad/s.
     const lag: Model = { plant: { gain: 1, zeros: [], poles: [-1] } };
     expect(margins(lag, 1.0000001).wc).toBeCloseTo(Math.sqrt(1.0000001 ** 2 - 1), 6);
-    // 10000s/(s + 1)² first crosses 1 near 10⁻⁴ rad/s, on its way up.
+    // 10000s/(s + 1)² crosses 1 twice, near 10⁻⁴ rad/s on its way up and near 10⁴ on its way down:
+    // the low one is found too, and the one reported is the limiting margin of the two.
     const lead: Model = { plant: { gain: 10000, zeros: [0], poles: [-1, -1] } };
-    expect(margins(lead, 1).wc).toBeLessThan(0.001);
+    const m = margins(lead, 1);
+    expect(frequency(lead, 1, m.wc ?? 0).magnitude).toBeCloseTo(1, 9);
+  });
+
+  it("reports the limiting phase margin of several crossovers, as python-control does", () => {
+    // Codex's case: crossings with margins of about 0.490°, −0.296° and −177.985°; the limiting one is −0.296°.
+    const multi: Model = { plant: { gain: 0.001, zeros: [-100], poles: [-0.001, -0.001, [-0.001, 1]] } };
+    expect(margins(multi, 1).PM).toBeCloseTo(-0.296, 2);
+  });
+
+  it("cancels a pole a zero cancels before closing the loop: s/(s(s + 1)) is 1/(s + 1)", () => {
+    const cancelled: Model = { plant: { gain: 1, zeros: [0], poles: [0, -1] } };
+    const loop = closedLoop(cancelled, 1);
+    expect(loop.poles).toHaveLength(1);
+    expect(loop.stable).toBe(true);
+    expect(stepInfo(cancelled, 1, pinned)?.final).toBeCloseTo(0.5, 12);
   });
 
   it("finds the crossovers of a narrow resonance that lifts the gain over 1 between grid points", () => {
