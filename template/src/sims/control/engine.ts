@@ -162,13 +162,26 @@ function crossing(f: (t: number) => number, a: number, b: number): number {
  * and never fewer than 24 a swing of an oscillating one, so no two samples straddle a swing. A
  * fast transient keeps its resolution however slow another pole makes the whole horizon.
  */
-function scan(loop: ClosedLoop, band: number): [number, number][] {
-  const space = stateSpace(loop);
+/** Each pole's mode: how long it lasts and the sample step it needs while it does. */
+function modesOf(loop: ClosedLoop, band: number) {
   const until = horizon(loop, band);
-  const modes = loop.poles.map(([re, im]) => {
+  return loop.poles.map(([re, im]) => {
     const lasts = Math.min(until, (Math.log(1 / band) + 8) / Math.abs(re));
     return { lasts, dt: Math.min(lasts / 4000, im !== 0 ? (2 * Math.PI) / Math.abs(im) / 24 : Infinity) };
   });
+}
+
+/** The most samples a step scan may take: a few hundred milliseconds on a phone. */
+const SCAN_BUDGET = 200_000;
+
+/** About how many samples `scan` takes: each mode's own span at its own step, and the even floor. */
+export const scanLength = (loop: ClosedLoop, band: number) =>
+  4000 + modesOf(loop, band).reduce((n, m) => n + m.lasts / m.dt, 0);
+
+function scan(loop: ClosedLoop, band: number): [number, number][] {
+  const space = stateSpace(loop);
+  const until = horizon(loop, band);
+  const modes = modesOf(loop, band);
   const steps = new Map<number, Matrix>();
   const stepOf = (dt: number) => {
     let e = steps.get(dt);
@@ -178,7 +191,7 @@ function scan(loop: ClosedLoop, band: number): [number, number][] {
   let x = Array.from({ length: space.n + 1 }, (_, i) => +(i === space.n));
   const out: [number, number][] = [];
   let t = 0;
-  while (out.length < 2_000_000) {
+  while (out.length < 2 * SCAN_BUDGET) {
     out.push([t, space.c.reduce((s, ci, i) => s + ci * (x[i] ?? 0), 0)]);
     if (t >= until) break;
     const dt = Math.min(until - t, ...modes.filter((m) => m.lasts > t).map((m) => m.dt), until / 4000);
@@ -202,6 +215,9 @@ export function stepInfo(model: Model, K: number, definitions: Definitions): Ste
   if (Math.abs(final) < 1e-12) return undefined;
   const { band } = definitions.settlingTime;
   const { from, to } = definitions.riseTime;
+  // A response that would take more samples than a phone can step at once (a loop damped so lightly
+  // it swings for thousands of periods) isn't scanned at all: its characteristics aren't read.
+  if (scanLength(loop, band) > SCAN_BUDGET) return undefined;
   const samples = scan(loop, band);
   // A scan stopped by its cap before the horizon can't tell where the response settles.
   if ((samples.at(-1)?.[0] ?? 0) < horizon(loop, band)) return undefined;
