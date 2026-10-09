@@ -1,7 +1,7 @@
 // What a ladder (LAD) or function block diagram (FBD) sim holds: the Professor's networks as a
 // netlist of PLC symbols, each element with the operand it reads or writes, and what students set
 // and watch. The same model is drawn by the layout core (`schematicOf`), run by the engine on the S7
-// core, and compiled to STL for awlsim, the build oracle. Every element reads left to right: power
+// core, and compiled to STL for awlsim, the build oracle. Every element reads left to right, so power
 // enters a contact's `in` and leaves its `out`, a net is the OR of everything that drives it (a
 // ladder's parallel branches), and a coil or a box acts on the power reaching it.
 

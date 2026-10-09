@@ -124,7 +124,7 @@ const coil = (mark: string, preset = false): SymbolDef => ({
 /** A box, as STEP 7 draws S_ODT or TON: inputs on the left, outputs on the right, its name on top. */
 function box(
   title: string,
-  bottom: number,
+  foot: number,
   inputs: readonly (readonly [name: string, y: number])[],
   outputs: readonly (readonly [name: string, y: number])[],
   slots: readonly (readonly [name: string, side: "in" | "out", y: number])[],
@@ -143,14 +143,14 @@ function box(
       ...inputs.map(([name, y]) => [name, pin([-60, y], W)]),
       ...outputs.map(([name, y]) => [name, pin([60, y], E)]),
     ]),
-    box: [-40, -60, 40, bottom],
+    box: [-40, -60, 40, foot],
     orientation: { by: "full" },
     leads: [
       ...inputs.map(([, y]) => lead("in", y)),
       ...outputs.map(([, y]) => lead("out", y)),
       ...slots.map(([, side, y]) => lead(side, y)),
     ].join(""),
-    body: `M-40 -60H40V${bottom}H-40Z`,
+    body: `M-40 -60H40V${foot}H-40Z`,
     text: names,
     slots: Object.fromEntries(
       slots.map(([name, side, y]) => [
