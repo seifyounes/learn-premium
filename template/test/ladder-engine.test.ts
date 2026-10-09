@@ -44,6 +44,28 @@ describe("the two conveyors", () => {
     expect(measures(model, history).map((m) => [m.part, seconds(m.to - m.from)])).toEqual([["Delay", "5.0 s"]]);
   });
 
+  it("measures no delay from a history whose older scans were dropped while the input was already up", () => {
+    const run = new LadderRun(model);
+    const history = scansOf(start, scenario, cycle).map(({ ms, inputs }) =>
+      momentOf(run, run.scan(inputs, ms), inputs),
+    );
+    expect(
+      measures(
+        model,
+        history.filter((m) => m.ms >= 2000),
+      ),
+    ).toEqual([]);
+  });
+
+  it("take only a scan cycle that divides a second, so +1 s is one second of scans", () => {
+    for (const [ms, ok] of [
+      [100, true],
+      [700, false],
+      [5, false],
+    ] as const)
+      expect(sim.safeParse({ ...conveyors, cycle: ms }).success, `${ms} ms`).toBe(ok);
+  });
+
   it("keys each part as a Blind reader keys an editor screenshot", () => {
     expect([...screenshotKeys(model).values()]).toEqual([
       "N1 no I 0.0",
@@ -85,6 +107,39 @@ describe("what the engine refuses to run", () => {
     base.parts.map((p) => (p.id === id ? { ...p, ...change } : p));
 
   it("passes a plain rung", () => expect(ladderProblems(base)).toEqual([]));
+
+  it("takes timer and counter 0, as S7 numbers them, but no DB 0", () => {
+    expect(
+      ladderProblems({ ...base, parts: parts({ kind: "coil-sd", operand: "T 0", params: { preset: "S5T#1S" } }) }),
+    ).toEqual([]);
+    expect(ladderProblems({ ...base, parts: parts({ kind: "coil-cu", operand: "C 0" }) })).toEqual([]);
+    expect(
+      ladderProblems({ ...base, parts: parts({ kind: "ton", operand: "DB 0", params: { PT: "T#1S" } }) }).join(),
+    ).toMatch(/isn't an operand/);
+  });
+
+  it("compiles two calls on one TON instance with its temporaries and DB declared once", () => {
+    const twice: LadderModel = {
+      ...base,
+      parts: [
+        ...base.parts.filter((p) => p.id !== "K"),
+        { id: "T1", kind: "ton", network: 1, operand: "DB 1", params: { PT: "T#1S" } },
+        { id: "R2", kind: "power-rail", network: 2 },
+        { id: "T2", kind: "ton", network: 2, operand: "DB 1", params: { PT: "T#1S" } },
+      ],
+      nets: [
+        { id: "r", pins: ["R.t", "A.in"] },
+        { id: "a", pins: ["A.out", "T1.IN"] },
+        { id: "q1", pins: ["T1.Q"] },
+        { id: "r2", pins: ["R2.t", "T2.IN"] },
+        { id: "q2", pins: ["T2.Q"] },
+      ],
+    };
+    const awl = compileLadder(twice);
+    expect(awl.match(/tin1 : BOOL;/g)).toHaveLength(1);
+    expect(awl.match(/DATA_BLOCK DB 1/g)).toHaveLength(1);
+    expect(awl.match(/CALL SFB 4 , DB 1/g)).toHaveLength(2);
+  });
 
   it("a coil writing an input, a contact on a word, a timer without its preset", () => {
     expect(ladderProblems({ ...base, parts: parts({ operand: "I 1.0" }) })).toEqual([

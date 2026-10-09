@@ -601,6 +601,17 @@ const ladderModel = z.strictObject({
   watch: z.record(z.string(), z.enum(WATCH_TYPES)),
 });
 
+/**
+ * Milliseconds from one scan to the next: 10 to 1000, a whole fraction of a second, so the view's
+ * one-second step is exactly one second of scans.
+ */
+const scanCycle = z
+  .number()
+  .int()
+  .min(10)
+  .max(1000)
+  .refine((ms) => 1000 % ms === 0, "a scan cycle divides 1000 ms: 10, 20, 50, 100, 200, 500…");
+
 /** Inputs over time: their example values first, then each change at its scan's time (ms). */
 const timeline = z.strictObject({
   until: z.number().int().nonnegative(),
@@ -622,7 +633,7 @@ const ladderSim = z.strictObject({
   model: ladderModel,
   layout: layoutHints,
   /** Milliseconds from one scan to the next. */
-  cycle: z.number().int().positive().max(1000),
+  cycle: scanCycle,
   /** The example's input bits: the sim opens on them. */
   start: z.record(z.string(), bit),
   /** Each input, 0 or 1. */
@@ -641,7 +652,7 @@ export const ladderListing = z
     /** What it exercises, in a line. */
     covers: z.string().min(1),
     model: ladderModel,
-    cycle: z.number().int().positive().max(1000),
+    cycle: scanCycle,
     start: z.record(z.string(), bit),
     cases: z.array(timeline.extend({ name: z.string().min(1) })).min(1),
   })

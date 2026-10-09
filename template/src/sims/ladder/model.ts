@@ -66,7 +66,7 @@ export function parseOperand(text: string): Operand | undefined {
     const number = Number(numbered[2]);
     const kind = { T: "timer", C: "counter", DB: "db" }[(numbered[1] ?? "").toUpperCase()] as
       "timer" | "counter" | "db";
-    return number >= 1 && number <= 255 ? { kind, number } : undefined;
+    return number >= (kind === "db" ? 1 : 0) && number <= 255 ? { kind, number } : undefined;
   }
   const address = parseAddress(text);
   if (!address || address.peripheral) return undefined;

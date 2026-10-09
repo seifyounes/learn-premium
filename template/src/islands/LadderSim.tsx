@@ -29,8 +29,8 @@ interface Props {
   label: string;
 }
 
-/** The chart keeps this many scans; older ones scroll off. */
-const KEEP = 600;
+/** The chart keeps the scans of this many ms (twice its ten-second window); older ones scroll off. */
+const KEEP_MS = 20_000;
 /** Run plays this long before it pauses itself, in ms of the PLC's time. */
 const RUN_FOR = 30_000;
 
@@ -76,7 +76,7 @@ export default function LadderSim({ model, drawing, nets, start, scenario, cycle
       ms += cycle;
       added.push(momentOf(run.current, run.current.scan(inputs, ms), inputs));
     }
-    commit({ inputs, history: [...current.current.history, ...added].slice(-KEEP) });
+    commit({ inputs, history: [...current.current.history, ...added].filter((m) => m.ms > ms - KEEP_MS) });
   };
 
   useEffect(() => {
