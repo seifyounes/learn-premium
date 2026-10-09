@@ -11,6 +11,9 @@
 //            Runs every gate on its positive fixture and on each of its negative controls.
 //   rulings  [--module NN-slug] [--content DIR]
 //            Prints (JSON) every Slip and Divergence the content carries, for the Module wave's merge gate.
+//   shots    --module NN-slug --out DIR [--url URL] [--dist DIR] [--commit SHA] [--content DIR]
+//            The fresh reviewer's screenshots of the Module page (phone and laptop, every section
+//            open, each tab view) and shots.json naming the commit (the Course's HEAD by default).
 //
 // Exit codes: 0 green, 1 red, 2 bad usage.
 import { spawnSync } from "node:child_process";
@@ -19,6 +22,7 @@ import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { GATES } from "./index.ts";
 import { rulingsIn } from "./rulings.ts";
+import { takeShots } from "./shots.ts";
 import {
   GATE_POINTS,
   runControls,
@@ -45,6 +49,7 @@ async function main(argv: string[]): Promise<number> {
       url: { type: "string" },
       report: { type: "string" },
       commit: { type: "string" },
+      out: { type: "string" },
     },
   });
   const [command] = positionals;
@@ -100,6 +105,20 @@ async function main(argv: string[]): Promise<number> {
       );
       return verdict.green ? 0 : 1;
     }
+    case "shots": {
+      if (values.module === undefined || values.out === undefined)
+        throw new UsageError("shots needs --module NN-slug and --out DIR");
+      const manifest = await takeShots({
+        module: values.module,
+        out: resolve(values.out),
+        commit: values.commit ?? head(contentDir),
+        ...(values.url === undefined
+          ? { distDir: resolve(values.dist ?? join(TEMPLATE_DIR, "dist")) }
+          : { url: values.url }),
+      });
+      console.log(JSON.stringify(manifest));
+      return 0;
+    }
     case "rulings":
       console.log(JSON.stringify({ rulings: rulingsIn(input) }));
       return 0;
@@ -119,7 +138,7 @@ async function main(argv: string[]): Promise<number> {
       return result.ok ? 0 : 1;
     }
     default:
-      throw new UsageError(`unknown command "${command ?? ""}"; use run, verify, controls or rulings`);
+      throw new UsageError(`unknown command "${command ?? ""}"; use run, verify, controls, rulings or shots`);
   }
 }
 
