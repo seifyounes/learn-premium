@@ -272,7 +272,10 @@ describe("the control engine", () => {
   it("gives no settling time it can't see: a response slower than the scan", () => {
     // G(s) = 1/(s(s + 2·10⁻⁶)) at K = 1: ζ = 10⁻⁶, still swinging long past any scan.
     const endless: Model = { plant: { gain: 1, zeros: [], poles: [0, -0.000002] } };
+    // Seen before any scan starts, so tuning to it never holds the page.
+    const started = performance.now();
     expect(stepInfo(endless, 1, pinned)).toBeUndefined();
+    expect(performance.now() - started).toBeLessThan(200);
   });
 
   it("closes a third-order loop the same way, its step matching partial fractions", () => {
