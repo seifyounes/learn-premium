@@ -32,6 +32,16 @@ export class Args {
     return value;
   }
 
+  /** Every value after a flag that takes several (`--files a b c`), up to the next flag. */
+  list(name: string): string[] {
+    const at = this.#args.indexOf(name);
+    if (at === -1) return [];
+    const end = this.#args.findIndex((a, i) => i > at && a.startsWith("--"));
+    const values = this.#args.slice(at + 1, end === -1 ? undefined : end);
+    if (values.length === 0) throw new LedgerError("invalid", `${name} needs a value`);
+    return values;
+  }
+
   required(name: string): string {
     const value = this.optional(name);
     if (value === undefined) throw new LedgerError("invalid", `${name} is required`);

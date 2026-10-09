@@ -40,7 +40,7 @@ export function requireLedger(project: string): Ledger {
 }
 
 /** Applies `change` to the ledger for the session holding its lock; anyone else is refused. */
-function mutate<T = void>(project: string, holder: string, change: (ledger: Ledger) => T): T {
+export function mutate<T = void>(project: string, holder: string, change: (ledger: Ledger) => T): T {
   return updateLedger(project, (ledger) => {
     if (ledger === null) throw noLedger(project);
     if (ledger.lock?.holder !== holder) {
@@ -164,6 +164,7 @@ export function init(project: string, holder: string, release: string, intake: I
       jobs: [],
       checkpoints: [],
       lock: { holder, since: now(), tookOverFrom: null },
+      relaunches: [],
     };
     return { ledger, result: undefined };
   });
@@ -428,6 +429,7 @@ export function status(project: string) {
     waves: current(ledger.waves),
     jobs: current(ledger.jobs),
     checkpoints: current(ledger.checkpoints),
+    relaunches: current(ledger.relaunches),
     superseded: supersededRows(ledger),
     ...mediaItems(project),
   };
