@@ -201,6 +201,31 @@ describe("FUNCTION parameters", () => {
       "FUNCTION Both : VOID\nVAR_IN_OUT a : INT; b : INT; END_VAR\nBEGIN\na := a + 1;\nb := b + 1;\nEND_FUNCTION",
     );
     expect(after(m).n).toBe(2);
+    // Called as a statement, the FUNCTION still counts as run (Codex review).
+    expect(runCase(m, [{}]).constructs.has("FUNCTION Both")).toBe(true);
+  });
+
+  it("binds a VAR_OUTPUT to its actual variable too: writes land in the order the FUNCTION makes them (Codex review)", () => {
+    const m = fb(
+      "VAR n : INT; END_VAR",
+      "Outs(a := n, b := n);",
+      "FUNCTION Outs : VOID\nVAR_OUTPUT a : INT; b : INT; END_VAR\nBEGIN\na := 1;\nb := a + 1;\na := 3;\nEND_FUNCTION",
+    );
+    expect(after(m).n).toBe(3);
+  });
+});
+
+describe("what the listing may carry", () => {
+  it("skips a block attribute with a quoted value (Codex review)", () => {
+    const m = fb("VAR i : INT; END_VAR", "i := 1;");
+    const withVersion = { ...m, source: m.source.replace("FUNCTION_BLOCK T\n", "FUNCTION_BLOCK T\nVERSION : '1.0'\n") };
+    expect(after(withVersion).i).toBe(1);
+  });
+
+  it("marks a REPEAT's own line as run (Codex review)", () => {
+    const run = new SclRun(fb("VAR k : INT; END_VAR", "REPEAT\n  k := k + 1;\nUNTIL k >= 2\nEND_REPEAT;"));
+    run.scan({});
+    expect(run.ran.has(4)).toBe(true);
   });
 });
 

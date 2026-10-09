@@ -112,13 +112,15 @@ export function sclProblems(
   });
 
   const statementLines = new Set<number>();
-  for (const b of run.unit.blocks) for (const s of statementsIn(b.body)) statementLines.add(s.line);
+  // A FUNCTION's statements run inside its caller's step, so the trace can't stop on them: a ruling
+  // is marked on a line of the scanned block's own body.
+  for (const s of statementsIn(run.block.body)) statementLines.add(s.line);
   const ruled = new Set<number>();
   divergences.forEach((d, i) => {
     if (!statementLines.has(d.line - 1))
       add(
         ["divergences", i, "line"],
-        `no statement starts on line ${d.line}: a Divergence marks the line it was ruled on`,
+        `no statement of ${model.block} starts on line ${d.line}: a Divergence marks the line of the block it was ruled on`,
       );
     else if (ruled.has(d.line)) add(["divergences", i, "line"], `line ${d.line} already has a Divergence`);
     ruled.add(d.line);

@@ -641,6 +641,7 @@ export class SclRun {
         }
       }
       case "repeat": {
+        this.entry({ line: s.line, lastLine: s.line }, "repeat", "into the loop");
         for (;;) {
           const flow = this.exec(s.body, frame);
           if (flow === "return") return flow;
@@ -816,6 +817,8 @@ export class SclRun {
     }
     const fc = this.unit.blocks.find((b) => key(b.name) === key(e.name));
     if (!fc) throw new ListingError(e.line, `"${e.name}" isn't a function SCL has or a FUNCTION in the listing`);
+    // Called as a statement it never passes through ev(), which records the construct for an expression.
+    this.constructs.add(`FUNCTION ${e.name}`);
     if (fc.kind !== "FUNCTION")
       throw new ListingError(e.line, `calling a FUNCTION_BLOCK (${fc.name}) from the scan's FB isn't supported yet`);
     if (!statement && !fc.returns)
@@ -835,7 +838,6 @@ export class SclRun {
         if (section.kind !== "VAR_TEMP" && section.kind !== "VAR") params.push({ d, section: section.kind });
       }
     if (fc.returns) this.define(local, { name: fc.name, type: fc.returns, line: fc.line }, "RETURN");
-    const outs: { param: Place; actual: Place }[] = [];
     const given = new Set<string>();
     e.args.forEach((a, i) => {
       const p = a.name === undefined ? params[i] : params.find((x) => key(x.d.name) === key(a.name ?? ""));
@@ -849,21 +851,14 @@ export class SclRun {
       }
       if (a.value.kind !== "ref") throw new ListingError(e.line, `${p.d.name} is an output: give it a variable`);
       const actual = this.place(a.value.ref, frame);
-      if (p.section === "VAR_IN_OUT") {
-        // An in/out parameter is the actual variable itself: two naming the same one write the same place.
-        if (
-          param.type.kind !== "elementary" ||
-          actual.type.kind !== "elementary" ||
-          actual.type.name !== param.type.name
-        )
-          throw new ListingError(
-            e.line,
-            `${p.d.name} takes ${an(param.type.kind === "elementary" ? param.type.name : "elementary")} variable`,
-          );
-        local.aliases.set(key(p.d.name), actual);
-        return;
-      }
-      outs.push({ param, actual });
+      // An output or in/out parameter is the actual variable itself: two naming the same one write
+      // the same place, in the order the FUNCTION writes them.
+      if (param.type.kind !== "elementary" || actual.type.kind !== "elementary" || actual.type.name !== param.type.name)
+        throw new ListingError(
+          e.line,
+          `${p.d.name} takes ${an(param.type.kind === "elementary" ? param.type.name : "elementary")} variable`,
+        );
+      local.aliases.set(key(p.d.name), actual);
     });
     for (const p of params)
       if (!given.has(key(p.d.name)))
@@ -874,10 +869,6 @@ export class SclRun {
       this.execQuiet(fc.body, local);
     } finally {
       this.trace = saved;
-    }
-    for (const { param, actual } of outs) {
-      if (param.type.kind !== "elementary") continue;
-      this.write(actual, { type: param.type.name, value: local.store.get(param.path) ?? 0 }, e.line);
     }
     if (!fc.returns) return { type: "BOOL", value: 0 };
     const ret = this.variable(local, fc.name).type;
