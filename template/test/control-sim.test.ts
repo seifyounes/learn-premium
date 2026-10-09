@@ -142,7 +142,15 @@ describe("python-control stays a build-time oracle", () => {
   it("passes the loop's five eligibility checks, its engine run at K's min, mid and max", async () => {
     const result = await toolsGate.run({ contentDir: FIXTURE_COURSE, module: MODULE });
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toEqual({ modules: 1, sims: 1, pythonTools: 0, kinds: 1, checks: 5, engineSamples: 4 });
+    expect(result.coverage).toEqual({
+      modules: 1,
+      sims: 1,
+      pythonTools: 0,
+      parts: 0,
+      kinds: 1,
+      checks: 5,
+      engineSamples: 4,
+    });
   });
 
   it("blocks a Pyodide tool that would load python-control in the page", async () => {
