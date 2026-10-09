@@ -124,6 +124,8 @@ export default function LadderSim({ model, drawing, nets, start, scenario, cycle
     return [{ id: part.id, x: x0 + 8, y: y1 - 12, w: x1 - x0 - 16, fill: now?.gauges[part.id] ?? 0 }];
   });
   const watchBits = Object.entries(model.watch).filter(([, type]) => type === "BOOL");
+  /** The watched words (a count, a timer's time) after the last scan; a TON's ET has its own line. */
+  const watchWords = Object.entries(model.watch).filter(([operand, type]) => type !== "BOOL" && !(operand in scales));
   /** Each TON's elapsed time against its preset, in ms. */
   const timerReadout = timerParts(model)
     .filter((p) => p.kind === "ton")
@@ -221,6 +223,17 @@ export default function LadderSim({ model, drawing, nets, start, scenario, cycle
                 </span>
               ))}
             </p>
+            {watchWords.length > 0 && (
+              <p className="sim-readout tabular-nums">
+                {watchWords.map(([operand, type], i) => (
+                  <span key={operand}>
+                    {i > 0 && ", "}
+                    {operand} = <span className="font-quantity">{now?.watch[operand] ?? 0}</span>
+                    {type === "TIME" ? " ms" : ""}
+                  </span>
+                ))}
+              </p>
+            )}
             {timerReadout.length > 0 && (
               <p className="sim-readout tabular-nums">
                 {timerReadout.map((t, i) => (

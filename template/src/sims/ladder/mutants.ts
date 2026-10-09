@@ -5,7 +5,7 @@
 
 import { runCase, SEMANTICS, type GateCase, type Semantics } from "./engine.ts";
 import type { LadderModel } from "./model.ts";
-import { compareWithOracle, type LadderLog } from "./oracle.ts";
+import { asLogged, compareWithOracle, type LadderLog } from "./oracle.ts";
 
 export interface Mutant {
   defect: string;
@@ -55,11 +55,13 @@ export interface ControlOutcome {
 
 /** Each broken engine on the model's cases, against the true engine and awlsim's log. */
 export function runControls(model: LadderModel, cases: readonly GateCase[], log: LadderLog): ControlOutcome[] {
-  const truth = cases.map((c) => JSON.stringify(runCase(model, c)));
+  // What awlsim can see: memory and the timers' and counters' state after each scan (not the drawing's ink).
+  const seen = (c: GateCase, s?: Semantics) => JSON.stringify(runCase(model, c, s).map((r) => asLogged(model, r)));
+  const truth = cases.map((c) => seen(c));
   return MUTANTS.map(({ defect, semantics }) => {
     let reached: boolean;
     try {
-      reached = cases.some((c, i) => JSON.stringify(runCase(model, c, semantics)) !== truth[i]);
+      reached = cases.some((c, i) => seen(c, semantics) !== truth[i]);
     } catch {
       reached = true; // a broken engine that stops differs from the true one
     }

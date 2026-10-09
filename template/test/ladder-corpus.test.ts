@@ -5,6 +5,7 @@
 // every timer's Q, running state and time left, every count, every TON's instance data.
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { unexercised } from "../gates/ladder.ts";
 import { ladderCorpus, ladderRequestOf } from "../oracle/ladder.ts";
 import { PLC_KINDS } from "../src/sims/ladder/model.ts";
 import { MUTANTS, runControls } from "../src/sims/ladder/mutants.ts";
@@ -20,6 +21,8 @@ describe("the ladder corpus against awlsim", () => {
       expect(log.request, "the log was made from this model and these cases").toBe(ladderRequestOf(listing).hash);
       const agreement = compareWithOracle(listing.model, listing.cases, log);
       expect(agreement.mismatches.slice(0, 5)).toEqual([]);
+      // Its cases reach every part: each net (a branch that feeds nothing too) powered and unpowered.
+      expect(unexercised(listing.model, agreement.runs)).toEqual([]);
       expect(agreement.scans).toBe(listing.cases.reduce((n, c) => n + c.scans.length, 0));
     });
   }
