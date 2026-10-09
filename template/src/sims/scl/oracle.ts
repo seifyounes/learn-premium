@@ -91,8 +91,11 @@ export function compareWithBlind(
       result.mismatches.push(`${c.name}: the engine can't run the listing: ${(error as Error).message}`);
       return;
     }
-    for (const l of ours.ran) result.ran.add(l);
-    for (const k of ours.constructs) result.constructs.add(k);
+    // Coverage counts only scans the blind interpreter ran through: past a stop nothing was compared.
+    const stop = theirs.findIndex((scan) => "stopped" in scan);
+    const covered = stop < 0 ? ours : runCase(model, c.scans.slice(0, stop), interpreter, unit);
+    for (const l of covered.ran) result.ran.add(l);
+    for (const k of covered.constructs) result.constructs.add(k);
     for (const si of c.scans.keys()) {
       const where = `${c.name}, scan ${si + 1}`;
       const mine = ours.scans[si];
