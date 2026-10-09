@@ -17,10 +17,10 @@ export const ITEM_KINDS = ["number", "formula", "text", "annotation", "figure"] 
 
 const fraction: Schema<number> = (v, p) =>
   typeof v === "number" && v >= 0 && v <= 1 ? v : fail(p, "a fraction 0–1", v);
-const pageNumber: Schema<number> = (v, p) =>
+export const pageNumber: Schema<number> = (v, p) =>
   Number.isInteger(v) && (v as number) >= 1 ? (v as number) : fail(p, "a page or slide number", v);
 /** A region of the page as fractions of its width and height: x0, y0, x1, y1. */
-const box: Schema<[number, number, number, number]> = (v, p) => {
+export const box: Schema<[number, number, number, number]> = (v, p) => {
   if (!Array.isArray(v) || v.length !== 4) fail(p, "a box [x0, y0, x1, y1]", v);
   const [x0, y0, x1, y1] = arr(fraction)(v, p) as [number, number, number, number];
   if (!(x0 < x1 && y0 < y1)) fail(p, "a box with x0 < x1 and y0 < y1", v);
@@ -87,7 +87,7 @@ export const waveFolder = (privateFolder: string, module: string) => join(privat
 export const SETTLED_FILE = "reading.json";
 export const CHECKPOINT_ITEMS_FILE = "checkpoint-items.json";
 
-function readJsonFile<T>(path: string, schema: Schema<T>, what: string): T {
+export function readJsonFile<T>(path: string, schema: Schema<T>, what: string): T {
   if (!existsSync(path)) throw new LedgerError("invalid", `no ${what} at ${path}`);
   let data: unknown;
   try {

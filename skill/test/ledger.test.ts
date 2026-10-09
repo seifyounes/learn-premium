@@ -1,7 +1,7 @@
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { jsonInput, ledger, tempDir, writeFiles } from "./helpers.ts";
+import { jsonInput, ledger, tempDir, writeFiles, type Result } from "./helpers.ts";
 
 // sha256 of the literal file contents, computed independently of the code under test.
 const SHA256_ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
@@ -525,7 +525,7 @@ describe("the fix loop: two fix rounds, then the fallback, else a Checkpoint ite
 
   test("each kind of job falls back its own way; a job with no fallback goes to the Owner's Checkpoint", () => {
     const { record } = runningWave();
-    const spend = (job: string) => [1, 2, 3].map(() => record(job, "blocked", "red")).at(-1)!;
+    const spend = (job: string) => [1, 2, 3].map(() => record(job, "blocked", "red"))[2] as Result;
 
     expect(spend("tool-pendulum").out.next).toMatch(/next tool in the Discipline's Toolkit/);
     expect(spend("media-video").out.next).toMatch(/drop the media item/);
