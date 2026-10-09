@@ -293,6 +293,9 @@ export function locusBoard(
  * that is more, so a lightly damped response is drawn swing by swing, never aliased (capped for a
  * phone's sake).
  */
+/** Points the step board may compute, all gains together, to size its height. */
+const EXTENT_POINTS = 60_000;
+
 function plotSamples(model: Model, K: number, until: number): number {
   const fastest = Math.max(0, ...closedLoop(model, K).poles.map(([, im]) => Math.abs(im)));
   return Math.min(Math.max(300, Math.ceil((until * fastest * 16) / (2 * Math.PI))), 20_000);
@@ -322,10 +325,17 @@ export function stepBoard(
   // Its height holds every stable response a student can reach, either side of 0 (a negative gain
   // settles below it).
   // Read sample by sample: a fine slider over a long span holds more values than a spread can pass.
+  // The whole board shares one budget of points, split across the gains it samples, so opening the
+  // tab never holds a phone however wide the slider or long the span.
   let [hi, lo] = [0, 0];
-  for (const K of [start, ...gainsOf(tune)]) {
-    if (!closedLoop(model, K).stable) continue;
-    for (const [, y] of stepCurve(model, K, until, plotSamples(model, K, until))) {
+  const gains = [start, ...gainsOf(tune)];
+  const each = Math.max(50, Math.floor(EXTENT_POINTS / gains.length));
+  for (const K of gains) {
+    const loop = closedLoop(model, K);
+    if (!loop.stable) continue;
+    const final = (loop.numerator.at(-1) ?? 0) / (loop.denominator.at(-1) ?? 1);
+    [hi, lo] = [Math.max(hi, final), Math.min(lo, final)];
+    for (const [, y] of stepCurve(model, K, until, Math.min(plotSamples(model, K, until), each))) {
       if (y > hi) hi = y;
       if (y < lo) lo = y;
     }
