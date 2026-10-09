@@ -1,0 +1,12 @@
+{
+  "recompute": "learn-premium worked recompute v1",
+  "by": "fixture-course/tools/recompute-blender.py: load cells scaled and summed, apart from the sheet and the listing",
+  "cells": {
+    "D1": 187.5,
+    "E1": 58.59375,
+    "F1": 8.0,
+    "D3": 339.84375,
+    "E3": 106.201171875,
+    "F3": 14.0
+  }
+}
