@@ -184,8 +184,8 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/05-derivatives/"');
     expect(lab).toContain('href="/07-flanged-hub/"');
     expect(lab).toContain('href="/08-root-locus/"');
-    // The seven sims and the Pyodide tool, then the machine part.
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(8);
+    // The eight sims and the Pyodide tool, then the machine part.
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(9);
     expect(lab.match(/class="sim-card part-card"/g)).toHaveLength(1);
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
