@@ -50,8 +50,8 @@ export function unexercised(model: LadderModel, runs: readonly ScanResult[][]): 
   for (const net of model.nets) {
     const driven = driversOf(model, net);
     if (driven.length === 0) continue;
-    // A rail's net is always powered: it has nothing to show.
-    if (driven.every((pin) => model.parts.find((p) => `${p.id}.t` === pin)?.kind === "power-rail")) continue;
+    // A net a rail drives is always powered: it has nothing to show.
+    if (driven.some((pin) => model.parts.find((p) => `${p.id}.t` === pin)?.kind === "power-rail")) continue;
     const seen = new Set(scans.map((s) => s.levels[net.id]));
     if (!seen.has(1)) out.push(`net ${net.id} never carries power in any case`);
     if (!seen.has(0)) out.push(`net ${net.id} never loses power in any case`);
