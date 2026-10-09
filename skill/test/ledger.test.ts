@@ -487,6 +487,79 @@ describe("job results", () => {
   });
 });
 
+describe("the fix loop: two fix rounds, then the fallback, else a Checkpoint item", () => {
+  /** A running Module 01 wave and a `record job` bound to it. */
+  function runningWave() {
+    const { project } = mappedCourse();
+    const holder = ["--project", project, "--holder", "session-a"];
+    const { out: started } = ledger("wave", "start", ...holder, "--kind", "module", "--target", "01", "--branch", "b");
+    const record = (job: string, result: string, detail?: string) =>
+      ledger(
+        "record",
+        "job",
+        ...holder,
+        ...["--wave", started.wave, "--job", job, "--result", result],
+        ...(detail === undefined ? [] : ["--detail", detail]),
+      );
+    return { project, record };
+  }
+
+  test("a sim whose two fix rounds both fail falls back to its step-through, and nothing else can be recorded for it", () => {
+    const { record } = runningWave();
+
+    const first = record("sim-ramp", "blocked", "drawing gate: label side");
+    const round1 = record("sim-ramp", "blocked", "still the label side");
+    const round2 = record("sim-ramp", "blocked", "and again");
+    const passedAfter = record("sim-ramp", "passed");
+    const blockedAfter = record("sim-ramp", "blocked");
+    const fellBack = record("sim-ramp", "fell-back", "step-through of the ramp figure");
+
+    expect(first.out).toMatchObject({ ok: true, fixRounds: { used: 0, left: 2 } });
+    expect(round1.out).toMatchObject({ ok: true, fixRounds: { used: 1, left: 1 } });
+    expect(round2.out).toMatchObject({ ok: true, fixRounds: { used: 2, left: 0 }, exhausted: true });
+    expect(round2.out.next).toMatch(/fall back.*step-through animation/);
+    expect([passedAfter.code, blockedAfter.code]).toEqual([3, 3]);
+    expect(passedAfter.out.error).toMatch(/sim-ramp's two fix rounds are spent.*fell-back.*checkpoint/);
+    expect(fellBack.code).toBe(0);
+  });
+
+  test("each kind of job falls back its own way; a job with no fallback goes to the Owner's Checkpoint", () => {
+    const { record } = runningWave();
+    const spend = (job: string) => [1, 2, 3].map(() => record(job, "blocked", "red")).at(-1)!;
+
+    expect(spend("tool-pendulum").out.next).toMatch(/next tool in the Discipline's Toolkit/);
+    expect(spend("media-video").out.next).toMatch(/drop the media item/);
+    const writer = spend("writer");
+    expect(writer.out.next).toMatch(/no fallback.*--result checkpoint/);
+    expect(record("writer", "fell-back", "anything").code).toBe(2);
+    expect(record("writer", "checkpoint", "sheet 2 can't be written without the Owner's reading").code).toBe(0);
+  });
+
+  test("a fallback says what it fell back to", () => {
+    const { record } = runningWave();
+
+    const { code, out } = record("sim-ramp", "fell-back");
+
+    expect(code).toBe(2);
+    expect(out.error).toMatch(/--detail/);
+  });
+
+  test("a pass or an answered escalation ends the run of blocks: a later block gets two fresh fix rounds", () => {
+    const { record } = runningWave();
+    record("job-gates", "blocked", "red");
+    record("job-gates", "blocked", "red");
+    record("job-gates", "passed");
+
+    expect(record("job-gates", "blocked", "red after the Checkpoint answers").out.fixRounds).toEqual({
+      used: 0,
+      left: 2,
+    });
+    [1, 2].forEach(() => record("job-gates", "blocked", "red"));
+    record("job-gates", "checkpoint", "the gate needs the Owner's reading");
+    expect(record("job-gates", "passed").code).toBe(0);
+  });
+});
+
 describe("Checkpoint answers", () => {
   test("an answered Checkpoint item is stored, so a re-run finds the answer instead of asking again", () => {
     const { project } = mappedCourse();
