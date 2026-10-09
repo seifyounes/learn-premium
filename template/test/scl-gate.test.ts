@@ -81,7 +81,7 @@ describe("the scl gate", () => {
           outcome: "checkpoint",
           at: SIM,
           message: expect.stringMatching(
-            /^the example's values, scan 1: the blind interpreter stops on line 53 \(VAR_TEMP i is read before it is written; .*\), where the engine goes on\. The SCL manual leaves this result undefined: the Owner rules it at the Checkpoint, and the ruling is recorded under silent \(at: "line 53"\)$/,
+            /^mixed = 1 \(its slider's mid\), scan 1: the blind interpreter stops on line 53 \(VAR_TEMP i is read before it is written; .*\), where the engine goes on\. The SCL manual leaves this result undefined: the Owner rules it at the Checkpoint, and the ruling is recorded under silent \(at: "line 53"\)$/,
           ),
         },
       ]);

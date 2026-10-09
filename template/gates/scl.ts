@@ -287,8 +287,12 @@ function atBlockStart(source: string, code: string): string {
 function readsTempFirst(source: string): string {
   const temp = /VAR_TEMP\s+#?(\w+)\s*:\s*INT\s*;/i.exec(source)?.[1];
   const target = /VAR_OUTPUT[\s\S]*?\n\s*#?(\w+)\s*:\s*INT\s*;/i.exec(source)?.[1];
-  if (!temp || !target) throw new Error("the listing has no INT VAR_TEMP and INT output to plant a read in");
-  return atBlockStart(source, `#${target} := #${temp};`);
+  // Behind the last BOOL input, so only the cases that set it reach the read: the others still check the rest.
+  const inputs = [...source.matchAll(/VAR_INPUT([\s\S]*?)END_VAR/gi)].at(-1)?.[1] ?? "";
+  const bit = [...inputs.matchAll(/#?(\w+)\s*:\s*BOOL\s*;/gi)].at(-1)?.[1];
+  if (!temp || !target || !bit)
+    throw new Error("the listing has no INT VAR_TEMP, INT output and BOOL input to plant a read in");
+  return atBlockStart(source, `IF #${bit} THEN #${target} := #${temp}; END_IF;`);
 }
 
 /** Two INT constants added: the engine adds them as INTs and wraps, the blind interpreter folds them exactly. */

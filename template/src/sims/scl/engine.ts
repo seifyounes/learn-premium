@@ -664,9 +664,11 @@ export class SclRun {
     }
   }
 
+  /** A condition: a BOOL, or an arithmetic expression, TRUE when it isn't 0 (the manual, Conditions). */
   private bool(v: Value, line: number): boolean {
-    if (v.type !== "BOOL") throw new ListingError(line, `a condition is a BOOL, not ${an(v.type)}`);
-    return v.value === 1;
+    if (v.type === "BOOL") return v.value === 1;
+    if (v.type === "ANYINT" || INTEGER_RANK[v.type] !== undefined) return v.value !== 0;
+    throw new ListingError(line, `a condition is a BOOL or an arithmetic expression, not ${an(v.type)}`);
   }
 
   // ---- expressions ----

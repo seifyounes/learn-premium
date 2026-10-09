@@ -137,6 +137,11 @@ describe("control statements", () => {
     expect(after(m)).toMatchObject({ i: 5, n: 4, k: 6 });
   });
 
+  it("takes an arithmetic expression as a condition, TRUE when it isn't 0 (Codex review)", () => {
+    const m = fb("VAR_INPUT k : INT; END_VAR VAR_OUTPUT o : INT; END_VAR", "o := 0;\nIF k THEN o := 1; END_IF;");
+    expect(runCase(m, [{ k: 0 }, { k: -3 }]).scans.map((s) => s.values.o?.value)).toEqual([0, 1]);
+  });
+
   it("stops the scan on an index past its array's end, naming the line", () => {
     const m = fb("VAR a : ARRAY[1..3] OF INT; i : INT := 4; END_VAR", "a[1] := 1;\na[i] := 2;");
     const { trace, error } = new SclRun(m).scan({});
