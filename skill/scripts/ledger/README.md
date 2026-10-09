@@ -42,15 +42,20 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 | `wave start --holder H --kind module\|sitting --target ID --branch B` | Starts a wave at the pinned release; returns `{wave}`. A Module wave takes in its changed and deleted Materials (old rows superseded). Until a Module wave has merged, only the first Module's wave starts (refused, 3, for any other): Module 1 builds alone and writes the Course style sheet. |
 | `wave end --holder H --wave W --result merged\|failed [--commit SHA]` | Ends a wave; `merged` needs the full commit SHA it merged. The Module goes `live` or `failed`. |
 | `record job --holder H --wave W --job NAME --result passed\|blocked\|fell-back\|checkpoint [--started-at ISO] [--detail TEXT]` | A job's result. `--started-at` is when the main agent launched it, so the report's times are measured, not self-reported. Recording the same job again supersedes the old row. |
+| `record job … --result blocked` | The fix loop: answers with `fixRounds` (`used`, `left`) and `next`. A blocked job gets two fix rounds; when the second is blocked too (`exhausted`), only its fallback (`--result fell-back --detail "<what it fell back to>"`: a `sim-<name>` job to a step-through animation, `tool-<name>` to the next tool in the Discipline's Toolkit, `media-<kind>` dropped) or `--result checkpoint` can follow, and `passed` or `blocked` is refused (3). A job with no fallback is refused `fell-back` (2). A pass, a fallback or a Checkpoint ends a run of blocks. |
 | `record checkpoint --holder H --wave W --key K --question Q --answer A [--ruling slip\|divergence]` | The Owner's answer to a Checkpoint item. Keys are stable across runs (`01/sheet2-q3`). |
 | `record override --holder H --path P --gate-gap N` | A Course override of template file `P` (a path under `template/`), with its gate-gap issue on learn-premium. |
 | `supersede --holder H --row material\|module\|wave\|job\|checkpoint\|override --id ID --reason R` | Marks a row superseded; it stays as history. A superseded Module's Materials come back as new. A running wave, or a Module with one, is refused: end the wave first. |
+
+Relaunches are written by `../wave/README.md`'s `relaunch open` and `relaunch close`, which re-gate
+a dead subagent's files first; `status` lists them under `relaunches` (each predecessor file, its
+hash and re-gate finding count, and whether it was kept, fixed or discarded).
 
 ## Generated pages
 
 Every write regenerates `build-records/status.md` (Modules, sittings, running waves, Checkpoint
 answers, overrides, unmapped Materials) and `build-records/build-report.md` (each wave's branch,
-release, commit and measured times, and its jobs). Commit them with the ledger; don't edit them.
+release, commit and measured times, its jobs, and each relaunched subagent's files with their outcome). Commit them with the ledger; don't edit them.
 
 ## Layout it assumes in a Course project
 
