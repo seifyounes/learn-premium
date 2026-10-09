@@ -96,7 +96,7 @@ function durationSeconds(text: string, prefixes: readonly string[]): number {
 }
 
 /** `S5T#5S` as its S5TIME word (`W#16#0500`). */
-export const parseS5Time = (text: string): number => secondsToS5t(durationSeconds(text, ["S5T#", "S5TIME#"]));
+export const parseS5Time = (text: string): number => secondsToS5t(durationSeconds(text, ["S5T#"]));
 
 /** `T#5S` as its TIME in milliseconds. */
 export function parseTime(text: string): number {

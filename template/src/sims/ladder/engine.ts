@@ -210,6 +210,8 @@ export class LadderRun {
           }
         }
       };
+      /** The nets box outputs drive, inked from all their drivers once the network has run. */
+      const boxOutputs = new Set<string>();
       for (const part of parts) {
         if (!ELEMENTS[part.kind].acts) continue;
         this.act(part, (pin) => inputLevel(part, pin), now, ms);
@@ -217,18 +219,15 @@ export class LadderRun {
         // Its output's net, as it now reads: what the inked drawing shows.
         const out = ELEMENTS[part.kind].output;
         const net = out && netOf(this.model, `${part.id}.${out}`);
-        if (net) {
-          peeking = true;
-          levels[net.id] = output(part.id);
-          peeking = false;
-        }
+        if (net) boxOutputs.add(net.id);
       }
-      // A net of this network no element read (a dangling branch) shows as it reads at its end.
+      // A box's output line, and any net of this network no element read (a dangling branch), shows
+      // as it reads at the network's end: the OR of all its drivers, every box among them run.
       const own = new Set(parts.map((p) => p.id));
       peeking = true;
       for (const net of this.model.nets)
         if (
-          !(net.id in levels) &&
+          (!(net.id in levels) || boxOutputs.has(net.id)) &&
           net.pins.some((pin) => own.has(splitPin(pin)[0])) &&
           driversOf(this.model, net).length > 0
         )
@@ -417,7 +416,9 @@ export function gateCases(
       ["min", range.min],
       ["max", range.max],
     ] as const) {
-      if (value === start[operand]) continue;
+      // Only an input the example already holds at this value all along is the example itself.
+      const changes = example.events.some((e) => operand in e.set && e.set[operand] !== start[operand]);
+      if (value === start[operand] && !changes) continue;
       // The input held at the end all along: the example's other changes still happen.
       const events = example.events.map((e) => ({ ...e, set: { ...e.set, [operand]: value } }));
       cases.push({
