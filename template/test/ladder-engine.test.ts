@@ -118,6 +118,27 @@ describe("what the engine refuses to run", () => {
     ).toMatch(/isn't an operand/);
   });
 
+  it("inks a line two timer boxes drive, unread, as the OR of both", () => {
+    const parallel: LadderModel = {
+      ...base,
+      parts: [
+        ...base.parts.filter((p) => p.id !== "K"),
+        { id: "B1", kind: "s-odt", network: 1, operand: "T 1", params: { TV: "S5T#100MS" } },
+        { id: "B2", kind: "s-odt", network: 1, operand: "T 2", params: { TV: "S5T#1S" } },
+      ],
+      nets: [
+        { id: "r", pins: ["R.t", "A.in"] },
+        { id: "a", pins: ["A.out", "B1.S", "B2.S"] },
+        { id: "r1", pins: ["B1.R"] },
+        { id: "r2", pins: ["B2.R"] },
+        { id: "parallel", pins: ["B1.Q", "B2.Q"] },
+      ],
+    };
+    const run = new LadderRun(parallel);
+    run.scan({ "I 0.0": 1 }, 0);
+    expect(run.scan({ "I 0.0": 1 }, 100).levels.parallel).toBe(1);
+  });
+
   it("compiles two calls on one TON instance with its temporaries and DB declared once", () => {
     const twice: LadderModel = {
       ...base,

@@ -25,9 +25,9 @@ describe("the ladder gate", () => {
   it("passes the two conveyors against awlsim and against the key", async () => {
     const result = await ladderGate.run(input);
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toMatchObject({ modules: 1, sims: 1, cases: 5, sheetValues: 15 });
-    // The example, each input held at its other value, and the two written timelines: 91 + 91 + 91 + 91 + 21 scans.
-    expect(result.coverage.scans).toBe(385);
+    expect(result.coverage).toMatchObject({ modules: 1, sims: 1, cases: 7, sheetValues: 15 });
+    // The example, each input held at 0 and at 1 all along, and the two written timelines: 5 × 91 + 91 + 21 scans.
+    expect(result.coverage.scans).toBe(567);
     // A TON and NO contacts: the TON and parallel-branch engines are reached; the NC, S5 and counter ones aren't.
     expect(result.coverage).toMatchObject({ controlsCaught: 2, controlsNotReached: 4 });
   });
