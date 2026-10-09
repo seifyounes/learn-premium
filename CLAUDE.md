@@ -31,6 +31,17 @@ research, prototype and recommend, never decide on his behalf.
   claims one ticket, and records its answer on the ticket. Seif runs `/handoff` if a session
   breaks mid-ticket.
 
+## Test temp folders (2026-10-10)
+
+- Tests used to copy courses and repos into the system temp folder and never remove them: by
+  2026-10-09 some 13,000 `lp-*` folders (~25 GB) had filled Seif's C: drive and crashed programs.
+  Those leftover copies were deleted from `%TEMP%`; nothing in them was needed.
+- Now `test/temp-dir.ts` (Vitest global setup, in `skill/` and `template/`) gives each run its own
+  temp folder and removes it when the run ends. Keep it in both configs, and don't create test
+  scratch anywhere it doesn't cover. `LP_KEEP_TEST_TMP=1` keeps a run's folder for debugging.
+- Keep test temp on C: (SSD). On D: (a slow HDD) tests time out; `LP_TEST_TMP` exists, but don't
+  point it there.
+
 ## Agent skills
 
 ### Issue tracker
