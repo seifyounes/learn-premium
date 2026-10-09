@@ -37,6 +37,7 @@ const CONTENT_GATES = [
   "truth-table",
   "stl",
   "scl",
+  "pinned-definitions",
   "drawing",
   "part-checks",
   "tools",
