@@ -186,6 +186,34 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
     `main`, run the live gates on the live URL (`run --point live --url <live URL>`). A red live run
     rolls Vercel back (`template/README.md`, Deploy) and goes to the Owner.
 
+## Gate gaps and Course overrides
+
+A gate gap is a new kind of defect that no gate caught (the Owner, the fresh reviewer or you found
+it on a page the gates passed). Every one is filed on learn-premium, so it becomes a gate for every
+Course. `$G` is `scripts/gate-gap.ts` (`scripts/gate-gap/README.md`).
+
+1. **Write a synthetic minimal broken fixture** in `<P>/build-records/gate-gaps/<id>/`: the smallest
+   content (or page) that shows the defect, written by hand like the Fixture Course. Never copy a
+   Materials file, a Private-folder file, or the Professor's wording, numbers or figures into it.
+2. **The Course override, if the Course needs the fix now:** never edit `template/`. Copy the template
+   file to `<P>/overrides/<same path>` and fix it there; the build loads it in place of the template
+   file. Only site code and styles under `src/` can be overridden, never a gate, a script or the config.
+3. **Record it at once**, before anything else can break the session: `$L record gate-gap --id <id>
+   --title "<what no gate caught>" --defect "<what shipped, and which gate should have caught it>"
+   [--override <template path>]…`.
+4. **File it:** `node "$G" file --project <P> --holder <id> --id <id>`. It opens one issue labelled
+   `gate-gap` with the fixture, the Course and each override, and records the overrides in the ledger.
+   Exit 3 on a fixture file that matches the Materials or the Private folder: rewrite the fixture,
+   record again and file again. A run that failed on GitHub is safe to repeat.
+5. Commit the fixture, the override and the ledger. The integrity check (`$L integrity`, and `ready`)
+   refuses a file in `overrides/` that no recorded override names, and any edit to `template/`.
+
+Filing is not the Owner's call: it is how every Course's lesson reaches the others. Report each
+issue number to the Owner; triaging it (its own patch release, or the next one) is the Owner's.
+
+**Course done:** when the Owner calls the Course build done, record it with `$L done`. It is
+refused while a gate gap is unfiled: file each first.
+
 ## Media pass
 
 "Run media" is an explicit Owner command, separate from any Module wave and needing no ledger lock:

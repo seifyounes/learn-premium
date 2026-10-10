@@ -99,6 +99,9 @@ Course: Machine Learning
 Course override: `src/components/Beat.astro`
 ```
 
+The skill's gate-gap step (`skill/scripts/gate-gap/README.md`) files every gate gap in this shape,
+with its synthetic fixture inlined.
+
 ## The migration harness
 
 A major ships `template/migrations/v<major>.ts`. It exports `describe` (one line, used in the

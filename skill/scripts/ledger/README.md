@@ -27,7 +27,10 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 | `diff` | The Materials hash diff: `new` (path, kind), `changed` and `deleted` (path, kind, the Module they feed). |
 | `status` | Course, Materials path, template (release, file hashes, current overrides), lock, Modules with their Materials, Exam sittings with their state (`open`, `building`, `live`, from their Sitting waves), current waves, jobs and Checkpoint answers, every `superseded` row, and `media`: the media items as the Media pass last wrote them (read only; see `../media/README.md`), with `mediaError` set, and `media` empty, when that file fails its schema. |
 | `checkpoint --key K` | The Owner's current answer to Checkpoint item `K`, or `null`. Look here before asking. |
-| `integrity` | The template layer against its pinned hashes: `modified`, `added`, `missing`. Exit 1 if any. |
+| `integrity` | The template layer against its pinned hashes: `modified`, `added`, `missing`; and the overrides area against the ledger: `unrecordedOverrides` (a file in `overrides/` no current override names) and `missingOverrides` (a recorded override with no file). Exit 1 if any. |
+
+`status` also returns `gateGaps` (the current gate gaps, each with its `issue`, null while unfiled)
+and `done` (who marked the Course build done and when, or null).
 
 ## Writing (only the lock holder; `--holder <id>` on every one)
 
@@ -43,7 +46,9 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 | `wave end --holder H --wave W --result merged\|failed [--commit SHA]` | Ends a wave; `merged` needs the full commit SHA it merged. The Module goes `live` or `failed`. |
 | `record job --holder H --wave W --job NAME --result passed\|blocked\|fell-back\|checkpoint [--started-at ISO] [--detail TEXT]` | A job's result. `--started-at` is when the main agent launched it, so the report's times are measured, not self-reported. Recording the same job again supersedes the old row. |
 | `record checkpoint --holder H --wave W --key K --question Q --answer A [--ruling slip\|divergence]` | The Owner's answer to a Checkpoint item. Keys are stable across runs (`01/sheet2-q3`). |
-| `record override --holder H --path P --gate-gap N` | A Course override of template file `P` (a path under `template/`), with its gate-gap issue on learn-premium. |
+| `record override --holder H --path P --gate-gap N` | A Course override of template file `P` (a path under `template/`), with its gate-gap issue on learn-premium. `overrides/P` must exist, and `P` must be site code or styles under `src/` (`.astro`, `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.css`, `.json`), never a gate, script or config. Use it for a gate gap already filed (by another Course, say); filing this Course's own gate gap records its overrides. |
+| `record gate-gap --holder H --id ID --title T --defect D [--override P]…` | A defect class no gate caught, recorded unfiled the moment it's found. `ID` is lower-case words and dashes; the synthetic minimal broken fixture must already be in `build-records/gate-gaps/ID/`, and each `--override P` (repeatable) in `overrides/P`, under the rule above. Recording an unfiled one again replaces it; a filed one is refused (3): a new defect gets a new id. Clears `done`. Filing is the gate-gap step's (`../gate-gap/README.md`). |
+| `done --holder H` | Marks the Course build done. Refused (3) while a gate gap is unfiled or a wave runs. A new wave or gate gap clears it. |
 | `supersede --holder H --row material\|module\|wave\|job\|checkpoint\|override --id ID --reason R` | Marks a row superseded; it stays as history. A superseded Module's Materials come back as new. A running wave, or a Module with one, is refused: end the wave first. |
 
 ## Generated pages
@@ -60,5 +65,7 @@ release, commit and measured times, and its jobs). Commit them with the ledger; 
   `.gitignore` names (`node_modules/`, `dist/`…) are a local install or build, not template files,
   so they're never hashed; nor is any `.git/` folder, in the template layer or the Materials.
 - `build-records/`: committed, never deployed.
+- `overrides/`: the Course overrides area; `overrides/<path>` shadows `template/<path>` at build.
+- `build-records/gate-gaps/<id>/`: each gate gap's synthetic fixture, committed.
 
 Tests: `npm test` in `skill/` (Vitest, synthetic fixture Materials only).
