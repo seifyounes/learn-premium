@@ -13,6 +13,20 @@ the page templates place the components.
 Every file is read by `src/content/loaders.ts`. Bad LaTeX anywhere, or content that breaks the
 contract, fails the build and names the file (and, for LaTeX, the line).
 
+## Course overrides
+
+A Course project never edits its copy of the template. A local fix it needs before a release
+carries it is a Course override: `overrides/<path>` beside the template layer, which the build
+loads in place of `template/<path>` (`src/overrides/plugin.ts`; `OVERRIDES_DIR` names another
+folder, and the Fixture Course has none). It works on the server render, the client bundles and
+the stylesheet, and Tailwind generates the classes an override uses. An override may shadow only
+site code and styles under `src/` (`.astro`, `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.css`, `.json`)
+that the template has. One that shadows nothing, or would swap a gate, a script or the config,
+fails the build. The gates themselves run the template's own code, so an override changes what
+the build ships and the page gates see, never what the content gates check. Each override is tied
+to its gate gap in the Build ledger, and the ledger's integrity check refuses any file in
+`overrides/` that no recorded override names (`skill/scripts/ledger/README.md`).
+
 ## Routes and the fixed nav
 
 | Route                  | Page                                                            |
