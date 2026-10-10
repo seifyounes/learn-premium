@@ -166,6 +166,19 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
    dist-production`, then `npm run gates -- run --point deploy --content ../content --dist
    dist-production`. Commit the Gate reports (only build records change, so they still prove the
    content commit). Any content change after this re-runs all three points.
+
+   **The fresh reviewer**, once the module gates are green. Take its screenshots of the preview:
+   `npm run gates -- shots --module NN-<slug> --url <preview URL> --commit <the content commit>
+   --out <Private>/waves/NN/review/shots`. Launch a new reviewer subagent (`briefs/reviewer.md`;
+   never one that saw the writing or an earlier review) with that commit. It compares the screenshots
+   with the Materials' rendered pages and reads the content adversarially against them, into
+   `<Private>/waves/NN/review/review.json`. Then `node "$W" review --project <P> --module NN`.
+   **Re-verify every finding yourself before it blocks:** crop its Materials region (or open its
+   screenshot), look, and record a verdict in `<Private>/waves/NN/review/verdicts.json`
+   (`scripts/wave/README.md`): `confirmed`, on that crop, naming the job that fixes it, or
+   `rejected`, with the reason. A confirmed finding blocks the `review` job: its job fixes it, the
+   gates re-run on the new commit, and a fresh reviewer reviews again. Record `review` passed once
+   `review` exits 0.
 9. **The Checkpoint:** `node "$W" checkpoint --project <P> --module NN`. Post its `markdown` in chat as
    one batch: every item links to its exact spot on the preview, or names its crop. Store each
    answer: `$L record checkpoint --wave <W> --key <key> --question "<the item's question, exactly as
@@ -185,6 +198,35 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
     fast-forward `main` to the branch and push. Record `$L wave end --wave <W> --result merged --commit <full sha>`. Once Vercel deploys
     `main`, run the live gates on the live URL (`run --point live --url <live URL>`). A red live run
     rolls Vercel back (`template/README.md`, Deploy) and goes to the Owner.
+
+### Fix rounds and fallbacks
+
+A job is blocked when its gates or the fresh reviewer find a problem it made. Record each blocked
+result: `record job` answers with its `fixRounds` and, once both are spent, what comes `next`. The
+first block sends the job back to fix it (fix round 1); a second block, fix round 2; a third block
+spends them. Then name the job by what it makes so its fallback is known, and take it:
+
+- `sim-<name>`: the figure gets a step-through animation instead of the sim;
+- `tool-<name>`: the next tool in the Discipline's Toolkit;
+- `media-<kind>`: the media item is dropped, and the Module goes live without it.
+
+Record `--result fell-back --detail "<what it fell back to>"`. A job with no fallback (the writer,
+the recompute, a gate run) records `--result checkpoint --detail "<what it needs>"` and joins the
+batched Checkpoint. The ledger refuses another try once the rounds are spent, and `ready` refuses
+any job of the wave left blocked: a Module never merges red, and never stalls on one job.
+
+### A subagent that dies
+
+When a subagent dies mid-job (no report, a broken session), relaunch it, but never on top of
+unchecked work. First re-gate what its predecessor left: `node "$W" relaunch open --project <P>
+--holder <id> --wave <W> --job <name> --files <paths…>` (paths in the Course project, or
+`private:<path>` in the Private folder; a folder means every file in it). It returns each file with
+what the re-gate found. Give that to the relaunched subagent with its brief and
+`briefs/relaunch.md`: it reviews each file and leaves it kept, fixed or discarded before building
+on it. Record the outcomes with `relaunch close --outcomes <file>`; the ledger keeps them per file
+and the build report lists them, and `ready` waits for every relaunch to close. A relaunched Blind
+reader takes no `--files`: it gets its own predecessor's reading only, never the other reader's
+output.
 
 ## Media pass
 

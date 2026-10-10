@@ -2,16 +2,19 @@
 // Commands, flags and exit codes: README.md. Exit codes: 0 done; 1 open work (disputes to settle,
 // a wave not ready to merge); 2 bad arguments or input; 3 refused. The entry (../wave.ts) adds 4.
 import { privateFolderOf } from "../intake/create.ts";
-import { Args } from "../ledger/args.ts";
+import { Args, readJson } from "../ledger/args.ts";
 import { requireLedger } from "../ledger/ledger.ts";
 import { moduleId } from "../ledger/model.ts";
 import { SchemaError } from "../ledger/schema.ts";
 import { LedgerError } from "../ledger/store.ts";
 import { reconcile } from "./reading.ts";
+import { relaunchClose, relaunchOpen, templateJobGates, type JobGates } from "./relaunch.ts";
+import { reviewReport } from "./review.ts";
 import { checkpoint, readyProblems, templateVerifier, type Verifier } from "./wave.ts";
 
 export interface WaveDeps {
   verifier: Verifier;
+  jobGates: JobGates;
 }
 
 export interface RunResult {
@@ -21,7 +24,11 @@ export interface RunResult {
 
 export function run(args: string[], deps: Partial<WaveDeps> = {}): RunResult {
   try {
-    const { code = 0, ...out } = dispatch(new Args(args), { verifier: templateVerifier, ...deps });
+    const { code = 0, ...out } = dispatch(new Args(args), {
+      verifier: templateVerifier,
+      jobGates: templateJobGates,
+      ...deps,
+    });
     return { code, stdout: JSON.stringify({ ok: code === 0, ...out }) };
   } catch (error) {
     if (error instanceof LedgerError) return failure(error.kind === "refused" ? 3 : 2, error.message);
@@ -57,6 +64,21 @@ function dispatch(args: Args, deps: WaveDeps): Output {
     case "checkpoint": {
       const module = moduleId(args.required("--module"), "--module");
       return { ...checkpoint(project, module, args.optional("--preview")) };
+    }
+    case "review": {
+      const module = moduleId(args.required("--module"), "--module");
+      return reviewReport(privateFolderOf(requireLedger(project).intake.materialsPath), module);
+    }
+    case "relaunch": {
+      const [holder, waveId, job] = [args.required("--holder"), args.required("--wave"), args.required("--job")];
+      switch (args.subcommand()) {
+        case "open":
+          return relaunchOpen(project, holder, waveId, job, args.list("--files"), deps.jobGates);
+        case "close":
+          return relaunchClose(project, holder, waveId, job, readJson(args.required("--outcomes")), deps.jobGates);
+        default:
+          throw new LedgerError("invalid", "relaunch takes open or close");
+      }
     }
     case "ready": {
       const problems = readyProblems(project, args.required("--wave"), deps.verifier);

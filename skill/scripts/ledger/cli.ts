@@ -118,14 +118,13 @@ function record(args: Args, project: string): Output {
   switch (args.subcommand()) {
     case "job": {
       const startedAt = args.optional("--started-at");
-      recordJob(project, holder, {
+      return recordJob(project, holder, {
         wave: args.required("--wave"),
         job: args.required("--job"),
         result: oneOf(...JOB_RESULTS)(args.required("--result"), "--result"),
         startedAt: startedAt === undefined ? null : isoTime(startedAt, "--started-at"),
         detail: args.optional("--detail") ?? null,
       });
-      return {};
     }
     case "checkpoint": {
       const ruling = args.optional("--ruling");

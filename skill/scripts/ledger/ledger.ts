@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { MediaItem } from "../media/model.ts";
 import { readMediaFile } from "../media/store.ts";
+import { afterBlock, checkResult } from "./fix-loop.ts";
 import { hashTree } from "./hash.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
 import {
@@ -39,7 +40,7 @@ export function requireLedger(project: string): Ledger {
 }
 
 /** Applies `change` to the ledger for the session holding its lock; anyone else is refused. */
-function mutate<T = void>(project: string, holder: string, change: (ledger: Ledger) => T): T {
+export function mutate<T = void>(project: string, holder: string, change: (ledger: Ledger) => T): T {
   return updateLedger(project, (ledger) => {
     if (ledger === null) throw noLedger(project);
     if (ledger.lock?.holder !== holder) {
@@ -163,6 +164,7 @@ export function init(project: string, holder: string, release: string, intake: I
       jobs: [],
       checkpoints: [],
       lock: { holder, since: now(), tookOverFrom: null },
+      relaunches: [],
     };
     return { ledger, result: undefined };
   });
@@ -292,20 +294,27 @@ function takeInMaterials(ledger: Ledger, module: string, at: string): void {
   }
 }
 
-/** Records a job's result in a running wave. A job already recorded in that wave is superseded as a re-run. */
+/**
+ * Records a job's result in a running wave. A job already recorded in that wave is superseded as a
+ * re-run. A blocked result reports the job's fix rounds (fix-loop.ts); once they're spent only its
+ * fallback or a Checkpoint item can follow.
+ */
 export function recordJob(
   project: string,
   holder: string,
   job: { wave: string; job: string; result: JobResult; startedAt: string | null; detail: string | null },
-): void {
-  mutate(project, holder, (ledger) => {
+): ReturnType<typeof afterBlock> | Record<string, never> {
+  return mutate(project, holder, (ledger) => {
     const wave = current(ledger.waves).find((w) => w.id === job.wave);
     if (wave === undefined || wave.state !== "running") throw new LedgerError("invalid", `no running wave ${job.wave}`);
+    const history = ledger.jobs.filter((row) => row.wave === job.wave && row.job === job.job);
+    checkResult(job.job, job.result, job.detail, history);
     const at = now();
     for (const row of current(ledger.jobs)) {
       if (row.wave === job.wave && row.job === job.job) row.superseded = { at, reason: "re-run" };
     }
     ledger.jobs.push({ ...job, recordedAt: at, superseded: null });
+    return job.result === "blocked" ? afterBlock(job.job, [...history, job]) : {};
   });
 }
 
@@ -420,6 +429,7 @@ export function status(project: string) {
     waves: current(ledger.waves),
     jobs: current(ledger.jobs),
     checkpoints: current(ledger.checkpoints),
+    relaunches: current(ledger.relaunches),
     superseded: supersededRows(ledger),
     ...mediaItems(project),
   };

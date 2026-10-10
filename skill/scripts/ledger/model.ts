@@ -144,6 +144,35 @@ const checkpoint = obj({
   superseded,
 });
 
+export const RELAUNCH_OUTCOMES = ["kept", "fixed", "discarded"] as const;
+
+/**
+ * A subagent relaunched after its predecessor died mid-job: the predecessor's files, each re-gated
+ * before reuse (its hash then, and how many findings the re-gate had on it), and what the relaunched
+ * subagent did with it. `closedAt` is null until every file has its outcome. A path is relative to
+ * the Course project, or `private:<path>` in the Private folder. No finding's text is kept here: a
+ * Blind reader's file quotes the Professor.
+ */
+const relaunch = obj({
+  wave: nonEmpty,
+  job: nonEmpty,
+  openedAt: isoTime,
+  closedAt: nullable(isoTime),
+  files: arr(
+    obj({
+      path: nonEmpty,
+      before: sha256,
+      /** Whether a gate covers this kind of file at all; an uncovered one is only reviewed. */
+      covered: bool,
+      findings: (v, p) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : fail(p, "a count", v)),
+      outcome: nullable(oneOf(...RELAUNCH_OUTCOMES)),
+      /** The file's hash once kept or fixed; null when discarded or not settled yet. */
+      after: nullable(sha256),
+    }),
+  ),
+  superseded,
+});
+
 /** The Owner-confirmed Module map, or an addition to it: Modules with their Materials, and the files left out. */
 export const moduleMapSchema = obj({
   modules: arr(obj({ id: moduleId, slug: nonEmpty, title: nonEmpty, materials: arr(nonEmpty) })),
@@ -157,7 +186,14 @@ export const GATE_GAP_REPO = "seifyounes/learn-premium";
 export const issueNumber: Schema<number> = (v, p) =>
   Number.isInteger(v) && (v as number) > 0 ? (v as number) : fail(p, "an issue number", v);
 
-export const ledgerSchema = obj({
+/** A ledger written before relaunches were recorded reads as having none. */
+export const ledgerSchema: Schema<Infer<typeof ledgerShape>> = (v, p) =>
+  ledgerShape(
+    typeof v === "object" && v !== null && !Array.isArray(v) && !("relaunches" in v) ? { ...v, relaunches: [] } : v,
+    p,
+  );
+
+const ledgerShape = obj({
   schema: (v, p) => (v === SCHEMA_VERSION ? SCHEMA_VERSION : failVersion(p, v)),
   intake: intakeSchema,
   template: obj({
@@ -173,6 +209,7 @@ export const ledgerSchema = obj({
   jobs: arr(job),
   checkpoints: arr(checkpoint),
   lock: nullable(lock),
+  relaunches: arr(relaunch),
 });
 
 function failVersion(path: string, value: unknown): never {
@@ -194,6 +231,8 @@ export type JobResult = Job["result"];
 export type Checkpoint = Infer<typeof checkpoint>;
 export type Ruling = NonNullable<Checkpoint["ruling"]>;
 export type ModuleMap = Infer<typeof moduleMapSchema>;
+export type Relaunch = Infer<typeof relaunch>;
+export type RelaunchOutcome = (typeof RELAUNCH_OUTCOMES)[number];
 
 /** An Exam sitting's state, from its Sitting waves: open until one runs, live once one merges. */
 export function sittingState(ledger: Ledger, id: string): "open" | "building" | "live" {

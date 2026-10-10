@@ -98,9 +98,27 @@ function buildReport(ledger: Ledger): string {
           j.detail ?? "",
         ]),
       ),
+      ...relaunched(ledger, wave.id),
     ].join("\n");
   });
   return [`# ${ledger.intake.courseName}: build report`, "", GENERATED, "", ...sections].join("\n");
+}
+
+/** The wave's relaunched subagents: each dead predecessor's file, re-gated, and what became of it. */
+function relaunched(ledger: Ledger, wave: string): string[] {
+  const rows = current(ledger.relaunches).filter((r) => r.wave === wave);
+  if (rows.length === 0) return [];
+  return [
+    "",
+    "Relaunched subagents (their predecessors' files, re-gated before reuse):",
+    "",
+    table(
+      ["Job", "File", "Outcome", "Re-gate findings"],
+      rows.flatMap((r) =>
+        r.files.map((f) => [r.job, f.path, f.outcome ?? "not settled", f.covered ? f.findings : "no gate covers it"]),
+      ),
+    ),
+  ];
 }
 
 /** Wall-clock time the main agent measured between two ledger timestamps. */

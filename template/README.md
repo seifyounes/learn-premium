@@ -437,6 +437,11 @@ keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.
   and blocking it is a miss too.
 - `rulings [--module …]` prints (JSON) every Slip and Divergence the content carries; the Module
   wave's merge gate holds each one to a stored Owner ruling.
+- `shots --module … --out DIR [--url URL] [--commit SHA]` takes the fresh reviewer's screenshots of
+  the Module page on Chromium: at 375px (phone) and 1280px (laptop), every collapsible open and the
+  page scrolled through so its islands hydrate, once per tab view. `DIR/shots.json` lists them and
+  names the commit they show (the Course's HEAD unless `--commit` says). Without `--url` it serves
+  `--dist`.
 
 A Checkpoint item in a Gate report carries its `spot`: the page and anchor it shows at
 (`/01-slug/#worked-W01.1`), so the batched Checkpoint links to the exact place on the preview.
