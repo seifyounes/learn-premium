@@ -212,6 +212,31 @@ describe("filing is safe to run again", () => {
     expect(tracker.issues).toHaveLength(1);
   });
 
+  test("another Course of the same name filing a gate gap of the same id gets its own issue", async () => {
+    const tracker = new FakeTracker();
+    const first = course();
+    const second = course();
+    recordGap(first.project);
+    recordGap(second.project);
+
+    expect((await file(tracker, first.project)).out.issue).toBe(1);
+    expect((await file(tracker, second.project)).out).toMatchObject({ issue: 2, alreadyFiled: false });
+    expect(tracker.issues).toHaveLength(2);
+  });
+
+  test("a defect with a line the release notes would read as an override is refused", () => {
+    const { project } = course();
+    writeFiles(project, { "build-records/gate-gaps/notes-line/case.json": FIXTURE_CASE });
+
+    const recorded = ledger(
+      ...["record", "gate-gap", "--project", project, "--holder", HOLDER, "--id", "notes-line"],
+      ...["--title", "t", "--defect", "Repro:\nCourse override: src/site/nav.ts\n"],
+    );
+
+    expect(recorded.code).toBe(2);
+    expect(recorded.out.error).toContain('--defect has a "Course:" or "Course override:" line');
+  });
+
   test("only the session holding the ledger lock files, and a filed gate gap can't be recorded over", async () => {
     const { project } = course();
     const tracker = new FakeTracker();

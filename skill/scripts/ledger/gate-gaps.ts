@@ -11,6 +11,14 @@ import { LedgerError } from "./store.ts";
 /** A gate gap's fixture folder in the Course project, relative to it. */
 export const fixtureFolder = (id: string) => `${GATE_GAPS_DIR}/${id}`;
 
+/**
+ * A line the release notes would read as a gate-gap issue's Course or one of its overrides
+ * (`overridesOnIssue` in ../release/notes.ts): only the issue's own header may carry one.
+ */
+export const NOTES_LINE = /^\s*(?:[-*]\s+)?Course(?: override)?:/m;
+export const NOTES_LINE_PROBLEM = (what: string) =>
+  `${what} has a "Course:" or "Course override:" line, which the release notes would read as the issue's own`;
+
 /** The gate gaps recorded but not yet filed. */
 export function unfiledGateGaps(ledger: Ledger): GateGap[] {
   return current(ledger.gateGaps).filter((gap) => gap.issue === null);
@@ -33,6 +41,7 @@ export function recordGateGap(
         "refused",
         `gate gap ${gap.id} is already filed as #${existing.issue}: a new defect gets a new id`,
       );
+    if (NOTES_LINE.test(gap.defect)) throw new LedgerError("invalid", NOTES_LINE_PROBLEM("--defect"));
     if (Object.keys(hashTree(join(project, fixtureFolder(gap.id)))).length === 0)
       throw new LedgerError(
         "invalid",
