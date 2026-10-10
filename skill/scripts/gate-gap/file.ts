@@ -3,11 +3,11 @@
 // docs/release.md) and the synthetic minimal broken fixture inlined. Nothing from the Materials or
 // the Private folder ever leaves the machine: a fixture file matching one is refused before GitHub
 // is asked anything. Filing twice never opens two issues.
-import { readFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join, relative, sep } from "node:path";
 import { privateFolderOf } from "../intake/create.ts";
 import { fixtureFolder, markGateGapFiled } from "../ledger/gate-gaps.ts";
-import { hashTree } from "../ledger/hash.ts";
+import { hashFile, hashTree } from "../ledger/hash.ts";
 import { requireLedger } from "../ledger/ledger.ts";
 import { current, GATE_GAP_REPO, type GateGap, type Ledger } from "../ledger/model.ts";
 import { overrideProblem } from "../ledger/overrides.ts";
@@ -79,6 +79,25 @@ export async function fileGateGap(
   return { issue: filed.number, url: filed.url, alreadyFiled: false };
 }
 
+/** The sha256 of every file under `root` (git's internals aside) whose size is one of `sizes`. */
+function hashesOfSize(root: string, sizes: Set<number>): Set<string> {
+  let entries;
+  try {
+    entries = readdirSync(root, { recursive: true, withFileTypes: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return new Set();
+    throw error;
+  }
+  const hashes = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const path = join(entry.parentPath, entry.name);
+    if (relative(root, path).split(sep).includes(".git")) continue;
+    if (sizes.has(statSync(path).size)) hashes.add(hashFile(path));
+  }
+  return hashes;
+}
+
 /**
  * The gate gap's fixture, every file checked: text only, small enough to inline, and never a copy of
  * a Materials file (as on disk now or as the ledger inventoried it) or of a Private-folder file.
@@ -89,11 +108,13 @@ function readFixture(project: string, ledger: Ledger, gap: GateGap): FixtureFile
   const paths = Object.keys(hashes);
   if (paths.length === 0) throw new LedgerError("refused", `no fixture in ${folder}/: a gate gap is filed with one`);
 
+  // Only a file the size of a fixture file can be one: the Private folder holds media masters, never hashed whole.
+  const sizes = new Set(paths.map((path) => statSync(join(project, folder, path)).size));
   const materials = new Set([
-    ...Object.values(hashTree(ledger.intake.materialsPath)),
+    ...hashesOfSize(ledger.intake.materialsPath, sizes),
     ...ledger.materials.map((row) => row.hash),
   ]);
-  const privateFiles = new Set(Object.values(hashTree(privateFolderOf(ledger.intake.materialsPath))));
+  const privateFiles = hashesOfSize(privateFolderOf(ledger.intake.materialsPath), sizes);
   const decoder = new TextDecoder("utf-8", { fatal: true });
   const files: FixtureFile[] = [];
   let chars = 0;
