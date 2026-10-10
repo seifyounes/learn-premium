@@ -724,7 +724,16 @@ const sclSim = z.strictObject({
  * the same way in Node at build and in the page. Students tune it, never rewire it.
  */
 export const sim = z
-  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim, stlSim, sclSim, controlSim, ladderSim])
+  .discriminatedUnion("kind", [
+    gradientDescentSim,
+    logicSim,
+    tangentSim,
+    planeWallSim,
+    stlSim,
+    sclSim,
+    controlSim,
+    ladderSim,
+  ])
   .superRefine((s, ctx) => {
     if (s.kind === "ladder") for (const p of ladderSimProblems(s)) ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "stl")
