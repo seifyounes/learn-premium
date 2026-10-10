@@ -59,8 +59,9 @@ export async function takeShots(options: ShotsOptions): Promise<ShotsManifest> {
           ),
         );
         for (let view = 1; view <= views; view++) {
-          if (view > 1) {
-            // Every tab list shows its view-th tab where it has one.
+          // Every tab list shows its view-th tab where it has one, view 1 too: a Worked example
+          // with a figure opens on its second tab (Plot).
+          if (views > 1) {
             await page.evaluate((n) => {
               for (const list of document.querySelectorAll('[role="tablist"]'))
                 (list.querySelectorAll('[role="tab"]')[n - 1] as HTMLElement | undefined)?.click();

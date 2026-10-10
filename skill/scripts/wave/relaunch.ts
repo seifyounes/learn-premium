@@ -142,7 +142,8 @@ function regate(
     if (ran === null || !ran.ran)
       return { path: f.path, covered: true, findings: [`the job gates didn't run: ${ran?.error ?? "unknown"}`] };
     const findings = ran.findings
-      .filter((g) => g.at === undefined || g.at === at || g.at.startsWith(`${at}:`))
+      // A gate places a finding at the file, `file:line`, or a field of it (`file (body)`).
+      .filter((g) => g.at === undefined || g.at === at || g.at.startsWith(`${at}:`) || g.at.startsWith(`${at} `))
       .map((g) => `${g.gate}: ${g.message}`);
     return { path: f.path, covered: true, findings };
   });
@@ -198,7 +199,8 @@ export function relaunchOpen(
         "invalid",
         `a relaunched Blind reader is given only its own predecessor's reading (${own}), never ${others.join(", ")}`,
       );
-    files = locate(project, privateFolder, own);
+    // A reader that died before writing anything leaves nothing to re-gate: its successor starts fresh.
+    files = existsSync(join(privateFolder, own.slice(PRIVATE.length))) ? locate(project, privateFolder, own) : [];
   } else {
     if (given.length === 0) throw new LedgerError("invalid", "--files is required: the files the predecessor left");
     files = given.flatMap((g) => locate(project, privateFolder, g));
