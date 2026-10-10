@@ -9,6 +9,14 @@ export interface ModelPart {
   kind: SymbolKind;
   /** The text the figure prints beside the part; absent for an unlabelled symbol. */
   label?: string | undefined;
+  /** Values the figure prints in the symbol's slots (a timer's preset, the word its time goes to), by slot. */
+  notes?: Readonly<Record<string, string>> | undefined;
+  /**
+   * How a Blind reader names the part when its label doesn't single it out: an editor screenshot
+   * prints one operand on a contact and a coil alike, so its parts are read by network, kind and
+   * operand (`N1 no I 0.0`).
+   */
+  key?: string | undefined;
 }
 
 export interface ModelNet {
@@ -49,6 +57,8 @@ export interface Text {
 export interface PlacedPart extends Placement {
   id: string;
   label?: Text | undefined;
+  /** The part's values, each set in its symbol's slot. */
+  notes?: readonly Text[] | undefined;
 }
 
 /** An orthogonal polyline: no ids and no net names, so connectivity is read from geometry alone. */

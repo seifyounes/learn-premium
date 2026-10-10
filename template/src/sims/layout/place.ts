@@ -1,7 +1,17 @@
 // Placement: the hints' coarse cells snapped onto the pad's grid, grounds seated under the pin they
 // serve, near-aligned pins straightened, and each label set on the side the figure prints it.
 import { splitPin, textWidth, type LayoutHints, type PlacedPart, type SchematicModel } from "./drawing.ts";
-import { boxOf, GRID, pinsOf, symbolOf, type Point, type Side, type SymbolKind } from "./symbols.ts";
+import {
+  boxOf,
+  GRID,
+  pinsOf,
+  symbolOf,
+  toDrawing,
+  type Point,
+  type Side,
+  type Slot,
+  type SymbolKind,
+} from "./symbols.ts";
 
 /** One coarse step of the hints, in px: about one two-terminal part's length. */
 export const PITCH = 100;
@@ -32,10 +42,23 @@ export function place(model: SchematicModel, hints: LayoutHints): PlacedPart[] {
   seatGrounds(parts, model);
   straighten(parts, model);
   for (const part of parts) {
-    const label = model.parts.find((m) => m.id === part.id)?.label;
-    if (label !== undefined) part.label = labelFor(part, label, hints.parts[part.id]?.label ?? "right");
+    const m = model.parts.find((p) => p.id === part.id);
+    if (m?.label !== undefined) part.label = labelFor(part, m.label, hints.parts[part.id]?.label ?? "right");
+    const notes = Object.entries(m?.notes ?? {}).flatMap(([slot, text]) => {
+      const at = symbolOf(part.kind).slots?.[slot];
+      return at ? [noteFor(part, text, at)] : [];
+    });
+    if (notes.length > 0) part.notes = notes;
   }
   return parts;
+}
+
+/** A value set in its symbol's slot: the slot's point is the text's start, middle or end on its baseline. */
+function noteFor(part: PlacedPart, text: string, slot: Slot) {
+  const [x, y] = toDrawing(part, slot.at);
+  const w = textWidth(text);
+  const left = slot.anchor === "start" ? x : slot.anchor === "middle" ? x - w / 2 : x - w;
+  return { text, x: Math.round(left), y: Math.round(y) };
 }
 
 const pinAt = (byId: Map<string, PlacedPart>, key: string): Point | undefined => {

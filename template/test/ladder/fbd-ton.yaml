@@ -1,0 +1,64 @@
+covers: FBD's operands, negation, AND, OR, assignment, set and reset boxes, and the IEC TON (IN, PT, Q, ET) with an S_ODT box beside it, in FBD
+model:
+  language: FBD
+  parts:
+    - { id: A1, kind: fbd-in, network: 1, operand: I 0.0 }
+    - { id: B1, kind: fbd-in, network: 1, operand: I 0.1 }
+    - { id: N1, kind: fbd-not, network: 1 }
+    - { id: G1, kind: fbd-and, network: 1 }
+    - { id: C1, kind: fbd-in, network: 1, operand: M 0.0 }
+    - { id: G2, kind: fbd-or, network: 1 }
+    - { id: Y1, kind: fbd-assign, network: 1, operand: M 0.0 }
+    - { id: A2, kind: fbd-in, network: 2, operand: I 0.2 }
+    - { id: S2, kind: fbd-s, network: 2, operand: M 0.1 }
+    - { id: B2, kind: fbd-in, network: 2, operand: I 0.3 }
+    - { id: R2, kind: fbd-r, network: 2, operand: M 0.1 }
+    - { id: M3, kind: fbd-in, network: 3, operand: M 0.0 }
+    - { id: T3, kind: ton, network: 3, operand: DB 1, params: { PT: T#1S500MS, ET: MD 20 } }
+    - { id: Y3, kind: fbd-assign, network: 3, operand: Q 4.0 }
+    - { id: M4, kind: fbd-in, network: 4, operand: M 0.1 }
+    - { id: X4, kind: fbd-in, network: 4, operand: I 0.3 }
+    - { id: T4, kind: s-odt, network: 4, operand: T 1, params: { TV: S5T#800MS, BI: MW 30 } }
+    - { id: N4, kind: fbd-not, network: 4 }
+    - { id: Y4, kind: fbd-assign, network: 4, operand: Q 4.1 }
+    - { id: A5, kind: fbd-in, network: 5, operand: I 0.4 }
+    - { id: T5, kind: ton, network: 5, operand: DB 2, params: { PT: T#300MS } }
+    - { id: Y5, kind: fbd-assign, network: 5, operand: Q 4.2 }
+  nets:
+    - { id: a1, pins: [A1.t, G1.in1] }
+    - { id: b1, pins: [B1.t, N1.in] }
+    - { id: nb1, pins: [N1.out, G1.in2] }
+    - { id: g1, pins: [G1.out, G2.in1] }
+    - { id: c1, pins: [C1.t, G2.in2] }
+    - { id: y1, pins: [G2.out, Y1.in] }
+    - { id: a2, pins: [A2.t, S2.in] }
+    - { id: b2, pins: [B2.t, R2.in] }
+    - { id: m3, pins: [M3.t, T3.IN] }
+    - { id: q3, pins: [T3.Q, Y3.in] }
+    - { id: m4, pins: [M4.t, T4.S] }
+    - { id: x4, pins: [X4.t, T4.R] }
+    - { id: q4, pins: [T4.Q, N4.in] }
+    - { id: y4, pins: [N4.out, Y4.in] }
+    - { id: a5, pins: [A5.t, T5.IN] }
+    - { id: q5, pins: [T5.Q, Y5.in] }
+  inputs: [I 0.0, I 0.1, I 0.2, I 0.3, I 0.4]
+  watch: { M 0.0: BOOL, M 0.1: BOOL, Q 4.0: BOOL, Q 4.1: BOOL, Q 4.2: BOOL, MD 20: TIME, MW 30: INT }
+cycle: 100
+start: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 0, I 0.4: 0 }
+cases:
+  - name: a latch held through the TON's time, broken before it, and set and reset boxes
+    until: 4000
+    events:
+      - { at: 100, set: { I 0.0: 1, I 0.2: 1 } }
+      - { at: 200, set: { I 0.0: 0, I 0.2: 0 } }
+      - { at: 1000, set: { I 0.3: 1 } }
+      - { at: 1100, set: { I 0.3: 0 } }
+      - { at: 1200, set: { I 0.2: 1, I 0.4: 1 } }
+      - { at: 1300, set: { I 0.4: 0 } }
+      - { at: 1400, set: { I 0.4: 1 } }
+      - { at: 2500, set: { I 0.1: 1, I 0.0: 1 } }
+      - { at: 2600, set: { I 0.0: 0 } }
+      - { at: 2700, set: { I 0.1: 0 } }
+      - { at: 2800, set: { I 0.0: 1 } }
+      - { at: 2900, set: { I 0.0: 0, I 0.3: 1 } }
+      - { at: 3000, set: { I 0.3: 0, I 0.2: 0 } }

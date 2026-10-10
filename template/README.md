@@ -158,6 +158,7 @@ kinds:
 | `stl`              | automation    | the Professor's STL listing on the S7 core, statement by statement | the inputs (switches, raw values) | awlsim, bit for bit after every statement |
 | `scl`              | automation    | the Professor's SCL function block on the S7 core, a call a scan   | the block's inputs                | the blind interpreter, on every scan      |
 | `control`          | control       | K·G(s) under unity feedback: poles, exact step, Bode, margins      | K (a pole drags)                  | python-control (build-time oracle)        |
+| `ladder`           | automation    | the Professor's LAD or FBD networks on the S7 core, scan by scan   | the input bits, and time          | awlsim on the compiled STL, every scan    |
 
 - **Gradient descent** (`src/islands/GradientDescentSim.tsx`): its table fills in hand order and
   the red pen rings each new θ. The path moves on the contours of J, and α can diverge.
@@ -275,6 +276,46 @@ response stays within ±band of its final value from Ts on) and `riseTime.from`/
 the final value). A kind names the definitions its engine works to (`definitions` in
 `src/sims/kinds.ts`); the page and the gates hand them to the engine, and a build of a sim whose
 definitions the style sheet doesn't pin fails, naming the missing one.
+
+### The ladder and FBD sim
+
+The S7 core also carries the timers and counters a network calls (`src/sims/s7/timers.ts`): the
+five S5 timers (SP, SE, SD, SS, SF), the S5 counter (CU, CD, S, R, 0 to 999) and the IEC TON
+(SFB 4), each step for step with awlsim's own, down to its float arithmetic on seconds and the
+moments a timer settles its Q (only when it is run or read). Where awlsim parts from a real S7 the
+engine follows awlsim, and `test/s7-timers.test.ts` names each point: the last time-base step is
+rounded (a real S7 counts down whole steps), an SS restarted unread after its time keeps Q at 0, and
+an SF's time stops, keeping its value, while its RLO is back at 1.
+
+A ladder sim (`kind: ladder`, `src/sims/ladder/`) holds the networks as a netlist of the PLC pack's
+symbols (`model`: `language` LAD or FBD, `parts` each with its `network`, its `operand` and its
+values in `params`, `nets`, the input bits students set as `inputs`, and the `watch` table, a TIME
+being a DINT of milliseconds), its Layout hints (every element at turn 0, read left to right), the
+scan `cycle` in ms, the example's input bits (`start`) and timeline (`scenario`: `until`, and each
+change at its scan's time in `events`), and more timelines as `cases`. A net is the OR of what
+drives it (a ladder's parallel branches); each network runs its coils, timers, counters and boxes in
+the model's order, reading the power that reaches each one at that moment, as STEP 7's compiled
+STL does. Its quantities are each watched value after each scan of the example's timeline, named
+`operand@ms` (`Q 4.1@6000`), so `sheet` maps a timing table's cells to them.
+
+The view (`src/islands/LadderSim.tsx`) opens with the example's timeline run: students press the
+inputs (read by the next scan) and step a scan, run on a second, or Run in real time; each rung
+segment carrying power inks in, a coil the power reaches is inked, each timer box fills a gauge as it
+runs, and the timing chart (`src/islands/sim/timing-chart.tsx`) shows the last ten seconds with each
+on-delay measured in red pen from its input rising to its Q rising.
+
+Its independent check is awlsim again: the model compiled to STL (`compile.ts`, a path apart from
+the engine's power flow; a TON is a `CALL SFB 4` on its instance DB) runs in awlsim at the scans' own
+times, its clock held by `oracle/awlsim_ladder.py`, and `npm run oracle -- write` keeps the log in
+`build-records/oracle/<NN-slug>/<name>.json`. The template's corpus (`test/ladder/`) runs every
+element of the PLC pack, every S5 timer and counter as a box and as a coil, the TON and every FBD
+box, against awlsim.
+
+A STEP 7 editor screenshot can be a schematic sim's figure: its Blind reader keys each part by
+network, kind and operand as printed (`N1 no I0.0`, `N1 coil Q4.0`; ` #2` on a repeat in one
+network), since one operand marks a contact and the coil it seals in, and every power rail pin is
+`POWER.t`. A part's values (a timer's preset, the word its time goes to) are drawn in its symbol's
+slots and held to the same legibility as labels.
 
 ### The layout core
 
@@ -468,6 +509,7 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `pinned-definitions`  | job, deploy    | every definition a live sim's numbers are read by (settling band, rise limits) is pinned in the Course style sheet, and its recompute worked to exactly that one                                                                                                                                                                                                         |
 | `stl`                 | job, deploy    | every STL listing agrees with its awlsim log bit for bit after every statement of every case; every instruction it uses runs in a case; nine broken interpreters, each caught wherever the cases reach its defect; the sheet three ways; an unsupported instruction needs a Gate gap                                                                                     |
 | `scl`                 | job, deploy    | every SCL listing agrees with the blind interpreter on every variable after every scan of every case (a value they part on blocks unless listed `silent`); a result the manual leaves undefined is a Checkpoint item until ruled; every construct runs in a case; every Divergence line is reached; seven broken interpreters caught where reached; the sheet three ways |
+| `ladder`              | job, deploy    | every ladder or FBD sim agrees with its awlsim log bit for bit after every scan of every case; every rung segment powered and unpowered, every timer run out, every counter counted; six broken engines, each caught wherever the cases reach its defect; the sheet three ways, exactly                                                                                  |
 | `part-checks`         | job, deploy    | every machine part's GLB against its B-rep record (each tagged dimension and the bounding box within 0.01 mm), its volume against the independent sum of the drawing's primitives (0.5 %); a scaled or assumed dimension is a Checkpoint item linking to the viewer                                                                                                      |
 | `drawing`             | job, deploy    | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                                                                                                                                                                                        |
 | `tools`               | job, deploy    | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable                                                                                                                                                                        |

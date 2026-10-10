@@ -7,6 +7,8 @@ import { BLOCK_DIAGRAM_KINDS } from "../sims/layout/block-diagram.ts";
 import { turnSchema } from "../sims/layout/check.ts";
 import { SIDES } from "../sims/layout/symbols.ts";
 import { schematicProblems } from "../sims/layout/validate.ts";
+import { LANGUAGES, PLC_KINDS, WATCH_TYPES } from "../sims/ladder/model.ts";
+import { ladderSimProblems } from "../sims/ladder/validate.ts";
 import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
 import { PROVENANCE_TAGS } from "../provenance/values.ts";
 import { S7_TYPES } from "../sims/s7/memory.ts";
@@ -573,6 +575,91 @@ const controlSim = z.strictObject({
     .optional(),
 });
 
+/** The Professor's ladder (LAD) or FBD networks as a netlist of the PLC pack's symbols. */
+const ladderModel = z.strictObject({
+  language: z.enum(LANGUAGES),
+  parts: z
+    .array(
+      z.strictObject({
+        id: partId,
+        kind: z.enum(PLC_KINDS),
+        /** The network it sits in, as the figure numbers them. */
+        network: z.number().int().positive(),
+        /** What it reads or writes: `I 0.0`, `Q 4.0`, `T 1`, `C 1`, or a TON's instance `DB 1`. */
+        operand: z.string().min(1).optional(),
+        /** What the figure prints above it, when not the operand (a symbolic name). */
+        label: z.string().min(1).optional(),
+        /** Its values by slot, as the figure prints them: `TV: S5T#5S`, `PT: T#5S`, `PV: C#5`, `BI: MW 10`, `ET: MD 20`. */
+        params: z.record(z.string(), z.string().min(1)).optional(),
+      }),
+    )
+    .min(1),
+  nets: z.array(z.strictObject({ id: z.string().min(1), pins: z.array(pinRef).min(1) })).min(1),
+  /** The input bits students set, in the order the controls show them. */
+  inputs: z.array(z.string().min(1)).min(1).max(8),
+  /** The operands shown after each scan, with their types (a TIME is a DINT of milliseconds). */
+  watch: z.record(z.string(), z.enum(WATCH_TYPES)),
+});
+
+/**
+ * Milliseconds from one scan to the next: 10 to 1000, a whole fraction of a second, so the view's
+ * one-second step is exactly one second of scans.
+ */
+const scanCycle = z
+  .number()
+  .int()
+  .min(10)
+  .max(1000)
+  .refine((ms) => 1000 % ms === 0, "a scan cycle divides 1000 ms: 10, 20, 50, 100, 200, 500…");
+
+/** Inputs over time: their example values first, then each change at its scan's time (ms). */
+const timeline = z.strictObject({
+  until: z.number().int().nonnegative(),
+  events: z.array(z.strictObject({ at: z.number().int().nonnegative(), set: z.record(z.string(), bit) })).default([]),
+});
+
+/**
+ * A ladder or FBD sim (`src/sims/ladder/engine.ts`): the Professor's networks run on the S7 core,
+ * scan after scan at the scans' own times, drawn by the layout core from its hints. Students set
+ * the inputs and run time on; the rungs carrying power ink in, each timer shows its elapsed time, and
+ * a timing chart measures it. awlsim, the build oracle, runs the networks compiled to STL on the same
+ * timelines and must agree bit for bit after every scan (`gates/ladder.ts`).
+ */
+const ladderSim = z.strictObject({
+  kind: z.literal("ladder"),
+  ...simCommon,
+  /** awlsim recomputes every model at build. */
+  recompute: z.literal("independent"),
+  model: ladderModel,
+  layout: layoutHints,
+  /** Milliseconds from one scan to the next. */
+  cycle: scanCycle,
+  /** The example's input bits: the sim opens on them. */
+  start: z.record(z.string(), bit),
+  /** Each input, 0 or 1. */
+  tune: z.record(z.string(), z.strictObject({ min: z.literal(0), max: z.literal(1), step: z.literal(1) })),
+  /** The Worked example's timeline: the sheet reads the watched values at its scans. */
+  scenario: timeline,
+  /** More timelines for the gate (a timer reset part-way, a counter run to its preset). */
+  cases: z.array(timeline.extend({ name: z.string().min(1) })).default([]),
+  /** A ladder's step-through would be a drawn figure: it always ships live, checked by awlsim. */
+  stepThrough: z.never().optional(),
+});
+
+/** A ladder or FBD model as the template's own awlsim corpus writes one (`test/ladder/`): no drawing, just cases. */
+export const ladderListing = z
+  .strictObject({
+    /** What it exercises, in a line. */
+    covers: z.string().min(1),
+    model: ladderModel,
+    cycle: scanCycle,
+    start: z.record(z.string(), bit),
+    cases: z.array(timeline.extend({ name: z.string().min(1) })).min(1),
+  })
+  .superRefine((l, ctx) => {
+    for (const p of ladderSimProblems(l)) ctx.addIssue({ code: "custom", ...p });
+  });
+
 /**
  * An SCL listing (`src/sims/scl/engine.ts`), run live on the S7 core: each scan calls the listing's
  * FUNCTION_BLOCK once, students set its inputs and step a statement or a scan at a time, with a
@@ -637,8 +724,18 @@ const sclSim = z.strictObject({
  * the same way in Node at build and in the page. Students tune it, never rewire it.
  */
 export const sim = z
-  .discriminatedUnion("kind", [gradientDescentSim, logicSim, tangentSim, planeWallSim, stlSim, sclSim, controlSim])
+  .discriminatedUnion("kind", [
+    gradientDescentSim,
+    logicSim,
+    tangentSim,
+    planeWallSim,
+    stlSim,
+    sclSim,
+    controlSim,
+    ladderSim,
+  ])
   .superRefine((s, ctx) => {
+    if (s.kind === "ladder") for (const p of ladderSimProblems(s)) ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "stl")
       for (const p of stlProblems(s.model, s.start, s.tune, s.cases)) ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "scl")
@@ -718,6 +815,7 @@ export const SIM_KINDS = [
   "stl",
   "scl",
   "control",
+  "ladder",
 ] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /**

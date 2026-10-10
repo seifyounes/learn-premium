@@ -1853,6 +1853,97 @@
     fill: var(--color-graphite);
     stroke: none;
   }
+  /* A symbol's own words (a box's name and pins, a coil's letters), a part's values in its slots,
+     and a coil or box the power reaches, drawn heavier in graphite. */
+  .schematic-symbol-text {
+    font-family: var(--font-quantity);
+    fill: var(--color-graphite);
+    stroke: none;
+  }
+  .schematic-symbol.is-high {
+    stroke-width: 2.6;
+  }
+  .schematic-symbol.is-high .schematic-lead {
+    stroke: var(--color-graphite);
+    stroke-width: 2.6;
+  }
+
+  /* The ladder sim: the networks across the sim, the keys and the timing chart below. */
+  .ladder-grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "figure" "controls" "chart";
+  }
+  @container sim (width >= 900px) {
+    .ladder-grid {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "figure figure"
+        "controls chart";
+      gap: 20px 32px;
+    }
+  }
+  .ladder-figure {
+    grid-area: figure;
+  }
+  .ladder-controls {
+    grid-area: controls;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+  .ladder-chart {
+    grid-area: chart;
+    min-inline-size: 0;
+  }
+  /* A timer's gauge: a pencil track its elapsed time fills in graphite. */
+  .ladder-gauge-track {
+    fill: none;
+    stroke: var(--color-pencil);
+    stroke-width: 1;
+  }
+  .ladder-gauge-fill {
+    fill: var(--color-graphite);
+  }
+  .timing-chart {
+    display: block;
+    max-inline-size: none;
+  }
+  .timing-grid {
+    stroke: var(--color-grid-fine);
+    stroke-width: 1;
+  }
+  .timing-base {
+    stroke: var(--color-pencil);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+  }
+  .timing-trace {
+    fill: none;
+    stroke: var(--color-graphite);
+    stroke-width: 2;
+    stroke-linejoin: miter;
+  }
+  .timing-label {
+    font-family: var(--font-quantity);
+    fill: var(--color-graphite);
+  }
+  /* The measured delay is the red pen's: the one mark the student is asked to read. */
+  .timing-measure path {
+    fill: none;
+    stroke: var(--color-red-pen);
+    stroke-width: 1.5;
+  }
+  .timing-guide {
+    stroke: var(--color-red-pen);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+  .timing-measure-text {
+    font-family: var(--font-quantity);
+    fill: var(--color-red-pen);
+  }
   .logic-input {
     gap: 8px;
   }

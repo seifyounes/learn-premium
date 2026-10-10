@@ -9,7 +9,7 @@ import { stringify } from "yaml";
 import { sim as simSchema } from "../src/content/contract.ts";
 import { moduleOf } from "../src/content/layout.ts";
 import { readStructured } from "../src/content/loaders.ts";
-import { isSchematic, type SchematicSim } from "../src/sims/kinds.ts";
+import { isSchematic, schematicModelOf, type SchematicSim } from "../src/sims/kinds.ts";
 import { checkDrawing, figureReading, type FigureReading } from "../src/sims/layout/check.ts";
 import { layOut } from "../src/sims/layout/layout.ts";
 import { mutantsOf } from "../src/sims/layout/mutants.ts";
@@ -87,14 +87,15 @@ export const drawingGate: Gate = {
         continue;
       }
       coverage.drawings += 1;
-      const drawing = layOut(sim.model, sim.layout);
-      const verdict = checkDrawing(drawing, sim.model, reading);
+      const model = schematicModelOf(sim);
+      const drawing = layOut(model, sim.layout);
+      const verdict = checkDrawing(drawing, model, reading);
       coverage.checks += verdict.checks.length;
       for (const c of verdict.checks) for (const p of c.problems) block(`${c.group}, ${c.id}: ${p}`);
       // The negative control, on this drawing: every mutant must fail the check it breaks.
       const { mutants, skipped } = mutantsOf(drawing, sim.model.nets);
       for (const mutant of mutants) {
-        const failed = checkDrawing(mutant.drawing, sim.model, reading).checks.filter((c) => c.problems.length > 0);
+        const failed = checkDrawing(mutant.drawing, model, reading).checks.filter((c) => c.problems.length > 0);
         if (failed.some((c) => mutant.expect.includes(c.id))) coverage.mutantsCaught += 1;
         else
           block(

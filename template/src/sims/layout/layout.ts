@@ -28,8 +28,8 @@ function framed(d: Drawing): Drawing {
     add([x0, y0]);
     add([x1, y1]);
     Object.values(pinsOf(part)).forEach(add);
-    if (part.label) {
-      const [tx0, ty0, tx1, ty1] = textBox(part.label);
+    for (const text of [...(part.label ? [part.label] : []), ...(part.notes ?? [])]) {
+      const [tx0, ty0, tx1, ty1] = textBox(text);
       add([tx0, ty0]);
       add([tx1, ty1]);
     }
@@ -44,6 +44,7 @@ function framed(d: Drawing): Drawing {
     x: p.x + dx,
     y: p.y + dy,
     ...(p.label ? { label: { ...p.label, x: p.label.x + dx, y: p.label.y + dy } } : {}),
+    ...(p.notes ? { notes: p.notes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy })) } : {}),
   }));
   const wires: Wire[] = d.wires.map((w) => ({ points: w.points.map(move) }));
   return {

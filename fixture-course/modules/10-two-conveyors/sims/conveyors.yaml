@@ -1,0 +1,89 @@
+kind: ladder
+title: The two conveyors, running
+caption: Press Start and Stop, then run time on. A rung carrying power is inked, the TON's gauge fills as ET counts up to PT, and the timing chart measures the delay from Q 4.0 to Q 4.1.
+recompute: independent
+worked: "1"
+sheet:
+  D1: Q 4.0@500
+  E1: MD 20@500
+  F1: Q 4.1@500
+  D2: Q 4.0@1000
+  E2: MD 20@1000
+  F2: Q 4.1@1000
+  D3: Q 4.0@3000
+  E3: MD 20@3000
+  F3: Q 4.1@3000
+  D4: Q 4.0@6000
+  E4: MD 20@6000
+  F4: Q 4.1@6000
+  D5: Q 4.0@8000
+  E5: MD 20@8000
+  F5: Q 4.1@8000
+model:
+  language: LAD
+  parts:
+    - { id: Rail1, kind: power-rail, network: 1 }
+    - { id: Start, kind: "no", network: 1, operand: I 0.0 }
+    - { id: Seal, kind: "no", network: 1, operand: Q 4.0 }
+    - { id: Stop, kind: "no", network: 1, operand: I 0.1 }
+    - { id: Conveyor1, kind: coil, network: 1, operand: Q 4.0 }
+    - { id: Rail2, kind: power-rail, network: 2 }
+    - { id: Running, kind: "no", network: 2, operand: Q 4.0 }
+    - { id: Delay, kind: ton, network: 2, operand: DB 1, params: { PT: T#5S, ET: MD 20 } }
+    - { id: Conveyor2, kind: coil, network: 2, operand: Q 4.1 }
+  nets:
+    - { id: rail1, pins: [Rail1.t, Start.in, Seal.in] }
+    - { id: latch, pins: [Start.out, Seal.out, Stop.in] }
+    - { id: run1, pins: [Stop.out, Conveyor1.in] }
+    - { id: rail2, pins: [Rail2.t, Running.in] }
+    - { id: timing, pins: [Running.out, Delay.IN] }
+    - { id: run2, pins: [Delay.Q, Conveyor2.in] }
+  inputs: [I 0.0, I 0.1]
+  watch: { Q 4.0: BOOL, MD 20: TIME, Q 4.1: BOOL }
+layout:
+  parts:
+    Rail1: { at: [0, 0] }
+    Start: { at: [1, 0], label: above }
+    Seal: { at: [1, 1], label: above }
+    Stop: { at: [2.4, 0], label: above }
+    Conveyor1: { at: [4.4, 0], label: above }
+    Rail2: { at: [0, 2.4] }
+    Running: { at: [1, 2.4], label: above }
+    Delay: { at: [2.8, 2.8], label: above }
+    Conveyor2: { at: [4.4, 2.4], label: above }
+  dots: []
+cycle: 100
+start: { I 0.0: 0, I 0.1: 1 }
+tune:
+  I 0.0: { min: 0, max: 1, step: 1 }
+  I 0.1: { min: 0, max: 1, step: 1 }
+scenario:
+  until: 9000
+  events:
+    - { at: 1000, set: { I 0.0: 1 } }
+    - { at: 1500, set: { I 0.0: 0 } }
+    - { at: 8000, set: { I 0.1: 0 } }
+    - { at: 8500, set: { I 0.1: 1 } }
+cases:
+  - name: Stop pressed while the TON runs, then Start again
+    until: 9000
+    events:
+      - { at: 500, set: { I 0.0: 1 } }
+      - { at: 600, set: { I 0.0: 0 } }
+      - { at: 3000, set: { I 0.1: 0 } }
+      - { at: 3100, set: { I 0.1: 1 } }
+      - { at: 3500, set: { I 0.0: 1 } }
+      - { at: 3600, set: { I 0.0: 0 } }
+  - name: Start held down through Stop
+    until: 2000
+    events:
+      - { at: 200, set: { I 0.0: 1 } }
+      - { at: 800, set: { I 0.1: 0 } }
+      - { at: 1200, set: { I 0.1: 1 } }
+provenance:
+  stated:
+    - "Networks $1$ and $2$"
+    - Start on I 0.0 and Stop on I 0.1, a normally closed button
+    - conveyor 1 on Q 4.0 and conveyor 2 on Q 4.1
+    - the TON with its instance DB 1, PT $= 5$ s and ET in MD 20
+    - a scan every $100$ ms
