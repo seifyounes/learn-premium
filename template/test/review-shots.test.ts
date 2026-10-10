@@ -8,7 +8,10 @@ import { takeShots } from "../gates/shots.ts";
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
-/** A Module page whose folded section is 2000px tall, and a Table | Plot tab list. */
+/**
+ * A Module page whose folded section is 2000px tall, and a Table | Plot tab list that opens on Plot
+ * (as a Worked example with a figure does) over a 600px table.
+ */
 function tinyBuild(): string {
   const dist = mkdtempSync(join(tmpdir(), "lp-shots-"));
   mkdirSync(join(dist, "01-m01"));
@@ -18,10 +21,10 @@ function tinyBuild(): string {
 <h1>Conduction</h1>
 <details><summary>Worked example</summary><div style="height:2000px">steps</div></details>
 <div role="tablist">
-  <button role="tab" aria-selected="true" onclick="show('table')">Table</button>
-  <button role="tab" aria-selected="false" onclick="show('plot')">Plot</button>
+  <button role="tab" aria-selected="false" onclick="show('table')">Table</button>
+  <button role="tab" aria-selected="true" onclick="show('plot')">Plot</button>
 </div>
-<div id="table">table</div><div id="plot" hidden>plot</div>
+<div id="table" hidden style="height:600px">table</div><div id="plot">plot</div>
 <script>function show(id){for(const p of ["table","plot"])document.getElementById(p).hidden=p!==id;
 for(const t of document.querySelectorAll('[role=tab]'))t.setAttribute('aria-selected',String(t.textContent.toLowerCase()===id));}</script>
 </body></html>`,
@@ -54,6 +57,8 @@ describe("the fresh reviewer's screenshots", () => {
     // The folded section is open: the whole page, 2000px of it, is in the shot.
     expect(phone.height).toBeGreaterThan(2000);
     expect(pngSize(join(out, "laptop.png")).width).toBe(1280);
+    // View 1 is the first tab (the 600px Table), even though the page opened on Plot.
+    expect(phone.height - pngSize(join(out, "phone-view2.png")).height).toBeGreaterThan(500);
   });
 
   it("refuses a Module page that isn't in the build", async () => {
