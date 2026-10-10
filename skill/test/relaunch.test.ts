@@ -167,6 +167,19 @@ describe("a relaunched subagent re-gates its predecessor's files before reusing 
     expect(must(ledger("status", "--project", project)).relaunches[0].closedAt).toBeNull();
   });
 
+  test("a finding the gate places on a field of the file (the notation lint's `file (body)`) is that file's", () => {
+    const { project, waveId } = waveWithPredecessor();
+    const { deps } = jobGates(new Set(["modules/01-m01/summary/2.md (body)", "modules/01-m01/summary/1.md:3"]));
+
+    const { out } = open(project, waveId, "writer", [S1, S2, S3], deps);
+
+    expect((out.files as { path: string; findings: string[] }[]).map((f) => [f.path, f.findings.length])).toEqual([
+      [S1, 1],
+      [S2, 1],
+      [S3, 0],
+    ]);
+  });
+
   test("a wave with an open relaunch doesn't merge", () => {
     const { project, waveId } = waveWithPredecessor();
     const { deps } = jobGates(new Set());
@@ -246,6 +259,20 @@ describe("a relaunched Blind reader", () => {
       /a relaunched Blind reader is given only its own predecessor's reading.*reading-a\.json/,
     );
     expect(settled.code).toBe(2);
+  });
+
+  test("whose predecessor died before writing anything starts fresh, still without the other reader's reading", () => {
+    const { project, privateFolder, waveId } = waveWithPredecessor();
+    writeFiles(privateFolder, { "waves/01/reading-b.json": reading("b", "OTHER-READER-VALUE") });
+    const { deps } = jobGates(new Set());
+
+    const opened = open(project, waveId, "blind-reader-a", [], deps);
+    const closed = close(project, waveId, "blind-reader-a", {}, deps);
+
+    expect(opened.code).toBe(0);
+    expect(opened.out.files).toEqual([]);
+    expect(JSON.stringify(opened.out)).not.toContain("OTHER-READER-VALUE");
+    expect(closed.code).toBe(0);
   });
 
   test("a predecessor's reading that fails its shape is flagged, and only a fix or a fresh start follows", () => {
