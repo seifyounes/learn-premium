@@ -6,6 +6,7 @@ import type { MediaItem } from "../media/model.ts";
 import { readMediaFile } from "../media/store.ts";
 import { hashTree } from "./hash.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
+import { overrideProblem, overridesAgainstLedger } from "./overrides.ts";
 import {
   current,
   SCHEMA_VERSION,
@@ -39,7 +40,7 @@ export function requireLedger(project: string): Ledger {
 }
 
 /** Applies `change` to the ledger for the session holding its lock; anyone else is refused. */
-function mutate<T = void>(project: string, holder: string, change: (ledger: Ledger) => T): T {
+export function mutate<T = void>(project: string, holder: string, change: (ledger: Ledger) => T): T {
   return updateLedger(project, (ledger) => {
     if (ledger === null) throw noLedger(project);
     if (ledger.lock?.holder !== holder) {
@@ -163,6 +164,8 @@ export function init(project: string, holder: string, release: string, intake: I
       jobs: [],
       checkpoints: [],
       lock: { holder, since: now(), tookOverFrom: null },
+      gateGaps: [],
+      done: null,
     };
     return { ledger, result: undefined };
   });
@@ -247,6 +250,8 @@ export function startWave(project: string, holder: string, kind: WaveKind, targe
     }
     const id = `${kind}-${target}-${ledger.waves.filter((w) => w.kind === kind && w.target === target).length + 1}`;
     const at = now();
+    // A Course being built again isn't done.
+    ledger.done = null;
     ledger.waves.push({
       id,
       kind,
@@ -340,19 +345,25 @@ export function verifyIntegrity(project: string) {
   const modified = Object.keys(pinned).filter((path) => path in onDisk && onDisk[path] !== pinned[path]);
   const added = Object.keys(onDisk).filter((path) => !(path in pinned));
   const missing = Object.keys(pinned).filter((path) => !(path in onDisk));
+  // The overrides area shadows template files at build, so a file there is an edit unless it's a recorded override.
+  const { unrecordedOverrides, missingOverrides } = overridesAgainstLedger(project, ledger);
   return {
-    intact: modified.length + added.length + missing.length === 0,
+    intact:
+      modified.length + added.length + missing.length + unrecordedOverrides.length + missingOverrides.length === 0,
     release: ledger.template.release,
     modified,
     added,
     missing,
+    unrecordedOverrides,
+    missingOverrides,
   };
 }
 
 /** Records a Course override of a template-layer file and the gate gap it works around. A new record for the same file supersedes the old. */
 export function recordOverride(project: string, holder: string, path: string, gateGap: number): void {
   mutate(project, holder, (ledger) => {
-    if (!(path in ledger.template.files)) throw new LedgerError("invalid", `${path} isn't a template-layer file`);
+    const problem = overrideProblem(project, ledger, path);
+    if (problem !== null) throw new LedgerError("invalid", problem);
     const at = now();
     for (const row of current(ledger.template.overrides)) {
       if (row.path === path) row.superseded = { at, reason: "re-recorded" };
@@ -420,6 +431,8 @@ export function status(project: string) {
     waves: current(ledger.waves),
     jobs: current(ledger.jobs),
     checkpoints: current(ledger.checkpoints),
+    gateGaps: current(ledger.gateGaps),
+    done: ledger.done,
     superseded: supersededRows(ledger),
     ...mediaItems(project),
   };

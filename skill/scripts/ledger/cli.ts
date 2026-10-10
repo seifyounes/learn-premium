@@ -21,8 +21,10 @@ import {
   supersede,
   verifyIntegrity,
 } from "./ledger.ts";
+import { markDone, recordGateGap } from "./gate-gaps.ts";
 import {
   commitSha,
+  gateGapId,
   intakeSchema,
   issueNumber,
   JOB_RESULTS,
@@ -88,6 +90,9 @@ function dispatch(args: Args): Output {
       const { intact, ...report } = verifyIntegrity(project);
       return { code: intact ? 0 : 1, ...report };
     }
+    case "done":
+      markDone(project, args.required("--holder"));
+      return {};
     case "checkpoint":
       return { answer: checkpointAnswer(project, args.required("--key")) };
     case "diff":
@@ -148,8 +153,16 @@ function record(args: Args, project: string): Output {
       );
       return {};
     }
+    case "gate-gap":
+      recordGateGap(project, holder, {
+        id: gateGapId(args.required("--id"), "--id"),
+        title: args.required("--title"),
+        defect: args.required("--defect"),
+        overrides: args.all("--override"),
+      });
+      return {};
     default:
-      throw new LedgerError("invalid", "record takes job, checkpoint or override");
+      throw new LedgerError("invalid", "record takes job, checkpoint, override or gate-gap");
   }
 }
 

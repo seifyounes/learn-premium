@@ -65,6 +65,20 @@ function statusPage(ledger: Ledger): string {
       ["Template file", "Gate gap"],
       current(ledger.template.overrides).map((o) => [o.path, `${GATE_GAP_REPO}#${o.gateGap}`]),
     ),
+    "## Gate gaps",
+    "",
+    ledger.done === null
+      ? "The Course build isn't marked done."
+      : `The Course build was marked done ${ledger.done.at}.`,
+    "",
+    table(
+      ["Gate gap", "Title", "Issue"],
+      current(ledger.gateGaps).map((g) => [
+        g.id,
+        g.title,
+        g.issue === null ? "unfiled" : `${GATE_GAP_REPO}#${g.issue}`,
+      ]),
+    ),
     "## Module media",
     "",
     `The Media pass writes each item's state to \`${MEDIA_PAGE}\` beside this page.`,
