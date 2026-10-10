@@ -238,6 +238,21 @@ describe("Course done", () => {
     expect(done(project).code).toBe(0);
   });
 
+  test("a gate gap recorded in error is superseded, not left holding Course done forever", () => {
+    const { project } = course();
+    recordGap(project);
+    expect(done(project).code).toBe(3);
+
+    const superseded = ledger(
+      ...["supersede", "--project", project, "--holder", HOLDER, "--row", "gate-gap", "--id", "beat-limit"],
+      ...["--reason", "recorded in error: a gate caught it"],
+    );
+
+    expect(superseded.code).toBe(0);
+    expect(ledger("status", "--project", project).out.gateGaps).toEqual([]);
+    expect(done(project).code).toBe(0);
+  });
+
   test("only the lock holder marks it done", () => {
     const { project } = course();
 

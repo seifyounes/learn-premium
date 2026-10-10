@@ -52,7 +52,7 @@ export function mutate<T = void>(project: string, holder: string, change: (ledge
   });
 }
 
-export const ROW_KINDS = ["material", "module", "wave", "job", "checkpoint", "override"] as const;
+export const ROW_KINDS = ["material", "module", "wave", "job", "checkpoint", "override", "gate-gap"] as const;
 export type RowKind = (typeof ROW_KINDS)[number];
 
 /** A row of any kind, with the id it goes by on the command line. */
@@ -69,6 +69,7 @@ const ENTRIES: Record<RowKind, (ledger: Ledger) => Entry[]> = {
   job: (l) => l.jobs.map((row) => ({ id: `${row.wave}/${row.job}`, row })),
   checkpoint: (l) => l.checkpoints.map((row) => ({ id: row.key, row })),
   override: (l) => l.template.overrides.map((row) => ({ id: row.path, row })),
+  "gate-gap": (l) => l.gateGaps.map((row) => ({ id: row.id, row })),
 };
 
 function supersededRows(ledger: Ledger) {
