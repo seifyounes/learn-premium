@@ -642,6 +642,7 @@ describe("supersede", () => {
 describe("Course overrides", () => {
   test("records each override with the gate gap it works around; retiring one supersedes it", () => {
     const { project } = mappedCourse();
+    writeFiles(project, { "overrides/src/page.astro": "fixed" });
     const override = (gap: string) =>
       ledger(
         "record",
@@ -688,8 +689,40 @@ describe("Course overrides", () => {
       ledger("record", "override", "--project", project, "--holder", "session-a", "--path", path, "--gate-gap", gap)
         .code;
 
+    writeFiles(project, { "overrides/src/page.astro": "fixed" });
     expect(override("src/nope.astro", "12")).toBe(2);
     expect(override("src/page.astro", "twelve")).toBe(2);
+  });
+
+  test("an override shadows its template file from the overrides area only, and never a gate, script or config", () => {
+    const project = tempDir("project");
+    writeFiles(project, {
+      "template/src/page.astro": "abc",
+      "template/src/fonts/face.woff2": "font",
+      "template/gates/cli.ts": "gates",
+      "template/astro.config.mjs": "config",
+    });
+    ledger(
+      "init",
+      "--project",
+      project,
+      "--holder",
+      "s",
+      "--release",
+      "v2.0.0",
+      "--intake",
+      jsonInput(intake(tempDir("materials"))),
+    );
+    const override = (path: string) =>
+      ledger("record", "override", "--project", project, "--holder", "s", "--path", path, "--gate-gap", "12").out;
+
+    expect(override("src/page.astro").error).toBe(
+      "there's no overrides/src/page.astro: write the override there first",
+    );
+    for (const path of ["gates/cli.ts", "astro.config.mjs", "src/fonts/face.woff2"]) {
+      writeFiles(project, { [`overrides/${path}`]: "swapped" });
+      expect(override(path).error).toContain(`${path} can't be overridden`);
+    }
   });
 });
 
@@ -699,7 +732,45 @@ describe("template integrity", () => {
 
     expect(ledger("integrity", "--project", project)).toEqual({
       code: 0,
-      out: { ok: true, release: "v2.0.0", modified: [], added: [], missing: [] },
+      out: {
+        ok: true,
+        release: "v2.0.0",
+        modified: [],
+        added: [],
+        missing: [],
+        unrecordedOverrides: [],
+        missingOverrides: [],
+      },
+    });
+  });
+
+  test("a file in the overrides area is an edit to the template layer unless a recorded override names it", () => {
+    const { project } = mappedCourse();
+    writeFiles(project, { "overrides/.gitkeep": "", "overrides/src/page.astro": "fixed" });
+
+    expect(ledger("integrity", "--project", project)).toMatchObject({
+      code: 1,
+      out: { modified: [], added: [], missing: [], unrecordedOverrides: ["src/page.astro"], missingOverrides: [] },
+    });
+
+    ledger(
+      "record",
+      "override",
+      "--project",
+      project,
+      "--holder",
+      "session-a",
+      "--path",
+      "src/page.astro",
+      "--gate-gap",
+      "12",
+    );
+    expect(ledger("integrity", "--project", project).code).toBe(0);
+
+    rmSync(join(project, "overrides/src/page.astro"));
+    expect(ledger("integrity", "--project", project)).toMatchObject({
+      code: 1,
+      out: { unrecordedOverrides: [], missingOverrides: ["src/page.astro"] },
     });
   });
 
@@ -722,7 +793,15 @@ describe("template integrity", () => {
 
     expect(ledger("integrity", "--project", project)).toEqual({
       code: 1,
-      out: { ok: false, release: "v2.0.0", modified: ["a.ts"], added: ["c.ts"], missing: ["b.ts"] },
+      out: {
+        ok: false,
+        release: "v2.0.0",
+        modified: ["a.ts"],
+        added: ["c.ts"],
+        missing: ["b.ts"],
+        unrecordedOverrides: [],
+        missingOverrides: [],
+      },
     });
   });
 

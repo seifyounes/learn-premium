@@ -157,7 +157,31 @@ export const GATE_GAP_REPO = "seifyounes/learn-premium";
 export const issueNumber: Schema<number> = (v, p) =>
   Number.isInteger(v) && (v as number) > 0 ? (v as number) : fail(p, "an issue number", v);
 
-export const ledgerSchema = obj({
+/** A gate gap's id in the ledger: lower-case words and dashes, also its fixture folder's name. */
+export const gateGapId: Schema<string> = (v, p) =>
+  typeof v === "string" && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(v) ? v : fail(p, "lower-case words joined by dashes", v);
+
+/** Where each gate gap's synthetic minimal broken fixture sits: `<this>/<id>/`, committed with the ledger. */
+export const GATE_GAPS_DIR = `${BUILD_RECORDS_DIR}/gate-gaps`;
+
+/**
+ * A new kind of defect this Course's build found that no gate caught. Recorded first (`issue` null:
+ * unfiled), then filed on learn-premium's tracker with its fixture, the Course and the Course
+ * overrides it declares; filing records those overrides against the issue.
+ */
+const gateGap = obj({
+  id: gateGapId,
+  title: nonEmpty,
+  defect: nonEmpty,
+  /** The template-layer paths this Course overrides to work around it. */
+  overrides: arr(nonEmpty),
+  issue: nullable(issueNumber),
+  recordedAt: isoTime,
+  filedAt: nullable(isoTime),
+  superseded,
+});
+
+const ledgerShape = obj({
   schema: (v, p) => (v === SCHEMA_VERSION ? SCHEMA_VERSION : failVersion(p, v)),
   intake: intakeSchema,
   template: obj({
@@ -173,7 +197,14 @@ export const ledgerSchema = obj({
   jobs: arr(job),
   checkpoints: arr(checkpoint),
   lock: nullable(lock),
+  gateGaps: arr(gateGap),
+  /** The Course build marked done: refused while a gate gap is unfiled; a new wave or gate gap clears it. */
+  done: nullable(obj({ holder: nonEmpty, at: isoTime })),
 });
+
+/** A ledger written before gate gaps were recorded reads as having none, and not done. */
+export const ledgerSchema: Schema<Infer<typeof ledgerShape>> = (v, p) =>
+  ledgerShape(typeof v === "object" && v !== null && !Array.isArray(v) ? { gateGaps: [], done: null, ...v } : v, p);
 
 function failVersion(path: string, value: unknown): never {
   throw new SchemaError(
@@ -194,6 +225,7 @@ export type JobResult = Job["result"];
 export type Checkpoint = Infer<typeof checkpoint>;
 export type Ruling = NonNullable<Checkpoint["ruling"]>;
 export type ModuleMap = Infer<typeof moduleMapSchema>;
+export type GateGap = Infer<typeof gateGap>;
 
 /** An Exam sitting's state, from its Sitting waves: open until one runs, live once one merges. */
 export function sittingState(ledger: Ledger, id: string): "open" | "building" | "live" {

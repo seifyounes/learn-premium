@@ -32,6 +32,18 @@ export class Args {
     return value;
   }
 
+  /** Every value of a flag that may be given more than once, in order. */
+  all(name: string): string[] {
+    const values: string[] = [];
+    this.#args.forEach((arg, at) => {
+      if (arg !== name) return;
+      const value = this.#args[at + 1];
+      if (value === undefined || value.startsWith("--")) throw new LedgerError("invalid", `${name} needs a value`);
+      values.push(value);
+    });
+    return values;
+  }
+
   required(name: string): string {
     const value = this.optional(name);
     if (value === undefined) throw new LedgerError("invalid", `${name} is required`);

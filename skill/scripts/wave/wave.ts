@@ -378,6 +378,8 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
       ...integrity.modified.map((p) => `modified ${p}`),
       ...integrity.added.map((p) => `added ${p}`),
       ...integrity.missing.map((p) => `missing ${p}`),
+      ...integrity.unrecordedOverrides.map((p) => `unrecorded override ${p}`),
+      ...integrity.missingOverrides.map((p) => `recorded override ${p} missing from the overrides area`),
     ];
     problems.push(
       `the template layer isn't the pinned release's: ${changes.join(", ")}; its gates can't verify this wave (a fix goes in as a Course override)`,

@@ -777,6 +777,16 @@ describe("ready, the Module wave's merge gate", () => {
     );
     expect(ready(project, waveId).out.problems).toEqual([]);
 
+    // A file in the overrides area that no recorded override names: the build would ship it all the same.
+    writeFiles(project, { "overrides/src/pages/index.astro": "<p>an unrecorded fix</p>\n" });
+    expect(ready(project, waveId).out.problems).toEqual([
+      expect.stringMatching(
+        /the template layer isn't the pinned release's: unrecorded override src\/pages\/index\.astro.*a fix goes in as a Course override/,
+      ),
+    ]);
+    rmSync(join(project, "overrides", "src"), { recursive: true });
+    expect(ready(project, waveId).out.problems).toEqual([]);
+
     // A template file the branch edited: its gates can't be trusted to verify the branch.
     writeFiles(project, { "template/gates/cli.ts": "process.exitCode = 0;\n" });
     expect(ready(project, waveId).out.problems).toEqual([
