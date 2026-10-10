@@ -194,16 +194,26 @@ export function reviewReadyProblems(project: string, privateFolder: string, modu
     throw error;
   }
   if (state.commit !== null) {
-    const contentPath = `content/modules/${folder}`;
-    const diff = spawnSync("git", ["-C", project, "diff", "--quiet", state.commit, "HEAD", "--", contentPath], {
+    // What the Module page renders from: its content, the Course config and style sheet, the
+    // template layer and the Course overrides that shadow it. Another Module's content, the ledger
+    // and the Gate reports don't change this page.
+    const rendersFrom = [
+      `content/modules/${folder}`,
+      "content/course.yaml",
+      "content/style-sheet.yaml",
+      "template",
+      "overrides",
+    ];
+    const diff = spawnSync("git", ["-C", project, "diff", "--name-only", state.commit, "HEAD", "--", ...rendersFrom], {
       encoding: "utf8",
     });
-    if (diff.status === 1)
-      return [
-        `the review is of ${state.commit}, but modules/${folder} changed since: have a fresh reviewer review HEAD's preview`,
-      ];
     if (diff.status !== 0)
       return [`can't compare the review's commit ${state.commit} with HEAD: ${diff.stderr.trim() || "git failed"}`];
+    const changed = diff.stdout.split(/\r?\n/).filter(Boolean);
+    if (changed.length > 0)
+      return [
+        `the review is of ${state.commit}, but what the Module page renders from changed since (${changed.join(", ")}): have a fresh reviewer review HEAD's preview`,
+      ];
   }
   return [
     ...state.problems,

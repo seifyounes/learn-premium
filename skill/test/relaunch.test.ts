@@ -180,6 +180,20 @@ describe("a relaunched subagent re-gates its predecessor's files before reusing 
     ]);
   });
 
+  test("a finding on a folder (too many Summary beats) is every file's in it", () => {
+    const { project, waveId } = waveWithPredecessor();
+    const { deps } = jobGates(new Set(["modules/01-m01/summary"]));
+
+    const { out } = open(project, waveId, "writer", ["content/modules/01-m01"], deps);
+
+    expect((out.files as { path: string; findings: string[] }[]).map((f) => [f.path, f.findings.length])).toEqual([
+      [MODULE_YAML, 0],
+      [S1, 1],
+      [S2, 1],
+      [S3, 1],
+    ]);
+  });
+
   test("a wave with an open relaunch doesn't merge", () => {
     const { project, waveId } = waveWithPredecessor();
     const { deps } = jobGates(new Set());
