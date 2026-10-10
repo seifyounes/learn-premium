@@ -3,10 +3,11 @@
 // docs/release.md) and the synthetic minimal broken fixture inlined. Nothing from the Materials or
 // the Private folder ever leaves the machine: a fixture file matching one is refused before GitHub
 // is asked anything. Filing twice never opens two issues.
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
 import { privateFolderOf } from "../intake/create.ts";
-import { fixtureFolder, markGateGapFiled } from "../ledger/gate-gaps.ts";
+import { fixtureFolder, markGateGapFiled, NOTES_LINE, NOTES_LINE_PROBLEM } from "../ledger/gate-gaps.ts";
 import { hashFile, hashTree } from "../ledger/hash.ts";
 import { requireLedger } from "../ledger/ledger.ts";
 import { current, GATE_GAP_REPO, type GateGap, type Ledger } from "../ledger/model.ts";
@@ -18,9 +19,6 @@ export const GATE_GAP_LABEL = "gate-gap";
 
 /** GitHub keeps an issue body up to 65,536 characters; the fixture is minimal, and leaves room for the rest. */
 export const FIXTURE_MAX_CHARS = 40_000;
-
-/** A line the release notes would read as the issue's Course or one of its overrides. */
-const NOTES_LINE = /^\s*(?:[-*]\s+)?Course(?: override)?:/m;
 
 const FENCE_LANGUAGES: Record<string, string> = {
   ".json": "json",
@@ -42,9 +40,15 @@ interface FixtureFile {
   text: string;
 }
 
-/** The line that ties an issue to this Course's gate gap, so a filing that lost GitHub's answer finds its issue again. */
-const marker = (ledger: Ledger, gap: GateGap) =>
-  `<!-- learn-premium gate gap: ${JSON.stringify(ledger.intake.courseName)} ${gap.id} -->`;
+/**
+ * The line that ties an issue to this recording of this Course's gate gap, so a filing that lost
+ * GitHub's answer finds its issue again. Course names can repeat; a Course's Materials folder is its
+ * identity on the machine (the Course registry keys on it), hashed so no local path is published.
+ */
+const marker = (ledger: Ledger, gap: GateGap) => {
+  const identity = JSON.stringify([ledger.intake.materialsPath, ledger.intake.courseName, gap.id, gap.recordedAt]);
+  return `<!-- learn-premium gate gap: ${createHash("sha256").update(identity).digest("hex").slice(0, 32)} -->`;
+};
 
 const issueUrl = (issue: number) => `https://github.com/${GATE_GAP_REPO}/issues/${issue}`;
 
@@ -68,6 +72,7 @@ export async function fileGateGap(
     const problem = overrideProblem(project, ledger, path);
     if (problem !== null) throw new LedgerError("refused", problem);
   }
+  if (NOTES_LINE.test(gap.defect)) throw new LedgerError("refused", NOTES_LINE_PROBLEM("the defect"));
   const fixture = readFixture(project, ledger, gap);
   const body = issueBody(ledger, gap, fixture);
 
@@ -142,11 +147,7 @@ function readFixture(project: string, ledger: Ledger, gap: GateGap): FixtureFile
         "refused",
         `${folder}/${path} isn't text: a fixture is inlined in the issue, so it's text files only`,
       );
-    if (NOTES_LINE.test(text))
-      throw new LedgerError(
-        "refused",
-        `${folder}/${path} has a "Course:" or "Course override:" line, which the release notes would read as the issue's own`,
-      );
+    if (NOTES_LINE.test(text)) throw new LedgerError("refused", NOTES_LINE_PROBLEM(`${folder}/${path}`));
     chars += text.length;
     files.push({ path, text });
   }

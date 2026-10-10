@@ -22,7 +22,8 @@ folder, and the Fixture Course has none). It works on the server render, the cli
 the stylesheet, and Tailwind generates the classes an override uses. An override may shadow only
 site code and styles under `src/` (`.astro`, `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.css`, `.json`)
 that the template has. One that shadows nothing, or would swap a gate, a script or the config,
-fails the build. The gates themselves run the template's own code, so an override changes what
+fails the build, and so does one of a module `astro.config.mjs` imports (directly or through
+others): Node reads those with the config, before any override applies. The gates themselves run the template's own code, so an override changes what
 the build ships and the page gates see, never what the content gates check. Each override is tied
 to its gate gap in the Build ledger, and the ledger's integrity check refuses any file in
 `overrides/` that no recorded override names (`skill/scripts/ledger/README.md`).
