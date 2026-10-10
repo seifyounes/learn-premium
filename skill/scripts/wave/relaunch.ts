@@ -142,8 +142,16 @@ function regate(
     if (ran === null || !ran.ran)
       return { path: f.path, covered: true, findings: [`the job gates didn't run: ${ran?.error ?? "unknown"}`] };
     const findings = ran.findings
-      // A gate places a finding at the file, `file:line`, or a field of it (`file (body)`).
-      .filter((g) => g.at === undefined || g.at === at || g.at.startsWith(`${at}:`) || g.at.startsWith(`${at} `))
+      // A gate places a finding at the file, `file:line`, a field of it (`file (body)`), or a
+      // folder holding it (`modules/01-x/summary`, too many beats).
+      .filter(
+        (g) =>
+          g.at === undefined ||
+          g.at === at ||
+          g.at.startsWith(`${at}:`) ||
+          g.at.startsWith(`${at} `) ||
+          at.startsWith(`${g.at.replace(/\/+$/, "")}/`),
+      )
       .map((g) => `${g.gate}: ${g.message}`);
     return { path: f.path, covered: true, findings };
   });

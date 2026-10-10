@@ -32,8 +32,9 @@ document (`{"ok": true, ...}` or `{"ok": false, ...}`) and exits:
 
 `ready` also refuses a wave with any job left blocked (a sim builder's, a tool's, a media item's
 too), a relaunch not closed, or a review that isn't settled for HEAD: the fresh reviewer's
-`review.json` must be of a commit whose `content/modules/NN-<slug>/` is HEAD's, with every finding
-re-verified and none confirmed.
+`review.json` must be of a commit where everything the Module page renders from is HEAD's
+(`content/modules/NN-<slug>/`, `content/course.yaml`, `content/style-sheet.yaml`, `template/`,
+`overrides/`), with every finding re-verified and none confirmed.
 
 The jobs `ready` expects, recorded with `ledger.ts record job` (with `--started-at`): `blind-reader-a`,
 `blind-reader-b`, `reconcile`, `style-sheet` (Module 1's wave only), `writer`, `recompute`,

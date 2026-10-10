@@ -808,6 +808,8 @@ describe("ready, the Module wave's merge gate", () => {
     // A template file the branch edited: its gates can't be trusted to verify the branch.
     writeFiles(project, { "template/gates/cli.ts": "process.exitCode = 0;\n" });
     expect(ready(project, waveId).out.problems).toEqual([
+      // The page renders from the template layer, so the fresh reviewer's review is stale too.
+      expect.stringMatching(/the review is of .* renders from changed since \(template\/gates\/cli\.ts\)/),
       expect.stringMatching(/the template layer isn't the pinned release's: added gates\/cli\.ts/),
     ]);
   });
@@ -936,9 +938,17 @@ describe("ready, the Module wave's merge gate", () => {
       expect.stringMatching(/confirmed finding r-[0-9a-f]{10} .*summary\/2\.md.* goes back to writer/),
     ]);
     expect(stale).toEqual([
-      expect.stringMatching(/the review is of [0-9a-f]{40}, but modules\/01-m01 changed since: .*fresh reviewer/),
+      expect.stringMatching(
+        /the review is of [0-9a-f]{40}, but what the Module page renders from changed since \(content\/modules\/01-m01\/summary\/2\.md\): .*fresh reviewer/,
+      ),
     ]);
     expect(fresh.out.problems).toEqual([]);
+
+    // A Course override of a component the page renders with makes the review stale too.
+    writeFiles(project, { "overrides/src/components/PlotFigure.tsx": "export {};\n" });
+    expect(ready(project, waveId).out.problems).toEqual([
+      expect.stringMatching(/renders from changed since \(overrides\/src\/components\/PlotFigure\.tsx\)/),
+    ]);
   });
 
   test("a wave with no review yet, or none recorded, doesn't merge (negative control)", () => {
