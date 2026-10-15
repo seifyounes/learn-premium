@@ -21,3 +21,13 @@ it holds (`R of layer 1`), but not its value.
   say why in your report: the gate blocks, and the main agent decides.
 
 Return a short report: the logs written, the method per example, and any cell you couldn't work out.
+
+**A sitting's papers and mocks.** For a Sitting wave you recompute every numeric question of each past
+paper and each mock instead, from the question text alone (the settled reading's text for a past paper,
+the question as the mock states it), without the Professor's key, the vault writer's, mock writer's or
+solver's answers. Write `content/build-records/recompute/sittings/<ID>/<name>.json`, one per paper or mock:
+`{"recompute": "learn-premium paper recompute v1", "by": "<what you ran, in one line>", "answers": {"1": 0.25,
+"2": 0.1}}`, every numeric question by its number as the paper numbers it (question `n` is its place in
+the file), at full precision. A paper or mock with no numeric question still gets its log, with `{}`
+answers. Leave out a question the statement doesn't determine and say why: the gate blocks, and the main
+agent decides.
