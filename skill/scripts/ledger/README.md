@@ -15,7 +15,7 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 | --- | --- |
 | 0 | done |
 | 1 | a check found problems (`integrity`) |
-| 2 | bad flags, bad input, or a ledger file that fails its schema |
+| 2 | bad flags, bad input, a ledger file that fails its schema, or `--project` a wave's git worktree (the ledger is read and written only in the Course project's main checkout) |
 | 3 | refused: the lock is someone else's, or the ledger's state doesn't allow it |
 | 4 | internal error (a bug; the stack is on stderr) |
 
@@ -23,7 +23,7 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 
 | Command | Returns |
 | --- | --- |
-| `next` | `{action: "intake"}` with no ledger; `{action: "resume", waves}` while a wave is unfinished; else `{action: "waves", newMaterials, waves}`: files to put in the Module map, and the Module waves to run, each with its `reasons` (`planned`, `failed`, `materials-added` for a file mapped into a live Module, `materials-changed`, `materials-deleted`), in Module order. A new Course gets Module 01 alone until its wave merges. |
+| `next` | `{action: "intake"}` with no ledger; `{action: "resume", waves}` while a wave is unfinished; else `{action: "waves", newMaterials, waves}`: files to put in the Module map, and the Module waves to run, each with its `reasons` (`planned`, `failed`, `materials-added` for a file mapped into a live Module, `materials-changed`, `materials-deleted`), in Module order. A new Course gets Module 01 alone until its wave merges. Both waves-carrying actions also return `proposal`, a Module map addition for the new Materials (a file goes into the Module its name numbers, a new number is a new Module, unnumbered files stay unmapped), in the shape `map --input` takes. `resume` also returns `toStart`, the Module waves that can start alongside the running ones (none before Module 01 merges; no more than the cap leaves room for), and `newMaterials`. |
 | `diff` | The Materials hash diff: `new` (path, kind), `changed` and `deleted` (path, kind, the Module they feed). |
 | `status` | Course, Materials path, template (release, file hashes, current overrides), lock, Modules with their Materials, Exam sittings with their state (`open`, `building`, `live`, from their Sitting waves), current waves, jobs and Checkpoint answers, every `superseded` row, and `media`: the media items as the Media pass last wrote them (read only; see `../media/README.md`), with `mediaError` set, and `media` empty, when that file fails its schema. |
 | `checkpoint --key K` | The Owner's current answer to Checkpoint item `K`, or `null`. Look here before asking. |
@@ -42,7 +42,7 @@ and `done` (who marked the Course build done and when, or null).
 | `map --holder H --input FILE` | Records the Owner-confirmed Module map, or an addition to it: `{modules: [{id: "01", slug, title, materials: [paths]}], unmapped: [paths]}`. Paths are relative to the Materials folder; each must be on disk and not mapped yet. |
 | `lock claim --holder H [--take-over REASON]` | Takes the lock. Refused (3) while another session holds it; `--take-over` breaks a dead session's lock, only on the Owner's word, and the ledger keeps who had it and why. |
 | `lock release --holder H` | Frees the lock at the end of a run. |
-| `wave start --holder H --kind module\|sitting --target ID --branch B` | Starts a wave at the pinned release; returns `{wave}`. A Module wave takes in its changed and deleted Materials (old rows superseded). Until a Module wave has merged, only the first Module's wave starts (refused, 3, for any other): Module 1 builds alone and writes the Course style sheet. |
+| `wave start --holder H --kind module\|sitting --target ID --branch B` | Starts a wave at the pinned release; returns `{wave}`. A Module wave takes in its changed and deleted Materials (old rows superseded). Until a Module wave has merged, only the first Module's wave starts (refused, 3, for any other): Module 1 builds alone and writes the Course style sheet. At most three Module waves run at once (a fourth is refused, 3); `LEARN_PREMIUM_MAX_WAVES` changes the cap. |
 | `wave end --holder H --wave W --result merged\|failed [--commit SHA]` | Ends a wave; `merged` needs the full commit SHA it merged. The Module goes `live` or `failed`. |
 | `record job --holder H --wave W --job NAME --result passed\|blocked\|fell-back\|checkpoint [--started-at ISO] [--detail TEXT]` | A job's result. `--started-at` is when the main agent launched it, so the report's times are measured, not self-reported. Recording the same job again supersedes the old row. |
 | `record job … --result blocked` | The fix loop: answers with `fixRounds` (`used`, `left`) and `next`. A blocked job gets two fix rounds; when the second is blocked too (`exhausted`), only its fallback (`--result fell-back --detail "<what it fell back to>"`: a `sim-<name>` job to a step-through animation, `tool-<name>` to the next tool in the Discipline's Toolkit, `media-<kind>` dropped) or `--result checkpoint` can follow, and `passed` or `blocked` is refused (3). A job with no fallback is refused `fell-back` (2), and so is a fallback before both fix rounds are spent (3). A pass, a fallback or a Checkpoint ends a run of blocks; after `checkpoint`, nothing but another escalation is taken until the Owner's answer to its item is recorded (3). |
@@ -60,7 +60,7 @@ hash and re-gate finding count, and whether it was kept, fixed or discarded).
 
 Every write regenerates `build-records/status.md` (Modules, sittings, running waves, Checkpoint
 answers, overrides, unmapped Materials) and `build-records/build-report.md` (each wave's branch,
-release, commit and measured times, its jobs, and each relaunched subagent's files with their outcome). Commit them with the ledger; don't edit them.
+release, commit and measured times, its jobs, and each relaunched subagent's files with their outcome). Commit them with the ledger; don't edit them. The status page ends with a `## Superseded` table: every row a later row replaced (a changed file's old Material row, a re-run wave's earlier job rows), each with when and why. Rows are never deleted.
 
 ## Layout it assumes in a Course project
 

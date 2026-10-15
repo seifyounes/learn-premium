@@ -84,6 +84,16 @@ to map and the Module waves the hash diff implies). Module waves run as the Modu
 says. The Upgrade wave offer isn't built yet (ticket #75): until it lands, report what `next`
 returned for it and tell the Owner which ticket it waits on.
 
+Run `next` on every run, also while waves are running. `resume` lists the running waves, `toStart`
+(the Module waves that can start alongside them, as many as the cap leaves room for: three at once,
+`LEARN_PREMIUM_MAX_WAVES` changes it) and, as `waves` does, `newMaterials` with a `proposal`: the
+Module map addition for the new files (each into the Module its name numbers, or as a new Module;
+unnumbered files unmapped). Show the proposal to the Owner; on his word, `$L map --input <file>` takes
+it (a file he edits is taken as he edits it), then `next` again. A changed or deleted Materials file
+flags its Module (`materials-changed`, `materials-deleted`) for a fresh wave; when every file of a
+Module is deleted, ask the Owner whether to supersede the Module or rebuild it, and start no wave
+without his word.
+
 ## Intake
 
 A new Course gets one interview up front, so later questions come only at the step that needs them.
@@ -133,8 +143,20 @@ The Private folder is `<Materials folder>-private`. Record every job with `$L re
 <W> --job <name> --result … --started-at <when you launched it>`, timed by you, not self-reported.
 A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
 
-1. **Start:** `$L wave start --kind module --target NN --branch module/NN-<slug>` on a fresh branch
-   of `<P>`. The Module's Materials are in `$L status` (its `materials`).
+**Its own worktree.** Once Module 01's wave has merged, each wave runs in its own git worktree of
+`<P>`, on its own branch, so several waves run at once without sharing files (Module 01's wave runs
+alone, in `<P>` itself on its branch, and is the one wave that commits the ledger on its branch, step 10):
+`git -C <P> worktree add -b module/NN-<slug> <P>-waves/NN-<slug> main`, then `npm ci` in its
+`template/` (the template layer's gates run there). Call that worktree `<T>`. Every file, gate,
+commit and push of the wave is in `<T>`; the ledger and `wave.ts` commands keep `--project <P>`, the
+main checkout, which stays on `main`: the Build ledger is read and written only there (a command
+given `<T>` as `--project` exits 2). A re-run wave (a Module's files changed) takes the branch
+`module/NN-<slug>-<n>`, `<n>` being the wave's number. At most three waves run at once by default
+(each worktree holds its own `npm ci`): start the next when one merges. Remove `<T>` once its wave
+ends, merged or failed (`git -C <P> worktree remove <T>`).
+
+1. **Start:** make the worktree first, then `$L wave start --kind module --target NN --branch
+   module/NN-<slug>` for that branch. The Module's Materials are in `$L status` (its `materials`).
 2. **Two Blind readers** (`briefs/blind-reader.md`), launched together as subagents. Each is given
    only the Module's Materials, the Private folder and its own output file
    (`<Private>/waves/NN/reading-a.json` or `reading-b.json`), and neither ever sees the other's.
@@ -154,7 +176,9 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
    the job that made it. Re-verify every finding before blocking on it.
 7. **Your consistency pass:** read the Module through against the style sheet and the settled
    reading: the Professor's order of working, voice, notation, nothing contradicting another Module.
-   Fix what you find.
+   Fix what you find. A contradiction in another Module is not edited in this wave (`ready` refuses a
+   branch that changes another Module's files): name it in this wave's Checkpoint batch, and the Owner
+   decides whether that Module gets a fresh wave.
 8. **Commit, then gate the commit.** A Gate report taken on uncommitted changes binds to no commit
    and never verifies, so: commit the content (the pre-commit gate checks every commit), re-run the
    job gates on it, and commit the job report. Push the branch and wait for its Vercel preview of
@@ -191,13 +215,21 @@ A blocked job gets two fix rounds, then its fallback, else a Checkpoint item.
    Divergence keeps the Professor's value with `provenance.divergences`, an unreadable region takes
    the Owner's reading, a conflict follows the Owner's pick. Re-run the gates and the Checkpoint until
    nothing is open or unapplied.
-10. **Merge only on green + answered:** commit the ledger and build records first (the Owner's
-    answers and the job rows live there), then `node "$W" ready --project <P> --wave <W>` must exit 0
-    on the branch's HEAD with nothing uncommitted. If `main` has moved since the branch was cut (another Module merged), rebase onto
-    it first and re-run the gates and `ready`: a Gate report is bound to the commit it checked. Then
-    fast-forward `main` to the branch and push. Record `$L wave end --wave <W> --result merged --commit <full sha>`. Once Vercel deploys
-    `main`, run the live gates on the live URL (`run --point live --url <live URL>`). A red live run
-    rolls Vercel back (`template/README.md`, Deploy) and goes to the Owner.
+10. **Merge only on green + answered:** `node "$W" ready --project <P> --wave <W>` must exit 0. It
+    reads the wave's own checkout, `<T>` (the worktree git lists for its branch), with nothing
+    uncommitted there. The ledger and build records are not committed on a worktree's branch: they
+    live in `<P>` and are committed on `main` after the merge (below). (Module 01's wave runs in `<P>`
+    itself: commit the ledger and build records on its branch first, as they live there.) If `main` has moved since the branch
+    was cut (another Module merged), `ready` says so: rebase `<T>` onto `main` (a conflict only in
+    `content/build-records/gate-reports/`: take main's, finish the rebase, and re-run the gates; any
+    other conflict: stop and tell the Owner), re-run the gates, and run `ready` again. A Gate report is
+    bound to the commit it checked. Then `git -C <P> merge --ff-only module/NN-<slug>` and push
+    `main`. Record `$L wave end --wave <W> --result merged --commit <full sha>`, then commit the
+    ledger files on `main` (`git -C <P> add build-ledger.json build-records`, commit, push). Do that
+    only now, or when no wave runs: every move of `main` makes the other waves rebase and re-gate. Then
+    `git -C <P> worktree remove <T>`. Once Vercel deploys `main`, run the live gates on the live URL
+    (`run --point live --url <live URL>`). A red live run rolls Vercel back (`template/README.md`,
+    Deploy) and goes to the Owner.
 
 ### Fix rounds and fallbacks
 
@@ -219,7 +251,7 @@ any job of the wave left blocked: a Module never merges red, and never stalls on
 
 When a subagent dies mid-job (no report, a broken session), relaunch it, but never on top of
 unchecked work. First re-gate what its predecessor left: `node "$W" relaunch open --project <P>
---holder <id> --wave <W> --job <name> --files <paths…>` (paths in the Course project, or
+--holder <id> --wave <W> --job <name> --files <paths…>` (paths in the wave's worktree `<T>`, or
 `private:<path>` in the Private folder; a folder means every file in it). It returns each file with
 what the re-gate found. Give that to the relaunched subagent with its brief and
 `briefs/relaunch.md`: it reviews each file and leaves it kept, fixed or discarded before building
