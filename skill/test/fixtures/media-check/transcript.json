@@ -1,0 +1,15 @@
+{
+  "model": "fake",
+  "language": "en",
+  "text": "A wall resists heat the way a resistor resists current: R equals L over k A. In the worked example the plaster gives 0.04 kelvin per watt, the brick 0.25 and the insulation 1.25. Layers in series add, so the total is 1.54 kelvin per watt. The 25 kelvin drop over that total gives a heat loss of about 16.2 watts.",
+  "segments": [
+    { "start": 0, "end": 5.5, "text": "A wall resists heat the way a resistor resists current: R equals L over k A." },
+    {
+      "start": 6,
+      "end": 13.5,
+      "text": "In the worked example the plaster gives 0.04 kelvin per watt, the brick 0.25 and the insulation 1.25."
+    },
+    { "start": 14, "end": 19.5, "text": "Layers in series add, so the total is 1.54 kelvin per watt." },
+    { "start": 20, "end": 26, "text": "The 25 kelvin drop over that total gives a heat loss of about 16.2 watts." }
+  ]
+}

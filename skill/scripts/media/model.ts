@@ -35,6 +35,13 @@ export const DEFAULT_STATE_DIR = join(homedir(), ".claude", "learn-premium", "st
 
 export const SCHEMA_VERSION = 1;
 
+/** GitHub blocks a pushed file over 100 MiB: a web copy over this is re-encoded harder, once, else dropped. */
+export const GITHUB_FILE_LIMIT_BYTES = 104_857_600;
+/** The web copy's extension, per kind (the master keeps the one it was downloaded as). */
+export const WEB_EXTENSION = { video: ".mp4", audio: ".mp3", infographic: ".png" } as const;
+/** The file name a placed copy has in the Module's `media/` folder, which `media.yaml` names. */
+export const PLACED_NAME = { video: "explainer.mp4", audio: "deep-dive.mp3", infographic: "infographic.png" } as const;
+
 /** A Module gets these three; an Exam sitting gets a sitting audio once its Sitting wave merged. */
 export const MODULE_MEDIA = ["video", "audio", "infographic"] as const;
 export const MEDIA_KINDS = [...MODULE_MEDIA, "sitting-audio"] as const;
