@@ -53,12 +53,14 @@ export function mediaCourse(
   options: {
     git?: boolean;
     sittings?: { id: string; name: string; date: string | null }[];
+    /** Modules that are live as well as 01 (each has its three items, and no content). */
+    alsoLive?: string[];
     liveSittings?: string[];
   } = {},
 ): MediaCourse {
   const project = fixtureCourse("Fixture Course", {
-    live: ["01"],
-    planned: ["02"],
+    live: ["01", ...(options.alsoLive ?? [])],
+    planned: ["02"].filter((id) => !(options.alsoLive ?? []).includes(id)),
     ...(options.sittings === undefined ? {} : { sittings: options.sittings }),
     ...(options.liveSittings === undefined ? {} : { liveSittings: options.liveSittings }),
     template: options.git === true ? HOOK : {},
@@ -128,7 +130,7 @@ export function ingestFixture(c: MediaCourse, id: string, attempt: number): stri
   mkdirSync(join(c.project, "media-inbox"), { recursive: true });
   writeFileSync(
     join(c.project, "media-inbox", `${id}${ext}`),
-    Buffer.concat([readFileSync(join(FIXTURE_MEDIA, from)), Buffer.from(`#attempt-${attempt}`)]),
+    Buffer.concat([readFileSync(join(FIXTURE_MEDIA, from)), Buffer.from(`#${id}#attempt-${attempt}`)]),
   );
   must(media("ingest", "--state", c.state, "--project", c.project, "--private", c.privateFolder));
   return join(c.privateFolder, "media", "masters", `${id}-${attempt}${ext}`);

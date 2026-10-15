@@ -4,6 +4,7 @@
 // template's gates verify it like any branch), and the merge is a fast-forward of `main`. Placed media never
 // blocks a Module: the Module was live already, and nothing here is read by a Module wave's own gate.
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { LedgerError } from "../ledger/file.ts";
@@ -11,7 +12,7 @@ import { hashFile } from "../ledger/hash.ts";
 import { requireLedger, runningUpgrade, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, type Ledger } from "../ledger/model.ts";
 import { readJsonFile } from "../wave/reading.ts";
-import { MAIN_BRANCH, treeProblems, waveTree } from "../wave/tree.ts";
+import { inventoryProblems, MAIN_BRANCH, treeProblems, waveTree } from "../wave/tree.ts";
 import { MERGE_POINTS, moduleFolder, type Verifier } from "../wave/wave.ts";
 import { checkPath, moduleItem } from "./kit.ts";
 import { checkSchema } from "./check.ts";
@@ -171,30 +172,46 @@ export function mediaReadyProblems(project: string, tree: string, module: string
     problems.push(`${dir} is on ${branch ?? "no branch"}, not a media/ branch`);
   }
   const named = branch ?? "HEAD";
-  problems.push(...treeProblems(root, { branch: named, target: module }, waveTree(root, named)));
+  const where = waveTree(root, named);
+  problems.push(...treeProblems(root, { branch: named, target: module }, where), ...inventoryProblems(ledger, where));
 
   // The branch changes this Module's media, its slot file and its own Gate reports, and nothing else.
   const base = git(dir, "merge-base", MAIN_BRANCH, "HEAD");
   if (base.status === 0) {
-    const diff = git(dir, "diff", "--name-only", "-z", "--no-renames", base.stdout.trim(), "HEAD");
-    const changed = diff.status === 0 ? diff.stdout.split("\0").filter(Boolean) : [];
+    // Every commit being merged, not just the branch's end state: a fast-forward publishes each commit's blobs.
+    // `--raw -z` gives `:<modes> <old blob> <new blob> <status>` and then the path, NUL-separated.
+    const log = git(dir, "log", "--raw", "-z", "--no-renames", "--format=", `${base.stdout.trim()}..HEAD`);
+    const fields = log.status === 0 ? log.stdout.split("\0").filter(Boolean) : [];
+    const touched: { path: string; blob: string }[] = [];
+    for (let i = 0; i < fields.length; i += 2) {
+      const blob = /^:\d+ \d+ [0-9a-f]+ ([0-9a-f]+) /.exec(fields[i] ?? "")?.[1];
+      const path = fields[i + 1];
+      if (blob !== undefined && path !== undefined) touched.push({ path, blob });
+    }
     const mine = `${CONTENT}/modules/${folder}/`;
     const reports = `${CONTENT}/build-records/gate-reports/`;
     const allowed = (path: string) =>
       path.startsWith(`${mine}media/`) ||
       path === `${mine}media.yaml` ||
       [`job-${folder}.json`, `module-${folder}.json`, "deploy.json"].some((name) => path === `${reports}${name}`);
-    const stray = changed.filter((path) => !allowed(path));
+    const stray = [...new Set(touched.map((t) => t.path).filter((path) => !allowed(path)))];
     if (stray.length > 0) problems.push(`a media branch places media only: ${stray.join(", ")}`);
-    // Every file it puts in media/ is a checked item's web copy: a rejected or regenerated output can't ride along.
-    const checked = (readMediaFile(root)?.items ?? [])
-      .filter((i) => i.state === "checked" && i.encoded !== null)
-      .map((i) => i.encoded?.hash);
-    for (const path of changed.filter((p) => p.startsWith(`${mine}media/`) && existsSync(join(dir, p)))) {
-      if (!checked.includes(hashFile(join(dir, path)))) {
-        problems.push(`${path.slice(mine.length)} isn't a checked item's re-encode`);
-      }
+    // Each file it puts in media/ is, in every commit, this Module's checked item of that kind: its own name and its
+    // own re-encode, so a rejected output, or another Module's checked media, can't ride along.
+    const wanted = new Map(
+      (readMediaFile(root)?.items ?? [])
+        .filter((i) => i.state === "checked" && i.encoded !== null && i.module === module && i.kind !== "sitting-audio")
+        .map((i) => [`${mine}media/${PLACED_NAME[i.kind as Slot]}`, i.encoded?.hash]),
+    );
+    const zero = /^0+$/;
+    const bad = new Set<string>();
+    for (const { path, blob } of touched.filter((t) => t.path.startsWith(`${mine}media/`) && !zero.test(t.blob))) {
+      const content = spawnSync("git", ["-C", dir, "cat-file", "blob", blob], { maxBuffer: 2 ** 31 - 1 });
+      const hash = content.status === 0 ? createHash("sha256").update(content.stdout).digest("hex") : null;
+      if (hash === null || wanted.get(path) !== hash)
+        bad.add(`${path.slice(mine.length)} isn't a checked item's re-encode`);
     }
+    problems.push(...bad);
   }
   const status = git(dir, "status", "--porcelain");
   const dirty = status.status === 0 ? status.stdout.split(/\r?\n/).filter(Boolean) : null;

@@ -8,7 +8,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { mergeMediaYaml } from "../scripts/media/place.ts";
 import { fakeKit } from "./fake-media-kit.ts";
 import { must } from "./fake-notebooklm.ts";
-import { ledger, media, tempDir, writeFiles } from "./helpers.ts";
+import { materialsOf } from "./fixture-courses.ts";
+import { jsonInput, ledger, media, tempDir, writeFiles } from "./helpers.ts";
 import {
   fakeVerifier,
   gitIn,
@@ -153,6 +154,88 @@ describe("a rejected output never reaches git history", () => {
 
     expect(code).toBe(1);
     expect(out.problems.join("\n")).toMatch(/media\/deep-dive\.mp3 isn't a checked item's re-encode/);
+  });
+});
+
+describe("ready judges every commit being merged, and each file against its own item", () => {
+  test("a rejected master committed and then replaced still rides the merge, so ready refuses it", () => {
+    // Negative control: the final tree is clean, but a fast-forward publishes every commit's blobs.
+    const c = mediaCourse({ git: true });
+    const master1 = ingestFixture(c, AUDIO, 1);
+    must(media("fail", "--state", c.state, "--project", c.project, "--item", AUDIO, "--reason", "wrong"));
+    approved(c, AUDIO, 2);
+    const tree = mediaTree(c, 1);
+    mkdirSync(join(tree, MODULE_DIR, "media"), { recursive: true });
+    writeFileSync(join(tree, MODULE_DIR, "media", "deep-dive.mp3"), readFileSync(master1));
+    commit(tree, "feat: the first deep dive");
+    must(stage(c, AUDIO, tree));
+    commit(tree, "feat: the right deep dive");
+
+    const { code, out } = ready(c, tree);
+
+    expect(code).toBe(1);
+    expect(out.problems.join("\n")).toMatch(/media\/deep-dive\.mp3 isn't a checked item's re-encode/);
+  });
+
+  test("another Module's checked audio can't be committed as this Module's", () => {
+    const c = mediaCourse({ git: true, alsoLive: ["02"] });
+    approved(c, AUDIO, 1);
+    approved(c, "module-02-audio", 1);
+    const tree = mediaTree(c, 1);
+    must(stage(c, AUDIO, tree));
+    const other = readFileSync(join(c.privateFolder, itemOf(c, "module-02-audio").encoded?.file ?? ""));
+    writeFileSync(join(tree, MODULE_DIR, "media", "deep-dive.mp3"), other);
+    commit(tree, "feat: Module 02's audio as Module 01's");
+
+    const { out } = ready(c, tree);
+
+    expect(out.problems.join("\n")).toMatch(/media\/deep-dive\.mp3 isn't a checked item's re-encode/);
+  });
+
+  test("a checked file under the wrong name for its kind is refused", () => {
+    const c = mediaCourse({ git: true });
+    approved(c, AUDIO, 1);
+    const tree = mediaTree(c, 1);
+    must(stage(c, AUDIO, tree));
+    writeFileSync(
+      join(tree, MODULE_DIR, "media", "explainer.mp4"),
+      readFileSync(join(tree, MODULE_DIR, "media", "deep-dive.mp3")),
+    );
+    commit(tree, "feat: the audio's bytes in the video's slot");
+
+    const { out } = ready(c, tree);
+
+    expect(out.problems.join("\n")).toMatch(/media\/explainer\.mp4 isn't a checked item's re-encode/);
+  });
+
+  test("the worktree's Materials inventory must hold every hash the live ledger has", () => {
+    const c = mediaCourse({ git: true });
+    approved(c, AUDIO, 1);
+    const tree = mediaTree(c, 1);
+    must(stage(c, AUDIO, tree));
+    commit(tree, "feat: place Module 01's audio");
+    writeFiles(materialsOf(c.project), { "L03b.pdf": "a new board photo scan" });
+    const added = { id: "03", slug: "m03", title: "Module 03", materials: ["L03b.pdf"] };
+    must(
+      ledger(
+        "map",
+        "--project",
+        c.project,
+        "--holder",
+        "session-a",
+        "--input",
+        jsonInput({ modules: [added], unmapped: [] }),
+      ),
+    );
+
+    const stale = ready(c, tree).out.problems.join("\n");
+    gitIn(c.project, "add", "build-ledger.json", "build-records");
+    gitIn(c.project, "commit", "-q", "-m", "chore: record the new Material");
+    gitIn(tree, "rebase", "-q", "main");
+    const fresh = ready(c, tree);
+
+    expect(stale).toMatch(/predates Materials the live ledger has \(L03b\.pdf\)/);
+    expect(fresh.out.problems).toEqual([]);
   });
 });
 
