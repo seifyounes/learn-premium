@@ -108,7 +108,9 @@ A major ships `template/migrations/v<major>.ts`. It exports `describe` (one line
 notes) and `migrate(contentDir)`, which rewrites a Course's content and course config in place.
 `npm run migrations -- run --content <dir> --from <release>` (from `template/`) runs every
 shipped migration newer than the content's release, oldest first. An upgrade from v1.2 to v3.0
-runs v2, then v3. From v1.2 to v1.5 it runs none. The Upgrade wave runs it on its branch.
+runs v2, then v3. From v1.2 to v1.5 it runs none. The Upgrade wave runs it on its branch
+(`upgrade migrate`, `skill/scripts/upgrade/README.md`), importing the Course's own
+`template/migrations/runner.ts` after the template layer is re-copied.
 
 The Migration harness workflow (`.github/workflows/migration-harness.yml`, `npm run migrations --
 prove`) takes the Fixture Course of every release tag behind the commit, since a Course may sit

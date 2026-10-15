@@ -81,8 +81,8 @@ node "$L" lock claim --project <Course project> --holder <id>
 
 `next` says which: `intake` (no ledger), `resume` (an unfinished wave), or `waves` (new Materials
 to map and the Module waves the hash diff implies). Module waves run as the Module wave section
-says. The Upgrade wave offer isn't built yet (ticket #75): until it lands, report what `next`
-returned for it and tell the Owner which ticket it waits on.
+says. When `next` says `waves`, offer the Upgrade wave first if the installed release is newer than
+the Course's pinned one (the Upgrade wave section below); `resume-upgrade` means one is under way.
 
 Run `next` on every run, also while waves are running. `resume` lists the running waves, `toStart`
 (the Module waves that can start alongside them, as many as the cap leaves room for: three at once,
@@ -297,6 +297,48 @@ issue number to the Owner; triaging it (its own patch release, or the next one) 
 
 **Course done:** when the Owner calls the Course build done, record it with `$L done`. It is
 refused while a gate gap is unfiled: file each first.
+
+## Upgrade wave
+
+Moves a Course to a newer Template release: the template layer re-copied, the shipped migrations run,
+the overrides the release retires dropped, and every Module's gates run again on that, merged to
+`main` only when all green. Nothing happens without the Owner's yes, and a red wave leaves the Course
+on its release. `$U` is `scripts/upgrade.ts` (`scripts/upgrade/README.md`), `<P>` the Course project,
+`$L` the ledger.
+
+1. **Offer.** When `next` says `waves`: `node "$U" offer --project <P> --to <installed_release>`.
+   `offer` null with `reason` means no newer release: carry on to the Module waves. `held` set means
+   a sitting is within 7 days and the release closes none of this Course's gate gaps: say so, make no
+   offer, carry on. Otherwise post the offer: the releases it crosses, each gate gap closed, the
+   overrides it retires, the migrations (none unless a major), and `lastFailed` if an earlier wave
+   to this release ended red (with its gate gap). Ask. No means the Module waves run as they are and
+   the offer comes again next run.
+2. **On the Owner's yes:** `node "$U" start --project <P> --holder <id> --to <installed_release>
+   --answer "<their words>"`, then `apply`, then `npm ci` in `<P>/template`, then `migrate`
+   (exit 1 is a migration that threw: the wave is red, go to Red below). Commit everything (the
+   pre-commit gate checks it).
+3. **Gate it, on every Module.** Push the branch and wait for its Vercel preview. Then for each Module
+   folder, from `<P>/template`: the per-job gates (`npm run gates -- run --point job --module
+   NN-<slug> --content ../content`); build the commit (`CONTENT_DIR=../content npm run build`); the
+   module gates on the preview (`--point module … --dist dist --url <preview URL>`). Then the deploy
+   gates on a production build, once for the Course (`--point deploy`, as the Module wave's step 8).
+   Commit the Gate reports. Then `node "$U" ready --project <P>`.
+4. **Red.** Read `problems`. If dropping an override is the suspect, restore the retired overrides
+   in a scratch run and see which fail; for each that does, `node "$U" keep --project <P> --holder
+   <id> --path <override> --reason "<which gate fails>"` (it reopens that gate gap on learn-premium
+   and restores the file), commit, and gate again. Still red, or a migration threw, or a file can't
+   be kept: the wave fails. Commit the branch, `git switch main`, write the synthetic minimal
+   fixture of the defect (the gate-gap section's step 1), `$L record gate-gap`, file it with the
+   gate-gap step, and `node "$U" end --project <P> --holder <id> --result failed --gate-gap <id>`.
+   Commit the ledger. The Course stays on its release. Report the gate gap's issue to the Owner.
+5. **Green.** `node "$U" merge --project <P> --holder <id>` (it fast-forwards `main` and moves the
+   ledger to the release), commit the ledger and `build-records/`, push `main`, and once Vercel deploys
+   it run the live gates (`run --point live --url <live URL>`). A red live run rolls Vercel back
+   (`template/README.md`) and goes to the Owner.
+
+`resume-upgrade` from `next`: `git switch` to its `branch` and carry on from whichever step the
+ledger and `ready` show. Content and course config change only through a shipped migration: never
+hand-edit them in the wave, and never touch `template/` or `overrides/` beyond these commands.
 
 ## Media pass
 
