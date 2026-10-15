@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { moduleId } from "../ledger/model.ts";
 import {
   arr,
+  bool,
   fail,
   isoDate,
   isoTime,
@@ -71,6 +72,9 @@ const count =
       ? (v as number)
       : fail(p, `a whole number ${min}–${max}`, v);
 
+const bytes: Schema<number> = (v, p) =>
+  Number.isSafeInteger(v) && (v as number) >= 0 ? (v as number) : fail(p, "a whole number of bytes", v);
+
 /** An amount of NotebookLM usage, in whatever unit Settings → Usage shows. */
 export const units: Schema<number> = (v, p) =>
   typeof v === "number" && Number.isFinite(v) && v > 0 ? v : fail(p, "a positive number", v);
@@ -88,6 +92,21 @@ const itemShape = obj({
   nearestSitting: nullable(isoDate),
   /** Where the placed file sits in the Course project. */
   file: nullable(nonEmpty),
+  /**
+   * The web copy of the checked master, kept in the Private folder until it is placed: its attempt, its file
+   * (relative to the Private folder) and hash, both sizes, whether it took the harder profile, its length.
+   */
+  encoded: nullable(
+    obj({
+      attempt: count(1, MAX_REGENERATIONS + 1),
+      file: nonEmpty,
+      hash: sha256,
+      bytes,
+      masterBytes: bytes,
+      harder: bool,
+      duration: nullable((v, p) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : fail(p, "seconds", v))),
+    }),
+  ),
   failures: arr(obj({ at: isoTime, state: oneOf(...IN_FLIGHT), reason: nonEmpty })),
   queuedAt: isoTime,
   updatedAt: isoTime,
@@ -128,9 +147,18 @@ const mediaFileShape = obj({
   items: arr(item),
 });
 
-/** A media file written before the Course notebook was recorded reads as having none. */
-export const mediaFileSchema: Schema<Infer<typeof mediaFileShape>> = (v, p) =>
-  mediaFileShape(typeof v === "object" && v !== null && !("notebook" in v) ? { ...v, notebook: null } : v, p);
+/** An item written before encodes were recorded reads as having none. */
+const withEncoded = (v: unknown) =>
+  typeof v === "object" && v !== null && !("encoded" in v) ? { ...v, encoded: null } : v;
+
+/** A media file written before the Course notebook, or an item's encode, was recorded reads as having none. */
+export const mediaFileSchema: Schema<Infer<typeof mediaFileShape>> = (v, p) => {
+  const file = typeof v === "object" && v !== null && !("notebook" in v) ? { ...v, notebook: null } : v;
+  if (typeof file !== "object" || file === null || !("items" in file) || !Array.isArray(file.items)) {
+    return mediaFileShape(file, p);
+  }
+  return mediaFileShape({ ...file, items: file.items.map(withEncoded) }, p);
+};
 
 export const chromeSchema = obj({ schema: version, profile: nonEmpty });
 

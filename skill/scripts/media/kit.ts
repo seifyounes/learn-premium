@@ -2,18 +2,19 @@
 // faster-whisper) and what the Media pass does with it: `evidence` for the fact check, `encode` for the web
 // copy. The kit is a seam: tests give a fake one, so no Node test needs Python.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { LedgerError } from "../ledger/file.ts";
 import { hashFile } from "../ledger/hash.ts";
 import { requireLedger } from "../ledger/ledger.ts";
 import { arr, nonEmpty, nullable, obj, oneOf, sha256, type Infer, type Schema, fail } from "../ledger/schema.ts";
 import { readJsonFile } from "../wave/reading.ts";
 import { moduleFolder, type Verifier } from "../wave/wave.ts";
-import { requireMediaFile } from "./media.ts";
-import { type MediaItem, type MediaKind } from "./model.ts";
+import { fail as failItem, recordEncoded, requireMediaFile } from "./media.ts";
+import { WEB_EXTENSION, type MediaItem, type MediaKind } from "./model.ts";
 import { EXTENSIONS, requirePrivateFolder } from "./notebook.ts";
+import { size } from "./render.ts";
 
 /** The machine venv's Python (the installer's layout: machine_install.py's `Layout.venv`). */
 export const DEFAULT_PYTHON = join(
@@ -213,4 +214,70 @@ export function gatherEvidence(
     duration: evidence.duration,
     check: checkPath(priv, id, attempt),
   };
+}
+
+export interface EncodeResult {
+  /** The web copy, relative to the Private folder; absent when the item was dropped for its size. */
+  file?: string;
+  bytes?: number;
+  masterBytes: number;
+  harder: boolean;
+  tries: { profile: "standard" | "harder"; bytes: number }[];
+  /** Set when the item was dropped: its state then, and `code` 1. */
+  state?: string;
+  code?: number;
+  error?: string;
+}
+
+/**
+ * The web copy of a checked item's master, in the Private folder's `media/web/`. One over `limitBytes`
+ * (GitHub's) is re-encoded harder, once; still over, the item is dropped (`fail --final`: a regeneration
+ * won't be smaller). Sizes are reported, never capped. A kit failure leaves the item as it was.
+ */
+export function encodeItem(
+  stateDir: string,
+  project: string,
+  id: string,
+  privateFolder: string,
+  kit: MediaKit,
+  limitBytes: number,
+): EncodeResult {
+  const root = resolve(project);
+  const priv = requirePrivateFolder(root, privateFolder);
+  const { item } = moduleItem(root, id);
+  if (item.state !== "checked")
+    throw new LedgerError("refused", `${id} is ${item.state}; the re-encode needs it checked`);
+  const attempt = item.regenerations + 1;
+  const master = masterOf(priv, item);
+  const masterBytes = statSync(master).size;
+  const ext = WEB_EXTENSION[item.kind];
+  const tries: EncodeResult["tries"] = [];
+  let duration: number | null = null;
+  let out = mediaDir(priv, "web", `${id}-${attempt}${ext}`);
+  for (const harder of [false, true]) {
+    if (harder) out = mediaDir(priv, "web", `${id}-${attempt}-harder${ext}`);
+    const ran = kit.encode({ kind: item.kind, master, out, harder });
+    if (!ran.ok) throw new LedgerError("invalid", `the media kit couldn't re-encode ${id}: ${ran.error}`);
+    duration = ran.duration;
+    tries.push({ profile: harder ? "harder" : "standard", bytes: statSync(out).size });
+    if ((tries.at(-1)?.bytes ?? 0) <= limitBytes) break;
+  }
+  const last = tries.at(-1)?.bytes ?? 0;
+  if (last > limitBytes) {
+    const first = tries[0]?.bytes ?? 0;
+    const reason = `still ${size(last)} after the harder re-encode (limit ${size(limitBytes)}, first try ${size(first)})`;
+    const dropped = failItem(stateDir, root, id, reason, true);
+    return { masterBytes, harder: true, tries, ...dropped, code: 1, error: reason };
+  }
+  const harder = tries.length === 2;
+  recordEncoded(stateDir, root, id, {
+    attempt,
+    file: relative(priv, out).replaceAll("\\", "/"),
+    hash: hashFile(out),
+    bytes: last,
+    masterBytes,
+    harder,
+    duration,
+  });
+  return { file: relative(priv, out).replaceAll("\\", "/"), bytes: last, masterBytes, harder, tries };
 }
