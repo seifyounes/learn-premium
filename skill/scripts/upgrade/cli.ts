@@ -9,7 +9,7 @@ import { nonEmpty, SchemaError } from "../ledger/schema.ts";
 import { TrackerError, type Tracker } from "../gate-gap/tracker.ts";
 import type { Verifier } from "../wave/wave.ts";
 import { heldReason, localToday, planUpgrade } from "./plan.ts";
-import { applyUpgrade, startUpgrade } from "./wave.ts";
+import { applyUpgrade, migrateUpgrade, startUpgrade, UpgradeProblem } from "./wave.ts";
 
 export interface RunResult {
   code: number;
@@ -31,6 +31,8 @@ export async function run(args: string[], deps: Partial<Deps> = {}): Promise<Run
   } catch (error) {
     if (error instanceof LedgerError) return failure(error.kind === "refused" ? 3 : 2, error.message);
     if (error instanceof SchemaError) return failure(2, error.message);
+    if (error instanceof UpgradeProblem)
+      return { code: 1, stdout: JSON.stringify({ ok: false, problem: error.message }) };
     if (error instanceof TrackerError) return failure(3, `GitHub refused or didn't answer: ${error.message}`);
     throw error;
   }
@@ -72,6 +74,8 @@ async function dispatch(args: Args, deps: Partial<Deps>): Promise<Output> {
       };
     case "apply":
       return { ...applyUpgrade(project, args.required("--holder"), source) };
+    case "migrate":
+      return { ...(await migrateUpgrade(project, args.required("--holder"))) };
     default:
       throw new LedgerError("invalid", `unknown command: ${command}`);
   }

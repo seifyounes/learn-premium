@@ -406,6 +406,127 @@ describe("a running Upgrade wave", { timeout: 60_000 }, () => {
   });
 });
 
+function migrate(c: UpgradeCourse, holder = HOLDER): Promise<Result> {
+  return upgrade({}, "migrate", "--project", c.project, "--source", c.source, "--holder", holder);
+}
+
+/** Starts, applies and commits the wave to `to`, leaving the Course project on its branch, ready to migrate. */
+async function applied(c: UpgradeCourse, to = "v2.0.0"): Promise<void> {
+  must(await start(c, { to }));
+  must(await apply(c));
+  git(c.project, "add", "-A");
+  git(c.project, "commit", "-q", "-m", `chore: the template layer at ${to}`);
+}
+
+/** The Course's content files with their hashes, without its Gate reports. */
+const contentOf = (c: UpgradeCourse) =>
+  Object.fromEntries(
+    Object.entries(hashTree(join(c.project, "content"))).filter(([p]) => !p.startsWith("build-records/gate-reports/")),
+  );
+
+describe("migrate", { timeout: 120_000 }, () => {
+  test("only the migration touches content: across a major, course.yaml drops the field and nothing else changes", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "fixture" });
+    const before = contentOf(c);
+    const yamlBefore = readFileSync(join(c.project, "content/course.yaml"), "utf8");
+    expect(yamlBefore).toContain("legacyTitle: Fixture Course\n");
+    await applied(c);
+    const { code, out } = await migrate(c);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(out.migrations).toEqual([{ major: 2, describe: "course.yaml drops legacyTitle" }]);
+    const after = contentOf(c);
+    const changed = Object.keys({ ...before, ...after }).filter((p) => before[p] !== after[p]);
+    expect(changed).toEqual(["course.yaml"]);
+    expect(readFileSync(join(c.project, "content/course.yaml"), "utf8")).toBe(
+      yamlBefore.replace("legacyTitle: Fixture Course\n", ""),
+    );
+    // The ledger holds what the migrations ran and the content as they left it.
+    const [row] = upgradesOf(c);
+    expect(row.migrations).toEqual([{ major: 2, describe: "course.yaml drops legacyTitle" }]);
+    expect(row.content).toEqual(after);
+  });
+
+  test("a release with no migration leaves content exactly as it was", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "fixture" });
+    const before = contentOf(c);
+    await applied(c, "v1.1.0");
+    const { code, out } = await migrate(c);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(out.migrations).toEqual([]);
+    expect(contentOf(c)).toEqual(before);
+    expect(upgradesOf(c)[0].content).toEqual(before);
+  });
+
+  test("refuses content edited before it runs (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await applied(c);
+    writeFiles(c.project, { "content/modules/01-thermal-resistance/module.yaml": "title: edited by hand\n" });
+    const { code, out } = await migrate(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/content.*module\.yaml/);
+    expect(readFileSync(join(c.project, "content/course.yaml"), "utf8")).toContain("legacyTitle");
+    expect(upgradesOf(c)[0].migrations).toBeNull();
+  });
+
+  test("refuses a new file in the content before it runs (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await applied(c);
+    writeFiles(c.project, { "content/modules/01-thermal-resistance/new.yaml": "extra: 1\n" });
+    const { code, out } = await migrate(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/new\.yaml/);
+  });
+
+  test("refuses content committed on the branch before it runs (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await applied(c);
+    writeFiles(c.project, { "content/modules/01-thermal-resistance/module.yaml": "title: edited by hand\n" });
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "an edit to the content");
+    expect((await migrate(c)).code).toBe(3);
+  });
+
+  test("refuses before the template layer is the release's (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    const { code, out } = await migrate(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/apply/);
+  });
+
+  test("runs once: a second run is refused", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await applied(c);
+    must(await migrate(c));
+    const again = await migrate(c);
+    expect(again.code).toBe(3);
+    expect(again.out.error).toMatch(/already ran/);
+  });
+
+  test("is red when a migration throws, and records nothing (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    addRelease(
+      c.source,
+      "v3.0.0",
+      {
+        "migrations/v3.ts": `export const describe = "x";\nexport function migrate(): void { throw new Error("boom"); }\n`,
+      },
+      { previous: "v2.0.0", kind: "major" },
+    );
+    await applied(c, "v3.0.0");
+    const { code, out } = await migrate(c);
+    expect(code).toBe(1);
+    expect(out.problem).toMatch(/v3 migration failed: boom/);
+    expect(upgradesOf(c)[0].migrations).toBeNull();
+  });
+
+  test("refuses another session's run (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await applied(c);
+    expect((await migrate(c, "session-b")).code).toBe(3);
+  });
+});
+
 /** Records the gate gap the Course filed (#1 on the fake tracker) with its fixture, then commits it. */
 async function fileGateGap(c: UpgradeCourse, tracker = new FakeTracker()): Promise<FakeTracker> {
   writeFiles(c.project, { "build-records/gate-gaps/beat-limit/case.json": '{ "beat": "a long beat" }\n' });
