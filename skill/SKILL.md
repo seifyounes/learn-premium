@@ -180,6 +180,21 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
    the Owner about a Discipline now, in chat, before any builder starts. Then launch one sim builder
    per `builders` entry (`briefs/sim-builder.md`), note when you launched each, and when it hands back,
    `node "$W" handback …`, then `record job --job <sim-… or tool-…> --started-at <launch>`.
+
+   **The YouTube hunters** (`briefs/youtube-hunter.md`), one subagent per topic, launched with the
+   writer. Each is given the settled reading's topics in the Professor's order, the do-not-use list
+   and its own output file (`<Private>/waves/NN/youtube/hunt-<topic>.json`). Record each as job
+   `youtube-<topic>`, `passed` even when it finds nothing at 9. **Video cards:** a card ships only at
+   a 9/10 match, and only once you have checked it yourself.
+   1. Save each candidate's transcript at `<Private>/waves/NN/youtube/transcripts/<id>.txt` yourself,
+      from the video's transcript panel in the built-in browser. Never use the hunter's.
+   2. Run `node "$W" videos verify --project <P> --module NN` until it exits 0 (1 means a transcript is
+      still to save). It asks YouTube's oEmbed, takes the title, channel and length from YouTube, and
+      keeps a moment only where its quote is heard within 20 s of the time. It writes `verified.json`.
+   3. Copy only `verified.json`'s `cards` into `media.yaml`'s `youtube` block, in the Professor's
+      teaching order. `ready` refuses a card it didn't pass or one that differs from it.
+   4. A video that yields the Professor's answer by another method: `node "$W" videos never --project
+      <P> --id <id> --reason "<why>"` puts it on the do-not-use list for the whole Course.
 6. **Per-job gates**, from `<P>/template` (after `npm ci`), always on the Course's content:
    `npm run gates -- run --point job --module NN-<slug> --content ../content`. A block goes back to
    the job that made it. Re-verify every finding before blocking on it.
@@ -245,6 +260,14 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
     `git -C <P> worktree remove <T>` (Module 01 has none). Once Vercel deploys `main`, run the live gates on the live URL
     (`run --point live --url <live URL>`). A red live run rolls Vercel back (`template/README.md`,
     Deploy) and goes to the Owner.
+
+    **A dead video card** never turns the live run red: the `live-videos` gate raises it as a
+    Checkpoint item ("is dead"), and it is hidden after the deploy. For each such item in the live
+    report: (1) `node "$W" videos hide --project <P> --report <live report>` (on `main`; it removes
+    the card and lists it on the do-not-use list); (2) post its `markdown` to the Owner; (3) build for
+    production and run `--point deploy`; (4) commit `fix: hide dead video cards` with the deploy
+    report and push `main` (this falls in the post-merge window above); (5) after the deploy, run the
+    live gates again: no "is dead" item may remain. A "couldn't check" item is only told to the Owner.
 
 ### Fix rounds and fallbacks
 
