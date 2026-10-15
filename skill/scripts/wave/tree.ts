@@ -99,6 +99,12 @@ export function treeProblems(project: string, wave: Wave, tree: WaveTree): strin
       ? [...problems, `${wave.branch} shares no history with ${MAIN_BRANCH}: it must be a branch of it`]
       : problems;
   }
+  // The branch merges by fast-forward only while main is still where it left it; otherwise it rebases.
+  const tip = git(project, ["rev-parse", "--verify", "-q", `refs/heads/${MAIN_BRANCH}`]).stdout.trim();
+  if (base.stdout.trim() !== tip)
+    problems.push(
+      `${MAIN_BRANCH} has moved since ${wave.branch} left it: rebase onto ${MAIN_BRANCH}, re-run the gates on the new commit, then run ready again`,
+    );
   const diff = git(tree.path, ["diff", "--name-only", "--no-renames", base.stdout.trim(), "HEAD"]);
   if (diff.status !== 0)
     return [
@@ -110,6 +116,11 @@ export function treeProblems(project: string, wave: Wave, tree: WaveTree): strin
   if (ledgerFiles.length > 0)
     problems.push(
       `the wave's branch changes the Build ledger's files (${ledgerFiles.join(", ")}): they're written only in the Course project's main checkout; drop them from the branch`,
+    );
+  const others = otherModuleFiles(changed, wave.target);
+  if (others.length > 0)
+    problems.push(
+      `the wave's branch changes another Module's files (${others.join(", ")}): a Module wave changes only its own Module`,
     );
   return problems;
 }

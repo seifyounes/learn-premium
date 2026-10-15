@@ -153,6 +153,34 @@ const statusOf = (project: string) => must(ledger("status", "--project", project
 const checkpointOf = (c: Course, nn: string) =>
   must(wave(["checkpoint", "--project", c.project, "--module", nn])) as { open: { key: string; question: string }[] };
 
+/**
+ * Merges Module NN's wave as the skill does: main fast-forwards to its branch, the wave ends in the ledger
+ * with that commit, the ledger's files are committed on main, and the wave's worktree goes.
+ */
+function mergeInto(c: Course, nn: string, w: { tree: string; waveId: string; branch: string }) {
+  gitIn(c.project, "merge", "--ff-only", "-q", w.branch);
+  must(
+    ledger(
+      ...["wave", "end", ...holder(c.project), "--wave", w.waveId, "--result", "merged"],
+      ...["--commit", headOf(w.tree)],
+    ),
+  );
+  gitIn(c.project, "add", "build-ledger.json", "build-records");
+  gitIn(c.project, "commit", "-q", "-m", `chore: record wave ${w.waveId} merged`);
+  gitIn(c.project, "worktree", "remove", w.tree);
+}
+
+/** Answers every open Checkpoint item of Module NN. */
+function answerEvery(c: Course, nn: string, waveId: string) {
+  for (const i of checkpointOf(c, nn).open)
+    must(
+      ledger(
+        ...["record", "checkpoint", ...holder(c.project), "--wave", waveId, "--key", i.key],
+        ...["--question", i.question, "--answer", "a"],
+      ),
+    );
+}
+
 describe("each Module's wave in its own worktree", () => {
   test("two Module waves of one session run at once; the one waiting at its Checkpoint doesn't hold up the other", () => {
     const c = parallelCourse();
@@ -220,5 +248,52 @@ describe("each Module's wave in its own worktree", () => {
 
     expect(onBranch).toMatch(/changes the Build ledger's files \(build-records\/status\.md\)/);
     expect(off).toMatch(/main checkout is on elsewhere, not main/);
+  });
+});
+
+describe("waves merge independently", () => {
+  test("the first green wave merges; the other rebases onto the moved main and merges after, each Module live", () => {
+    const c = parallelCourse();
+    const w2 = startWave(c, "02");
+    const w3 = startWave(c, "03");
+    toCheckpoint(c, "02", w2);
+    toCheckpoint(c, "03", w3, [
+      { gate: "provenance", outcome: "checkpoint", at: "modules/03-m03/summary/1.md", message: "a figure's source" },
+    ]);
+
+    const head2 = headOf(w2.tree);
+    mergeInto(c, "02", w2);
+    answerEvery(c, "03", w3.waveId);
+    const behind = readyOf(c, w3.waveId);
+    gitIn(w3.tree, "rebase", "-q", "main");
+    const rebased = readyOf(c, w3.waveId);
+    const head3 = headOf(w3.tree);
+    mergeInto(c, "03", w3);
+
+    expect(behind).toEqual([expect.stringMatching(/^main has moved since module\/03-m03 left it/)]);
+    expect(rebased).toEqual([]);
+    const status = statusOf(c.project);
+    expect(status.modules.map((m: { id: string; state: string }) => [m.id, m.state])).toEqual([
+      ["01", "live"],
+      ["02", "live"],
+      ["03", "live"],
+    ]);
+    const commitOf = (id: string) => status.waves.find((row: { id: string }) => row.id === id).commit;
+    expect(commitOf(w2.waveId)).toBe(head2);
+    expect(commitOf(w3.waveId)).toBe(head3);
+    expect(gitIn(c.project, "log", "--format=%s", "main")).toMatch(/feat: Module 03[\s\S]*feat: Module 02/);
+  });
+
+  test("a wave's branch that changes another Module's files is refused", () => {
+    const c = parallelCourse();
+    const w3 = startWave(c, "03");
+    toCheckpoint(c, "03", w3);
+    writeFiles(w3.tree, { "content/modules/02-m02/extra.md": "not this wave's Module\n" });
+    gitIn(w3.tree, "add", "-A");
+    gitIn(w3.tree, "commit", "-q", "-m", "feat: edit Module 02 from Module 03's wave");
+
+    const problems = readyOf(c, w3.waveId).join("\n");
+
+    expect(problems).toMatch(/changes another Module's files \(content\/modules\/02-m02\/extra\.md\)/);
   });
 });
