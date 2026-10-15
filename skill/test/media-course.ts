@@ -11,7 +11,7 @@ import type { MediaDeps } from "../scripts/media/kit.ts";
 import type { MediaFile, MediaItem } from "../scripts/media/model.ts";
 import type { Verifier } from "../scripts/wave/wave.ts";
 import { must } from "./fake-notebooklm.ts";
-import { fixtureCourse, materialsOf, registered } from "./fixture-courses.ts";
+import { EMPTY_INVENTORY, fixtureCourse, materialsOf, registered } from "./fixture-courses.ts";
 import { media, tempDir, writeFiles, type Result } from "./helpers.ts";
 
 const FIXTURE = resolve(import.meta.dirname, "..", "..", "fixture-course");
@@ -142,5 +142,5 @@ export function fakeVerifier(
     { entry: "modules/01-m01/worked/1.json", kind: "slip", printed: [1.45], cell: "D4" },
   ],
 ): Verifier {
-  return { verify: () => ({ green: true, problems: [] }), rulings: () => rulings };
+  return { verify: () => ({ green: true, problems: [] }), rulings: () => rulings, inventory: () => EMPTY_INVENTORY };
 }
