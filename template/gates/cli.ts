@@ -11,6 +11,8 @@
 //            Runs every gate on its positive fixture and on each of its negative controls.
 //   rulings  [--module NN-slug] [--content DIR]
 //            Prints (JSON) every Slip and Divergence the content carries, for the Module wave's merge gate.
+//   tools    --module NN-slug [--content DIR]
+//            Prints (JSON) the Module's Worked examples and tools, for the Module wave's tool assignment. Not a gate.
 //   shots    --module NN-slug --out DIR [--url URL] [--dist DIR] [--commit SHA] [--content DIR]
 //            The fresh reviewer's screenshots of the Module page (phone and laptop, every section
 //            open, each tab view) and shots.json naming the commit (the Course project's HEAD by default).
@@ -21,6 +23,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { GATES } from "./index.ts";
+import { toolInventory } from "./inventory.ts";
 import { rulingsIn } from "./rulings.ts";
 import { takeShots } from "./shots.ts";
 import {
@@ -120,6 +123,10 @@ async function main(argv: string[]): Promise<number> {
       console.log(JSON.stringify(manifest));
       return 0;
     }
+    case "tools":
+      if (values.module === undefined) throw new UsageError("tools needs --module NN-slug");
+      console.log(JSON.stringify(toolInventory(input)));
+      return 0;
     case "rulings":
       console.log(JSON.stringify({ rulings: rulingsIn(input) }));
       return 0;
@@ -139,7 +146,7 @@ async function main(argv: string[]): Promise<number> {
       return result.ok ? 0 : 1;
     }
     default:
-      throw new UsageError(`unknown command "${command ?? ""}"; use run, verify, controls, rulings or shots`);
+      throw new UsageError(`unknown command "${command ?? ""}"; use run, verify, controls, rulings, tools or shots`);
   }
 }
 
