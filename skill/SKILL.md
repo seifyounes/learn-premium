@@ -223,11 +223,12 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
     was cut (another Module merged), `ready` says so: rebase `<T>` onto `main` (a conflict only in
     `content/build-records/gate-reports/`: take main's, finish the rebase, and re-run the gates; any
     other conflict: stop and tell the Owner), re-run the gates, and run `ready` again. A Gate report is
-    bound to the commit it checked. Then `git -C <P> merge --ff-only module/NN-<slug>` and push
+    bound to the commit it checked. Then `git -C <P> merge --ff-only module/NN-<slug>` (Module 01's
+    wave: `<P>` is on its branch, so `git -C <P> checkout main` first) and push
     `main`. Record `$L wave end --wave <W> --result merged --commit <full sha>`, then commit the
     ledger files on `main` (`git -C <P> add build-ledger.json build-records`, commit, push). Do that
     only now, or when no wave runs: every move of `main` makes the other waves rebase and re-gate. Then
-    `git -C <P> worktree remove <T>`. Once Vercel deploys `main`, run the live gates on the live URL
+    `git -C <P> worktree remove <T>` (Module 01 has none). Once Vercel deploys `main`, run the live gates on the live URL
     (`run --point live --url <live URL>`). A red live run rolls Vercel back (`template/README.md`,
     Deploy) and goes to the Owner.
 
