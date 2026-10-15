@@ -1,0 +1,34 @@
+{
+  "module": "03-gradient-descent",
+  "worked": [{ "n": "1", "entry": "modules/03-gradient-descent/worked/1.json", "figure": "animated" }],
+  "tools": [
+    {
+      "name": "descent",
+      "entry": "modules/03-gradient-descent/sims/descent.json",
+      "collection": "sims",
+      "kind": "gradient-descent",
+      "worked": "1",
+      "live": true,
+      "counts": null
+    },
+    {
+      "name": "descent-steps",
+      "entry": "modules/03-gradient-descent/sims/descent-steps.json",
+      "collection": "sims",
+      "kind": "gradient-descent",
+      "worked": null,
+      "live": false,
+      "counts": null
+    },
+    {
+      "name": "normal-equation",
+      "entry": "modules/03-gradient-descent/python/normal-equation.yaml",
+      "collection": "python",
+      "kind": "pyodide",
+      "worked": "1",
+      "live": true,
+      "counts": null
+    }
+  ],
+  "problems": []
+}
