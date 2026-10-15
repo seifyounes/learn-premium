@@ -14,6 +14,7 @@ import { requireLedger } from "../ledger/ledger.ts";
 import { BUILD_RECORDS_DIR, count, current, moduleId } from "../ledger/model.ts";
 import { arr, bool, fail, nonEmpty, nullable, obj, type Infer } from "../ledger/schema.ts";
 import { box, pageNumber, readJsonFile, waveFolder } from "./reading.ts";
+import { waveTree } from "./tree.ts";
 import { moduleFolder, type Verifier } from "./wave.ts";
 
 export const HANDBACK = "learn-premium sim builder v1";
@@ -77,6 +78,8 @@ export function handback(project: string, holder: string, waveId: string, name: 
   if (row === undefined) throw new LedgerError("invalid", `wave ${waveId}'s tool assignment has no tool ${name}`);
   const module = wave.target;
   const moduleFolderName = moduleFolder(ledger, module).folder;
+  // The builders wrote into the wave's own checkout: its worktree, or the project itself.
+  const tree = waveTree(project, wave.branch).path;
 
   const path = join(buildersFolder(privateFolderOf(ledger.intake.materialsPath), module), `${name}.json`);
   const raw = readJsonFile<unknown>(path, (v) => v, `hand-back of ${name}`);
@@ -99,7 +102,7 @@ export function handback(project: string, holder: string, waveId: string, name: 
       "invalid",
       `the hand-back names files outside content/modules/${moduleFolderName}/ and content/${BUILD_RECORDS_DIR}/: ${outside.join(", ")}`,
     );
-  const missing = given.files.filter((f) => !existsSync(join(project, f)));
+  const missing = given.files.filter((f) => !existsSync(join(tree, f)));
   if (missing.length > 0)
     throw new LedgerError("invalid", `the hand-back names files that aren't there: ${missing.join(", ")}`);
   const own = new RegExp(`^${CONTENT_DIR}/modules/${moduleFolderName}/(sims|python|parts)/${name}\\.[a-z]+$`);
@@ -118,7 +121,7 @@ export function handback(project: string, holder: string, waveId: string, name: 
     problems.push(
       `${given.unreadables.length} unreadable region${given.unreadables.length === 1 ? "" : "s"} (${given.unreadables.map((u) => u.where).join("; ")}): settle each on its crop, then hand back again, or record the job --result checkpoint`,
     );
-  const inventory = verifier.inventory(project, moduleFolderName);
+  const inventory = verifier.inventory(tree, moduleFolderName);
   if (typeof inventory === "string")
     problems.push(`the content's tools can't be read to check the counts: ${inventory}`);
   else {

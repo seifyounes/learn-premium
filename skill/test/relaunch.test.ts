@@ -8,6 +8,7 @@ import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import { EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
+import { builtRamp } from "./sim-ramp.ts";
 import { jsonInput, ledger, writeFiles, type Result } from "./helpers.ts";
 
 const privates: string[] = [];
@@ -234,6 +235,8 @@ describe("a relaunched job's own result", () => {
   test("a closed relaunch still keeps the wave red until the relaunched job records a result that isn't blocked", () => {
     const { project, waveId, holder } = waveWithPredecessor();
     const { deps } = jobGates(new Set());
+    // The sim builder's tool is assigned and handed back; its job is what the relaunch is about.
+    const inventory = builtRamp(project, waveId, true);
     must(open(project, waveId, "sim-ramp", [S1], deps));
     must(close(project, waveId, "sim-ramp", { [S1]: "kept" }, deps));
     const problems = () =>
@@ -242,12 +245,26 @@ describe("a relaunched job's own result", () => {
         verifier: {
           verify: () => ({ green: true, problems: [] }),
           rulings: () => [],
-          inventory: () => EMPTY_INVENTORY,
+          inventory: () => inventory,
         },
       }).out.problems as string[];
 
     const none = problems();
-    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", "sim-ramp", "--result", "passed"));
+    must(
+      ledger(
+        "record",
+        "job",
+        ...holder,
+        "--wave",
+        waveId,
+        "--job",
+        "sim-ramp",
+        "--result",
+        "passed",
+        "--started-at",
+        new Date(Date.now() - 60_000).toISOString(),
+      ),
+    );
 
     expect(none).toContainEqual(
       expect.stringMatching(/sim-ramp was relaunched, but the relaunched job hasn't recorded its result/),

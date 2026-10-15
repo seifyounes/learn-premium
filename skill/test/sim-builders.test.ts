@@ -7,7 +7,8 @@ import { readFileSync, rmSync } from "node:fs";
 import { afterEach, describe, expect, test } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { CATALOGUE } from "../scripts/intake/pads.ts";
-import type { ToolInventory } from "../scripts/wave/assign.ts";
+import { requireLedger } from "../scripts/ledger/ledger.ts";
+import { toolProblems, type ToolInventory } from "../scripts/wave/assign.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import {
   builderJob,
@@ -617,29 +618,29 @@ describe("a builder's hand-back", () => {
   });
 });
 
-describe("fallback after two fix rounds", () => {
-  const minutesAgo = () => new Date(Date.now() - 60_000).toISOString();
-  const record = (project: string, waveId: string, job: string, result: string) =>
-    ledger(
-      "record",
-      "job",
-      ...holder(project),
-      "--wave",
-      waveId,
-      "--job",
-      job,
-      "--result",
-      result,
-      "--started-at",
-      minutesAgo(),
-    );
-  /** A first block and the two fix rounds that are blocked too: the fix loop is spent. */
-  const blockThrice = (project: string, waveId: string, job: string) => {
-    for (let round = 0; round < 3; round++) must(record(project, waveId, job, "blocked"));
-  };
-  const fallBack = (project: string, waveId: string, job: string) =>
-    wave(["fallback", ...holder(project), "--wave", waveId, "--job", job, "--started-at", minutesAgo()]);
+const minutesAgo = () => new Date(Date.now() - 60_000).toISOString();
+const record = (project: string, waveId: string, job: string, result: string) =>
+  ledger(
+    "record",
+    "job",
+    ...holder(project),
+    "--wave",
+    waveId,
+    "--job",
+    job,
+    "--result",
+    result,
+    "--started-at",
+    minutesAgo(),
+  );
+/** A first block and the two fix rounds that are blocked too: the fix loop is spent. */
+const blockThrice = (project: string, waveId: string, job: string) => {
+  for (let round = 0; round < 3; round++) must(record(project, waveId, job, "blocked"));
+};
+const fallBack = (project: string, waveId: string, job: string) =>
+  wave(["fallback", ...holder(project), "--wave", waveId, "--job", job, "--started-at", minutesAgo()]);
 
+describe("fallback after two fix rounds", () => {
   test("is refused before the rounds are spent (exit 3), then a sim falls back to its step-through", () => {
     const { project, waveId } = assigned();
     must(record(project, waveId, "sim-descent", "blocked"));
@@ -711,5 +712,326 @@ describe("fallback after two fix rounds", () => {
     const { code, out } = fallBack(project, waveId, "writer");
     expect(code).toBe(2);
     expect(out.error).toMatch(/writer isn't a builder job/);
+  });
+});
+
+/** The template's inventory of Fixture Module 03, as the skill's fixture holds it. */
+const MODULE_03: ToolInventory = JSON.parse(
+  readFileSync(new URL("./fixtures/tool-inventory/03-gradient-descent.json", import.meta.url), "utf8"),
+);
+
+/** The inventory's tool `name`. */
+function toolIn(i: ToolInventory, name: string) {
+  const found = i.tools.find((t) => t.name === name);
+  if (found === undefined) throw new Error("no tool " + name + " in the inventory");
+  return found;
+}
+
+/** `MODULE_03` with `change` applied to a copy. */
+function inventory(change: (i: ToolInventory) => void = () => {}): ToolInventory {
+  const copy = structuredClone(MODULE_03);
+  change(copy);
+  return copy;
+}
+
+/**
+ * Module 03's wave built as the main agent builds it: every tool assigned and handed back, the live sim
+ * and the Pyodide tool passed, and the step-through sim blocked through its fix rounds and fallen back.
+ */
+function built(input: unknown = ASSIGNMENT) {
+  const course = module03();
+  must(assignWave(course.project, course.waveId, input));
+  const privateFolder = privateFolderOf(materialsOf(course.project));
+  privates.push(privateFolder);
+  writeFiles(course.project, {
+    [OWN_FILE("descent")]: "{}",
+    [OWN_FILE("descent-steps")]: "{}",
+    [`content/modules/${FOLDER}/python/normal-equation.yaml`]: "title: x\n",
+  });
+  const full = { ...course, privateFolder };
+  for (const name of ["descent", "descent-steps", "normal-equation"]) must(handBack(full, name));
+  must(record(course.project, course.waveId, "sim-descent", "passed"));
+  blockThrice(course.project, course.waveId, "sim-descent-steps");
+  must(fallBack(course.project, course.waveId, "sim-descent-steps"));
+  must(record(course.project, course.waveId, "tool-normal-equation", "passed"));
+  return full;
+}
+
+const problemsOf = (course: { project: string; waveId: string }, given: ToolInventory | string = MODULE_03) =>
+  toolProblems(requireLedger(course.project), course.waveId, FOLDER, given);
+
+describe("the merge gate holds the content to the assignment", () => {
+  test("the Fixture Module's content matches its assignment: toolProblems is empty, and names each mismatch", () => {
+    const course = built();
+
+    expect(problemsOf(course)).toEqual([]);
+
+    // The step-through sim ships as one: the content says it is live, so the content isn't the assignment's.
+    expect(
+      problemsOf(
+        course,
+        inventory((i) => (toolIn(i, "descent-steps").live = true)),
+      ),
+    ).toEqual(["tool descent-steps should ship as step-through, but the content has a gradient-descent sim"]);
+  });
+
+  test("the template's own message, or a problem it found in the content, is a problem", () => {
+    const course = built();
+    expect(problemsOf(course, "the template can't list the Module's tools: boom")).toEqual([
+      "the template can't list the Module's tools: boom",
+    ]);
+    expect(
+      problemsOf(
+        course,
+        inventory((i) => i.problems.push("modules/03-gradient-descent/sims/x.json: can't check the sim: kind")),
+      ),
+    ).toEqual(["modules/03-gradient-descent/sims/x.json: can't check the sim: kind"]);
+  });
+
+  test("a content with a Worked example or tool and no assignment at all has none to match (negative control)", () => {
+    const { project, waveId } = module03();
+
+    expect(toolProblems(requireLedger(project), waveId, FOLDER, MODULE_03)).toEqual([
+      expect.stringMatching(
+        /^no tool assignment for module-03-1: 03-gradient-descent has 1 Worked example and 3 tools/,
+      ),
+    ]);
+    expect(
+      toolProblems(
+        requireLedger(project),
+        waveId,
+        FOLDER,
+        inventory((i) => ((i.worked = []), (i.tools = []))),
+      ),
+    ).toEqual([]);
+  });
+
+  test.each([
+    [
+      "a Worked example the assignment doesn't plan",
+      (i: ToolInventory) =>
+        i.worked.push({ n: "2", entry: "modules/03-gradient-descent/worked/2.json", figure: "none" }),
+      "W03.2 has no entry in the tool assignment (modules/03-gradient-descent/worked/2.json)",
+    ],
+    [
+      "a planned Worked example the Module doesn't have",
+      (i: ToolInventory) => (i.worked = []),
+      "the tool assignment plans W03.1, which the Module doesn't have",
+    ],
+    [
+      "a tool no assignment names",
+      (i: ToolInventory) =>
+        i.tools.push({
+          name: "extra",
+          entry: "modules/03-gradient-descent/sims/extra.json",
+          collection: "sims",
+          kind: "logic",
+          worked: null,
+          live: true,
+          counts: null,
+        }),
+      "the content has a tool extra (modules/03-gradient-descent/sims/extra.json) that no assignment names",
+    ],
+    [
+      "an assigned tool the content lacks",
+      (i: ToolInventory) => (i.tools = i.tools.filter((t) => t.name !== "normal-equation")),
+      "the assigned tool normal-equation has no file in the content",
+    ],
+    [
+      "a tool in another Worked example than the assignment says",
+      (i: ToolInventory) => (toolIn(i, "descent").worked = null),
+      "tool descent sits in no Worked example in the content, but the assignment says W03.1",
+    ],
+    [
+      "a tool built as another kind",
+      (i: ToolInventory) => (toolIn(i, "descent").kind = "tangent"),
+      "tool descent should ship as gradient-descent, but the content has a tangent sim",
+    ],
+    [
+      "a Pyodide tool that is a part",
+      (i: ToolInventory) => (
+        (toolIn(i, "normal-equation").collection = "parts"),
+        (toolIn(i, "normal-equation").kind = "part")
+      ),
+      "tool normal-equation should ship as pyodide, but the content has a part",
+    ],
+  ])("names %s", (_name, change, message) => {
+    const course = built();
+
+    expect(problemsOf(course, inventory(change))).toEqual([message]);
+  });
+
+  test("a computable Worked example needs a tool in it in the content (negative control)", () => {
+    const course = built();
+
+    expect(
+      problemsOf(
+        course,
+        inventory((i) => i.tools.forEach((t) => (t.worked = null))),
+      ),
+    ).toContainEqual("W03.1 is computable, but no tool in the content sits in it");
+  });
+
+  test("an illustration holds its figure: no tool in it, and the figure the assignment names (negative controls)", () => {
+    const illustrated = (figure: string) => ({
+      ...ASSIGNMENT,
+      worked: [{ n: "1", model: "illustration", figure }],
+      tools: ASSIGNMENT.tools.filter((t) => t.name === "descent-steps"),
+    });
+    const withoutTools = (i: ToolInventory) => (i.tools = i.tools.filter((t) => t.name === "descent-steps"));
+    const course = (figure: string) => {
+      const { project, waveId } = module03();
+      must(assignWave(project, waveId, illustrated(figure)));
+      return { project, waveId };
+    };
+
+    const matching = course("animate");
+    expect(problemsOf(matching, inventory(withoutTools))).not.toContainEqual(expect.stringContaining("illustration"));
+    // The content's figure is animated, but the plan says static.
+    expect(problemsOf(course("static"), inventory(withoutTools))).toContainEqual(
+      "W03.1 is planned as an illustration whose figure is static, but its figure in the content is animated",
+    );
+    // A tool in the content sits in the illustration.
+    expect(problemsOf(matching, inventory())).toContainEqual(
+      "W03.1 is an illustration, but the content puts a tool in it (descent, normal-equation)",
+    );
+  });
+
+  test("a builder job that isn't timed, isn't passed, left no hand-back or has no row is a problem (negative controls)", () => {
+    const untimed = built();
+    // Re-recorded without its launch time.
+    must(
+      ledger(
+        "record",
+        "job",
+        ...holder(untimed.project),
+        "--wave",
+        untimed.waveId,
+        "--job",
+        "tool-normal-equation",
+        "--result",
+        "passed",
+      ),
+    );
+    expect(problemsOf(untimed)).toEqual([
+      "job tool-normal-equation wasn't timed: record it with --started-at <when you launched it>",
+    ]);
+
+    const noHandBack = built();
+    // A re-assignment that renames a tool drops its hand-back and its job.
+    const renamed = assignment((a) => ((a.tools[0] as { name: string }).name = "descent-live"));
+    must(assignWave(noHandBack.project, noHandBack.waveId, renamed));
+    expect(
+      problemsOf(
+        noHandBack,
+        inventory((i) => (toolIn(i, "descent").name = "descent-live")),
+      ),
+    ).toEqual([
+      "job sim-descent-live hasn't been recorded for module-03-1",
+      "tool descent-live has no hand-back: wave.ts handback --name descent-live",
+      "job sim-descent builds a tool that no assignment names",
+    ]);
+
+    const failed = built();
+    must(
+      ledger(
+        "record",
+        "job",
+        ...holder(failed.project),
+        "--wave",
+        failed.waveId,
+        "--job",
+        "tool-normal-equation",
+        "--result",
+        "checkpoint",
+        "--detail",
+        "needs the Owner",
+        "--started-at",
+        minutesAgo(),
+      ),
+    );
+    expect(problemsOf(failed)).toEqual(["job tool-normal-equation is checkpoint: it must pass"]);
+  });
+
+  test("a blocked builder job is the wave's blocked-job problem alone: no second message about its tool", () => {
+    const course = built();
+    must(
+      ledger(
+        "record",
+        "job",
+        ...holder(course.project),
+        "--wave",
+        course.waveId,
+        "--job",
+        "tool-normal-equation",
+        "--result",
+        "blocked",
+        "--started-at",
+        minutesAgo(),
+      ),
+    );
+
+    expect(
+      problemsOf(
+        course,
+        inventory((i) => (i.tools = i.tools.filter((t) => t.name !== "normal-equation"))),
+      ),
+    ).toEqual([]);
+  });
+
+  test("a sim recorded fell-back by a plain `record job` ships its step-through all the same", () => {
+    const course = built();
+    // descent fell back without `wave.ts fallback`: the ledger's row still says it ships the live sim.
+    blockThrice(course.project, course.waveId, "sim-descent");
+    must(
+      ledger(
+        "record",
+        "job",
+        ...holder(course.project),
+        "--wave",
+        course.waveId,
+        "--job",
+        "sim-descent",
+        "--result",
+        "fell-back",
+        "--detail",
+        "step-through",
+        "--started-at",
+        minutesAgo(),
+      ),
+    );
+
+    expect(problemsOf(course)).toEqual([
+      "tool descent should ship as step-through, but the content has a gradient-descent sim",
+    ]);
+    expect(
+      problemsOf(
+        course,
+        inventory((i) => (toolIn(i, "descent").live = false)),
+      ),
+    ).toEqual([]);
+  });
+
+  test("a sim job with no assignment row, and an untimed subagent job, are problems (negative controls)", () => {
+    const course = built();
+    must(record(course.project, course.waveId, "sim-ghost", "passed"));
+    must(
+      ledger(
+        "record",
+        "job",
+        ...holder(course.project),
+        "--wave",
+        course.waveId,
+        "--job",
+        "writer",
+        "--result",
+        "passed",
+      ),
+    );
+
+    expect(problemsOf(course)).toEqual([
+      "job sim-ghost builds a tool that no assignment names",
+      "job writer wasn't timed: record it with --started-at <when you launched it>",
+    ]);
   });
 });
