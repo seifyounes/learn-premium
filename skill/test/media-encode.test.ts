@@ -1,6 +1,7 @@
 // The web re-encode and its size policy through the `encode` command: a checked item's master becomes a web
 // copy in the Private folder; one over GitHub's file limit is re-encoded harder once, else dropped. The kit is
 // faked, the limit small, so no test makes a big file.
+import { createHash } from "node:crypto";
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -8,7 +9,7 @@ import { GITHUB_FILE_LIMIT_BYTES } from "../scripts/media/model.ts";
 import { fakeKit } from "./fake-media-kit.ts";
 import { must } from "./fake-notebooklm.ts";
 import { fakeVerifier, ingestFixture, itemOf, mediaCourse, mediaWith, type MediaCourse } from "./media-course.ts";
-import { media } from "./helpers.ts";
+import { media, writeFiles } from "./helpers.ts";
 
 const NOW = Date.parse("2026-10-01T08:00:00.000Z");
 const VIDEO = "module-01-video";
@@ -111,6 +112,32 @@ describe("the encode of an item", () => {
     expect(code).toBe(3);
     expect(out["error"]).toMatch(/downloaded/);
     expect(kit.calls).toEqual([]);
+  });
+
+  test("a master replaced after its fact check is refused: only the checked bytes are encoded", () => {
+    // Negative control: the check file binds the check to the master's hash.
+    const { c, master } = checked();
+    const attempt = 1;
+    writeFiles(c.privateFolder, {
+      [`media/checks/${VIDEO}-${attempt}.json`]: JSON.stringify({
+        check: "learn-premium media check v1",
+        item: VIDEO,
+        attempt,
+        masterHash: createHash("sha256").update(readFileSync(master)).digest("hex"),
+        alt: null,
+        readings: [],
+        claims: [],
+      }),
+    });
+    const kit = fakeKit();
+    expect(encode(c, kit).code).toBe(0);
+    writeFileSync(master, "replaced after the check");
+
+    const { code, out } = encode(c, kit);
+
+    expect(code).toBe(3);
+    expect(out["error"]).toMatch(/another master/);
+    expect(kit.calls.map((call) => call.call)).toEqual(["encode"]);
   });
 
   test("a kit that fails leaves the item as it was", () => {

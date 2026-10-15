@@ -216,6 +216,10 @@ export function gatherEvidence(
   };
 }
 
+/** The one field of the check file the re-encode reads (check.ts holds the whole schema, and imports this file). */
+const checkedMaster: Schema<{ masterHash: unknown }> = (v, p) =>
+  typeof v === "object" && v !== null && "masterHash" in v ? { masterHash: v.masterHash } : fail(p, "a check file", v);
+
 export interface EncodeResult {
   /** The web copy, relative to the Private folder; absent when the item was dropped for its size. */
   file?: string;
@@ -249,6 +253,17 @@ export function encodeItem(
     throw new LedgerError("refused", `${id} is ${item.state}; the re-encode needs it checked`);
   const attempt = item.regenerations + 1;
   const master = masterOf(priv, item);
+  // Only the bytes the fact check passed: its file names the master it read, and a replaced master isn't that.
+  const checkFile = checkPath(priv, id, attempt);
+  if (existsSync(checkFile)) {
+    const { masterHash } = readJsonFile(checkFile, checkedMaster, "check file");
+    if (masterHash !== hashFile(master)) {
+      throw new LedgerError(
+        "refused",
+        `${master} is another master than the one ${id}'s fact check passed: check it again`,
+      );
+    }
+  }
   const masterBytes = statSync(master).size;
   const ext = WEB_EXTENSION[item.kind];
   const tries: EncodeResult["tries"] = [];
