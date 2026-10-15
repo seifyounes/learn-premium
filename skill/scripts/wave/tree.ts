@@ -4,6 +4,8 @@
 // own checkout; the checks here keep the branches mergeable one by one: no two branches touch the same
 // files, and none touches the ledger.
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { BUILD_RECORDS_DIR, current, LEDGER_FILE, type Ledger, type Wave } from "../ledger/model.ts";
 import { BUILD_REPORT, STATUS_PAGE } from "../ledger/render.ts";
 import { MEDIA_FILE, MEDIA_PAGE } from "../media/model.ts";
@@ -75,6 +77,30 @@ export function otherModuleFiles(paths: string[], module: string): string[] {
   );
 }
 
+/**
+ * The deploy gates run in the wave's worktree and read the Materials inventory (every hash, superseded
+ * rows too) from the nearest `build-ledger.json`: the worktree's own committed copy, since the live
+ * ledger sits in the main checkout. A copy that predates a Material would let a build step ship that
+ * file past the privacy gate, so the worktree must hold every hash the live ledger has.
+ */
+export function inventoryProblems(ledger: Ledger, tree: WaveTree): string[] {
+  if (!tree.linked) return [];
+  let held = new Set<string>();
+  try {
+    const parsed = JSON.parse(readFileSync(join(tree.path, LEDGER_FILE), "utf8")) as {
+      materials?: { hash?: string }[];
+    };
+    held = new Set((parsed.materials ?? []).map((m) => m.hash ?? ""));
+  } catch {
+    // no readable ledger in the worktree: every Material is missing from it
+  }
+  const missing = ledger.materials.filter((m) => !held.has(m.hash)).map((m) => m.path);
+  if (missing.length === 0) return [];
+  return [
+    `the wave's worktree holds a Build ledger that predates Materials the live ledger has (${[...new Set(missing)].join(", ")}): the deploy gates there read the Materials inventory from it. Commit the ledger files on ${MAIN_BRANCH}, rebase the wave onto ${MAIN_BRANCH}, and run ready again`,
+  ];
+}
+
 /** Why the wave's branch can't merge into `main` as it stands, beyond what the wave's own work lacks. */
 export function treeProblems(project: string, wave: Wave, tree: WaveTree): string[] {
   const problems: string[] = [];
@@ -105,13 +131,14 @@ export function treeProblems(project: string, wave: Wave, tree: WaveTree): strin
     problems.push(
       `${MAIN_BRANCH} has moved since ${wave.branch} left it: rebase onto ${MAIN_BRANCH}, re-run the gates on the new commit, then run ready again`,
     );
-  const diff = git(tree.path, ["diff", "--name-only", "--no-renames", base.stdout.trim(), "HEAD"]);
+  // NUL-separated, so a name git would quote (non-ASCII, a newline) reaches the checks as it is.
+  const diff = git(tree.path, ["diff", "--name-only", "-z", "--no-renames", base.stdout.trim(), "HEAD"]);
   if (diff.status !== 0)
     return [
       ...problems,
       `can't list what ${wave.branch} changes against ${MAIN_BRANCH}: ${diff.stderr.trim() || "git failed"}`,
     ];
-  const changed = diff.stdout.split(/\r?\n/).filter(Boolean);
+  const changed = diff.stdout.split("\0").filter(Boolean);
   const ledgerFiles = tree.linked ? changed.filter((path) => LEDGER_FILES.includes(path)) : [];
   if (ledgerFiles.length > 0)
     problems.push(

@@ -19,7 +19,7 @@ import { staleProblems } from "./fresh.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
 import { relaunchProblems } from "./relaunch.ts";
 import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
-import { moduleTree, treeProblems, waveTree } from "./tree.ts";
+import { inventoryProblems, moduleTree, treeProblems, waveTree } from "./tree.ts";
 
 /** The gate points a Module merges on: per job and per Module scoped to it, per deploy on the whole Course. */
 export const MERGE_POINTS = ["job", "module", "deploy"] as const;
@@ -342,7 +342,7 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
     problems.push(
       `the Course project is checked out on ${branch ?? "no branch"}, not the wave's branch ${wave.branch}: add its worktree (git worktree add) or check it out, and run ready again`,
     );
-  problems.push(...treeProblems(project, wave, tree));
+  problems.push(...treeProblems(project, wave, tree), ...inventoryProblems(ledger, tree));
   // The Gate reports prove HEAD, and HEAD is what merges: the ledger rows, records and content this
   // check reads must be HEAD's too.
   const status = spawnSync("git", ["-C", dir, "status", "--porcelain"], { encoding: "utf8" });
