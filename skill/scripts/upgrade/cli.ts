@@ -5,11 +5,20 @@
 import { resolve } from "node:path";
 import { Args } from "../ledger/args.ts";
 import { LedgerError } from "../ledger/file.ts";
-import { nonEmpty, SchemaError } from "../ledger/schema.ts";
+import { gateGapId } from "../ledger/model.ts";
+import { nonEmpty, oneOf, SchemaError } from "../ledger/schema.ts";
 import { TrackerError, type Tracker } from "../gate-gap/tracker.ts";
-import type { Verifier } from "../wave/wave.ts";
+import { templateVerifier, type Verifier } from "../wave/wave.ts";
 import { heldReason, localToday, planUpgrade } from "./plan.ts";
-import { applyUpgrade, migrateUpgrade, startUpgrade, UpgradeProblem } from "./wave.ts";
+import {
+  applyUpgrade,
+  endUpgradeFailed,
+  mergeUpgrade,
+  migrateUpgrade,
+  startUpgrade,
+  upgradeProblems,
+  UpgradeProblem,
+} from "./wave.ts";
 
 export interface RunResult {
   code: number;
@@ -76,6 +85,19 @@ async function dispatch(args: Args, deps: Partial<Deps>): Promise<Output> {
       return { ...applyUpgrade(project, args.required("--holder"), source) };
     case "migrate":
       return { ...(await migrateUpgrade(project, args.required("--holder"))) };
+    case "ready": {
+      const problems = upgradeProblems(project, deps.verifier ?? templateVerifier);
+      return { code: problems.length === 0 ? 0 : 1, ready: problems.length === 0, problems };
+    }
+    case "merge": {
+      const merged = mergeUpgrade(project, args.required("--holder"), deps.verifier ?? templateVerifier);
+      return { code: merged.merged ? 0 : 1, ...merged };
+    }
+    case "end": {
+      oneOf("failed")(args.required("--result"), "--result");
+      endUpgradeFailed(project, args.required("--holder"), gateGapId(args.required("--gate-gap"), "--gate-gap"));
+      return {};
+    }
     default:
       throw new LedgerError("invalid", `unknown command: ${command}`);
   }
