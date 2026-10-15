@@ -228,7 +228,7 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
     was cut (another Module merged), `ready` says so: rebase `<T>` onto `main` (a conflict only in
     `content/build-records/gate-reports/`: take main's, finish the rebase, and re-run the gates; any
     other conflict: stop and tell the Owner), re-run the gates, and run `ready` again. A Gate report is
-    bound to the commit it checked. Then `git -C <P> merge --ff-only module/NN-<slug>` (Module 01's
+    bound to the commit it checked. Then `git -C <P> merge --ff-only <branch>` (the wave's branch, as `$L status` lists it) (Module 01's
     wave: `<P>` is on its branch, so `git -C <P> checkout main` first) and push
     `main`. Record `$L wave end --wave <W> --result merged --commit <full sha>`, then commit the
     ledger files on `main` (`git -C <P> add build-ledger.json build-records`, commit, push). Do that
