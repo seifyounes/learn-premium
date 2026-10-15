@@ -74,7 +74,7 @@ Everything the Blind readers and reconcile touch carries the Professor's text, s
   `source` and `why`.
 - `review/verdicts.json`, the main agent's, after looking at each finding itself:
   `{"verdicts": [{"key", "verdict": "confirmed"|"rejected", "evidence", "fix", "reason"}]}`. `key`
-  is the finding's, as `review` lists it (a hash of the finding, so a verdict stands only for the
+  is the finding's, as `review` lists it (a hash of the finding and the commit reviewed, so a verdict stands only for the
   finding it was made on). A confirmed one names its `evidence` (the crop or screenshot it was
   re-verified on, in the Private folder) and `fix`, the job that fixes it.
 

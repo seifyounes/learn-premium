@@ -75,8 +75,9 @@ const shotsSchema = obj({
   ),
 });
 
-/** A finding's key: a hash of everything it says, so a verdict stands only for the finding it was made on. */
-const findingKey = (f: Finding) => `r-${createHash("sha256").update(JSON.stringify(f)).digest("hex").slice(0, 10)}`;
+/** A finding's key: a hash of the commit reviewed and all it says: a verdict stands only for that finding of that review. */
+const findingKey = (commit: string, f: Finding) =>
+  `r-${createHash("sha256").update(JSON.stringify({ commit, f })).digest("hex").slice(0, 10)}`;
 
 /** A path the reviewer or the main agent names, which must be a file in the Private folder. */
 function inPrivate(privateFolder: string, path: string, what: string): string {
@@ -133,7 +134,7 @@ export function reviewState(privateFolder: string, module: string, page: string)
   const byKey = new Map(verdicts.map((v) => [v.key, v]));
   const state: ReviewState = { ...empty, problems, commit: review.commit };
   for (const finding of review.findings) {
-    const key = findingKey(finding);
+    const key = findingKey(review.commit, finding);
     const verdict = byKey.get(key);
     if (verdict === undefined) {
       state.unverified.push({ key, ...finding });

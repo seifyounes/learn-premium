@@ -43,8 +43,23 @@ function blocksInARow(rows: Pick<Job, "result">[]): number {
 /** The first block isn't a fix round; each block after it spends one. */
 const spent = (blocks: number) => Math.max(0, blocks - 1);
 
-/** Refuses a result the fix loop doesn't allow after `history` (the job's rows in its wave, oldest first). */
-export function checkResult(job: string, result: JobResult, detail: string | null, history: Pick<Job, "result">[]) {
+/**
+ * Refuses a result the fix loop doesn't allow after `history` (the job's rows in its wave, oldest
+ * first). `waiting` is the key of the job's unanswered Checkpoint item when its last result escalated
+ * to the Owner: nothing but another escalation follows until he answers.
+ */
+export function checkResult(
+  job: string,
+  result: JobResult,
+  detail: string | null,
+  history: Pick<Job, "result">[],
+  waiting: string | null = null,
+) {
+  if (waiting !== null && result !== "checkpoint")
+    throw new LedgerError(
+      "refused",
+      `${job} waits on the Owner's answer to its Checkpoint item ${waiting}: record his answer first`,
+    );
   if (result === "fell-back") {
     if (fallbackOf(job) === null)
       throw new LedgerError(

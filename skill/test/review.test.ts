@@ -178,6 +178,23 @@ describe("the fresh reviewer's review", () => {
     expect(out.unverified).toHaveLength(1);
   });
 
+  test("a fresh review of a new commit is re-verified, even where it repeats a finding word for word", () => {
+    const { project, privateFolder } = newCourse();
+    shots(privateFolder);
+    review(privateFolder, [VISUAL]);
+    const [visual] = reviewOf(project).out.unverified as { key: string }[];
+    verdicts(privateFolder, [{ key: visual?.key, verdict: "rejected", evidence: null, fix: null, reason: "no" }]);
+    const next = "f".repeat(40);
+    shots(privateFolder, next);
+    review(privateFolder, [VISUAL], next);
+
+    const { code, out } = reviewOf(project);
+
+    expect(code).toBe(1);
+    expect(out.unverified).toEqual([expect.objectContaining({ kind: "visual" })]);
+    expect(out.unverified[0].key).not.toBe(visual?.key);
+  });
+
   test("a review is made on the phone and laptop screenshots of the commit it reviewed (negative controls)", () => {
     const { project, privateFolder } = newCourse();
     review(privateFolder, []);
