@@ -1,10 +1,24 @@
 // The YouTube video cards' live gate and CLI: no network anywhere, every probe is a fake. The
 // synthetic id `abcdefghijk` is planted in a copy of the Fixture Course; the committed Fixture has
 // no card.
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parseDocument } from "yaml";
 import { GATES } from "../gates/index.ts";
-import { runControls, runGates, type GateInput } from "../gates/runner.ts";
-import { liveVideos, livenessOf, youtubeProbe, type OembedAnswer, type VideoProbe } from "../gates/videos.ts";
+import { runControls, runGates, type GateInput, type GateReport } from "../gates/runner.ts";
+import {
+  deadInReport,
+  hideCards,
+  liveVideos,
+  livenessOf,
+  videoCards,
+  youtubeProbe,
+  type OembedAnswer,
+  type VideoProbe,
+} from "../gates/videos.ts";
+import { media } from "../src/content/contract.ts";
 import { FIXTURE_COURSE, fixtureWith } from "./build-course";
 
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
@@ -146,5 +160,130 @@ describe("youtubeProbe", () => {
   it("reads the length from the watch page, else null", async () => {
     expect(await youtubeProbe(respond('x "lengthSeconds":"725" y')).lengthSeconds("abcdefghijk")).toBe(725);
     expect(await youtubeProbe(respond("no length here")).lengthSeconds("abcdefghijk")).toBeNull();
+  });
+});
+
+const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
+const cli = (...args: string[]) =>
+  spawnSync(process.execPath, ["gates/cli.ts", "videos", ...args], { cwd: TEMPLATE_DIR, encoding: "utf8" });
+
+const AT = `modules/${MODULE}/media.yaml`;
+const OTHER = `  - { id: zyxwvutsrqp, title: A live card, channel: Another, duration: '1:02:05', match: 10, why: Kept., moments: [{ at: '3:15', label: The series rule }] }
+`;
+const DEAD = "abcdefghijk is dead: YouTube's oEmbed answers 404 (removed); the card is hidden after this deploy";
+
+/** A copy of the Fixture with two cards in Module 01: the planted one, then a live one. */
+const courseWithTwo = (): string => fixtureWith(`modules/${MODULE}/media.yaml`, (source) => `${source}${CARD}${OTHER}`);
+
+const mediaOf = (contentDir: string) => join(contentDir, AT);
+
+/** A live-gate report that raises the given items, the way the gate does. */
+const reportOf = (...items: { gate: string; message: string; at: string }[]) =>
+  ({ checkpointItems: items.map((i) => ({ outcome: "checkpoint", ...i })) }) as unknown as GateReport;
+
+describe("videos list", () => {
+  it("videos list prints the planted card raw", () => {
+    const contentDir = coursePlanted().contentDir;
+    const run = cli("list", "--module", MODULE, "--content", contentDir);
+    expect(run.status, run.stderr).toBe(0);
+    expect(JSON.parse(run.stdout)).toEqual({
+      cards: [
+        {
+          module: MODULE,
+          at: AT,
+          id: "abcdefghijk",
+          title: "A planted card",
+          channel: "A channel",
+          duration: "9:30",
+          match: 9,
+          why: "Planted.",
+          moments: [],
+        },
+      ],
+    });
+  });
+
+  it("lists nothing for the committed Fixture, and only the named Module's cards", () => {
+    expect(videoCards({ contentDir: FIXTURE_COURSE })).toEqual([]);
+    const contentDir = courseWithTwo();
+    expect(videoCards({ contentDir, module: "02-convection" })).toEqual([]);
+    expect(videoCards({ contentDir, module: MODULE }).map((c) => c.id)).toEqual(["abcdefghijk", "zyxwvutsrqp"]);
+  });
+});
+
+describe("videos probe", () => {
+  it("needs --ids, and exits 2 without it (it never spawns a real probe here)", () => {
+    const run = cli("probe");
+    expect(run.status).toBe(2);
+    expect(run.stderr).toMatch(/--ids/);
+  });
+
+  it("is a usage error to name no subcommand or a wrong one", () => {
+    expect(cli().status).toBe(2);
+    expect(cli("nope").status).toBe(2);
+  });
+});
+
+describe("deadInReport", () => {
+  it("takes the dead cards of the live-videos gate, and ignores 'couldn't check' items and other gates", () => {
+    const report = reportOf(
+      { gate: "live-videos", at: AT, message: DEAD },
+      { gate: "live-videos", at: AT, message: "couldn't check zyxwvutsrqp: oEmbed answered 429; the card stays" },
+      { gate: "licences", at: AT, message: "abcdefghijk is dead: not ours" },
+    );
+    expect(deadInReport(report)).toEqual([{ at: AT, id: "abcdefghijk" }]);
+  });
+});
+
+describe("videos hide", () => {
+  it("videos hide removes only the dead card: the live card and the comment stay, and the file still parses", () => {
+    const contentDir = courseWithTwo();
+    const hidden = hideCards(contentDir, [{ at: AT, id: "abcdefghijk" }]);
+    expect(hidden).toEqual([{ module: MODULE, id: "abcdefghijk", title: "A planted card" }]);
+    const source = readFileSync(mediaOf(contentDir), "utf8");
+    expect(source).toContain("# Synthetic media");
+    const parsed = media.parse(parseDocument(source).toJS());
+    expect(parsed.youtube.map((c) => c.id)).toEqual(["zyxwvutsrqp"]);
+    expect(parsed.video?.file).toBe("explainer.mp4");
+    expect(parsed.infographic?.file).toBe("infographic.png");
+  });
+
+  it("drops the youtube block when its last card goes, and the file still parses", () => {
+    const contentDir = coursePlanted().contentDir;
+    hideCards(contentDir, [{ at: AT, id: "abcdefghijk" }]);
+    const source = readFileSync(mediaOf(contentDir), "utf8");
+    expect(source).not.toContain("youtube");
+    expect(media.parse(parseDocument(source).toJS()).youtube).toEqual([]);
+  });
+
+  it("hides nothing for an id the file doesn't hold, and leaves the file as it was", () => {
+    const contentDir = courseWithTwo();
+    const before = readFileSync(mediaOf(contentDir), "utf8");
+    expect(hideCards(contentDir, [{ at: AT, id: "qqqqqqqqqqq" }])).toEqual([]);
+    expect(readFileSync(mediaOf(contentDir), "utf8")).toBe(before);
+  });
+
+  it("the CLI hides what the report names and prints it as JSON", () => {
+    const contentDir = courseWithTwo();
+    const reportPath = join(contentDir, "live-report.json");
+    writeFileSync(reportPath, JSON.stringify(reportOf({ gate: "live-videos", at: AT, message: DEAD })));
+    const run = cli("hide", "--report", reportPath, "--content", contentDir);
+    expect(run.status, run.stderr).toBe(0);
+    expect(JSON.parse(run.stdout)).toEqual({
+      hidden: [{ module: MODULE, id: "abcdefghijk", title: "A planted card" }],
+    });
+    expect(videoCards({ contentDir }).map((c) => c.id)).toEqual(["zyxwvutsrqp"]);
+  });
+
+  it("touches only a Module's media.yaml, whatever path a report names", () => {
+    const contentDir = courseWithTwo();
+    const before = readFileSync(join(contentDir, "course.yaml"), "utf8");
+    expect(hideCards(contentDir, [{ at: "course.yaml", id: "abcdefghijk" }])).toEqual([]);
+    expect(hideCards(contentDir, [{ at: "modules/../course.yaml", id: "abcdefghijk" }])).toEqual([]);
+    expect(readFileSync(join(contentDir, "course.yaml"), "utf8")).toBe(before);
+  });
+
+  it("the CLI needs --report", () => {
+    expect(cli("hide").status).toBe(2);
   });
 });

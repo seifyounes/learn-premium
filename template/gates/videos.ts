@@ -120,6 +120,7 @@ export function videoCards(input: GateInput): ListedCard[] {
   return cards;
 }
 
+const MEDIA_FILE = /^modules\/[^/]+\/media\.yaml$/;
 const DEAD_MESSAGE = /^([\w-]{11}) is dead: /;
 
 /** The cards the live-videos gate found dead, from a live Gate report: where each sits and its id. */
@@ -140,11 +141,14 @@ export function hideCards(
 ): { module: string; id: string; title: string }[] {
   const hidden: { module: string; id: string; title: string }[] = [];
   for (const at of new Set(dead.map((d) => d.at))) {
+    // Only a Module's media.yaml: a report says where an item was raised, never a path to trust.
+    if (!MEDIA_FILE.test(at)) continue;
     const path = join(contentDir, at);
     const doc = parseDocument(readFileSync(path, "utf8"));
     const cards = doc.get("youtube", true);
     if (!isSeq(cards)) continue;
     const ids = new Set(dead.filter((d) => d.at === at).map((d) => d.id));
+    const before = hidden.length;
     cards.items = cards.items.filter((card) => {
       if (!isMap(card) || !ids.has(text(card.get("id")))) return true;
       hidden.push({
@@ -154,6 +158,7 @@ export function hideCards(
       });
       return false;
     });
+    if (hidden.length === before) continue;
     if (cards.items.length === 0) doc.delete("youtube");
     writeFileSync(path, String(doc));
   }

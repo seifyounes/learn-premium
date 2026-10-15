@@ -20,6 +20,13 @@
 //   shots    --module NN-slug --out DIR [--url URL] [--dist DIR] [--commit SHA] [--content DIR]
 //            The fresh reviewer's screenshots of the Module page (phone and laptop, every section
 //            open, each tab view) and shots.json naming the commit (the Course project's HEAD by default).
+//   videos   list [--module NN-slug] [--content DIR]
+//            Prints (JSON) every YouTube card the content carries, raw, for the Module wave's ready gate.
+//   videos   probe --ids ID,ID,…
+//            Asks YouTube (oEmbed and the watch page) about each video; prints (JSON) each answer. The only
+//            command here that touches the network, and never run by a test.
+//   videos   hide --report FILE [--content DIR]
+//            Removes the cards a live Gate report found dead from their media.yaml; prints (JSON) each one.
 //
 // Exit codes: 0 green, 1 red, 2 bad usage.
 import { spawnSync } from "node:child_process";
@@ -31,6 +38,7 @@ import { toolInventory } from "./inventory.ts";
 import { rulingsIn } from "./rulings.ts";
 import { sittingDump } from "./sittings.ts";
 import { takeShots } from "./shots.ts";
+import { deadInReport, hideCards, videoCards, youtubeProbe } from "./videos.ts";
 import {
   GATE_POINTS,
   runControls,
@@ -60,6 +68,7 @@ async function main(argv: string[]): Promise<number> {
       report: { type: "string" },
       commit: { type: "string" },
       out: { type: "string" },
+      ids: { type: "string" },
     },
   });
   const [command] = positionals;
@@ -154,6 +163,31 @@ async function main(argv: string[]): Promise<number> {
         ),
       );
       return 0;
+    case "videos": {
+      switch (positionals[1]) {
+        case "list":
+          console.log(JSON.stringify({ cards: videoCards(input) }));
+          return 0;
+        case "probe": {
+          const ids = (values.ids ?? "").split(",").filter(Boolean);
+          if (ids.length === 0) throw new UsageError("videos probe needs --ids ID,ID,…");
+          const probe = youtubeProbe();
+          const probes = [];
+          for (const id of ids)
+            probes.push({ id, oembed: await probe.oembed(id), lengthSeconds: await probe.lengthSeconds(id) });
+          console.log(JSON.stringify({ probes }));
+          return 0;
+        }
+        case "hide": {
+          if (values.report === undefined) throw new UsageError("videos hide needs --report FILE");
+          const report = JSON.parse(readFileSync(resolve(values.report), "utf8")) as GateReport;
+          console.log(JSON.stringify({ hidden: hideCards(contentDir, deadInReport(report)) }));
+          return 0;
+        }
+        default:
+          throw new UsageError("videos needs a subcommand: list, probe or hide");
+      }
+    }
     case "controls": {
       const result = await runControls({ input, gates: GATES });
       for (const gate of result.gates) {
@@ -171,7 +205,7 @@ async function main(argv: string[]): Promise<number> {
     }
     default:
       throw new UsageError(
-        `unknown command "${command ?? ""}"; use run, verify, controls, rulings, tools, sitting or shots`,
+        `unknown command "${command ?? ""}"; use run, verify, controls, rulings, tools, sitting, videos or shots`,
       );
   }
 }
