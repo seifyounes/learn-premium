@@ -73,7 +73,7 @@ function slugOf(title: string): string {
 }
 
 /** One Module per lecture number found in the file names; every other file left unmapped for the Owner. */
-export function proposeModuleMap(rows: InventoryRow[]): ModuleMap {
+export function proposeModuleMap(rows: Pick<InventoryRow, "path">[]): ModuleMap {
   const modules = new Map<string, { titles: string[]; materials: string[] }>();
   const unmapped: string[] = [];
   for (const { path } of rows) {

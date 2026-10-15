@@ -71,7 +71,19 @@ describe("Materials diff", () => {
     ]);
     expect(diff.out.changed).toEqual([]);
     expect(diff.out.deleted).toEqual([]);
-    expect(next.out).toEqual({ ok: true, action: "waves", newMaterials: diff.out.new, waves: [] });
+    expect(next.out).toEqual({
+      ok: true,
+      action: "waves",
+      newMaterials: diff.out.new,
+      proposal: {
+        modules: [
+          { id: "01", slug: "conduction", title: "Conduction", materials: ["Lectures/L01 Conduction.pdf"] },
+          { id: "02", slug: "convection", title: "Convection", materials: ["Lectures/L02 Convection.pptx"] },
+        ],
+        unmapped: ["Sheets/sheet1.JPG", "notes.txt"],
+      },
+      waves: [],
+    });
   });
 });
 
@@ -86,6 +98,7 @@ describe("Module map", () => {
       ok: true,
       action: "waves",
       newMaterials: [],
+      proposal: { modules: [], unmapped: [] },
       waves: [{ kind: "module", target: "01", reasons: ["planned"] }],
     });
     expect(out.modules).toEqual([
@@ -134,6 +147,10 @@ describe("Materials diff after a build", () => {
       ok: true,
       action: "waves",
       newMaterials: [{ path: "L03.pdf", kind: "pdf" }],
+      proposal: {
+        modules: [{ id: "03", slug: "module-03", title: "Module 03", materials: ["L03.pdf"] }],
+        unmapped: [],
+      },
       waves: [
         { kind: "module", target: "01", reasons: ["materials-changed"] },
         { kind: "module", target: "02", reasons: ["materials-deleted"] },
@@ -199,6 +216,9 @@ describe("waves", () => {
       ok: true,
       action: "resume",
       waves: [{ id: start.out.wave, kind: "module", target: "01", branch: "module/01-conduction", state: "running" }],
+      toStart: [],
+      newMaterials: [],
+      proposal: { modules: [], unmapped: [] },
     });
   });
 
@@ -1186,6 +1206,78 @@ describe("edge cases", () => {
     expect(ledger("status", "--project", project).out.sittings).toEqual([
       { id: "midterm", name: "Midterm", date: "2026-11-10", state: "open" },
     ]);
+  });
+});
+
+describe("incremental builds: next on every run", () => {
+  test("a new Materials file is proposed into the Module its name numbers, or as a new Module; map takes the proposal as is", () => {
+    const { project, materials } = liveCourse();
+    writeFiles(materials, { "L02b.pdf": "l2b", "L03 Radiation.pdf": "l3", "notes.txt": "n" });
+
+    const next = ledger("next", "--project", project);
+    const mapped = ledger(
+      "map",
+      "--project",
+      project,
+      "--holder",
+      "session-a",
+      "--input",
+      jsonInput(next.out.proposal),
+    );
+    const after = ledger("next", "--project", project);
+
+    expect(next.out.proposal).toEqual({
+      modules: [
+        { id: "02", slug: "convection", title: "Convection", materials: ["L02b.pdf"] },
+        { id: "03", slug: "radiation", title: "Radiation", materials: ["L03 Radiation.pdf"] },
+      ],
+      unmapped: ["notes.txt"],
+    });
+    expect(mapped.code).toBe(0);
+    expect(after.out.waves).toEqual([
+      { kind: "module", target: "02", reasons: ["materials-added"] },
+      { kind: "module", target: "03", reasons: ["planned"] },
+    ]);
+  });
+
+  test("while a wave runs, next resumes it and lists the waves that can start alongside, and the new Materials", () => {
+    const { project, materials } = liveCourse();
+    writeFiles(materials, { "L03.pdf": "l3", "L04.pdf": "l4" });
+    const added = ledger("next", "--project", project).out.proposal;
+    ledger("map", "--project", project, "--holder", "session-a", "--input", jsonInput(added));
+    const start = ledger(
+      ...["wave", "start", "--project", project, "--holder", "session-a", "--kind", "module", "--target", "03"],
+      ...["--branch", "module/03-module-03"],
+    );
+    const alongside = ledger("next", "--project", project);
+    writeFiles(materials, { "L05.pdf": "l5" });
+    const later = ledger("next", "--project", project);
+
+    expect(alongside.out).toEqual({
+      ok: true,
+      action: "resume",
+      waves: [{ id: start.out.wave, kind: "module", target: "03", branch: "module/03-module-03", state: "running" }],
+      toStart: [{ kind: "module", target: "04", reasons: ["planned"] }],
+      newMaterials: [],
+      proposal: { modules: [], unmapped: [] },
+    });
+    expect(later.out.newMaterials).toEqual([{ path: "L05.pdf", kind: "pdf" }]);
+    expect(later.out.proposal).toEqual({
+      modules: [{ id: "05", slug: "module-05", title: "Module 05", materials: ["L05.pdf"] }],
+      unmapped: [],
+    });
+  });
+
+  test("before Module 1 merges, nothing starts alongside its wave", () => {
+    const { project } = mappedCourse();
+    ledger(
+      ...["wave", "start", "--project", project, "--holder", "session-a", "--kind", "module", "--target", "01"],
+      ...["--branch", "module/01-conduction"],
+    );
+
+    const { out } = ledger("next", "--project", project);
+
+    expect(out).toMatchObject({ action: "resume", toStart: [] });
   });
 });
 
