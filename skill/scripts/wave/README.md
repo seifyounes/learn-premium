@@ -1,8 +1,8 @@
-# Module wave commands
+# Module and Sitting wave commands
 
-The steps of a Module wave that need a tool rather than judgement: reconciling the two Blind
-readers, the batched Checkpoint, and the merge gate. The wave's order and the subagents' briefs are
-in `../../SKILL.md` (Module wave) and `../../briefs/`.
+The steps of a Module wave (and a Sitting wave) that need a tool rather than judgement: reconciling
+the two Blind readers, the batched Checkpoint, and the merge gate. The wave's order and the
+subagents' briefs are in `../../SKILL.md` (Module wave, Sitting wave) and `../../briefs/`.
 
 ```bash
 node "$HOME/.claude/skills/learn-premium/scripts/wave.ts" <command> --project <Course project> [flags]
@@ -24,8 +24,10 @@ document (`{"ok": true, ...}` or `{"ok": false, ...}`) and exits:
 | Command | Does |
 | --- | --- |
 | `reconcile --module NN` | Compares the two Blind readers' readings of Module `NN` in the Private folder. Exit 1 lists the `disputes` (key, file, page, box, what A and B read) still to settle. Once `resolutions.json` rules on every dispute, each on a crop in the Private folder, it writes the settled reading and returns `{agreed, disputes, settled, checkpointItems}`: an `unreadable` region and a quantity the Materials give two values for (a CONFLICT) are Checkpoint items. |
+| `reconcile --sitting ID` | The same, for a Sitting wave's Blind readers: the two readings of the sitting's past papers in `<Private folder>/sittings/<ID>/` (each reading says `"sitting": "<ID>"`), settled into `reading.json` there. Its Checkpoint items are keyed `<ID>/unreadable/…`. |
 | `checkpoint --module NN [--preview URL]` | The Module's batched Checkpoint: `open` (each with a stable `key`, the `question`, `sheet: true` when it needs a Slip or Divergence ruling, and its `link` on the preview or the `crop` of an unreadable region), `unapplied` (ruled, but the gate still raises it: the content doesn't carry the ruling yet), `answered`, and `markdown`, the batch to post in chat as is. Items come from the Module's Gate reports (job and module points, and the deploy point's whole-Course ones, such as a licence, keyed `course/…`) from the settled reading, and from any job of the running wave recorded with `--result checkpoint` (its `--detail` is the question); the preview is where the module point ran unless `--preview` says. What the Build ledger already answers is never asked again. |
 | `ready --wave W` | The merge gate for Module wave `W`. `{ready, problems}`: exit 0 only when every job ran and none is blocked (the first Module's wave also owes `style-sheet`), the Course style sheet and the Module's content exist, both readings and the settled reading are in the Private folder, the template's `verify` calls the job, module and deploy Gate reports green for HEAD, the module point ran on an `https://` preview, every Checkpoint item is answered (a sheet one with a ruling the content carries), every Slip and Divergence the content ships (the template's `gates -- rulings`) matches a stored Owner ruling on a sheet item of this Module about that sheet value, and `core.hooksPath` is the template's pre-commit gate. It reads the wave's own checkout: the worktree git lists for its branch (the Course project itself when none does). It also refuses a worktree whose committed Build ledger lacks a Materials hash the live ledger has (the deploy gates there read the Materials inventory from it), a branch that is behind `main` (rebase, re-gate, run it again), one that changes the Build ledger's files (written only in the main checkout, which must be on `main`) or another Module's files, and readings or a review older than the Module's Materials (a re-run wave runs them again). |
+| `checkpoint --sitting ID [--preview URL]` | A sitting's batched Checkpoint, in the same shape: the sitting and deploy Gate reports' items (the sitting point's `past-papers` ones need a Slip or Divergence ruling, or, for a key-less paper, the Owner's confirmation of the build's own answers), the settled reading's, any job of the running Sitting wave recorded `--result checkpoint`, and, when the Owner named an announced format, one item `<ID>/announced/<hash>` asking him to confirm `format.yaml` (a changed format is asked again). |
 | `review --module NN` | The fresh reviewer's review of Module `NN` (`../../briefs/reviewer.md`): exit 0 once every finding has the main agent's verdict and none is confirmed. Exit 1 lists `problems` (no review yet; screenshots of another Module or commit, a view `shots.json` lists that isn't there, or no phone or laptop shot), the `unverified` findings (each with its `key`), and the `confirmed` ones (each with the job that fixes it); `next` says what to do. |
 | `relaunch open --holder H --wave W --job J [--files P…]` | A subagent relaunched after its predecessor died: re-gates the predecessor's files (paths in the wave's worktree, or `private:<path>` in the Private folder; a folder is every file in it) and returns each with `covered` and its `findings`, then records the relaunch open in the Build ledger. Content files go through the template's per-job gates on the Module; a Blind reader's reading is checked on its shape. A Blind reader (`blind-reader-a`/`-b`) is given its own reading only: naming any other file (the other reading, the settled one) is refused (2), and the output carries nothing of the other reader's. |
 | `relaunch close --holder H --wave W --job J --outcomes FILE` | `{"files": [{"path", "outcome": "kept"\|"fixed"\|"discarded"}]}` for every predecessor file. Exit 1 with `problems` unless each holds as the files are now: kept = unchanged and clean at the re-gate; fixed = changed, and clean on a fresh re-gate; discarded = deleted. Then the ledger records each file's outcome (and hash) and the relaunch closes. |
@@ -40,6 +42,8 @@ lists the content's Worked examples and tools): a tool no assignment names, a co
 without its tool, an illustration with the wrong figure, a tool that isn't what it ships, a builder
 job not passed or without a hand-back, and any subagent job (`blind-reader-a`/`-b`, `style-sheet`,
 `writer`, `recompute`, `review`, a builder) recorded without `--started-at`.
+
+`ready --wave W` on a **Sitting wave** judges it by `sitting.ts`, in the wave's own checkout, and returns problems for: the checkout, an uncommitted tree, `main` moved, the template's integrity and hook, and what the branch changes (its own sitting's files and course.yaml's entry for the sitting, nothing of a Module's or another sitting's); a Module the Owner named that isn't `live`; content (`gates -- sitting`) whose course.yaml doesn't mark the sitting complete over the Modules he named, or changes more than that entry, whose past papers aren't exactly the ones he named, or that has mocks or a format with no paper, or a format.yaml he didn't announce (or none when he did); a settled reading that is missing or stale, and a content paper that isn't faithful to it (`faithfulProblems`: text, order, marks, total, minutes, and a key exactly where the Professor printed one); missing or blocked jobs (with papers: `blind-reader-a`, `blind-reader-b`, `reconcile`, `vault-writer`, `mock-writer`, `recompute`, `sitting-gates`, `deploy-gates`, and `solver` for a `key: solved` paper; without papers: the last two); the template's `verify` of the `sitting` and `deploy` reports for HEAD, the sitting report on an `https://` preview; an open or unapplied Checkpoint item, and a ruling the content ships that no stored Owner answer covers; and a past paper's Materials file that changed since the Owner named it.
 
 `ready` also refuses a wave with any job left blocked (a sim builder's, a tool's, a media item's
 too), a relaunch not closed, or a review that isn't settled for HEAD: the fresh reviewer's
@@ -97,6 +101,11 @@ Everything the Blind readers and reconcile touch carries the Professor's text, s
   "selfCheck": {"ran": [...], "passed", "notes"}}`. `files` are relative to the Course project and
   include the tool's own file. It quotes the Professor and never leaves the Private folder: the
   ledger and the build report keep its counts only.
+
+A sitting's readings sit under `<Private folder>/sittings/<ID>/` (`reading-a.json`, `reading-b.json`,
+`resolutions.json`, `crops/`, then `reading.json` and `checkpoint-items.json` from `reconcile --sitting`), with
+the same shapes but `"sitting": "<ID>"` in place of `"module"`. Their items are keyed `<name>/q<n>/text|marks|key`,
+`<name>/total` and `<name>/minutes`, `<name>` being the short name the Owner gave the paper.
 
 Gate reports are read from the Course's `content/build-records/gate-reports/`, where `npm run gates`
 writes them.

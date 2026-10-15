@@ -85,6 +85,18 @@ Layout (content contract v0):
   `npm run parts` in the template, with the machine venv's build123d, and committed.
   `build-records/recompute/<NN>-<slug>/parts/<name>.json` is its independent volume, summed from
   the drawing's primitives (by a script in `tools/`).
+- `sittings/<id>/` (the sitting's Exam room, built only for a complete sitting with a past paper):
+  `papers/<name>.yaml` is one past paper, in the Professor's order with its marks (`key: professor`
+  with each numeric answer's printed `key`, or `key: solved` for one the build solved for the Owner to
+  confirm); `mocks/<name>.yaml` is a mock (`pattern: dna`, written to the papers' question DNA, or
+  `pattern: announced`, exactly the announced format); `format.yaml` is the format the Professor
+  announced (`minutes` and `slots`, each a question `type` and its `marks`). A question has its
+  `module` (a Module the sitting covers), its `type`, `reverse` (it gives the result and asks for an
+  input), `marks`, its `question` text and an `answer` (`numeric`, or `prose` with one `earns` point
+  per mark). The midterm's 2025 paper is keyed by the (synthetic) Professor; its mocks are one
+  pattern-matched mock and the written announced-format one. Their recompute logs, by question
+  number, are `build-records/recompute/sittings/<id>/<name>.json`, written by
+  `tools/recompute-midterm.py` in exact fractions.
 - `modules/<NN>-<slug>/practice/<n>.yaml`: one Practice item each (JSON or YAML). A `numeric`
   item has an `answer` (`value`, `unit`, `tolerance`) the site checks; a `prose` item lists what
   `earns` the mark, one point per mark, for the student to mark themselves against.
