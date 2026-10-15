@@ -62,6 +62,19 @@ export function moduleTree(project: string, ledger: Ledger, module: string): str
   return running === undefined ? project : waveTree(project, running.branch).path;
 }
 
+/**
+ * What every Module follows, and no Module wave changes: the Course config, the style sheet (Module 1's
+ * wave writes it, alone), the Course overrides and the gate gap records. A wave rebases onto `main` to
+ * pick a change up.
+ */
+const COURSE_WIDE = [
+  /^content\/course\.yaml$/,
+  /^content\/style-sheet\.yaml$/,
+  /^overrides\//,
+  new RegExp(`^${BUILD_RECORDS_DIR}/gate-gaps/`),
+];
+const isCourseWide = (path: string) => COURSE_WIDE.some((pattern) => pattern.test(path));
+
 /** Paths that belong to a Module other than `module`: its content, its build records, its Gate reports. */
 export function otherModuleFiles(paths: string[], module: string): string[] {
   const owners = [
@@ -143,6 +156,11 @@ export function treeProblems(project: string, wave: Wave, tree: WaveTree): strin
   if (ledgerFiles.length > 0)
     problems.push(
       `the wave's branch changes the Build ledger's files (${ledgerFiles.join(", ")}): they're written only in the Course project's main checkout; drop them from the branch`,
+    );
+  const shared = tree.linked ? changed.filter(isCourseWide) : [];
+  if (shared.length > 0)
+    problems.push(
+      `the wave's branch changes Course-wide files (${shared.join(", ")}): every Module follows them, so they change in the Course project's main checkout, are committed on ${MAIN_BRANCH}, and the waves rebase onto it`,
     );
   const others = otherModuleFiles(changed, wave.target);
   if (others.length > 0)

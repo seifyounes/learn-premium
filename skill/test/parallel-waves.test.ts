@@ -447,6 +447,25 @@ describe("what a wave's worktree must hold", () => {
     expect(fresh).toEqual([]);
   });
 
+  test("a wave's branch that changes a Course-wide file is refused: the style sheet, an override, a gate gap record", () => {
+    const c = parallelCourse();
+    const w2 = startWave(c, "02");
+    toCheckpoint(c, "02", w2);
+    writeFiles(w2.tree, {
+      "content/style-sheet.yaml": "writtenFrom: 02-m02\n",
+      "overrides/src/page.astro": "shadow\n",
+      "build-records/gate-gaps/x/fixture.md": "broken\n",
+    });
+    gitIn(w2.tree, "add", "-A");
+    gitIn(w2.tree, "commit", "-q", "-m", "feat: change what every Module shares");
+
+    const problems = readyOf(c, w2.waveId).join("\n");
+
+    expect(problems).toMatch(
+      /changes Course-wide files \(build-records\/gate-gaps\/x\/fixture\.md, content\/style-sheet\.yaml, overrides\/src\/page\.astro\)/,
+    );
+  });
+
   test("a file name outside ASCII is read as it is: another Module's Arabic-named file is still refused", () => {
     const c = parallelCourse();
     const w3 = startWave(c, "03");

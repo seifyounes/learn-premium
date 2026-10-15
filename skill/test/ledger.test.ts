@@ -1281,6 +1281,27 @@ describe("incremental builds: next on every run", () => {
   });
 });
 
+describe("incremental builds: Materials mapped while a wave runs", () => {
+  test("a file mapped into a Module whose wave is running is incorporated by that wave, so its merge doesn't flag the Module again", () => {
+    const { project, materials } = liveCourse();
+    const start = ledger(
+      ...["wave", "start", "--project", project, "--holder", "session-a", "--kind", "module", "--target", "02"],
+      ...["--branch", "module/02-again"],
+    );
+    writeFiles(materials, { "L02b.pdf": "more of lecture 2" });
+    const proposal = ledger("next", "--project", project).out.proposal;
+    ledger("map", "--project", project, "--holder", "session-a", "--input", jsonInput(proposal));
+
+    ledger(
+      ...["wave", "end", "--project", project, "--holder", "session-a", "--wave", start.out.wave],
+      ...["--result", "merged", "--commit", COMMIT],
+    );
+    const { out } = ledger("next", "--project", project);
+
+    expect(out.waves).toEqual([]);
+  });
+});
+
 describe("incremental builds: the cap on waves running at once", () => {
   /** Course with Modules 01 and 02 live and 03-06 mapped, planned. */
   function wideCourse() {

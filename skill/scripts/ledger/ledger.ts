@@ -116,13 +116,18 @@ function plannedWaves(ledger: Ledger, diff: MaterialsDiff): PlannedWave[] {
   return firstBuilt ? waves : waves.filter((wave) => wave.target === modules[0]?.id);
 }
 
-/** Whether files were mapped into a live Module after its last merged wave took in its Materials. */
+/**
+ * Whether files were mapped into a live Module after its last merged wave ended. A file mapped while
+ * that wave ran is the wave's own: `ready` refuses to merge on readings older than it.
+ */
 function mappedSinceLastWave(ledger: Ledger, module: string): boolean {
   const lastMerged = current(ledger.waves)
     .filter((w) => w.kind === "module" && w.target === module && w.state === "merged")
     .at(-1);
   if (lastMerged === undefined) return false;
-  return current(ledger.materials).some((m) => m.module === module && m.recordedAt > lastMerged.startedAt);
+  return current(ledger.materials).some(
+    (m) => m.module === module && m.recordedAt > (lastMerged.endedAt ?? lastMerged.startedAt),
+  );
 }
 
 export function diff(project: string): MaterialsDiff {
