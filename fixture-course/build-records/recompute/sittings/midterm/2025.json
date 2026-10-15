@@ -1,0 +1,8 @@
+{
+  "recompute": "learn-premium paper recompute v1",
+  "by": "fixture-course/tools/recompute-midterm.py: R = L/(kA) and L = RkA, exact fractions, apart from the content",
+  "answers": {
+    "1": 0.25,
+    "2": 0.1
+  }
+}

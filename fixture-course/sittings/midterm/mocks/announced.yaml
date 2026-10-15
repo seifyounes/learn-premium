@@ -1,0 +1,45 @@
+# The mock for the format the Professor announced for the midterm: exactly format.yaml's slots, in
+# order. Every answer is written, so the student marks the paper themselves.
+title: Announced format
+marks: 10
+minutes: 20
+pattern: announced
+questions:
+  - module: 01-thermal-resistance
+    type: calculation
+    reverse: false
+    marks: 6
+    question: >-
+      Derive the thermal resistance $R$ of a plane layer of thickness $L$, conductivity $k$ and
+      face $A$, starting from Fourier's law, and say what each symbol means.
+    answer:
+      kind: prose
+      model: >-
+        Fourier's law gives $\dot{Q} = \frac{k A \Delta T}{L}$ for one-dimensional steady
+        conduction. The thermal resistance is the drop per unit heat rate,
+        $R = \frac{\Delta T}{\dot{Q}} = \frac{L}{kA}$, where $L$ is the thickness, $k$ the
+        conductivity and $A$ the face.
+      earns:
+        - 'States Fourier''s law for one-dimensional steady conduction.'
+        - 'Takes $\dot{Q}$ as constant through the layer.'
+        - 'Defines $R$ as the drop per unit heat rate, $\frac{\Delta T}{\dot{Q}}$.'
+        - 'Reaches $R = \frac{L}{kA}$.'
+        - 'Names $L$ as the thickness and $A$ as the face.'
+        - 'Names $k$ as the conductivity.'
+  - module: 01-thermal-resistance
+    type: explain
+    reverse: false
+    marks: 4
+    question: >-
+      Explain why layers in series add their resistances, and why parallel paths do not.
+    answer:
+      kind: prose
+      model: >-
+        In series the same $\dot{Q}$ crosses each layer and the drops add, so
+        $R_\text{total} = \sum R_i$. Parallel paths share one drop and their heat rates add, so
+        their conductances add instead.
+      earns:
+        - 'In series the same $\dot{Q}$ crosses every layer.'
+        - 'The drops add, so $R_\text{total} = \sum R_i$.'
+        - 'Parallel paths share the same drop.'
+        - 'Their heat rates add, so their conductances add.'

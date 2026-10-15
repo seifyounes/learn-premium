@@ -1,0 +1,37 @@
+# A pattern-matched mock for the Fixture Course's midterm: the past papers' type mix (within one of
+# each type's mean) and at least their rate of reverse questions, on new numbers.
+title: Mock 1
+marks: 10
+minutes: 30
+pattern: dna
+questions:
+  - module: 01-thermal-resistance
+    type: calculation
+    reverse: false
+    marks: 4
+    question: >-
+      A plaster wall is $L = 0.30\ \text{m}$ thick, with $k = 0.6\ \text{W/(m·K)}$ and a face of
+      $A = 1\ \text{m}^2$. Find its thermal resistance $R$.
+    answer: { kind: numeric, value: 0.5, unit: K/W, tolerance: 0.01 }
+  - module: 01-thermal-resistance
+    type: calculation
+    reverse: true
+    marks: 4
+    question: >-
+      A layer of face $A = 2\ \text{m}^2$ and $k = 0.4\ \text{W/(m·K)}$ has a thermal resistance of
+      $R = 0.25\ \text{K/W}$. Find its thickness $L$, in m.
+    answer: { kind: numeric, value: 0.2, unit: m, tolerance: 0.005 }
+  - module: 01-thermal-resistance
+    type: explain
+    reverse: false
+    marks: 2
+    question: >-
+      Explain why a thin layer of insulation can set most of a wall's heat loss.
+    answer:
+      kind: prose
+      model: >-
+        Resistances in series add, and the insulation's small $k$ makes its $R = \frac{L}{kA}$
+        large even when the layer is thin, so it sets most of the drop and so $\dot{Q}$.
+      earns:
+        - 'Resistances in series add.'
+        - 'A small $k$ gives a large $R = \frac{L}{kA}$ even for a thin layer.'

@@ -1,0 +1,37 @@
+# A past paper of the Fixture Course's midterm (synthetic, like the rest of the Course): the
+# Professor's questions in the paper's own order, with their marks, and the Professor's key.
+title: Midterm 2025
+marks: 10
+minutes: 30
+key: professor
+questions:
+  - module: 01-thermal-resistance
+    type: calculation
+    reverse: false
+    marks: 4
+    question: >-
+      A brick wall is $L = 0.25\ \text{m}$ thick, with $k = 1.0\ \text{W/(m·K)}$ and a face of
+      $A = 1\ \text{m}^2$. Find its thermal resistance $R$.
+    answer: { kind: numeric, value: 0.25, unit: K/W, tolerance: 0.005, key: '0.25' }
+  - module: 01-thermal-resistance
+    type: calculation
+    reverse: true
+    marks: 4
+    question: >-
+      A wall of face $A = 2\ \text{m}^2$ and $k = 0.5\ \text{W/(m·K)}$ has a thermal resistance of
+      $R = 0.1\ \text{K/W}$. Find its thickness $L$, in m.
+    answer: { kind: numeric, value: 0.1, unit: m, tolerance: 0.005, key: '0.1' }
+  - module: 01-thermal-resistance
+    type: explain
+    reverse: false
+    marks: 2
+    question: >-
+      Two layers carry heat in series. Explain which of them takes the larger temperature drop.
+    answer:
+      kind: prose
+      model: >-
+        In steady state the same $\dot{Q}$ crosses both layers, so the drop across a layer is
+        $\dot{Q} R$. The layer with the larger $R = \frac{L}{kA}$ takes the larger drop.
+      earns:
+        - 'The same $\dot{Q}$ crosses every layer in series.'
+        - 'The layer with the larger $R = \frac{L}{kA}$ takes the larger drop.'

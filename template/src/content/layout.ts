@@ -22,6 +22,9 @@ const withoutExtension = (entry: string) => entry.replace(/\.(md|json|ya?ml)$/, 
 /** `modules/01-slug/worked/1.json` → `01-slug/worked/1` */
 const moduleEntryId = (entry: string) => withoutExtension(entry).replace(/^modules\//, "");
 
+/** `sittings/midterm/papers/2025.yaml` → `midterm/2025` */
+const sittingEntryId = (entry: string) => withoutExtension(entry).replace(/^sittings\/([^/]+)\/[^/]+\//, "$1/");
+
 export const COLLECTIONS = {
   course: { pattern: "course.yaml", format: "structured", generateId: () => "course", schema: contract.course },
   modules: {
@@ -69,7 +72,30 @@ export const COLLECTIONS = {
   },
   // JSON only: `npm run parts` reads them with Python's standard library, before Node is involved.
   parts: { pattern: "modules/*/parts/*.json", format: "structured", generateId: moduleEntryId, schema: contract.part },
+  // An Exam sitting's Exam room (`sittings/<id>/`): its past papers, its mocks, and the format the
+  // Professor announced. An entry's id is `<sitting>/<name>`, or `<sitting>` for the format.
+  papers: {
+    pattern: "sittings/*/papers/*.{json,yaml,yml}",
+    format: "structured",
+    generateId: sittingEntryId,
+    schema: contract.paper,
+  },
+  mocks: {
+    pattern: "sittings/*/mocks/*.{json,yaml,yml}",
+    format: "structured",
+    generateId: sittingEntryId,
+    schema: contract.mock,
+  },
+  formats: {
+    pattern: "sittings/*/format.{json,yaml,yml}",
+    format: "structured",
+    generateId: (entry: string) => entry.split("/")[1] ?? entry,
+    schema: contract.announcedFormat,
+  },
 } as const satisfies Record<string, CollectionLayout & { schema: unknown }>;
 
 /** The Module a content file belongs to (its folder name), or undefined for Course-level files. */
 export const moduleOf = (entry: string) => /^modules\/([^/]+)\//.exec(entry)?.[1];
+
+/** The Exam sitting a content file belongs to (its folder name under `sittings/`), or undefined for any other file. */
+export const sittingOf = (entry: string) => /^sittings\/([^/]+)\//.exec(entry)?.[1];

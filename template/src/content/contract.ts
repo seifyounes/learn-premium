@@ -946,6 +946,85 @@ const prosePractice = z.strictObject({
 
 export const practice = z.discriminatedUnion("kind", [numericPractice, prosePractice]);
 
+/** A kind of question as the Course's own taxonomy names it (`calculation`, `explain`): kebab-case. */
+const questionType = z
+  .string()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "a question type is lower-case letters, digits and dashes");
+
+/**
+ * A numeric answer in an Exam room question, checked by the site; `key` is the Professor's printed
+ * key, as printed (`'0.25'`), on a past paper only.
+ */
+const examNumeric = z.strictObject({
+  kind: z.literal("numeric"),
+  value: z.number(),
+  /** Absent for a dimensionless answer. */
+  unit: z.string().min(1).optional(),
+  tolerance: z.number().nonnegative(),
+  key: z.string().min(1).optional(),
+});
+
+/** A written answer the student marks themselves: one point per mark in `earns`. */
+const examProse = z.strictObject({
+  kind: z.literal("prose"),
+  model: z.string().min(1),
+  earns: z.array(z.string().min(1)).min(1),
+});
+
+/** One question of a past paper or a mock; its number is its order in the file. */
+const examQuestion = z.strictObject({
+  /** The Module it examines, by folder name. */
+  module: z.string().regex(MODULE_ID, "a Module is named by its folder, e.g. 01-thermal-resistance"),
+  type: questionType,
+  /** Gives the result and asks for an input. */
+  reverse: z.boolean().default(false),
+  marks: z.number().int().positive(),
+  /** Verbatim from the settled reading, on a past paper. */
+  question: z.string().min(1),
+  answer: z.discriminatedUnion("kind", [examNumeric, examProse]),
+});
+
+/** A past paper of an Exam sitting: the Professor's questions, in the paper's order, with their marks and key. */
+export const paper = z.strictObject({
+  title: z.string().min(1),
+  /** The printed total. */
+  marks: z.number().int().positive(),
+  minutes: z.number().int().positive(),
+  /** `professor`: every numeric answer carries the Professor's printed key. `solved`: the build solved it, and the Owner confirms. */
+  key: z.enum(["professor", "solved"]),
+  questions: z.array(examQuestion).min(1),
+  ...tagged,
+});
+
+/**
+ * A mock for an Exam sitting: written to the past papers' question DNA (`dna`), or to the format the
+ * Professor announced (`announced`), whose answers are never keyed.
+ */
+export const mock = z.strictObject({
+  title: z.string().min(1),
+  marks: z.number().int().positive(),
+  minutes: z.number().int().positive(),
+  pattern: z.enum(["dna", "announced"]),
+  questions: z
+    .array(examQuestion.extend({ answer: z.discriminatedUnion("kind", [examNumeric.omit({ key: true }), examProse]) }))
+    .min(1),
+  ...tagged,
+});
+
+/** The format the Professor announced for a sitting: its slots, in order. */
+export const announcedFormat = z.strictObject({
+  minutes: z.number().int().positive(),
+  slots: z
+    .array(
+      z.strictObject({
+        type: questionType,
+        marks: z.number().int().positive(),
+        reverse: z.boolean().optional(),
+      }),
+    )
+    .min(1),
+});
+
 const duration = z.string().regex(/^(?:\d+:[0-5]\d|\d{1,2}):[0-5]\d$/, "a duration is written m:ss or h:mm:ss");
 /** A file in the Module's `media/` folder, named with no folder. */
 const mediaFile = (...extensions: string[]) =>
