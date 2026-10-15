@@ -14,6 +14,7 @@ import { LedgerError } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
 import { mutate, requireLedger, runningUpgrade, templateHashes, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type Upgrade } from "../ledger/model.ts";
+import { moduleFolder, type Verifier } from "../wave/wave.ts";
 import { heldReason, planUpgrade } from "./plan.ts";
 
 const BRANCH = "main";
@@ -222,12 +223,13 @@ export function contentHashes(project: string): Record<string, string> {
   );
 }
 
-/** The content files that differ from `base`'s: edited, deleted or added, committed or not. */
-function contentChangedSince(project: string, base: string): string[] {
+/** The files under `folders` that differ from `base`'s: edited, deleted or added, committed or not (Gate reports aside). */
+function changedSince(project: string, base: string, ...folders: string[]): string[] {
   const exclude = `:(exclude)${CONTENT_DIR}/${GATE_REPORTS}`;
-  const changed = git(project, ["diff", "--name-only", base, "--", CONTENT_DIR, exclude]);
-  const untracked = git(project, ["status", "--porcelain", "--untracked-files=all", "--", CONTENT_DIR, exclude]);
-  if (!changed.ok || !untracked.ok) throw new LedgerError("refused", `can't compare the content with ${base}`);
+  const changed = git(project, ["diff", "--name-only", base, "--", ...folders, exclude]);
+  const untracked = git(project, ["status", "--porcelain", "--untracked-files=all", "--", ...folders, exclude]);
+  if (!changed.ok || !untracked.ok)
+    throw new LedgerError("refused", `can't compare ${folders.join(", ")} with ${base}`);
   return [
     ...changed.out.split(/\r?\n/),
     ...untracked.out
@@ -257,7 +259,7 @@ export async function migrateUpgrade(project: string, holder: string) {
       "refused",
       `the migrations already ran for ${upgrade.id}: a second run would apply them twice; end the wave failed and start again`,
     );
-  const edited = contentChangedSince(project, upgrade.base);
+  const edited = changedSince(project, upgrade.base, CONTENT_DIR);
   if (edited.length > 0)
     throw new LedgerError(
       "refused",
@@ -284,4 +286,210 @@ export async function migrateUpgrade(project: string, holder: string) {
     row.content = content;
   });
   return { migrations: ran };
+}
+
+/** The Course's override files at `base`, relative to the overrides area (its placeholder left out). */
+function overridesAt(project: string, base: string): string[] {
+  const listed = git(project, ["ls-tree", "-r", "--name-only", base, "--", OVERRIDES_DIR]);
+  if (!listed.ok) throw new LedgerError("refused", `can't list the overrides at ${base}: ${listed.err}`);
+  return listed.out
+    .split(/\r?\n/)
+    .filter((line) => line !== "")
+    .map((line) => line.slice(OVERRIDES_DIR.length + 1))
+    .filter((path) => path !== ".gitkeep");
+}
+
+/** A file's bytes as `base` committed them. */
+function bytesAt(project: string, base: string, path: string): Buffer {
+  const child = spawnSync("git", ["-C", project, "show", `${base}:${path}`], { maxBuffer: 1 << 28 });
+  if (child.error !== undefined) throw child.error;
+  return child.status === 0 ? child.stdout : Buffer.alloc(0);
+}
+
+/** The module-point Gate report's preview URL for a Module, or null. */
+function previewOf(project: string, folder: string): string | null {
+  try {
+    const report = JSON.parse(
+      readFileSync(join(project, CONTENT_DIR, GATE_REPORTS, `module-${folder}.json`), "utf8"),
+    ) as { url?: unknown };
+    return typeof report.url === "string" ? report.url : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every reason the running Upgrade wave may not merge yet; none means it may. The branch is checked
+ * out and clean, `main` is behind it, the template layer is the release's own, the overrides area is the
+ * Course's minus the retired ones (kept ones byte for byte), the migrations ran and the content is as
+ * they left it. Only then are the Course's own gates asked, and they decide the rest: every Module's
+ * per-job and per-Module gates, the per-deploy gate, each Module's gates run on the Vercel preview.
+ */
+export function upgradeProblems(project: string, verifier: Verifier): string[] {
+  const ledger = requireLedger(project);
+  const upgrade = running(ledger);
+  const problems: string[] = [];
+
+  // Every check below reads the checked-out tree and HEAD: they must be the wave's branch.
+  const branch = checkedOutBranch(project);
+  if (branch !== upgrade.branch)
+    problems.push(
+      `the Course project is checked out on ${branch ?? "no branch"}, not the Upgrade wave's branch ${upgrade.branch}: check it out and run ready again`,
+    );
+  const status = git(project, ["status", "--porcelain"]);
+  if (!status.ok) problems.push("can't read the Course project's git status");
+  else if (status.out !== "")
+    problems.push(
+      `the Course project has uncommitted changes (${status.out
+        .split(/\r?\n/)
+        .map((line) => line.slice(3))
+        .join(", ")}): commit them (and re-run the gates if they matter), then run ready again`,
+    );
+  if (!git(project, ["merge-base", "--is-ancestor", upgrade.base, "HEAD"]).ok)
+    problems.push(`the wave's base ${upgrade.base} isn't in this branch's history`);
+  if (!git(project, ["merge-base", "--is-ancestor", `refs/heads/${BRANCH}`, "HEAD"]).ok)
+    problems.push(`${BRANCH} has commits the Upgrade wave's branch doesn't: it moved since the wave started`);
+
+  const layer = templateHashes(project);
+  const changes = Object.keys({ ...layer, ...upgrade.files }).flatMap((path) =>
+    layer[path] === upgrade.files[path]
+      ? []
+      : [`${path in upgrade.files ? (path in layer ? "modified" : "missing") : "added"} ${path}`],
+  );
+  if (changes.length > 0)
+    problems.push(
+      `the template layer isn't ${upgrade.to}'s: ${changes.join(", ")}; its gates can't verify this wave (a fix goes in as a Course override)`,
+    );
+
+  const kept = new Set(upgrade.kept.map((k) => k.path));
+  const retired = new Set(upgrade.retire.map((r) => r.path));
+  const expected = overridesAt(project, upgrade.base).filter((path) => kept.has(path) || !retired.has(path));
+  const onDisk = Object.keys(hashTree(join(project, OVERRIDES_DIR))).filter((path) => path !== ".gitkeep");
+  for (const path of onDisk.filter((p) => !expected.includes(p)))
+    problems.push(
+      `${OVERRIDES_DIR}/${path} is a Course override ${upgrade.to} retires: drop it, or keep it with a reopened gate gap`,
+    );
+  for (const path of expected) {
+    const file = join(project, OVERRIDES_DIR, path);
+    if (!existsSync(file)) problems.push(`${OVERRIDES_DIR}/${path} is missing: only a retired override is dropped`);
+    else if (!readFileSync(file).equals(bytesAt(project, upgrade.base, `${OVERRIDES_DIR}/${path}`)))
+      problems.push(`${OVERRIDES_DIR}/${path} differs from the Course's override at the wave's start`);
+    if (!(path in upgrade.files))
+      problems.push(`${OVERRIDES_DIR}/${path} shadows a file ${upgrade.to} no longer has: it can't be kept`);
+  }
+
+  if (upgrade.migrations === null) problems.push("the migrations haven't run: run migrate");
+  if (upgrade.content !== null) {
+    const now = contentHashes(project);
+    const edited = Object.keys({ ...now, ...upgrade.content }).filter((path) => now[path] !== upgrade.content?.[path]);
+    if (edited.length > 0)
+      problems.push(
+        `the content changed since the migrations ran (${edited.join(", ")}): only a migration may change it`,
+      );
+  }
+
+  // The template layer's own gates verify the branch: an edited layer could verify anything.
+  if (changes.length > 0) return problems;
+  const modules = current(ledger.modules)
+    .map((row) => moduleFolder(ledger, row.id).folder)
+    .filter((folder) => existsSync(join(project, CONTENT_DIR, "modules", folder)))
+    .sort();
+  for (const folder of modules) {
+    for (const point of ["job", "module"] as const) {
+      const verdict = verifier.verify(project, point, folder);
+      if (!verdict.green)
+        problems.push(`the ${point} gates aren't green for ${folder}: ${verdict.problems.join("; ") || "red"}`);
+    }
+    const preview = previewOf(project, folder);
+    if (preview === null || !/^https:\/\//.test(preview))
+      problems.push(
+        `the module gates for ${folder} didn't run on a Vercel preview: run the module point with --url <preview URL>`,
+      );
+  }
+  const deploy = verifier.verify(project, "deploy", undefined);
+  if (!deploy.green) problems.push(`the deploy gates aren't green for HEAD: ${deploy.problems.join("; ") || "red"}`);
+  return problems;
+}
+
+/**
+ * Merges the running Upgrade wave when `upgradeProblems` finds none: `main` fast-forwards to the
+ * branch's tip (compare-and-swap, so it never moves a `main` someone else moved), the branch is checked
+ * out as `main`, and the ledger moves to the release: its pinned template hashes are the release's, each
+ * retired override's row is history. The caller commits that ledger and pushes `main`.
+ */
+export function mergeUpgrade(project: string, holder: string, verifier: Verifier) {
+  assertHolder(requireLedger(project), holder);
+  const problems = upgradeProblems(project, verifier);
+  if (problems.length > 0) return { merged: false, problems };
+  const upgrade = running(requireLedger(project));
+  const tip = git(project, ["rev-parse", "HEAD"]).out;
+  const oldMain = git(project, ["rev-parse", `refs/heads/${BRANCH}`]).out;
+  const moved = git(project, ["update-ref", `refs/heads/${BRANCH}`, tip, oldMain]);
+  if (!moved.ok) return { merged: false, problems: [`couldn't move ${BRANCH} to ${tip}: ${moved.err}`] };
+  const switched = git(project, ["switch", BRANCH]);
+  if (!switched.ok) {
+    git(project, ["update-ref", `refs/heads/${BRANCH}`, oldMain, tip]);
+    return { merged: false, problems: [`couldn't switch to ${BRANCH}: ${switched.err}`] };
+  }
+  const kept = new Set(upgrade.kept.map((k) => k.path));
+  mutate(project, holder, (l) => {
+    const at = new Date().toISOString();
+    l.template.release = upgrade.to;
+    l.template.files = upgrade.files;
+    for (const row of current(l.template.overrides)) {
+      if (upgrade.retire.some((r) => r.path === row.path) && !kept.has(row.path))
+        row.superseded = { at, reason: `retired by ${upgrade.to}: gate gap #${row.gateGap} closed` };
+    }
+    const wave = current(l.upgrades).find((u) => u.id === upgrade.id);
+    if (wave === undefined) throw new LedgerError("invalid", `no current Upgrade wave ${upgrade.id}`);
+    wave.state = "merged";
+    wave.endedAt = at;
+    wave.commit = tip;
+  });
+  return { merged: true, problems: [], commit: tip };
+}
+
+/**
+ * Ends the running Upgrade wave as failed, from `main`: the Course stays on its release, `main`'s
+ * template layer, overrides and content untouched, and a gate gap this wave's own run found is filed
+ * on the tracker. A red wave that leaves no gate gap would repeat itself.
+ */
+export function endUpgradeFailed(project: string, holder: string, gateGap: string): void {
+  const ledger = requireLedger(project);
+  assertHolder(ledger, holder);
+  const upgrade = running(ledger);
+  const branch = checkedOutBranch(project);
+  if (branch !== BRANCH)
+    throw new LedgerError(
+      "refused",
+      `the Course project is on ${branch ?? "no branch"}: a red wave ends from ${BRANCH}, after the branch is committed`,
+    );
+  const changed = changedSince(project, upgrade.base, TEMPLATE_DIR, OVERRIDES_DIR, CONTENT_DIR);
+  if (changed.length > 0)
+    throw new LedgerError(
+      "refused",
+      `${BRANCH} isn't the pinned release's: ${changed.join(", ")} (the template layer, the overrides and the content stay as they were)`,
+    );
+  const integrity = verifyIntegrity(project);
+  if (!integrity.intact)
+    throw new LedgerError("refused", `the template layer isn't the pinned release's: run the integrity check`);
+  const gap = current(ledger.gateGaps).find((g) => g.id === gateGap);
+  if (gap === undefined) throw new LedgerError("invalid", `no gate gap ${gateGap} in the ledger`);
+  if (gap.issue === null)
+    throw new LedgerError(
+      "refused",
+      `gate gap ${gateGap} isn't filed on the tracker yet: file it with the gate-gap step`,
+    );
+  if (gap.recordedAt < upgrade.startedAt)
+    throw new LedgerError(
+      "refused",
+      `gate gap ${gateGap} was recorded before this wave started: a red wave ends with a gate gap its own run found`,
+    );
+  mutate(project, holder, (l) => {
+    const wave = current(l.upgrades).find((u) => u.id === upgrade.id);
+    if (wave === undefined) throw new LedgerError("invalid", `no current Upgrade wave ${upgrade.id}`);
+    wave.state = "failed";
+    wave.endedAt = new Date().toISOString();
+    wave.gateGap = gateGap;
+  });
 }

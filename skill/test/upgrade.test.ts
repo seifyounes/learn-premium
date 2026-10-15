@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { run as runGateGap } from "../scripts/gate-gap/cli.ts";
 import { hashTree } from "../scripts/ledger/hash.ts";
+import type { MergePoint, Verifier } from "../scripts/wave/wave.ts";
 import { run as runUpgrade, type Deps } from "../scripts/upgrade/cli.ts";
 import { must } from "./fake-notebooklm.ts";
 import { FakeTracker } from "./fake-tracker.ts";
@@ -524,6 +525,350 @@ describe("migrate", { timeout: 120_000 }, () => {
     const c = upgradeCourse(releaseRepo(), { content: "minimal" });
     await applied(c);
     expect((await migrate(c, "session-b")).code).toBe(3);
+  });
+});
+
+/** The Course's own template layer, faked: records which gates it was asked about, red where told to be. */
+class FakeVerifier implements Verifier {
+  readonly calls: string[] = [];
+  readonly red = new Set<string>();
+
+  verify(_project: string, point: MergePoint, module: string | undefined) {
+    const key = module === undefined ? point : `${point}:${module}`;
+    this.calls.push(key);
+    const green = !this.red.has(key);
+    return { green, problems: green ? [] : [`${key} is red`] };
+  }
+
+  rulings() {
+    return [];
+  }
+}
+
+const PREVIEW = "https://fixture-course-git-upgrade.vercel.app";
+
+/** Writes each Module's module-point Gate report (what the gates leave on the preview) and commits it. */
+function reportPreviews(c: UpgradeCourse, url = PREVIEW): void {
+  writeFiles(
+    c.project,
+    Object.fromEntries(
+      c.folders.map((f) => [`content/build-records/gate-reports/module-${f}.json`, JSON.stringify({ url })]),
+    ),
+  );
+  git(c.project, "add", "-A");
+  git(c.project, "commit", "-q", "-m", "chore: Gate reports");
+}
+
+/** A wave carried to its merge gate: started, applied, migrated, with the preview's reports committed. */
+async function readyWave(c: UpgradeCourse, to = "v2.0.0"): Promise<void> {
+  await applied(c, to);
+  must(await migrate(c));
+  reportPreviews(c);
+}
+
+function ready(c: UpgradeCourse, verifier = new FakeVerifier()): Promise<Result> {
+  return upgrade({ verifier }, "ready", "--project", c.project);
+}
+
+function merge(c: UpgradeCourse, verifier = new FakeVerifier(), holder = HOLDER): Promise<Result> {
+  return upgrade({ verifier }, "merge", "--project", c.project, "--holder", holder);
+}
+
+describe("ready", { timeout: 120_000 }, () => {
+  test("is green when everything holds", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    const verifier = new FakeVerifier();
+    const { code, out } = await ready(c, verifier);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(out).toMatchObject({ ready: true, problems: [] });
+    expect(verifier.calls.sort()).toEqual(["deploy", "job:01-thermal-resistance", "module:01-thermal-resistance"]);
+  });
+
+  test("lists a gate that is red for HEAD (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    const verifier = new FakeVerifier();
+    verifier.red.add("job:01-thermal-resistance");
+    const { code, out } = await ready(c, verifier);
+    expect(code).toBe(1);
+    expect(out.problems).toEqual([expect.stringMatching(/job:01-thermal-resistance is red/)]);
+  });
+
+  test("flags a template file edited on the branch, though the gates are green (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    writeFiles(c.project, { "template/src/site/new.ts": "export const next = 'edited';\n" });
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "an edit to the template layer");
+    const verifier = new FakeVerifier();
+    const { code, out } = await ready(c, verifier);
+    expect(code).toBe(1);
+    expect(out.problems.join("\n")).toMatch(/template layer.*modified src\/site\/new\.ts/);
+    // The edited layer's own gates can verify anything, so they aren't asked.
+    expect(verifier.calls).toEqual([]);
+  });
+
+  test("flags a retired override restored by hand (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    writeFiles(c.project, { [`overrides/${OVERRIDE}`]: "<td>course honesty</td>\n" });
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "restore the override");
+    const { code, out } = await ready(c);
+    expect(code).toBe(1);
+    expect(out.problems.join("\n")).toContain(`overrides/${OVERRIDE}`);
+  });
+
+  test("flags content edited after the migrations ran (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    writeFiles(c.project, { "content/modules/01-thermal-resistance/module.yaml": "title: edited later\n" });
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "an edit to the content");
+    const { code, out } = await ready(c);
+    expect(code).toBe(1);
+    expect(out.problems.join("\n")).toMatch(/content.*modules\/01-thermal-resistance\/module\.yaml/);
+  });
+
+  test("flags a wave whose migrations haven't run (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await applied(c);
+    reportPreviews(c);
+    const { code, out } = await ready(c);
+    expect(code).toBe(1);
+    expect(out.problems.join("\n")).toMatch(/migrate/);
+  });
+
+  test("flags gates that didn't run on the Vercel preview (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    reportPreviews(c, "http://localhost:4321");
+    const { code, out } = await ready(c);
+    expect(code).toBe(1);
+    expect(out.problems.join("\n")).toMatch(/01-thermal-resistance.*Vercel preview/);
+  });
+
+  test("flags uncommitted changes and a checkout off the wave's branch (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    writeFiles(c.project, { "content/notes.md": "uncommitted" });
+    const dirty = await ready(c);
+    expect(dirty.out.problems.join("\n")).toMatch(/uncommitted/);
+    rmSync(join(c.project, "content/notes.md"));
+    git(c.project, "switch", "-q", "main");
+    const off = await ready(c);
+    expect(off.out.problems.join("\n")).toMatch(/upgrade\/v2\.0\.0-1/);
+  });
+
+  test("is refused when no wave runs", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    expect((await ready(c)).code).toBe(3);
+  });
+});
+
+describe("merge", { timeout: 120_000 }, () => {
+  test("a red wave never merges: main stays on the pinned release", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    const startCommit = rev(c, "main");
+    const verifier = new FakeVerifier();
+    verifier.red.add("deploy");
+    const { code, out } = await merge(c, verifier);
+    expect(code).toBe(1);
+    expect(out).toMatchObject({ merged: false });
+    expect(out.problems).toEqual([expect.stringMatching(/deploy is red/)]);
+    expect(rev(c, "refs/heads/main")).toBe(startCommit);
+    expect(branchOf(c)).toBe("upgrade/v2.0.0-1");
+    const status = must(ledger("status", "--project", c.project));
+    expect(status.template.release).toBe("v1.0.0");
+    expect(status.upgrades[0].state).toBe("running");
+  });
+
+  test("merges a green wave: main fast-forwards to the branch and the ledger moves to the release", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    const tip = rev(c, "HEAD");
+    const { code, out } = await merge(c);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(out).toMatchObject({ merged: true, commit: tip });
+    expect(rev(c, "refs/heads/main")).toBe(tip);
+    expect(branchOf(c)).toBe("main");
+    const status = must(ledger("status", "--project", c.project));
+    expect(status.template.release).toBe("v2.0.0");
+    expect(status.template.files).toEqual(releaseHashes(c.source, "v2.0.0"));
+    expect(status.template.overrides).toEqual([]);
+    expect(status.upgrades).toEqual([expect.objectContaining({ state: "merged", commit: tip })]);
+    // The retired override's row is history, with its reason.
+    expect(status.superseded).toContainEqual(
+      expect.objectContaining({ row: "override", id: OVERRIDE, reason: "retired by v2.0.0: gate gap #12 closed" }),
+    );
+    // Committed, the Course is whole on the new release.
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: merge the Upgrade wave");
+    expect(ledger("integrity", "--project", c.project).code).toBe(0);
+  });
+
+  test("refuses a wave that isn't ready, whatever the verifier says (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await applied(c);
+    const startCommit = rev(c, "main");
+    const { code, out } = await merge(c);
+    expect(code).toBe(1);
+    expect(out.problems.join("\n")).toMatch(/migrate/);
+    expect(rev(c, "refs/heads/main")).toBe(startCommit);
+  });
+
+  test("refuses when main moved on since the wave started (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    // A commit on main that the wave's branch doesn't have.
+    const stray = git(c.project, "commit-tree", "main^{tree}", "-p", "main", "-m", "stray");
+    git(c.project, "update-ref", "refs/heads/main", stray);
+    const { code, out } = await merge(c);
+    expect(code).toBe(1);
+    expect(out.problems.join("\n")).toMatch(/main/);
+  });
+
+  test("refuses another session's run (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    const { code } = await merge(c, new FakeVerifier(), "session-b");
+    expect(code).toBe(3);
+    expect(rev(c, "refs/heads/main")).not.toBe(rev(c, "HEAD"));
+  });
+});
+
+describe("end", { timeout: 120_000 }, () => {
+  /** The Course after a red wave: the branch committed, main checked out again. */
+  async function redWave(): Promise<UpgradeCourse> {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    git(c.project, "switch", "-q", "main");
+    return c;
+  }
+
+  const end = (c: UpgradeCourse, ...flags: string[]) =>
+    upgrade({}, "end", "--project", c.project, "--holder", HOLDER, "--result", "failed", ...flags);
+
+  test("a red wave ends only with a gate gap this wave filed", async () => {
+    const c = await redWave();
+    // No gate gap named.
+    expect((await end(c)).code).toBe(2);
+    // A gate gap that isn't in the ledger.
+    expect((await end(c, "--gate-gap", "beat-limit")).code).toBe(2);
+    // One recorded but never filed on the tracker.
+    writeFiles(c.project, { "build-records/gate-gaps/beat-limit/case.json": '{ "beat": "a long beat" }\n' });
+    must(
+      ledger(
+        ...["record", "gate-gap", "--project", c.project, "--holder", HOLDER, "--id", "beat-limit"],
+        ...["--title", "A beat over the limit slips through", "--defect", "A 140 word beat shipped."],
+      ),
+    );
+    const unfiled = await end(c, "--gate-gap", "beat-limit");
+    expect(unfiled.code).toBe(3);
+    expect(unfiled.out.error).toMatch(/unfiled|isn't filed/);
+    // Filed on the (fake) tracker.
+    const { code, stdout } = await runGateGap(
+      ["file", "--project", c.project, "--holder", HOLDER, "--id", "beat-limit"],
+      { tracker: new FakeTracker() },
+    );
+    expect(code, stdout).toBe(0);
+    const done = await end(c, "--gate-gap", "beat-limit");
+    expect(done.code, JSON.stringify(done.out)).toBe(0);
+    const status = must(ledger("status", "--project", c.project));
+    // Not a running wave any more: the next run offers it again, and says it failed.
+    expect(status.upgrades).toEqual([expect.objectContaining({ state: "failed", gateGap: "beat-limit" })]);
+    expect(status.template.release).toBe("v1.0.0");
+    expect(ledger("integrity", "--project", c.project).code).toBe(0);
+    const again = await offer(c, "v2.0.0");
+    expect(again.out.offer.lastFailed).toEqual({ id: "upgrade-v2.0.0-1", gateGap: "beat-limit" });
+  });
+
+  test("a gate gap recorded before the wave started isn't the wave's (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await fileGateGap(c);
+    await readyWave(c);
+    git(c.project, "switch", "-q", "main");
+    const { code, out } = await end(c, "--gate-gap", "beat-limit");
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/before/);
+  });
+
+  test("refuses while a template file is left changed on main (negative control)", async () => {
+    const c = await redWave();
+    writeFiles(c.project, { "template/src/site/old.ts": "export const old = 'edited';\n" });
+    const { code, out } = await end(c, "--gate-gap", "beat-limit");
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/template/);
+  });
+
+  test("refuses off main (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    const { code, out } = await end(c, "--gate-gap", "beat-limit");
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/main/);
+  });
+
+  test("only ends a wave as failed", async () => {
+    const c = await redWave();
+    const { code } = await upgrade(
+      {},
+      "end",
+      "--project",
+      c.project,
+      "--holder",
+      HOLDER,
+      "--result",
+      "merged",
+      "--gate-gap",
+      "x",
+    );
+    expect(code).toBe(2);
+  });
+});
+
+describe("the Fixture Course", { timeout: 300_000 }, () => {
+  test("upgrades from v1.0.0 to v2.0.0 across a major release", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "fixture" });
+    expect(c.folders).toHaveLength(10);
+    const before = contentOf(c);
+    const verifier = new FakeVerifier();
+
+    const offered = await offer(c, "v2.0.0");
+    expect(offered.out.offer).toMatchObject({ from: "v1.0.0", to: "v2.0.0", held: false });
+    must(await start(c));
+    must(await apply(c));
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: the template layer at v2.0.0");
+    const migrated = must(await migrate(c));
+    expect(migrated.migrations).toEqual([{ major: 2, describe: "course.yaml drops legacyTitle" }]);
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: migrate the content");
+    reportPreviews(c);
+
+    const readiness = await ready(c);
+    expect(readiness.out, JSON.stringify(readiness.out)).toMatchObject({ ready: true, problems: [] });
+    const merged = await merge(c, verifier);
+    expect(merged.code, JSON.stringify(merged.out)).toBe(0);
+
+    // Every Module's per-job and per-Module gates ran, and the per-deploy gate once.
+    for (const f of c.folders) expect(verifier.calls).toContain(`job:${f}`);
+    for (const f of c.folders) expect(verifier.calls).toContain(`module:${f}`);
+    expect(verifier.calls.filter((call) => call === "deploy")).toHaveLength(1);
+    // The template layer is v2.0.0's, file for file; the retired override is gone; the ledger is on v2.0.0.
+    expect(templateOnDisk(c)).toEqual(releaseHashes(c.source, "v2.0.0"));
+    expect(existsSync(join(c.project, "overrides", OVERRIDE))).toBe(false);
+    const status = must(ledger("status", "--project", c.project));
+    expect(status.template.release).toBe("v2.0.0");
+    expect(status.upgrades[0]).toMatchObject({ state: "merged", from: "v1.0.0", to: "v2.0.0" });
+    // The content changed only where the migration changed it.
+    const after = contentOf(c);
+    expect(Object.keys({ ...before, ...after }).filter((p) => before[p] !== after[p])).toEqual(["course.yaml"]);
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: merge the Upgrade wave");
+    expect(ledger("integrity", "--project", c.project).code).toBe(0);
   });
 });
 
