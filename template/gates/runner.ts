@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "astro/zod";
 import { spotOf } from "./spots.ts";
+import type { VideoProbe } from "./videos.ts";
 
 /**
  * `deploy` checks the build before it merges; `live` checks the live site after Vercel deploys it,
@@ -54,6 +55,11 @@ export interface GateInput {
    * (`vercel.json`, the committed `public/licences.txt`); the gates' own template when absent.
    */
   templateDir?: string;
+  /**
+   * How the live gates ask YouTube about a card; the real one when absent and `siteUrl` is set,
+   * none (the gate never touches the network) when both are absent.
+   */
+  videoProbe?: VideoProbe;
 }
 
 export interface GateRun {
