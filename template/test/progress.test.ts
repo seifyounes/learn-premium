@@ -6,10 +6,12 @@ import {
   markPlace,
   markWatched,
   mastery,
+  bestMock,
   parseProgress,
   placeHref,
   placeLabel,
   readiness,
+  recordPaper,
   recordPractice,
   recordSheet,
   recordStep,
@@ -77,6 +79,23 @@ describe("reading stored progress", () => {
   it("keeps where the student was", () => {
     const p = markPlace(emptyProgress(), { module: M, kind: "worked", code: "W01.1", step: 3, steps: 6 });
     expect(parseProgress(JSON.stringify(p)).last).toEqual(p.last);
+  });
+
+  it("keeps a paper's results, or every mock result would vanish on reload", () => {
+    const p = recordPaper(emptyProgress(), "midterm/mock-1", { got: 7, of: 10, at: "2026-10-15T10:00:00.000Z" });
+    expect(parseProgress(JSON.stringify(p)).papers).toEqual(p.papers);
+  });
+
+  it("drops a paper result that isn't one, and keeps the rest", () => {
+    const stored = JSON.stringify({
+      version: 1,
+      modules: {},
+      papers: {
+        "midterm/mock-1": { last: { got: 7, of: 10, at: "x" }, best: { got: 7, of: 10, at: "x" } },
+        "midterm/2025": { last: { got: "7", of: 10, at: "x" }, best: { got: 7, of: 10, at: "x" } },
+      },
+    });
+    expect(Object.keys(parseProgress(stored).papers ?? {})).toEqual(["midterm/mock-1"]);
   });
 
   it("starts afresh on nothing stored, bad JSON or another version", () => {
@@ -156,6 +175,38 @@ describe("a sitting's readiness", () => {
     expect(readiness([0.8, undefined])).toBeCloseTo(0.8);
     expect(readiness([undefined])).toBeUndefined();
     expect(readiness([])).toBeUndefined();
+  });
+
+  it("readiness joins the best fully marked mock: the mean of the average Mastery and that score", () => {
+    expect(readiness([1, 0.5, 0], 1)).toBeCloseTo(0.75);
+    expect(readiness([0.4], 0.8)).toBeCloseTo(0.6);
+    expect(readiness([0.4], undefined)).toBeCloseTo(0.4);
+  });
+
+  it("is the mock alone when no Module has anything to master", () => {
+    expect(readiness([undefined], 0.7)).toBeCloseTo(0.7);
+  });
+});
+
+describe("a paper's results", () => {
+  const at = "2026-10-15T10:00:00.000Z";
+
+  it("keeps the last result and the best one", () => {
+    let p = recordPaper(emptyProgress(), "midterm/mock-1", { got: 7, of: 10, at });
+    p = recordPaper(p, "midterm/mock-1", { got: 5, of: 10, at: "2026-10-16T10:00:00.000Z" });
+    expect(p.papers?.["midterm/mock-1"]).toEqual({
+      last: { got: 5, of: 10, at: "2026-10-16T10:00:00.000Z" },
+      best: { got: 7, of: 10, at },
+    });
+  });
+
+  it("takes the best mock by its share of the marks, and ignores a mock never fully marked", () => {
+    let p = recordPaper(emptyProgress(), "midterm/mock-1", { got: 7, of: 10, at });
+    p = recordPaper(p, "midterm/announced", { got: 4, of: 5, at });
+    p = recordPaper(p, "midterm/2025", { got: 10, of: 10, at });
+    expect(bestMock(p, ["midterm/mock-1", "midterm/announced", "midterm/mock-2"])).toBeCloseTo(0.8);
+    expect(bestMock(emptyProgress(), ["midterm/mock-1"])).toBeUndefined();
+    expect(bestMock(p, [])).toBeUndefined();
   });
 });
 

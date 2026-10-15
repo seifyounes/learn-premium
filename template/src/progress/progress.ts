@@ -31,10 +31,26 @@ export type Place = { module: string } & (
   { kind: "worked"; code: string; step: number; steps: number } | { kind: "practice"; item: string }
 );
 
+/** A paper sat in the Exam room: the marks the student got of the marks it carries, and when. */
+export interface PaperResult {
+  got: number;
+  of: number;
+  /** An ISO time. */
+  at: string;
+}
+
+/** A paper's results: the last sitting and the best one. */
+export interface PaperProgress {
+  last: PaperResult;
+  best: PaperResult;
+}
+
 export interface Progress {
   version: 1;
   modules: Record<string, ModuleProgress>;
   last?: Place;
+  /** Per paper or mock, by `<sitting>/<variant>`; a result is kept once every question is marked. */
+  papers?: Record<string, PaperProgress>;
 }
 
 export const emptyProgress = (): Progress => ({ version: 1, modules: {} });
@@ -47,10 +63,38 @@ export function parseProgress(stored: string | null): Progress {
     const p = parsed as Partial<Progress> | null;
     if (!p || typeof p !== "object" || p.version !== 1 || typeof p.modules !== "object" || p.modules === null)
       return emptyProgress();
-    return { version: 1, modules: p.modules, ...(isPlace(p.last) && { last: p.last }) };
+    const papers = readPapers(p.papers);
+    return {
+      version: 1,
+      modules: p.modules,
+      ...(isPlace(p.last) && { last: p.last }),
+      ...(papers && { papers }),
+    };
   } catch {
     return emptyProgress();
   }
+}
+
+const isResult = (value: unknown): value is PaperResult => {
+  const r = value as Partial<Record<string, unknown>> | null;
+  return (
+    !!r &&
+    typeof r === "object" &&
+    typeof r.got === "number" &&
+    typeof r.of === "number" &&
+    r.of > 0 &&
+    typeof r.at === "string"
+  );
+};
+
+/** The stored paper results that are results; undefined when none is. */
+function readPapers(stored: unknown): Record<string, PaperProgress> | undefined {
+  if (!stored || typeof stored !== "object") return undefined;
+  const kept = Object.entries(stored).flatMap(([key, value]) => {
+    const { last, best } = (value ?? {}) as Partial<Record<string, unknown>>;
+    return isResult(last) && isResult(best) ? [[key, { last, best }] as const] : [];
+  });
+  return kept.length === 0 ? undefined : Object.fromEntries(kept);
 }
 
 const update = (p: Progress, module: string, change: (m: ModuleProgress) => ModuleProgress): Progress => ({
@@ -203,10 +247,34 @@ export function mastery(m: ModuleProgress | undefined, shape: MasteryShape): num
 }
 
 /**
- * An Exam sitting's readiness, from 0 to 1: the average Mastery of its Modules, leaving out any
- * with nothing to master. The best mock score joins it once the sitting has an Exam room (#74).
+ * Records a paper sat: its last result, and its best (the larger share of the marks; an equal one
+ * keeps the earlier). Record only a fully marked result: a paper with written answers unmarked has
+ * no score yet.
  */
-export function readiness(masteries: (number | undefined)[]): number | undefined {
+export const recordPaper = (p: Progress, key: string, result: PaperResult): Progress => {
+  const before = p.papers?.[key];
+  const best = !before || result.got / result.of > before.best.got / before.best.of ? result : before.best;
+  return { ...p, papers: { ...p.papers, [key]: { last: result, best } } };
+};
+
+/** The best share of the marks over the mocks (`<sitting>/<variant>` keys) the student has fully marked; undefined when none. */
+export function bestMock(p: Progress, keys: readonly string[]): number | undefined {
+  const shares = keys.flatMap((key) => {
+    const best = p.papers?.[key]?.best;
+    return best ? [best.got / best.of] : [];
+  });
+  return shares.length === 0 ? undefined : Math.max(...shares);
+}
+
+/**
+ * An Exam sitting's readiness, from 0 to 1: the average Mastery of its Modules, leaving out any
+ * with nothing to master. Once the sitting has an Exam room and the student has fully marked a
+ * mock, the best mock score joins it: readiness is the mean of the two (with no Module to master,
+ * the mock alone). Past-paper attempts are kept but never counted.
+ */
+export function readiness(masteries: (number | undefined)[], mock?: number): number | undefined {
   const counted = masteries.filter((m): m is number => m !== undefined);
-  return counted.length === 0 ? undefined : counted.reduce((a, b) => a + b, 0) / counted.length;
+  const average = counted.length === 0 ? undefined : counted.reduce((a, b) => a + b, 0) / counted.length;
+  if (mock === undefined) return average;
+  return average === undefined ? mock : (average + mock) / 2;
 }

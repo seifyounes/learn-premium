@@ -1,7 +1,7 @@
 ---
 // The fixed nav, printed along the head of the sheet; the page the student is on is the tab drawn
 // open onto the sheet.
-import { getSittings } from "../content/course";
+import { examRooms, getSittings } from "../content/course";
 import { navItems, type NavKey } from "../site/nav";
 
 interface Props {
@@ -10,7 +10,10 @@ interface Props {
 }
 
 const { current } = Astro.props;
-const items = navItems(await getSittings());
+const items = navItems(
+  await getSittings(),
+  (await examRooms()).map((s) => s.id),
+);
 ---
 
 <nav class="site-nav" aria-label="Study site">
