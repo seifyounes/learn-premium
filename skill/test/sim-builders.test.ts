@@ -1209,3 +1209,86 @@ describe("the build report", () => {
     expect(report(project)).toContain("The deploy Gate report isn't readable.");
   });
 });
+
+describe("what a builder's counts and an STL replay mean to the merge gate", () => {
+  test("a tool with no parts or nets can't hand back invented counts (negative control)", () => {
+    const course = assigned();
+
+    const { code, out } = handBack(
+      course,
+      "descent",
+      handbackOf("descent", (h) => (h["counts"] = { parts: 3, nets: 0 })),
+    );
+
+    expect(code).toBe(1);
+    expect(out.problems[0]).toMatch(/counts 3 parts and 0 nets, but the tool has none/);
+    expect(toolRow(course.project, "descent")?.handback).toBeNull();
+  });
+
+  test("a schematic sim edited after its hand-back needs a new one (negative control)", () => {
+    const course = built();
+    const edited = inventory((i) => {
+      toolIn(i, "descent").counts = { parts: 4, nets: 2 };
+    });
+
+    expect(problemsOf(course, edited)).toEqual([
+      "tool descent's hand-back counted 0 parts and 0 nets, but its model now has 4 and 2: hand back again",
+    ]);
+  });
+
+  test("an STL listing shipped as awlsim's replay (not live) is still the assigned STL tool", () => {
+    const { project, waveId } = module03(["Automation and control"]);
+    must(
+      assignWave(project, waveId, {
+        module: "03",
+        worked: [{ n: "1", model: "computable", figure: null }],
+        tools: [
+          {
+            name: "listing",
+            worked: "1",
+            discipline: "Automation and control",
+            interaction: "STL listing",
+            tool: "stl",
+          },
+        ],
+      }),
+    );
+    const replay = (live: boolean): ToolInventory => ({
+      ...EMPTY_INVENTORY,
+      worked: [{ n: "1", entry: `modules/${FOLDER}/worked/1.json`, figure: "none" }],
+      tools: [
+        {
+          name: "listing",
+          entry: `modules/${FOLDER}/sims/listing.json`,
+          collection: "sims",
+          kind: "stl",
+          worked: "1",
+          live,
+          counts: null,
+        },
+      ],
+    });
+    const shipping = (live: boolean) =>
+      problemsOf({ project, waveId }, replay(live)).filter((p) => p.includes("should ship"));
+
+    expect(shipping(true)).toEqual([]);
+    expect(shipping(false)).toEqual([]);
+  });
+
+  test("the build report shows a sim recorded fell-back by a plain `record job` as its step-through", () => {
+    const course = built();
+    blockThrice(course.project, course.waveId, "sim-descent");
+    must(
+      ledger(
+        ...["record", "job", ...holder(course.project), "--wave", course.waveId, "--job", "sim-descent"],
+        ...["--result", "fell-back", "--detail", "step-through", "--started-at", minutesAgo()],
+      ),
+    );
+
+    const text = readFileSync(`${course.project}/build-records/build-report.md`, "utf8");
+
+    expect(text).toMatch(
+      /\| descent \| .* \| gradient-descent \| step-through \(fell back from gradient-descent\) \| sim-descent \|/,
+    );
+  });
+});

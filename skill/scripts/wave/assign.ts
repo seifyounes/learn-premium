@@ -324,6 +324,8 @@ function isShipped(found: ToolInventory["tools"][number], ships: string): boolea
   if (ships === STEP_THROUGH) return found.collection === "sims" && !found.live;
   if (ships === "pyodide") return found.collection === "python";
   if (ships === "part") return found.collection === "parts";
+  // An STL listing whose instruction the interpreter lacks ships as awlsim's replay: still the STL tool, not live.
+  if (ships === "stl") return found.collection === "sims" && found.kind === "stl";
   return found.collection === "sims" && found.kind === ships && found.live;
 }
 
@@ -409,6 +411,13 @@ export function toolProblems(
         if (!isShipped(found, ships))
           problems.push(
             `tool ${tool.name} should ship as ${ships}, but the content has a ${found.collection === "sims" ? `${found.kind} sim${found.live ? "" : " that isn't live"}` : found.kind}`,
+          );
+      }
+      if (found?.counts != null && tool.handback !== null) {
+        const [now, kept] = [found.counts, tool.handback];
+        if (now.parts !== kept.parts || now.nets !== kept.nets)
+          problems.push(
+            `tool ${tool.name}'s hand-back counted ${kept.parts} parts and ${kept.nets} nets, but its model now has ${now.parts} and ${now.nets}: hand back again`,
           );
       }
       if (job === undefined) problems.push(`job ${tool.job} hasn't been recorded for ${waveId}`);
