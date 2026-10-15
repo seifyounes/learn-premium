@@ -55,6 +55,13 @@ It also fetches origin and reports how far behind the install is, e.g.
 `3 commits / 1 release behind: v0.1.0 installed, v0.2.0 is out`. It never pulls: the run carries on
 at the installed release, and the Owner decides when to re-run the installer.
 
+## ffmpeg
+
+There is no ffmpeg to install. The Media pass re-encodes video, audio and infographics through the
+venv's PyAV (`av`, which faster-whisper brings, so `skill/uv.lock` pins it): the FFmpeg libraries it
+bundles carry the H.264, AAC and MP3 encoders the web profile needs, and `machine_install.py` checks
+and syncs them with the rest of the venv. Nothing outside the venv is added to the machine's PATH.
+
 ## Changing the venv
 
 Edit `skill/pyproject.toml`, run `uv lock --project skill`, and commit both files. The change
