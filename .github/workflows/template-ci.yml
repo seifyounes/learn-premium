@@ -14,6 +14,8 @@ on:
       - "skill/test/fixtures/tool-inventory/**"
       # The awlsim version the STL oracle runs (its logs must be that version's).
       - "skill/uv.lock"
+      # The sitting dump both layers hold: test/sitting-dump.test.ts checks the template against the skill's copy.
+      - "skill/test/fixtures/sitting-dump/**"
       - ".github/workflows/template-ci.yml"
   workflow_dispatch:
 
