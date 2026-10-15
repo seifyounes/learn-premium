@@ -9,7 +9,14 @@ import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import { treeProblems } from "../scripts/wave/tree.ts";
 import type { DumpPaper, SittingDump, SittingDumper } from "../scripts/wave/sitting.ts";
-import { fixtureCourse, materialsOf, ownerSaysComplete, registered, sitting } from "./fixture-courses.ts";
+import {
+  EMPTY_INVENTORY,
+  fixtureCourse,
+  materialsOf,
+  ownerSaysComplete,
+  registered,
+  sitting,
+} from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { ledger, media, tempDir, writeFiles } from "./helpers.ts";
 import { readingItems, sittingReading, waveDumps } from "./sitting-fixtures.ts";
@@ -41,6 +48,7 @@ function verifier(calls: Calls, red?: string): WaveDeps["verifier"] {
       return point === red ? { green: false, problems: ["a gate is red"] } : { green: true, problems: [] };
     },
     rulings: () => [],
+    inventory: () => EMPTY_INVENTORY,
   };
 }
 

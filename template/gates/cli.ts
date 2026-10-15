@@ -161,7 +161,9 @@ async function main(argv: string[]): Promise<number> {
       return result.ok ? 0 : 1;
     }
     default:
-      throw new UsageError(`unknown command "${command ?? ""}"; use run, verify, controls, rulings, tools, sitting or shots`);
+      throw new UsageError(
+        `unknown command "${command ?? ""}"; use run, verify, controls, rulings, tools, sitting or shots`,
+      );
   }
 }
 
