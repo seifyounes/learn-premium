@@ -7,7 +7,7 @@ version = "0.0.0"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "build123d",      # machinery: parts → GLB
-    "faster-whisper", # narration transcripts
+    "faster-whisper", # narration transcripts; its dependency av (PyAV, FFmpeg's libraries) re-encodes the media
     "control",        # python-control: root locus, step, Bode/Nyquist oracles
     "sympy",
     "CoolProp",       # heat transfer property tables
