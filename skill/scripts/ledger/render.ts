@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MEDIA_PAGE } from "../media/model.ts";
 import { BUILD_RECORDS_DIR, current, GATE_GAP_REPO, LEDGER_FILE, sittingState, type Ledger } from "./model.ts";
+import { supersededRows } from "./rows.ts";
 
 export const STATUS_PAGE = "status.md";
 export const BUILD_REPORT = "build-report.md";
@@ -88,6 +89,14 @@ function statusPage(ledger: Ledger): string {
     table(
       ["File", "Kind"],
       materials.filter((f) => f.module === null).map((f) => [f.path, f.kind]),
+    ),
+    "## Superseded",
+    "",
+    "Rows a later row replaced. They stay in the ledger as history; nothing is deleted.",
+    "",
+    table(
+      ["Row", "Id", "Superseded", "Reason"],
+      supersededRows(ledger).map((s) => [s.row, s.id, s.at, s.reason]),
     ),
   ].join("\n");
 }
