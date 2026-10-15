@@ -382,7 +382,7 @@ it `downloaded`, its master in `<D>/media/masters/`) through the rest of the pas
    exit 0: the branch changes media and nothing else, every file is a checked item's re-encode, the
    gates are green for HEAD, and no Module, Sitting or Upgrade wave runs. Then `git -C <P> merge
    --ff-only media/NN-<slug>-<n>`, push `main`, run `placed --file content/modules/<folder>/media/<file>`
-   for each item (it refuses a file that isn't the recorded re-encode on `main`), and commit
+   for each item (it refuses a file that isn't the recorded re-encode, committed on `main`; `--unencoded` places a file the Owner made by hand, as it is), and commit
    `build-media.json` and `build-records/` on `main`. Remove `<T>`. Placed media never blocks a
    Module: it was live already, and an item that can't be placed is dropped, not waited on.
 

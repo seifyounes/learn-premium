@@ -441,7 +441,7 @@ function runByHand(state: string, priv: string, notebook: FakeNotebookLM): any {
         break;
       case "checked":
         writeFiles(next.project, { [placedPath(next.item)]: next.item });
-        must(media("placed", ...at, "--file", placedPath(next.item)));
+        must(media("placed", ...at, "--file", placedPath(next.item), "--unencoded"));
         break;
       default:
         throw new Error(`gather offered an item in state ${next.state}`);

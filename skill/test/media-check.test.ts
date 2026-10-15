@@ -9,6 +9,7 @@ import { fakeKit } from "./fake-media-kit.ts";
 import { sitting } from "./fixture-courses.ts";
 import { fakeVerifier, ingestFixture, itemOf, mediaCourse, mediaWith, type MediaCourse } from "./media-course.ts";
 import { must } from "./fake-notebooklm.ts";
+import { writeFiles } from "./helpers.ts";
 
 const NOW = Date.parse("2026-10-01T08:00:00.000Z");
 const TRANSCRIPT: unknown = JSON.parse(
@@ -217,6 +218,46 @@ describe("the fact check", () => {
     const { code, out } = check(c, id);
 
     expect(code, JSON.stringify(out)).toBe(0);
+  });
+
+  test("a power of ten is one number: its coefficient and exponent aren't judged alone", () => {
+    // Negative control: 4.06, 10 and 4 are each in the Module or exempt, but 4.06 × 10^-4 (0.000406) is not.
+    const talk = {
+      segments: [{ start: 0, end: 5, text: "A drop of 4.06 × 10^-4 kelvin across the brick." }],
+    };
+    const { c, id } = checkedAudio(talk, 1, { claims: [] });
+
+    const { code, out } = check(c, id);
+
+    expect(code).toBe(1);
+    expect(out.findings).toEqual([expect.objectContaining({ kind: "number", said: "4.06 × 10^-4", at: "0:00" })]);
+  });
+
+  test("a power of ten the Module writes (in TeX) is verified, at its coefficient's digits", () => {
+    const talk = { segments: [{ start: 0, end: 5, text: "A conductance of about 1.3 × 10^-3 watts per kelvin." }] };
+    const { c, id } = checkedAudio(talk, 1, { claims: [] });
+    writeFiles(c.project, {
+      "content/modules/01-m01/summary/2.md": "The conductance is $1.25 \\times 10^{-3}$ W/K.\n",
+    });
+
+    const { code, out } = check(c, id);
+
+    expect(code, JSON.stringify(out)).toBe(0);
+  });
+
+  test("an infographic's alt text is held to the Module's numbers like anything else it says", () => {
+    const c = mediaCourse();
+    const id = "module-01-infographic";
+    evidenceFor(c, fakeKit(), id, 1, {
+      readings: [{ at: "infographic", text: "R = L / (k A)" }],
+      alt: "A wall of 99 layers resisting heat",
+      claims: [],
+    });
+
+    const { code, out } = check(c, id);
+
+    expect(code).toBe(1);
+    expect(out.findings).toEqual([expect.objectContaining({ kind: "number", said: "99", at: "alt" })]);
   });
 
   test("a small claim value that JavaScript writes in exponent form keeps its decimals", () => {

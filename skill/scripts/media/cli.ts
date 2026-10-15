@@ -68,7 +68,13 @@ function dispatch(args: Args, given: Partial<MediaDeps>): Output {
       advance(stateDir, args.required("--project"), args.required("--item"), command);
       return {};
     case "placed":
-      place(stateDir, args.required("--project"), args.required("--item"), args.required("--file"));
+      place(
+        stateDir,
+        args.required("--project"),
+        args.required("--item"),
+        args.required("--file"),
+        args.flag("--unencoded"),
+      );
       return {};
     case "fail":
       return fail(

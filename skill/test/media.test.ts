@@ -155,7 +155,7 @@ describe("the item state machine", () => {
     must(media("downloaded", ...at));
     must(media("checked", ...at));
     placeFile(project, "module-01-video");
-    must(media("placed", ...at, "--file", placedPath("module-01-video")));
+    must(media("placed", ...at, "--file", placedPath("module-01-video"), "--unencoded"));
 
     expect(itemsOf(project)["module-01-video"]).toMatchObject({
       state: "placed",

@@ -84,7 +84,7 @@ export function runMediaPass(state: string, notebook: FakeNotebookLM): any {
         const file = join(next.project, placedPath(next.item));
         mkdirSync(dirname(file), { recursive: true });
         writeFileSync(file, `${next.item}#${attempt}`);
-        must(media("placed", ...at, "--file", placedPath(next.item)));
+        must(media("placed", ...at, "--file", placedPath(next.item), "--unencoded"));
         break;
       }
       default:

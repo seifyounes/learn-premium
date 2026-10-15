@@ -313,15 +313,22 @@ function gitOutput(project: string, ...args: string[]) {
 /**
  * checked → placed: `file` is the published copy, already in the Course project. A re-encoded item is placed
  * only from the re-encode itself, on `main`: the file hashes to the recorded `encoded.hash` and is in the
- * history there, so a rejected or regenerated output can't be taken for the published one.
+ * history there, so a rejected or regenerated output can't be taken for the published one. An item with no
+ * re-encode is placed only as it is, by hand (`unencoded`): media the Owner made himself.
  */
-export function place(stateDir: string, project: string, id: string, file: string): void {
+export function place(stateDir: string, project: string, id: string, file: string, unencoded = false): void {
   const root = resolve(project);
   const inside = relative(root, resolve(root, file));
   if (isAbsolute(file) || inside.startsWith("..") || !existsSync(resolve(root, file))) {
     throw new LedgerError("invalid", `${file} isn't a file in the Course project`);
   }
   move(stateDir, root, id, ["checked"], (item) => {
+    if (item.encoded === null && !unencoded) {
+      throw new LedgerError(
+        "refused",
+        `${id} has no re-encode: run encode and merge its media branch first, or pass --unencoded to place a hand-made file as it is`,
+      );
+    }
     if (item.encoded !== null) {
       if (hashFile(resolve(root, file)) !== item.encoded.hash) {
         throw new LedgerError("invalid", `${file} isn't ${id}'s re-encode (its hash differs from the recorded one)`);

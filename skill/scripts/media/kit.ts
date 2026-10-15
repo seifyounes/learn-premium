@@ -93,6 +93,9 @@ export const evidenceDir = (priv: string, id: string, attempt: number) =>
   mediaDir(priv, "evidence", `${id}-${attempt}`);
 export const checkPath = (priv: string, id: string, attempt: number) =>
   mediaDir(priv, "checks", `${id}-${attempt}.json`);
+/** Written by `check` when it passes an item: the fingerprint of the Module content it was checked against. */
+export const verifiedPath = (priv: string, id: string, attempt: number) =>
+  mediaDir(priv, "checks", `${id}-${attempt}.verified.json`);
 
 /** The item's master for its current attempt, as `ingest` kept it; refused when it isn't there. */
 export function masterOf(priv: string, item: MediaItem): string {
