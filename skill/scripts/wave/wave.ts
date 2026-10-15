@@ -17,7 +17,7 @@ import { requireLedger, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
 import { staleProblems } from "./fresh.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
-import { toolInventorySchema, type ToolInventory } from "./assign.ts";
+import { toolInventorySchema, toolProblems, type ToolInventory } from "./assign.ts";
 import { relaunchProblems } from "./relaunch.ts";
 import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
 import { inventoryProblems, moduleTree, treeProblems, waveTree } from "./tree.ts";
@@ -404,6 +404,8 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   problems.push(...relaunchProblems(ledger, waveId));
   // The fresh reviewer's eyes loop and adversarial read, of HEAD's Module content, re-verified.
   problems.push(...reviewReadyProblems(dir, privateFolder, id, folder));
+  // The tools the content ships are the tool assignment's, built by timed builders that handed back.
+  problems.push(...toolProblems(ledger, waveId, folder, verifier.inventory(dir, folder)));
 
   // The template layer's own gates verify the branch: an edited layer could verify anything.
   const integrity = verifyIntegrity(project, dir);

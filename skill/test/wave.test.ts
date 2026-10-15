@@ -11,6 +11,7 @@ import { COMMIT, EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-c
 import { must } from "./fake-notebooklm.ts";
 import { ledger, writeFiles, type Result } from "./helpers.ts";
 import { MEANING_SLIP, review, shots, verdicts } from "./review-fixtures.ts";
+import { builtRamp, rampInventory } from "./sim-ramp.ts";
 
 // Every wave here runs git several times (a commit per ready): the 30 s the other git-heavy suites have.
 vi.setConfig({ testTimeout: 30_000 });
@@ -269,6 +270,9 @@ function gateReports(project: string, items: unknown[], url: string | null = PRE
   });
 }
 
+/** The `--started-at` flag the main agent records with a job: when it launched it, which it measured itself. */
+const launched = () => ["--started-at", new Date(Date.now() - 90_000).toISOString()];
+
 const greenVerifier = {
   verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [], inventory: () => EMPTY_INVENTORY },
 };
@@ -307,7 +311,7 @@ function waveAtCheckpoint() {
     "review",
     "deploy-gates",
   ])
-    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", job, "--result", "passed"));
+    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", job, "--result", "passed", ...launched()));
   gateReports(project, [SHEET_ITEM]);
   gitIn(project, "init", "-q");
   gitIn(project, "config", "core.hooksPath", "template/gates/hooks");
@@ -510,13 +514,17 @@ describe("ready, the Module wave's merge gate", () => {
         ),
       );
     gateReports(project, []);
-    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", "recompute", "--result", "blocked"));
+    must(
+      ledger("record", "job", ...holder, "--wave", waveId, "--job", "recompute", "--result", "blocked", ...launched()),
+    );
 
     expect(ready(project, waveId).out.problems).toEqual([
       "job recompute is blocked: its job fixes it, or it falls back",
     ]);
 
-    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", "recompute", "--result", "passed"));
+    must(
+      ledger("record", "job", ...holder, "--wave", waveId, "--job", "recompute", "--result", "passed", ...launched()),
+    );
     must(ledger("wave", "end", ...holder, "--wave", waveId, "--result", "merged", "--commit", COMMIT));
     const { wave: second } = must(
       ledger("wave", "start", ...holder, "--kind", "module", "--target", "02", "--branch", "module/02-m02"),
@@ -616,7 +624,7 @@ describe("ready, the Module wave's merge gate", () => {
         "record",
         "job",
         ...holder,
-        ...["--wave", waveId, "--job", "recompute", "--result", "checkpoint"],
+        ...["--wave", waveId, "--job", "recompute", "--result", "checkpoint", ...launched()],
         ...["--detail", "Sheet 2's question 3 doesn't fix the step size; the recompute can't work it out"],
       ),
     );
@@ -885,7 +893,8 @@ describe("ready, the Module wave's merge gate", () => {
 
     const problems = ready(project, waveId, {}).out.problems as string[];
 
-    expect(problems.filter((p) => p.includes("no gate runner"))).toHaveLength(4);
+    // The three Gate reports, the rulings and the tool inventory all need the template's runner.
+    expect(problems.filter((p) => p.includes("no gate runner"))).toHaveLength(5);
   });
 
   test("the merge gate trusts no report's own verdict: it asks the template's verify for HEAD", () => {
@@ -1000,9 +1009,16 @@ describe("ready, the Module wave's merge gate", () => {
   });
 
   test("any blocked job of the wave keeps it red, a sim builder's too; one that fell back to its step-through doesn't", () => {
-    const { project, waveId, holder } = waveAtCheckpoint();
+    const { project, privateFolder, waveId, holder } = waveAtCheckpoint();
     answerEvery(project, waveId, holder);
     gateReports(project, []);
+    // The sim builder's tool is assigned and handed back, and the content that ships it is committed and reviewed.
+    const inventory = builtRamp(project, waveId, false);
+    gitIn(project, "add", "-A");
+    gitIn(project, "commit", "-q", "-m", "feat: the ramp sim");
+    shots(privateFolder, headOf(project));
+    review(privateFolder, [], headOf(project));
+    const withRamp = { verifier: { ...greenVerifier.verifier, inventory: () => inventory } };
     const sim = (result: string, detail: string) =>
       must(
         ledger(
@@ -1017,14 +1033,50 @@ describe("ready, the Module wave's merge gate", () => {
           result,
           "--detail",
           detail,
+          ...launched(),
         ),
       );
 
     [1, 2, 3].forEach(() => sim("blocked", "drawing gate red"));
-    const blocked = ready(project, waveId).out.problems;
+    const blocked = ready(project, waveId, withRamp).out.problems;
     sim("fell-back", "step-through of the ramp figure");
 
     expect(blocked).toEqual(["job sim-ramp is blocked: its job fixes it, or it falls back"]);
-    expect(ready(project, waveId).out.problems).toEqual([]);
+    expect(ready(project, waveId, withRamp).out.problems).toEqual([]);
+  });
+
+  test("an untimed subagent job keeps the wave from merging: the main agent measures each one", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    answerEvery(project, waveId, holder);
+    gateReports(project, []);
+    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", "writer", "--result", "passed"));
+
+    const problems = ready(project, waveId).out.problems as string[];
+
+    expect(problems).toEqual(["job writer wasn't timed: record it with --started-at <when you launched it>"]);
+    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", "writer", "--result", "passed", ...launched()));
+    expect(ready(project, waveId).out.problems.some((p: string) => p.includes("wasn't timed"))).toBe(false);
+  });
+
+  test("a tool in the content that no assignment names keeps the wave from merging", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    answerEvery(project, waveId, holder);
+    gateReports(project, []);
+    const stray = {
+      verifier: {
+        ...greenVerifier.verifier,
+        inventory: () => ({
+          ...rampInventory(true),
+          worked: [{ n: "1", entry: "modules/01-m01/worked/1.json", figure: "none" as const }],
+        }),
+      },
+    };
+
+    const { code, out } = ready(project, waveId, stray);
+
+    expect(code).toBe(1);
+    expect(out.problems).toEqual([
+      expect.stringMatching(/^no tool assignment for module-01-1: 01-m01 has 1 Worked example and 1 tool/),
+    ]);
   });
 });

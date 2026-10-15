@@ -15,6 +15,7 @@ import {
   moduleId,
   WORKED_MODELS,
   type AssignedTool,
+  type Job,
   type Ledger,
 } from "../ledger/model.ts";
 import { arr, bool, nonEmpty, nullable, obj, oneOf, type Infer } from "../ledger/schema.ts";
@@ -297,4 +298,121 @@ export function fallback(project: string, holder: string, waveId: string, job: s
     tool.ships = to;
   });
   return { job, from: row.ships, to };
+}
+
+/** The jobs a subagent runs: the main agent measures each, so `ready` refuses one recorded without a launch time. */
+export const SUBAGENT_JOBS = [
+  "blind-reader-a",
+  "blind-reader-b",
+  "style-sheet",
+  "writer",
+  "recompute",
+  "review",
+] as const;
+
+/** What a row's tool ships as: a sim that fell back ships its step-through, however its fallback was recorded. */
+function effectiveShips(tool: AssignedTool, job: Job | undefined): string {
+  return tool.job.startsWith("sim-") && job?.result === "fell-back" ? STEP_THROUGH : tool.ships;
+}
+
+/** Whether the inventory's tool is what `ships` says: a sim kind live, a step-through a sim that isn't, a Pyodide tool or a part. */
+function isShipped(found: ToolInventory["tools"][number], ships: string): boolean {
+  if (ships === STEP_THROUGH) return found.collection === "sims" && !found.live;
+  if (ships === "pyodide") return found.collection === "python";
+  if (ships === "part") return found.collection === "parts";
+  return found.collection === "sims" && found.kind === ships && found.live;
+}
+
+const FIGURE_OF = { animate: "animated", static: "static", none: "none" } as const;
+
+/**
+ * Why the Module's content doesn't match its wave's tool assignment: an example or tool the
+ * assignment doesn't know, one it plans that the content lacks, a tool that isn't what it ships, a
+ * builder job that didn't pass, wasn't timed or left no hand-back, and any subagent job recorded
+ * without its launch time. Empty when the Module has no Worked example and no tool.
+ */
+export function toolProblems(
+  ledger: Ledger,
+  waveId: string,
+  folder: string,
+  inventory: ToolInventory | string,
+): string[] {
+  if (typeof inventory === "string") return [inventory];
+  const problems = [...inventory.problems];
+  const row = assignmentOf(ledger, waveId);
+  const jobs = new Map(
+    current(ledger.jobs)
+      .filter((j) => j.wave === waveId)
+      .map((j) => [j.job, j]),
+  );
+  const untimed = (job: string) => `job ${job} wasn't timed: record it with --started-at <when you launched it>`;
+
+  if (row === undefined) {
+    const [w, t] = [inventory.worked.length, inventory.tools.length];
+    if (w > 0 || t > 0)
+      problems.push(
+        `no tool assignment for ${waveId}: ${folder} has ${w} Worked example${w === 1 ? "" : "s"} and ${t} tool${t === 1 ? "" : "s"}; the main agent writes the assignment (wave.ts assign) before the builders run`,
+      );
+  } else {
+    const label = (n: string) => workedLabel(row.module, n);
+    for (const w of inventory.worked)
+      if (!row.worked.some((p) => p.n === w.n))
+        problems.push(`${label(w.n)} has no entry in the tool assignment (${w.entry})`);
+    for (const plan of row.worked) {
+      const found = inventory.worked.find((w) => w.n === plan.n);
+      if (found === undefined) {
+        problems.push(`the tool assignment plans ${label(plan.n)}, which the Module doesn't have`);
+        continue;
+      }
+      const sits = inventory.tools.filter((t) => t.worked === plan.n);
+      if (plan.model === "computable" && sits.length === 0)
+        problems.push(`${label(plan.n)} is computable, but no tool in the content sits in it`);
+      if (plan.model === "illustration") {
+        if (sits.length > 0)
+          problems.push(
+            `${label(plan.n)} is an illustration, but the content puts a tool in it (${sits.map((t) => t.name).join(", ")})`,
+          );
+        const wanted = plan.figure === null ? null : FIGURE_OF[plan.figure];
+        if (found.figure !== wanted)
+          problems.push(
+            `${label(plan.n)} is planned as an illustration whose figure is ${plan.figure ?? "unsaid"}, but its figure in the content is ${found.figure}`,
+          );
+      }
+    }
+    for (const found of inventory.tools)
+      if (!row.tools.some((t) => t.name === found.name))
+        problems.push(`the content has a tool ${found.name} (${found.entry}) that no assignment names`);
+    for (const tool of row.tools) {
+      const job = jobs.get(tool.job);
+      // A blocked job is already held by ready's own check: a second message would only repeat it.
+      if (job?.result === "blocked") continue;
+      const found = inventory.tools.find((t) => t.name === tool.name);
+      const ships = effectiveShips(tool, job);
+      if (found === undefined) problems.push(`the assigned tool ${tool.name} has no file in the content`);
+      else {
+        if (found.worked !== tool.worked)
+          problems.push(
+            `tool ${tool.name} sits in ${found.worked === null ? "no Worked example" : label(found.worked)} in the content, but the assignment says ${tool.worked === null ? "none (Lab only)" : label(tool.worked)}`,
+          );
+        if (!isShipped(found, ships))
+          problems.push(
+            `tool ${tool.name} should ship as ${ships}, but the content has a ${found.collection === "sims" ? `${found.kind} sim${found.live ? "" : " that isn't live"}` : found.kind}`,
+          );
+      }
+      if (job === undefined) problems.push(`job ${tool.job} hasn't been recorded for ${waveId}`);
+      else {
+        const isSim = tool.job.startsWith("sim-");
+        if (!(isSim ? ["passed", "fell-back"] : ["passed"]).includes(job.result))
+          problems.push(`job ${tool.job} is ${job.result}: it must pass${isSim ? " or fall back" : ""}`);
+        if (job.startedAt === null) problems.push(untimed(tool.job));
+      }
+      if (tool.handback === null)
+        problems.push(`tool ${tool.name} has no hand-back: wave.ts handback --name ${tool.name}`);
+    }
+  }
+  for (const name of jobs.keys())
+    if (/^(sim|tool)-/.test(name) && !row?.tools.some((t) => t.job === name))
+      problems.push(`job ${name} builds a tool that no assignment names`);
+  for (const name of SUBAGENT_JOBS) if (jobs.get(name)?.startedAt === null) problems.push(untimed(name));
+  return problems;
 }
