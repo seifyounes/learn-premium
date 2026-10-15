@@ -51,6 +51,18 @@ export const readingSchema = obj({
   items: arr(itemSchema),
 });
 
+/**
+ * A Blind reader's reading of a sitting's past papers: the same items, for an Exam sitting in place
+ * of a Module. Its keys are `<paper>/q<n>/text`, `/marks` and `/key` for question n as the paper
+ * numbers it, `<paper>/total` and `<paper>/minutes`, where `<paper>` is the name the Owner gave it.
+ */
+export const sittingReadingSchema = obj({
+  reading: (v, p) => (v === READING ? READING : fail(p, JSON.stringify(READING), v)),
+  reader: oneOf(...READERS),
+  sitting: nonEmpty,
+  items: arr(itemSchema),
+});
+
 /** The main agent's ruling on one dispute, made on its crop: reader A's value, B's, its own reading, or unreadable. */
 const resolutionSchema = obj({
   key: nonEmpty,
@@ -84,6 +96,8 @@ export interface ReadingCheckpointItem {
 
 /** Where a Module's wave keeps its readings in the Private folder. */
 export const waveFolder = (privateFolder: string, module: string) => join(privateFolder, "waves", module);
+/** Where a Sitting wave keeps its readings of the sitting's past papers in the Private folder. */
+export const sittingFolder = (privateFolder: string, id: string) => join(privateFolder, "sittings", id);
 export const SETTLED_FILE = "reading.json";
 export const CHECKPOINT_ITEMS_FILE = "checkpoint-items.json";
 
@@ -104,7 +118,7 @@ export function readJsonFile<T>(path: string, schema: Schema<T>, what: string): 
 }
 
 /** Whitespace and trailing zeros aside, the same reading: "0.250" is "0.25", "a  b" is "a b". */
-function same(a: string, b: string): boolean {
+export function same(a: string, b: string): boolean {
   const tidy = (s: string) => s.trim().replace(/\s+/g, " ");
   const number = (s: string) => (/^[-+]?(\d+\.?\d*|\.\d+)$/.test(tidy(s)) ? Number(tidy(s)) : null);
   const [x, y] = [number(a), number(b)];
@@ -144,16 +158,41 @@ export type ReconcileResult =
  * Checkpoint items it raises beside the readings.
  */
 export function reconcile(privateFolder: string, module: string): ReconcileResult {
-  const folder = waveFolder(privateFolder, module);
-  const readingA = readJsonFile(join(folder, "reading-a.json"), readingSchema, "reading-a.json");
-  const readingB = readJsonFile(join(folder, "reading-b.json"), readingSchema, "reading-b.json");
+  return reconcileFolder(privateFolder, waveFolder(privateFolder, module), { module });
+}
+
+/** Reconciles the two readings of a sitting's past papers in the Private folder, as `reconcile` does a Module's. */
+export function reconcileSitting(privateFolder: string, id: string): ReconcileResult {
+  return reconcileFolder(privateFolder, sittingFolder(privateFolder, id), { sitting: id });
+}
+
+/** What a reading is of: a Module (its number) or an Exam sitting (its id). */
+type Scope = { module: string } | { sitting: string };
+
+/** A reading file as either scope has it: who read it, what of, and the items. */
+function readReading(folder: string, file: string, scope: Scope) {
+  if ("module" in scope) {
+    const r = readJsonFile(join(folder, file), readingSchema, file);
+    return { reader: r.reader, of: r.module, items: r.items };
+  }
+  const r = readJsonFile(join(folder, file), sittingReadingSchema, file);
+  return { reader: r.reader, of: r.sitting, items: r.items };
+}
+
+function reconcileFolder(privateFolder: string, folder: string, scope: Scope): ReconcileResult {
+  const module = "module" in scope ? scope.module : scope.sitting;
+  const readingA = readReading(folder, "reading-a.json", scope);
+  const readingB = readReading(folder, "reading-b.json", scope);
   for (const [r, reader] of [
     [readingA, "a"],
     [readingB, "b"],
   ] as const) {
     if (r.reader !== reader) throw new LedgerError("invalid", `reading-${reader}.json is reader ${r.reader}'s reading`);
-    if (r.module !== module)
-      throw new LedgerError("invalid", `reading-${reader}.json reads Module ${r.module}, not ${module}`);
+    if (r.of !== module)
+      throw new LedgerError(
+        "invalid",
+        `reading-${reader}.json reads ${"module" in scope ? "Module" : "sitting"} ${r.of}, not ${module}`,
+      );
     const keys = new Set<string>();
     for (const i of r.items) {
       if (keys.has(i.key)) throw new LedgerError("invalid", `reading-${reader}.json names ${i.key} twice`);
@@ -243,8 +282,8 @@ export function reconcile(privateFolder: string, module: string): ReconcileResul
   // Both bound to the same inputs, the Checkpoint items written first: a settled reading stands only
   // with the Checkpoint items it raised beside it (an interrupted write leaves it stale, not short).
   const inputs = inputsHash(folder);
-  write(CHECKPOINT_ITEMS_FILE, { module, inputs, items: checkpointItems });
-  write(SETTLED_FILE, { reading: READING, reader: "settled", module, inputs, items: settled });
+  write(CHECKPOINT_ITEMS_FILE, { ...scope, inputs, items: checkpointItems });
+  write(SETTLED_FILE, { reading: READING, reader: "settled", ...scope, inputs, items: settled });
   return {
     settledNow: true,
     agreed: agreed.length,
@@ -274,7 +313,15 @@ function inputsHash(folder: string): string {
  * from readings or rulings that have changed since (reconcile must run again).
  */
 export function settledReadingProblem(privateFolder: string, module: string): string | null {
-  const folder = waveFolder(privateFolder, module);
+  return settledProblemIn(waveFolder(privateFolder, module));
+}
+
+/** Why a sitting's settled reading can't be trusted, as `settledReadingProblem` says it of a Module's. */
+export function settledSittingProblem(privateFolder: string, id: string): string | null {
+  return settledProblemIn(sittingFolder(privateFolder, id));
+}
+
+function settledProblemIn(folder: string): string | null {
   if (!existsSync(join(folder, SETTLED_FILE)))
     return `no ${SETTLED_FILE} in the Private folder (${folder}): run reconcile`;
   const inputsOf = (file: string) => {
@@ -319,8 +366,31 @@ function conflicts(module: string, settled: ReadItem[]): ReadingCheckpointItem[]
 
 /** The Checkpoint items a Module's settled reading raised, or none before it is settled. */
 export function readingCheckpointItems(privateFolder: string, module: string): ReadingCheckpointItem[] {
-  const path = join(waveFolder(privateFolder, module), CHECKPOINT_ITEMS_FILE);
+  return checkpointItemsIn(waveFolder(privateFolder, module));
+}
+
+/** The Checkpoint items a sitting's settled reading raised, or none before it is settled. */
+export function sittingCheckpointItems(privateFolder: string, id: string): ReadingCheckpointItem[] {
+  return checkpointItemsIn(sittingFolder(privateFolder, id));
+}
+
+function checkpointItemsIn(folder: string): ReadingCheckpointItem[] {
+  const path = join(folder, CHECKPOINT_ITEMS_FILE);
   if (!existsSync(path)) return [];
   const data = JSON.parse(readFileSync(path, "utf8")) as { items: ReadingCheckpointItem[] };
   return data.items;
 }
+
+/** A sitting's settled reading: its items, read from the Private folder. */
+export function settledSittingReading(privateFolder: string, id: string): ReadItem[] {
+  return readJsonFile(join(sittingFolder(privateFolder, id), SETTLED_FILE), settledSittingSchema, SETTLED_FILE).items;
+}
+
+/** The settled reading as `reconcile` writes it: the reading's shape with `settled` as its reader, and the hash it was settled from. */
+const settledSittingSchema = obj({
+  reading: (v, p) => (v === READING ? READING : fail(p, JSON.stringify(READING), v)),
+  reader: oneOf("settled"),
+  sitting: nonEmpty,
+  inputs: nonEmpty,
+  items: arr(itemSchema),
+});

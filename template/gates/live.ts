@@ -15,7 +15,7 @@ import { LICENCES_FILE, LICENCES_ROUTE } from "../src/licences/file.ts";
 import { servedFiles } from "../src/python/integration.ts";
 import { navItems } from "../src/site/nav.ts";
 import type { ServedSite } from "./browser/serve.ts";
-import { allFiles, courseCopy, gitRoot, slashes, templateOf, templateWith } from "./course-files.ts";
+import { allFiles, courseCopy, filesIn, gitRoot, slashes, templateOf, templateWith } from "./course-files.ts";
 import { serveLikeVercel } from "./live/vercel-like.ts";
 import { copySite, pagesOf, siteFilesWith } from "./pages.ts";
 import { LEDGER_FILE, readLedgerMaterials } from "./private-files.ts";
@@ -77,11 +77,17 @@ function builtPages(input: GateInput) {
 
 const titleOf = (html: string) => /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.replace(/\s+/g, " ").trim();
 
-/** The hubs every Study site has: home, Master Rules, Lab, About, and each complete sitting's Revision. */
+/** The hubs every Study site has: home, Master Rules, Lab, About, and each complete sitting's Revision and Exam room. */
 function hubRoutes(contentDir: string): string[] {
   const path = join(contentDir, "course.yaml");
   const config = course.parse(readStructured(readFileSync(path, "utf8"), "course.yaml", () => {}));
-  return navItems(config.sittings).map((item) => item.href);
+  // A complete sitting has an Exam room only when it has a past paper.
+  const rooms = config.sittings
+    .filter(
+      (s) => s.complete && filesIn(contentDir, `sittings/${s.id}/papers/*.{json,yaml,yml}`, () => true).length > 0,
+    )
+    .map((s) => s.id);
+  return navItems(config.sittings, rooms).map((item) => item.href);
 }
 
 export const liveRoutes: Gate = {

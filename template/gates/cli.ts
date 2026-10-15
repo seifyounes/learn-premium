@@ -1,11 +1,12 @@
 // The one entry for every gate point: `npm run gates -- <command> …` from the template folder.
 //
-//   run      --point job|module|deploy|live [--module NN-slug] [--content DIR] [--dist DIR] [--url URL] [--report FILE]
+//   run      --point job|module|sitting|deploy|live [--module NN-slug] [--sitting ID] [--content DIR] [--dist DIR] [--url URL] [--report FILE]
 //            Runs the point's gates and writes the Gate report, bound to the Course's HEAD commit.
+//            The sitting point needs --sitting: its papers, mocks, Revision and Exam room pages.
 //            The browser gates serve the built site themselves, or open it at --url (a Vercel
 //            preview of the same build). The live gates check the live site at --url, or serve
 //            the build the way Vercel would under vercel.json.
-//   verify   --point job|module|deploy|live [--module NN-slug] [--content DIR] [--report FILE] [--commit SHA]
+//   verify   --point job|module|sitting|deploy|live [--module NN-slug] [--sitting ID] [--content DIR] [--report FILE] [--commit SHA]
 //            Accepts the report only if it is green for that commit (HEAD by default).
 //   controls [--content DIR] [--dist DIR]
 //            Runs every gate on its positive fixture and on each of its negative controls.
@@ -13,6 +14,9 @@
 //            Prints (JSON) every Slip and Divergence the content carries, for the Module wave's merge gate.
 //   tools    --module NN-slug [--content DIR]
 //            Prints (JSON) the Module's Worked examples and tools, for the Module wave's tool assignment. Not a gate.
+//   sitting  --sitting ID [--content DIR]
+//            Prints (JSON) a sitting's content as written, for the Sitting wave: its past papers' questions,
+//            the mocks, the format, the rulings. Not a gate.
 //   shots    --module NN-slug --out DIR [--url URL] [--dist DIR] [--commit SHA] [--content DIR]
 //            The fresh reviewer's screenshots of the Module page (phone and laptop, every section
 //            open, each tab view) and shots.json naming the commit (the Course project's HEAD by default).
@@ -25,6 +29,7 @@ import { parseArgs } from "node:util";
 import { GATES } from "./index.ts";
 import { toolInventory } from "./inventory.ts";
 import { rulingsIn } from "./rulings.ts";
+import { sittingDump } from "./sittings.ts";
 import { takeShots } from "./shots.ts";
 import {
   GATE_POINTS,
@@ -47,6 +52,7 @@ async function main(argv: string[]): Promise<number> {
     options: {
       point: { type: "string" },
       module: { type: "string" },
+      sitting: { type: "string" },
       content: { type: "string" },
       dist: { type: "string" },
       url: { type: "string" },
@@ -57,7 +63,10 @@ async function main(argv: string[]): Promise<number> {
   });
   const [command] = positionals;
   const contentDir = resolve(values.content ?? process.env.CONTENT_DIR ?? join(TEMPLATE_DIR, "../fixture-course"));
-  const scope = values.module === undefined ? {} : { module: values.module };
+  const scope = {
+    ...(values.module === undefined ? {} : { module: values.module }),
+    ...(values.sitting === undefined ? {} : { sitting: values.sitting }),
+  };
   const input: GateInput = {
     contentDir,
     distDir: resolve(values.dist ?? join(TEMPLATE_DIR, "dist")),
@@ -68,6 +77,8 @@ async function main(argv: string[]): Promise<number> {
   const point = (): GatePoint => {
     const given = GATE_POINTS.find((p) => p === values.point);
     if (!given) throw new UsageError(`--point must be one of ${GATE_POINTS.join(", ")}`);
+    if (given === "sitting" && values.sitting === undefined)
+      throw new UsageError("the sitting point needs --sitting ID: it checks one Exam sitting");
     return given;
   };
   // Reports sit in the Course's build records (committed, never deployed), one per point and Module.
@@ -78,7 +89,7 @@ async function main(argv: string[]): Promise<number> {
           contentDir,
           "build-records",
           "gate-reports",
-          `${[gatePoint, values.module].filter(Boolean).join("-")}.json`,
+          `${[gatePoint, values.module, values.sitting].filter(Boolean).join("-")}.json`,
         ),
     );
 
@@ -130,6 +141,10 @@ async function main(argv: string[]): Promise<number> {
     case "rulings":
       console.log(JSON.stringify({ rulings: rulingsIn(input) }));
       return 0;
+    case "sitting":
+      if (values.sitting === undefined) throw new UsageError("sitting needs --sitting ID");
+      console.log(JSON.stringify(sittingDump(contentDir, values.sitting)));
+      return 0;
     case "controls": {
       const result = await runControls({ input, gates: GATES });
       for (const gate of result.gates) {
@@ -146,7 +161,9 @@ async function main(argv: string[]): Promise<number> {
       return result.ok ? 0 : 1;
     }
     default:
-      throw new UsageError(`unknown command "${command ?? ""}"; use run, verify, controls, rulings, tools or shots`);
+      throw new UsageError(
+        `unknown command "${command ?? ""}"; use run, verify, controls, rulings, tools, sitting or shots`,
+      );
   }
 }
 
@@ -185,7 +202,7 @@ function head(contentDir: string): string {
 }
 
 function printReport(report: GateReport, path: string) {
-  const scope = report.module ?? "the whole Course";
+  const scope = report.sitting ?? report.module ?? "the whole Course";
   console.log(`${report.point} gates on ${scope} at ${report.commit}${report.dirty ? " (uncommitted changes)" : ""}`);
   if (report.gates.length === 0) console.log("  no gate runs at this point");
   for (const gate of report.gates) {

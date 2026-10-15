@@ -63,8 +63,25 @@ export function fixtureCourse(
   };
   must(ledger("map", "--project", project, "--holder", "session-a", "--input", jsonInput(moduleMap)));
   for (const id of live) makeLive(project, id);
-  for (const id of liveSittings) mergeWave(project, "sitting", id);
+  // A Sitting wave starts only on the Owner's word that its sitting is complete.
+  for (const id of liveSittings) {
+    ownerSaysComplete(project, id, { modules: modules.slice(0, 1) });
+    mergeWave(project, "sitting", id);
+  }
   return project;
+}
+
+/** Records the Owner's word that sitting `id` is complete (`sitting complete`): no past papers, no announced format, unless given. */
+export function ownerSaysComplete(
+  project: string,
+  id: string,
+  words: { modules: string[]; papers?: { slug: string; path: string }[]; announced?: string | null } = { modules: [] },
+) {
+  const { modules, papers = [], announced = null } = words;
+  return ledger(
+    ...["sitting", "complete", "--project", project, "--holder", "session-a"],
+    ...["--input", jsonInput({ sitting: id, modules, papers, announced, answer: `${id} is complete.` })],
+  );
 }
 
 /** The Course's Materials folder, as its Build ledger records it. */

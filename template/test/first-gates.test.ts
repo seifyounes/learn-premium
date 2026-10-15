@@ -128,8 +128,9 @@ describe("the first gates on the Fixture Course", () => {
       "licences-file",
     ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
-    // Home, ten Modules, Master Rules, Lab, About, the complete sitting's Revision and the Tool gallery.
-    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(16);
+    // Home, ten Modules, Master Rules, Lab, About, the complete sitting's Revision, its Exam room and
+    // the three papers' pages, and the Tool gallery.
+    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(20);
   });
 
   it("each ship a negative control that they catch, and pass their positive fixture", async () => {

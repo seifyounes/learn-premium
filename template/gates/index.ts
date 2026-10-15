@@ -17,6 +17,7 @@ import { provenanceGate } from "./provenance.ts";
 import { pyodideGate } from "./pyodide.ts";
 import { simNumbers, toolsGate, truthTableGate } from "./sims.ts";
 import { sclGate } from "./scl.ts";
+import { SITTING_GATES } from "./sittings.ts";
 import { stlGate } from "./stl.ts";
 import type { Gate } from "./runner.ts";
 import { teachingMethod } from "./teaching.ts";
@@ -52,4 +53,5 @@ export const GATES: readonly Gate[] = [
   liveRoutes,
   liveHeaders,
   livePrivatePaths,
+  ...SITTING_GATES,
 ];

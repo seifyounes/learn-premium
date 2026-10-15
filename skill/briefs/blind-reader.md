@@ -28,3 +28,12 @@ other reader's file.
 4. Write the file in the shape `scripts/wave/README.md` gives, then return a short report: files read,
    item counts by kind, the items you set to null, and anything odd (a page that didn't render).
    Report no values.
+
+**A sitting's past papers.** For a Sitting wave you read the sitting's past-paper files instead, and
+write `<Private folder>/sittings/<ID>/reading-<a|b>.json` in the same shape with `"sitting": "<ID>"` in
+place of `"module"`. Key each paper by the short name the Owner gave it (`2025`): every question as the
+paper numbers it, `<name>/q<n>/text` (the question exactly as printed, formulas as TeX, `kind: text`),
+`<name>/q<n>/marks` (its marks, a digit string) and, only where the Professor printed one beside the
+question or on a key sheet, `<name>/q<n>/key` (the key as printed, trailing zeros kept); then
+`<name>/total` (the printed total marks) and `<name>/minutes` (the printed time). List the questions in the
+order the paper prints them. A key the paper doesn't print has no item: never work one out.

@@ -1,0 +1,164 @@
+---
+// The Exam room for one complete Exam sitting that has past papers: its vault (the past papers, as
+// the Professor set them), its mocks (pattern-matched to the papers' question DNA, and the one for
+// the announced format), and the question bank assembled from them, never written separately. Each
+// paper opens on its own page, to practise or sit against the clock.
+import Cell from "../../../components/Cell.astro";
+import HonestyCell from "../../../components/HonestyCell.astro";
+import ModuleHeading from "../../../components/ModuleHeading.astro";
+import TitleBlock from "../../../components/TitleBlock.astro";
+import { examRooms, getMocks, getModules, getPapers, prose, type Sitting } from "../../../content/course";
+import Sheet from "../../../layouts/Sheet.astro";
+import { examHref, revisionHref } from "../../../site/nav";
+
+export async function getStaticPaths() {
+  const rooms = await examRooms();
+  return rooms.map((sitting) => ({
+    params: { sitting: sitting.id },
+    props: { sitting, others: rooms.filter((s) => s !== sitting) },
+  }));
+}
+
+interface Props {
+  sitting: Sitting;
+  /** The other sittings with an Exam room. */
+  others: Sitting[];
+}
+
+const { sitting, others } = Astro.props;
+const papers = await getPapers(sitting.id);
+const mocks = await getMocks(sitting.id);
+const practiceMocks = mocks.filter((m) => m.entry.data.pattern === "dna");
+const announced = mocks.filter((m) => m.entry.data.pattern === "announced");
+const modules = (await getModules()).filter((m) => sitting.modules.includes(m.id));
+
+/** Every question of the papers and mocks, grouped by Module and then by type, each with where it sits. */
+const bank = modules
+  .map((module) => {
+    const byType = new Map<string, { source: string; href: string; n: number; marks: number; html: string }[]>();
+    for (const { entry, name } of [...papers, ...mocks]) {
+      entry.data.questions.forEach((q, i) => {
+        if (q.module !== module.id) return;
+        const list = byType.get(q.type) ?? [];
+        list.push({
+          source: entry.data.title,
+          href: `${examHref(sitting, name)}#q${i + 1}`,
+          n: i + 1,
+          marks: q.marks,
+          html: prose(q.question),
+        });
+        byType.set(q.type, list);
+      });
+    }
+    return { module, types: [...byType].sort(([a], [b]) => a.localeCompare(b)) };
+  })
+  .filter((m) => m.types.length > 0);
+
+const lines = [
+  { heading: "Past papers", kind: "Past paper", items: papers },
+  { heading: "Mocks", kind: "Mock", items: practiceMocks },
+  { heading: "Announced format", kind: "Announced format mock", items: announced },
+].filter((group) => group.items.length > 0);
+---
+
+<Sheet title={`Exam room: ${sitting.name}`} nav="exam">
+  <TitleBlock
+    class:list={["grid-cols-2", sitting.date ? "pad:grid-cols-[2.6fr_1fr_1fr_1fr]" : "pad:grid-cols-[2.6fr_1fr_1fr]"]}
+  >
+    <Cell label="Exam room" class="col-span-2 pad:col-span-1">
+      <h1 class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]">{sitting.name}</h1>
+    </Cell>
+    {sitting.date && (
+      <Cell label="Date">
+        <span class="font-quantity text-quantity text-graphite tabular-nums">{sitting.date}</span>
+      </Cell>
+    )}
+    <Cell label="Past papers">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{papers.length}</span>
+    </Cell>
+    <Cell label="Mocks">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{mocks.length}</span>
+    </Cell>
+    <HonestyCell />
+  </TitleBlock>
+
+  <p class="mbs-4 text-body-small text-muted">
+    The sitting's Revision, from its Modules' Summaries and rules:
+    <a class="text-graphite underline" href={revisionHref(sitting)}>
+      Revision
+    </a>
+    .
+    {others.length > 0 && (
+      <>
+        {" "}
+        Exam room for another sitting:
+        {others.map((s, i) => (
+          <>
+            {i > 0 && " · "}
+            <a class="text-graphite underline" href={examHref(s)}>
+              {s.name}
+            </a>
+          </>
+        ))}
+      </>
+    )}
+  </p>
+
+  {lines.map(({ heading, kind, items }) => (
+    <section class="mbs-8" aria-label={heading}>
+      <h2 class="group-heading">{heading}</h2>
+      <ol>
+        {items.map(({ entry, name }) => (
+          <li class="exam-line" data-paper={name}>
+            <span class="exam-line-name" set:html={prose(entry.data.title)} />
+            <span class="exam-line-meta">
+              <span>{kind}</span>
+              <span>
+                <span class="font-quantity tabular-nums" dir="ltr">
+                  {entry.data.marks}
+                </span>{" "}
+                marks
+              </span>
+              <span>
+                <span class="font-quantity tabular-nums" dir="ltr">
+                  {entry.data.minutes}
+                </span>{" "}
+                minutes
+              </span>
+            </span>
+            <a class="button-print label-action exam-line-link" href={examHref(sitting, name)}>
+              Open
+            </a>
+          </li>
+        ))}
+      </ol>
+    </section>
+  ))}
+
+  <section class="mbs-8" aria-label="Question bank">
+    <h2 class="group-heading">Question bank</h2>
+    <p class="mbs-2 text-body-small text-muted">Every question of the papers and mocks above, by Module and type.</p>
+    {bank.map(({ module, types }) => (
+      <section class="hub-module" aria-label={`Module ${module.number}`}>
+        <ModuleHeading module={module} />
+        {types.map(([type, questions]) => (
+          <div class="bank-type" data-type={type}>
+            <h3 class="field-label">{type}</h3>
+            <ul>
+              {questions.map((q) => (
+                <li class="bank-question">
+                  <span class="bank-source label-action">
+                    <a href={q.href}>
+                      {q.source}, question <span dir="ltr">{q.n}</span> · <span dir="ltr">{q.marks}</span> marks
+                    </a>
+                  </span>
+                  <div set:html={q.html} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
+    ))}
+  </section>
+</Sheet>

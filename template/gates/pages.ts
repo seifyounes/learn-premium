@@ -5,7 +5,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } 
 import { dirname, join } from "node:path";
 import type { Element, ElementContent, Nodes } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import { COLLECTIONS, moduleOf } from "../src/content/layout.ts";
+import { COLLECTIONS, moduleOf, sittingOf } from "../src/content/layout.ts";
 import { readStructured, splitFrontmatter } from "../src/content/loaders.ts";
 import { splitProse } from "../src/math/katex.ts";
 import { TRAP_ROUTE } from "../src/trap/route.ts";
@@ -25,14 +25,26 @@ function siteOf({ distDir }: GateInput): string {
   return distDir;
 }
 
-/** The built pages in scope: a Module's own route, or every page. Never the Trap page, whose defects are seeded. */
+/**
+ * The built pages in scope: a Module's own route, an Exam sitting's Exam room and Revision, or every
+ * page. Never the Trap page, whose defects are seeded.
+ */
 export function sitePages(input: GateInput) {
-  return pagesOf(siteOf(input), input.module);
+  return pagesOf(siteOf(input), {
+    ...(input.module === undefined ? {} : { module: input.module }),
+    ...(input.sitting === undefined ? {} : { sitting: input.sitting }),
+  });
 }
 
-/** A built site's pages by route, or one Module's; never the Trap page. */
-export function pagesOf(distDir: string, module?: string) {
-  const inScope = (entry: string) => module === undefined || entry.startsWith(`${module}/`);
+/**
+ * A built site's pages by route, or one Module's, or one Exam sitting's (`exam/<id>/` and
+ * `revision/<id>/`); never the Trap page.
+ */
+export function pagesOf(distDir: string, scope: { module?: string; sitting?: string } = {}) {
+  const { module, sitting } = scope;
+  const inScope = (entry: string) =>
+    (module === undefined || entry.startsWith(`${module}/`)) &&
+    (sitting === undefined || entry.startsWith(`exam/${sitting}/`) || entry.startsWith(`revision/${sitting}/`));
   return filesIn(distDir, "**/*.html", inScope)
     .map((page) => ({ route: `/${page.entry.replace(/(^|\/)index\.html$/, "$1")}`, ...page }))
     .filter((page) => page.route !== TRAP_ROUTE);
@@ -42,7 +54,7 @@ export const renderedPageScan: Gate = {
   id: "rendered-page-scan",
   checks:
     "no built page carries a KaTeX error, raw TeX, prose set as a fraction or hollow copy like 0/0, islands' props included; the content's braces render literally",
-  points: ["module", "deploy"],
+  points: ["module", "sitting", "deploy"],
   async run(input) {
     const pages = sitePages(input);
     const coverage = { pages: pages.length, formulas: 0, islands: 0, fractions: 0, braces: 0 };
@@ -219,6 +231,8 @@ function stringsIn(value: unknown): string[] {
 function contentBraces(input: GateInput): { group: string; file: string; module: string | undefined }[] {
   const found: { group: string; file: string; module: string | undefined }[] = [];
   for (const file of courseFiles(input)) {
+    // A sitting's run sees only its own pages, so only its own content's braces can be looked for.
+    if (input.sitting !== undefined && sittingOf(file.entry) !== input.sitting) continue;
     const source = readFileSync(file.path, "utf8");
     const strings: string[] = [];
     try {

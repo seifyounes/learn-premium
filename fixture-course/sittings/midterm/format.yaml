@@ -1,0 +1,6 @@
+# The format the Professor announced for the midterm, confirmed by the Owner: a written paper of two
+# questions, in this order.
+minutes: 20
+slots:
+  - { type: calculation, marks: 6 }
+  - { type: explain, marks: 4 }

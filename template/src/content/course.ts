@@ -46,6 +46,84 @@ export async function getSittings() {
   return course.sittings;
 }
 
+/** A paper or a mock of an Exam sitting, with the name its route and its progress are kept by. */
+export interface ExamSheetRef<C extends "papers" | "mocks"> {
+  sitting: string;
+  /** Its file name in the sitting's folder, without the extension: its route `/exam/<sitting>/<name>/`. */
+  name: string;
+  entry: CollectionEntry<C>;
+}
+
+const examRef = <C extends "papers" | "mocks">(entry: CollectionEntry<C>): ExamSheetRef<C> => {
+  const [sitting = "", name = ""] = entry.id.split("/");
+  return { sitting, name, entry };
+};
+
+/**
+ * A sitting's content in the Exam room: its past papers and mocks (each by file name), and the
+ * format the Professor announced. A folder `sittings/<id>/` the Course has no sitting for, a name
+ * used by two papers or mocks of a sitting, and a question examining a Module the sitting doesn't
+ * cover fail the build, naming the file.
+ */
+async function examContent() {
+  const [sittings, papers, mocks, formats] = await Promise.all([
+    getSittings(),
+    getCollection("papers"),
+    getCollection("mocks"),
+    getCollection("formats"),
+  ]);
+  const ids = new Set(sittings.map((s) => s.id));
+  const seen = new Map<string, string>();
+  for (const e of [...papers, ...mocks, ...formats]) {
+    const id = e.id.split("/")[0] ?? "";
+    const where = e.filePath ?? e.id;
+    if (!ids.has(id)) throw new Error(`${where} sits in sittings/${id}/, which course.yaml has no sitting for`);
+    const sitting = sittings.find((s) => s.id === id);
+    const covers = new Set(sitting?.modules);
+    if ("questions" in e.data) {
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(e.id.split("/")[1] ?? ""))
+        throw new Error(`${where}: a paper or mock is named in lower-case letters, digits and dashes, as its route is`);
+      if (seen.has(e.id))
+        throw new Error(`${where}: the name "${e.id.split("/")[1]}" is already used by ${seen.get(e.id)}`);
+      seen.set(e.id, where);
+      e.data.questions.forEach((q, i) => {
+        if (!covers.has(q.module))
+          throw new Error(`${where}: question ${i + 1} examines ${q.module}, which sitting "${id}" doesn't cover`);
+      });
+    }
+  }
+  const byName = <C extends "papers" | "mocks">(list: CollectionEntry<C>[]) =>
+    list.map((e) => examRef<C>(e)).sort((a, b) => a.sitting.localeCompare(b.sitting) || a.name.localeCompare(b.name));
+  return { sittings, papers: byName<"papers">(papers), mocks: byName<"mocks">(mocks), formats };
+}
+
+/** A sitting's past papers, by file name. */
+export async function getPapers(sitting: string) {
+  return (await examContent()).papers.filter((p) => p.sitting === sitting);
+}
+
+/** A sitting's mocks: the pattern-matched ones by file name, then the one for the announced format. */
+export async function getMocks(sitting: string) {
+  const announced = (m: ExamSheetRef<"mocks">) => Number(m.entry.data.pattern === "announced");
+  return (await examContent()).mocks
+    .filter((m) => m.sitting === sitting)
+    .sort((a, b) => announced(a) - announced(b) || a.name.localeCompare(b.name));
+}
+
+/** The format the Professor announced for a sitting; undefined when none was. */
+export async function getFormat(sitting: string) {
+  return (await examContent()).formats.find((f) => f.id === sitting)?.data;
+}
+
+/**
+ * The sittings with an Exam room: complete ones with at least one past paper. A complete sitting
+ * without past papers has Revision only.
+ */
+export async function examRooms() {
+  const { sittings, papers } = await examContent();
+  return sittings.filter((s) => s.complete && papers.some((p) => p.sitting === s.id));
+}
+
 /** A Module's rules for Master Rules and Revision, in solving order; undefined when it has no rules.yaml. */
 export async function getRules(moduleId: string) {
   return (await getEntry("rules", moduleId))?.data;

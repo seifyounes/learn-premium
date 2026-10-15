@@ -94,6 +94,9 @@ flags its Module (`materials-changed`, `materials-deleted`) for a fresh wave; wh
 Module is deleted, ask the Owner whether to supersede the Module or rebuild it, and start no wave
 without his word.
 
+"Sitting X is complete" is the Owner's command, never a question you ask: when he says it, record it
+and run the Sitting wave as that section says. `next` never proposes a Sitting wave.
+
 ## Intake
 
 A new Course gets one interview up front, so later questions come only at the step that needs them.
@@ -304,6 +307,63 @@ holds the Module's content to the assignment (every example and tool in the cont
 and each tool is what it ships), every builder job passed and timed, and every subagent job timed.
 `build-report.md` lists every assignment and fallback, the measured time, and the pad's contrast
 auto-fixes from the deploy Gate report, for the Owner to overrule.
+
+## Sitting wave
+
+One Exam sitting from the Owner's word to live: its past-paper vault, mocks and question bank (the
+Exam room), and Revision. Only the Owner starts it: "sitting X is complete" is his command, and you
+never ask whether a sitting is. `next` never proposes one, and the ledger refuses `wave start --kind
+sitting` without his recorded word. `$W` is `scripts/wave.ts`, `$L` the ledger, `<P>` the Course
+project, `<ID>` the sitting's id; the Private folder is `<Materials folder>-private`. Record every job
+with `$L record job --wave <W> --job <name> …` as the Module wave does (two fix rounds, then a Checkpoint
+item). The template's side (the pages, the `sitting` gate point) is in `template/README.md`.
+
+1. **His word.** Show him what you propose, then record it: the Modules the sitting covers (each
+   must be live before the wave merges), the past papers (Materials files, each with a short name
+   such as `2025`) and, if the Professor announced the exam's format, the Owner's own words for it.
+   `$L sitting complete --holder <id> --input <file>`, the file `{"sitting": "<ID>", "modules":
+   ["01"], "papers": [{"slug": "2025", "path": "<Materials path>"}], "announced": "<his words>" or
+   null, "answer": "<what he said>"}`. It doesn't start the wave, and a later word supersedes it.
+   No past papers means Revision only: name none, and no mocks or format get built.
+2. **Start.** `git -C <P> worktree add -b sitting/<ID> <P>-waves/sitting-<ID> main`, `npm ci` in its
+   `template/`, then `$L wave start --kind sitting --target <ID> --branch sitting/<ID>`. Everything
+   below happens in that worktree `<T>`; the ledger commands keep `--project <P>`.
+3. **course.yaml.** In `<T>`, set `complete: true` on the sitting's entry in `content/course.yaml`
+   and make its `modules` the Modules he named (by folder). That is the only change the wave makes to
+   it, and the only Course-wide file a Sitting wave may touch.
+4. **Two Blind readers on the papers** (`briefs/blind-reader.md`, its past-paper section), launched
+   together, one file each: `<Private>/sittings/<ID>/reading-a.json` and `reading-b.json`, with the key
+   scheme `<name>/q<n>/text|marks|key`, `<name>/total`, `<name>/minutes`. Then `node "$W" reconcile
+   --project <P> --sitting <ID>` and settle disputes exactly as a Module's (crops under
+   `<Private>/sittings/<ID>/crops/`, rulings in `resolutions.json`).
+5. **The writers and the recompute**, as parallel subagents. The vault writer
+   (`briefs/vault-writer.md`) puts each past paper in the content verbatim from the settled reading,
+   in `content/sittings/<ID>/papers/<name>.yaml`. For a paper the Professor printed no key for, the
+   solver (`briefs/solver.md`) solves it and the paper says `key: solved`. The mock writer
+   (`briefs/mock-writer.md`) writes the pattern-matched mocks (two by default) and, when a format was
+   announced, `format.yaml` and the announced-format mock, in `content/sittings/<ID>/mocks/` and
+   `format.yaml`. The independent recompute (`briefs/recompute.md`, its past-paper section) writes
+   `content/build-records/recompute/sittings/<ID>/<name>.json` for every paper and mock, and never
+   sees the writers' or the solver's files.
+6. **Gates.** Commit, push `sitting/<ID>` and wait for its Vercel preview. Build the same commit
+   (`CONTENT_DIR=../content npm run build`), then `npm run gates -- run --point sitting --sitting <ID>
+   --content ../content --dist dist --url <preview URL>`: the papers' numbers three ways (answer, key,
+   recompute), their marks and faithfulness, the mocks' DNA and the announced format, Revision's
+   Modules in exam-weight order, and the page gates on the Exam room and Revision. Then the deploy
+   gates on a production build, as a Module wave's. A block goes back to the job that made it.
+   Record `sitting-gates` and `deploy-gates`; `ready` refuses a Gate report taken on uncommitted changes.
+7. **Checkpoint, then ready, then merge.** `node "$W" checkpoint --project <P> --sitting <ID>`, and post
+   its `markdown` as one batch. It holds the Professor's key where the answer and the recompute
+   disagree (a Slip or a Divergence, ruled only by the Owner), the build's own solution of a key-less
+   paper (he confirms its answers), the announced format (he confirms `format.yaml` is what the
+   Professor announced) and any job that escalated. Store each answer as a Module's. Then `node "$W"
+   ready --project <P> --wave <W>` must exit 0: the Modules he named are live, the papers in the
+   content are exactly the ones he named and faithful to the settled reading (text, order, marks, key),
+   both Gate reports are green for HEAD on a preview, every item is answered, and nothing else in the
+   Course changed. Merge as a Module wave does (`git -C <P> merge --ff-only sitting/<ID>`, push, `$L wave
+   end --result merged --commit <sha>`, commit the ledger files on `main`, remove the worktree). Once
+   merged the sitting is live: its Deep Dive audio joins the Media queue, so tell the Owner it is queued
+   for the next "run media".
 
 ## Gate gaps and Course overrides
 

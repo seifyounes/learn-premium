@@ -192,7 +192,7 @@ const runs = new Map<string, Promise<BrowserRun>>();
 
 /** The browser run for a gate input, made once and shared by every browser gate. */
 export function browserRun(input: GateInput): Promise<BrowserRun> {
-  const key = JSON.stringify([input.distDir, input.siteUrl, input.module]);
+  const key = JSON.stringify([input.distDir, input.siteUrl, input.module, input.sitting]);
   let run = runs.get(key);
   if (!run) {
     run = execute(input);

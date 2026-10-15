@@ -1,8 +1,9 @@
-// The browser gates, per Module, on the Module's preview: slices of one browser run
+// The browser gates, per Module and per Exam sitting, on the preview: slices of one browser run
 // (`browser/run.ts`) on Chromium and WebKit. A run that missed any of the Trap page's seeded defects
 // is void: the trap-page gate blocks, and every other browser gate fails rather than pass on a
 // blind run. Not per deploy: a production build carries no Trap page, so every run there would be
-// void. A Module-point run with no `--module` opens every page of the Course.
+// void. A Module-point run with no `--module` opens every page of the Course; a sitting-point run
+// opens that sitting's Exam room and Revision pages.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { TRAP_ROUTE } from "../src/trap/route.ts";
@@ -14,7 +15,7 @@ function browserGate(id: BrowserGateId, checks: string, controls: NegativeContro
   return {
     id,
     checks,
-    points: ["module"],
+    points: ["module", "sitting"],
     async run(input) {
       const run = await browserRun(input);
       if (run.void !== undefined && id !== "trap-page") throw new Error(run.void);
