@@ -140,7 +140,11 @@ export function inventoryProblems(ledger: Ledger, tree: WaveTree): string[] {
 }
 
 /** Why the wave's branch can't merge into `main` as it stands, beyond what the wave's own work lacks. */
-export function treeProblems(project: string, wave: Pick<Wave, "branch" | "target">, tree: WaveTree): string[] {
+export function treeProblems(
+  project: string,
+  wave: Pick<Wave, "branch" | "target"> & Partial<Pick<Wave, "kind">>,
+  tree: WaveTree,
+): string[] {
   const problems: string[] = [];
   if (tree.linked) {
     const head = git(project, ["symbolic-ref", "--short", "-q", "HEAD"]);
