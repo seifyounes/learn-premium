@@ -14,11 +14,18 @@ MAX_FRAMES = 40
 FORMAT = "learn-premium media evidence v1"
 
 
+def sample_times(length: float, every: float):
+    """t = 0 and then every `every` seconds through the video; past MAX_FRAMES samples the spacing widens
+    to length / MAX_FRAMES, so the frames still span the whole video."""
+    step = max(every, length / MAX_FRAMES)
+    return [i * step for i in range(MAX_FRAMES) if i * step < max(length, 1e-9)]
+
+
 def _frames(master: Path, out: Path, every: float, length: float):
-    """Frames at t = 0 and then every `every` seconds, at most MAX_FRAMES, as frames/frame-NNN.png."""
+    """The frames at `sample_times`, as frames/frame-NNN.png."""
     names = []
     (out / "frames").mkdir(parents=True, exist_ok=True)
-    targets = [i * every for i in range(MAX_FRAMES) if i * every < max(length, 1e-9)]
+    targets = sample_times(length, every)
     with open(master, "rb") as f, av.open(f) as container:
         stream = next(s for s in container.streams if s.type == "video")
         for target in targets:

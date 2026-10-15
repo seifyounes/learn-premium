@@ -164,6 +164,18 @@ def test_video_evidence_samples_frames_and_transcribes(hd, tmp_path):
     assert len(whisper.heard) == 1
 
 
+def test_a_long_video_is_sampled_across_its_whole_length():
+    # Negative control: capped at 40 frames, the spacing widens instead of stopping 40 steps in.
+    from mediakit.evidence import MAX_FRAMES, sample_times
+
+    times = sample_times(length=3600.0, every=15.0)
+
+    assert len(times) == MAX_FRAMES
+    assert times[0] == 0.0
+    assert times[-1] > 3400
+    assert sample_times(length=60.0, every=15.0) == [0.0, 15.0, 30.0, 45.0]
+
+
 def test_a_silent_video_has_frames_and_no_transcript(tmp_path):
     whisper = FakeWhisper()
     out = tmp_path / "evidence"

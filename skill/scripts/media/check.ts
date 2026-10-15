@@ -162,8 +162,10 @@ function said(transcript: Transcript | null, check: CheckFile): (Written & { at:
   for (const claim of check.claims) {
     if (claim.value === null) continue;
     // A sign isn't part of a number as the text gives it (`-0.65` reads as 0.65), so a claim's isn't either.
-    const raw = String(Math.abs(claim.value));
-    all.push({ raw, value: Math.abs(claim.value), decimals: raw.split(".")[1]?.length ?? 0, at: claim.at });
+    const value = Math.abs(claim.value);
+    // Written out in full: JavaScript gives a small value as `4e-7`, which has no digits after a point.
+    const raw = /e/i.test(String(value)) ? value.toFixed(20).replace(/\.?0+$/, "") : String(value);
+    all.push({ raw, value, decimals: raw.split(".")[1]?.length ?? 0, at: claim.at });
   }
   return all;
 }

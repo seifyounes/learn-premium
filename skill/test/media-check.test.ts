@@ -219,6 +219,15 @@ describe("the fact check", () => {
     expect(code, JSON.stringify(out)).toBe(0);
   });
 
+  test("a small claim value that JavaScript writes in exponent form keeps its decimals", () => {
+    // 0.0000004 is "4e-7": read as a whole number it would round from anything within 0.5 of it.
+    const { c, id } = checkedAudio(TRANSCRIPT, 1, { claims: [...CLAIMS, number("0:20", 0.0000004)] });
+
+    const { out } = check(c, id);
+
+    expect(out.findings).toEqual([expect.objectContaining({ kind: "number", said: "0.0000004", at: "0:20" })]);
+  });
+
   test("a percentage or a thousand of a verified value is fine; a small whole number is exempt", () => {
     const talk = {
       segments: [
