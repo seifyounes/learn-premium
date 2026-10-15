@@ -14,13 +14,16 @@ import { relaunchClose, relaunchOpen, templateJobGates, type JobGates } from "./
 import { reviewReport } from "./review.ts";
 import { sittingCheckpoint, templateDump, type SittingDumper } from "./sitting.ts";
 import { sittingTree } from "./tree.ts";
-import { checkpoint, moduleFolder, readyProblems, templateVerifier, type Verifier } from "./wave.ts";
+import { hideDead, neverUse, verifyVideos, type VideoTemplate } from "./videos.ts";
+import { checkpoint, moduleFolder, readyProblems, templateVerifier, templateVideos, type Verifier } from "./wave.ts";
 
 export interface WaveDeps {
   verifier: Verifier;
   jobGates: JobGates;
   /** Reads a sitting's content as written (the template's `gates sitting`), for a Sitting wave. */
   dump: SittingDumper;
+  /** The template's YouTube card list, probe and hide, for a Module wave's cards. */
+  videos: VideoTemplate;
 }
 
 export interface RunResult {
@@ -34,6 +37,7 @@ export function run(args: string[], deps: Partial<WaveDeps> = {}): RunResult {
       verifier: templateVerifier,
       jobGates: templateJobGates,
       dump: templateDump,
+      videos: templateVideos,
       ...deps,
     });
     return { code, stdout: JSON.stringify({ ok: code === 0, ...out }) };
@@ -106,7 +110,7 @@ function dispatch(args: Args, deps: WaveDeps): Output {
       }
     }
     case "ready": {
-      const problems = readyProblems(project, args.required("--wave"), deps.verifier, deps.dump);
+      const problems = readyProblems(project, args.required("--wave"), deps.verifier, deps.dump, deps.videos);
       return { code: problems.length === 0 ? 0 : 1, ready: problems.length === 0, problems };
     }
     case "assign":
@@ -136,6 +140,19 @@ function dispatch(args: Args, deps: WaveDeps): Output {
         args.required("--job"),
         isoTime(args.required("--started-at"), "--started-at"),
       );
+    case "videos": {
+      const privateFolder = privateFolderOf(requireLedger(project).intake.materialsPath);
+      switch (args.subcommand()) {
+        case "verify":
+          return verifyVideos(project, privateFolder, moduleId(args.required("--module"), "--module"), deps.videos);
+        case "hide":
+          return hideDead(project, privateFolder, args.required("--report"), deps.videos);
+        case "never":
+          return neverUse(privateFolder, args.required("--id"), args.required("--reason"));
+        default:
+          throw new LedgerError("invalid", "videos takes verify, hide or never");
+      }
+    }
     default:
       throw new LedgerError("invalid", `unknown command: ${command}`);
   }

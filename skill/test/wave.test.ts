@@ -1080,3 +1080,157 @@ describe("ready, the Module wave's merge gate", () => {
     ]);
   });
 });
+
+describe("video cards at ready", () => {
+  const ID = "abcdefghijk";
+  const CARD = {
+    module: "01-m01",
+    at: "modules/01-m01/media.yaml",
+    id: ID,
+    title: "YouTube title of the card",
+    channel: "YouTube channel",
+    duration: "12:05",
+    match: 9,
+    why: "Adds layer resistances in a table, as the sheet does.",
+    moments: [{ at: "3:15", label: "The series rule" }],
+  };
+  const MEDIA_YAML = [
+    "youtube:",
+    `  - id: ${ID}`,
+    `    title: ${CARD.title}`,
+    `    channel: ${CARD.channel}`,
+    "    duration: '12:05'",
+    "    match: 9",
+    `    why: ${CARD.why}`,
+    "    moments: [{ at: '3:15', label: The series rule }]",
+    "",
+  ].join("\n");
+
+  /** What `verify` wrote: the card, and the moments it kept. */
+  const verified = (privateFolder: string, card: typeof CARD | null = CARD) =>
+    writeFiles(privateFolder, {
+      "waves/01/youtube/verified.json": JSON.stringify({
+        verified: "learn-premium video check v1",
+        module: "01",
+        at: "2026-10-16T00:00:00.000Z",
+        cards: card === null ? [] : [{ ...card, module: undefined, at: undefined }],
+        rejected: [],
+        dropped: [],
+      }),
+    });
+
+  /** The wave at its Checkpoint with every item answered, Module 01's `media.yaml` committed, and the review redone on that commit. */
+  function waveWithCard(yaml: string | null = MEDIA_YAML) {
+    const course = waveAtCheckpoint();
+    answerEvery(course.project, course.waveId, course.holder);
+    gateReports(course.project, []);
+    if (yaml !== null) {
+      writeFiles(course.project, { "content/modules/01-m01/media.yaml": yaml });
+      gitIn(course.project, "add", "-A");
+      gitIn(course.project, "commit", "-q", "-m", "feat: a video card");
+      const reviewed = headOf(course.project);
+      shots(course.privateFolder, reviewed);
+      review(course.privateFolder, [], reviewed);
+    }
+    return course;
+  }
+
+  /** A fake template that lists `cards` for the Module and is asked nothing else. */
+  const listing = (cards: unknown[] | string) => {
+    const cardsOf = vi.fn(() => cards as never);
+    return {
+      cardsOf,
+      deps: {
+        ...greenVerifier,
+        videos: { cards: cardsOf, probe: () => "never asked at ready", hide: () => "never asked at ready" },
+      },
+    };
+  };
+
+  test("a Module with no YouTube card asks the template nothing (the existing wave is untouched)", () => {
+    const { project, waveId } = waveWithCard(null);
+    const { cardsOf, deps } = listing([]);
+    expect(ready(project, waveId, deps).out.problems).toEqual([]);
+    expect(cardsOf).not.toHaveBeenCalled();
+  });
+
+  test("a fully verified card adds no problem", () => {
+    const { project, privateFolder, waveId } = waveWithCard();
+    verified(privateFolder);
+    const { cardsOf, deps } = listing([CARD]);
+
+    expect(ready(project, waveId, deps).out.problems).toEqual([]);
+    expect(cardsOf).toHaveBeenCalledTimes(1);
+  });
+
+  test("ready refuses a video card verify didn't pass (negative control)", () => {
+    const { project, waveId } = waveWithCard();
+
+    expect(ready(project, waveId, listing([CARD]).deps).out.problems).toEqual([
+      expect.stringMatching(new RegExp(`video card ${ID} isn't in verified\\.json`)),
+    ]);
+  });
+
+  test("ready refuses a card verify rejected: it isn't in verified.json's cards", () => {
+    const { project, privateFolder, waveId } = waveWithCard();
+    verified(privateFolder, null);
+
+    expect(ready(project, waveId, listing([CARD]).deps).out.problems).toEqual([
+      expect.stringMatching(/isn't in verified\.json/),
+    ]);
+  });
+
+  test.each([
+    ["title", { title: "A better title" }],
+    ["channel", { channel: "Another channel" }],
+    ["duration", { duration: "13:05" }],
+    ["match", { match: 10 }],
+  ])("ready refuses a card whose %s differs from the verified one", (field, change) => {
+    const { project, privateFolder, waveId } = waveWithCard();
+    verified(privateFolder);
+
+    expect(ready(project, waveId, listing([{ ...CARD, ...change }]).deps).out.problems).toEqual([
+      expect.stringMatching(new RegExp(`video card ${ID}'s ${field} differs from verified\\.json`)),
+    ]);
+  });
+
+  test("a reworded why and a reworded moment label are fine", () => {
+    const { project, privateFolder, waveId } = waveWithCard();
+    verified(privateFolder);
+    const reworded = { ...CARD, why: "A shorter why.", moments: [{ at: "3:15", label: "Series rule, in short" }] };
+
+    expect(ready(project, waveId, listing([reworded]).deps).out.problems).toEqual([]);
+  });
+
+  test("ready refuses a card citing a moment its transcript doesn't hold", () => {
+    const { project, privateFolder, waveId } = waveWithCard();
+    verified(privateFolder, { ...CARD, moments: [] });
+
+    expect(ready(project, waveId, listing([CARD]).deps).out.problems).toEqual([
+      expect.stringMatching(new RegExp(`video card ${ID} cites 3:15, a moment verify didn't keep`)),
+    ]);
+  });
+
+  test("ready refuses a card on the do-not-use list, so a hidden card can't come back", () => {
+    const { project, privateFolder, waveId } = waveWithCard();
+    verified(privateFolder);
+    writeFiles(privateFolder, {
+      "youtube/do-not-use.json": JSON.stringify({
+        list: "learn-premium do-not-use v1",
+        videos: [{ id: ID, reason: "it went dead", at: "2026-10-16T00:00:00.000Z" }],
+      }),
+    });
+
+    expect(ready(project, waveId, listing([CARD]).deps).out.problems).toEqual([
+      expect.stringMatching(new RegExp(`video card ${ID} is on the do-not-use list \\(it went dead\\)`)),
+    ]);
+  });
+
+  test("a template that can't list the cards is a problem, not a pass", () => {
+    const { project, waveId } = waveWithCard();
+
+    expect(ready(project, waveId, listing("no gate runner").deps).out.problems).toEqual([
+      expect.stringMatching(/video cards can't be read: no gate runner/),
+    ]);
+  });
+});

@@ -22,6 +22,7 @@ import { relaunchProblems } from "./relaunch.ts";
 import { sittingReadyProblems, type SittingDumper } from "./sitting.ts";
 import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
 import { inventoryProblems, moduleTree, treeProblems, waveTree } from "./tree.ts";
+import { videoReadyProblems, type ListedCard, type ProbeAnswer, type VideoTemplate } from "./videos.ts";
 
 /** The gate points a Module merges on: per job and per Module scoped to it, per deploy on the whole Course. */
 export const MERGE_POINTS = ["job", "module", "deploy"] as const;
@@ -95,6 +96,37 @@ export const templateVerifier: Verifier = {
       return toolInventorySchema(JSON.parse(run.out), "tool inventory");
     } catch (error) {
       return `the template's tool inventory isn't the shape the skill reads: ${(error as Error).message}`;
+    }
+  },
+};
+
+/** Runs the Course project's own template layer for the YouTube cards: `videos list|probe|hide`. */
+export const templateVideos: VideoTemplate = {
+  cards(dir, folder) {
+    const run = gateCli(dir, ["videos", "list", "--module", folder]);
+    if (!run.ok) return run.said.join("; ");
+    try {
+      return (JSON.parse(run.out) as { cards: ListedCard[] }).cards;
+    } catch (error) {
+      return `the template's video list isn't JSON: ${(error as Error).message}`;
+    }
+  },
+  probe(project, ids) {
+    const run = gateCli(project, ["videos", "probe", "--ids", ids.join(",")]);
+    if (!run.ok) return run.said.join("; ");
+    try {
+      return (JSON.parse(run.out) as { probes: ProbeAnswer[] }).probes;
+    } catch (error) {
+      return `the template's probe answer isn't JSON: ${(error as Error).message}`;
+    }
+  },
+  hide(project, report) {
+    const run = gateCli(project, ["videos", "hide", "--report", resolve(report)]);
+    if (!run.ok) return run.said.join("; ");
+    try {
+      return (JSON.parse(run.out) as { hidden: { module: string; id: string; title: string }[] }).hidden;
+    } catch (error) {
+      return `the template's hide answer isn't JSON: ${(error as Error).message}`;
     }
   },
 };
@@ -375,8 +407,17 @@ export function integrityProblem(integrity: ReturnType<typeof verifyIntegrity>):
   return `the template layer isn't the pinned release's: ${changes.join(", ")}; its gates can't verify this wave (a fix goes in as a Course override)`;
 }
 
-/** Every reason the wave `waveId` may not merge yet; none means it may. A Sitting wave is judged by `sitting.ts`. */
-export function readyProblems(project: string, waveId: string, verifier: Verifier, dump?: SittingDumper): string[] {
+/**
+ * Every reason the wave `waveId` may not merge yet; none means it may. A Sitting wave is judged by
+ * `sitting.ts`. `videos` is the template's YouTube card list, for a Module wave's cards.
+ */
+export function readyProblems(
+  project: string,
+  waveId: string,
+  verifier: Verifier,
+  dump?: SittingDumper,
+  videos: VideoTemplate = templateVideos,
+): string[] {
   const ledger = requireLedger(project);
   const wave = current(ledger.waves).find((w) => w.id === waveId);
   if (wave === undefined) throw new LedgerError("invalid", `no current wave ${waveId}`);
@@ -447,6 +488,8 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   problems.push(...reviewReadyProblems(dir, privateFolder, id, folder));
   // The tools the content ships are the tool assignment's, built by timed builders that handed back.
   problems.push(...toolProblems(ledger, waveId, folder, verifier.inventory(dir, folder)));
+  // The YouTube cards the Module ships, each re-verified by the main agent.
+  problems.push(...videoReadyProblems(dir, privateFolder, id, folder, videos));
 
   // The template layer's own gates verify the branch: an edited layer could verify anything.
   const integrity = verifyIntegrity(project, dir);
