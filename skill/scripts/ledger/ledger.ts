@@ -9,6 +9,7 @@ import { afterBlock, checkResult } from "./fix-loop.ts";
 import { hashTree } from "./hash.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
 import { overrideProblem, overridesAgainstLedger } from "./overrides.ts";
+import { proposeForNew } from "./proposal.ts";
 import {
   current,
   SCHEMA_VERSION,
@@ -90,20 +91,41 @@ export interface PlannedWave {
 
 export type NextAction =
   | { action: "intake" }
-  | { action: "resume"; waves: Pick<Wave, "id" | "kind" | "target" | "branch" | "state">[] }
-  | { action: "waves"; newMaterials: MaterialsDiff["new"]; waves: PlannedWave[] };
+  | {
+      action: "resume";
+      waves: Pick<Wave, "id" | "kind" | "target" | "branch" | "state">[];
+      toStart: PlannedWave[];
+      newMaterials: MaterialsDiff["new"];
+      proposal: ModuleMap;
+    }
+  | { action: "waves"; newMaterials: MaterialsDiff["new"]; proposal: ModuleMap; waves: PlannedWave[] };
 
 export function nextAction(project: string): NextAction {
   const ledger = readLedger(project);
   if (ledger === null) return { action: "intake" };
+  const diff = diffMaterials(ledger);
+  const planned = plannedWaves(ledger, diff);
+  const proposal = proposeForNew(ledger, diff.new);
   const running = current(ledger.waves).filter((wave) => wave.state === "running");
   if (running.length > 0) {
+    const busy = new Set(running.filter((wave) => wave.kind === "module").map((wave) => wave.target));
     return {
       action: "resume",
       waves: running.map(({ id, kind, target, branch, state }) => ({ id, kind, target, branch, state })),
+      toStart: planned.filter((wave) => !busy.has(wave.target)),
+      newMaterials: diff.new,
+      proposal,
     };
   }
-  const diff = diffMaterials(ledger);
+  return { action: "waves", newMaterials: diff.new, proposal, waves: planned };
+}
+
+/**
+ * The Module waves the Materials and the Modules' states call for. Module 1 runs alone first on a new
+ * Course: it writes the Course style sheet every other Module follows. Once any Module wave has merged
+ * the style sheet exists, even if that Module was superseded later.
+ */
+function plannedWaves(ledger: Ledger, diff: MaterialsDiff): PlannedWave[] {
   const waves: PlannedWave[] = [];
   const modules = current(ledger.modules).sort((a, b) => a.id.localeCompare(b.id));
   for (const module of modules) {
@@ -114,10 +136,8 @@ export function nextAction(project: string): NextAction {
     if (diff.deleted.some((file) => file.module === module.id)) reasons.push("materials-deleted");
     if (reasons.length > 0) waves.push({ kind: "module", target: module.id, reasons });
   }
-  // Module 1 runs alone first on a new Course: it writes the Course style sheet every other Module
-  // follows. Once any Module wave has merged the style sheet exists, even if that Module was superseded later.
   const firstBuilt = ledger.waves.some((wave) => wave.kind === "module" && wave.state === "merged");
-  return { action: "waves", newMaterials: diff.new, waves: firstBuilt ? waves : waves.slice(0, 1) };
+  return firstBuilt ? waves : waves.filter((wave) => wave.target === modules[0]?.id);
 }
 
 /** Whether files were mapped into a live Module after its last merged wave took in its Materials. */
