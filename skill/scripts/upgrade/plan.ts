@@ -120,6 +120,12 @@ export interface UpgradePlan {
   lastFailed: { id: string; gateGap: string | null } | null;
 }
 
+/** Why a held plan makes no offer, for the Owner. */
+export function heldReason(plan: UpgradePlan): string {
+  const sitting = plan.freeze === null ? "an Exam sitting" : `the ${plan.freeze.name} sitting on ${plan.freeze.date}`;
+  return `held: ${sitting} is within ${FREEZE_DAYS} days, and ${plan.to} closes no gate gap this Course filed`;
+}
+
 /**
  * The plan for upgrading the Course project from its pinned release to `to`, read from the release
  * repo at `source`. `plan` is null, with the `reason`, when `to` isn't a release newer than the pinned one.

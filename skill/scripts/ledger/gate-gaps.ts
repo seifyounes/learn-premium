@@ -3,7 +3,7 @@
 // "Course done" while any is unfiled.
 import { join } from "node:path";
 import { hashTree } from "./hash.ts";
-import { mutate } from "./ledger.ts";
+import { mutate, runningUpgrade } from "./ledger.ts";
 import { current, GATE_GAPS_DIR, type GateGap, type Ledger } from "./model.ts";
 import { overrideProblem } from "./overrides.ts";
 import { LedgerError } from "./store.ts";
@@ -84,6 +84,12 @@ export function markDone(project: string, holder: string): void {
       throw new LedgerError(
         "refused",
         `the Course can't be marked done while a gate gap is unfiled: ${unfiled.map((g) => g.id).join(", ")} (file each with the gate-gap step)`,
+      );
+    const upgrading = runningUpgrade(ledger);
+    if (upgrading !== undefined)
+      throw new LedgerError(
+        "refused",
+        `the Course can't be marked done while the Upgrade wave ${upgrading.id} runs: end it first`,
       );
     const running = current(ledger.waves).filter((w) => w.state === "running");
     if (running.length > 0)

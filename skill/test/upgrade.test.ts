@@ -2,16 +2,27 @@
 // merged to `main` only when green. Proven on a Course project whose content is a copy of the real
 // Fixture Course, pinned to v1.0.0 of a throwaway release repo tagged v1.0.0, v1.1.0 and v2.0.0, with
 // a fake verifier and a fake tracker: no test ever reaches GitHub or runs the Course's real gates.
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { run as runGateGap } from "../scripts/gate-gap/cli.ts";
+import { hashTree } from "../scripts/ledger/hash.ts";
 import { run as runUpgrade, type Deps } from "../scripts/upgrade/cli.ts";
 import { must } from "./fake-notebooklm.ts";
 import { FakeTracker } from "./fake-tracker.ts";
 import { ledger, writeFiles, type Result } from "./helpers.ts";
-import { addRelease, git, HOLDER, releaseRepo, upgradeCourse, type UpgradeCourse } from "./upgrade-fixtures.ts";
+import {
+  addRelease,
+  git,
+  HOLDER,
+  OVERRIDE,
+  releaseRepo,
+  upgradeCourse,
+  type UpgradeCourse,
+} from "./upgrade-fixtures.ts";
 
 // git here sees no global or system config, as on a CI runner: line endings and identity are the repos' own.
 const isolated = mkdtempSync(join(tmpdir(), "lp-gitconfig-"));
@@ -155,6 +166,243 @@ describe("offer", { timeout: 60_000 }, () => {
     const { code, out } = await offer(c, "v2.2.0");
     expect(code).toBe(2);
     expect(out.error).toMatch(/Gate gaps closed/);
+  });
+});
+
+/** The release's template layer as git tagged it: path under `template/` → sha256, read straight from the objects. */
+function releaseHashes(source: string, tag: string): Record<string, string> {
+  const paths = git(source, "ls-tree", "-r", "--name-only", tag, "--", "template")
+    .split("\n")
+    .filter((p) => p !== "");
+  return Object.fromEntries(
+    paths.map((path) => {
+      const child = spawnSync("git", ["-C", source, "show", `${tag}:${path}`], { maxBuffer: 1 << 26 });
+      return [path.slice("template/".length), createHash("sha256").update(child.stdout).digest("hex")];
+    }),
+  );
+}
+
+/** The Course project's template layer as it is on disk, without installs (`node_modules/`). */
+const templateOnDisk = (c: UpgradeCourse) => hashTree(join(c.project, "template"), ["node_modules", "dist"]);
+
+interface StartOptions {
+  to?: string;
+  answer?: string | null;
+  today?: string;
+  holder?: string;
+}
+
+function start(c: UpgradeCourse, o: StartOptions = {}): Promise<Result> {
+  const { to = "v2.0.0", answer = "yes, upgrade it", today, holder = HOLDER } = o;
+  return upgrade(
+    today === undefined ? {} : { today },
+    ...["start", "--project", c.project, "--source", c.source, "--holder", holder, "--to", to],
+    ...(answer === null ? [] : ["--answer", answer]),
+  );
+}
+
+function apply(c: UpgradeCourse, source = c.source, holder = HOLDER): Promise<Result> {
+  return upgrade({}, "apply", "--project", c.project, "--source", source, "--holder", holder);
+}
+
+const branchOf = (c: UpgradeCourse) => git(c.project, "symbolic-ref", "--short", "HEAD");
+const rev = (c: UpgradeCourse, ref: string) => git(c.project, "rev-parse", ref);
+const upgradesOf = (c: UpgradeCourse) => must(ledger("status", "--project", c.project)).upgrades;
+
+describe("start", { timeout: 60_000 }, () => {
+  test("records the wave, commits it on main and switches to the wave's branch", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    const before = rev(c, "main");
+    const { code, out } = await start(c);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(out).toMatchObject({ branch: "upgrade/v2.0.0-1", base: before });
+    expect(branchOf(c)).toBe("upgrade/v2.0.0-1");
+    // The start is one commit on main, and the branch begins at it.
+    expect(rev(c, "main~1")).toBe(before);
+    expect(rev(c, "HEAD")).toBe(rev(c, "main"));
+    expect(git(c.project, "log", "-1", "--format=%s", "main")).toBe("chore: start the Upgrade wave to v2.0.0");
+    expect(git(c.project, "status", "--porcelain")).toBe("");
+    expect(upgradesOf(c)).toEqual([
+      expect.objectContaining({
+        id: "upgrade-v2.0.0-1",
+        from: "v1.0.0",
+        to: "v2.0.0",
+        branch: "upgrade/v2.0.0-1",
+        base: before,
+        answer: "yes, upgrade it",
+        state: "running",
+        commit: null,
+        files: releaseHashes(c.source, "v2.0.0"),
+        retire: [{ path: OVERRIDE, gateGap: 12 }],
+        kept: [],
+        migrations: null,
+        content: null,
+        gateGap: null,
+        superseded: null,
+      }),
+    ]);
+    // A Windows checkout would rewrite line endings on every switch and break the pinned hashes.
+    expect(git(c.project, "config", "--local", "core.autocrlf")).toBe("false");
+  });
+
+  test("refuses inside the exam freeze (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), {
+      content: "minimal",
+      sittings: [{ id: "final", name: "Final", date: "2026-11-10" }],
+    });
+    const before = rev(c, "main");
+    const { code, out } = await start(c, { today: "2026-11-05" });
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/Final.*2026-11-10/);
+    expect(upgradesOf(c)).toEqual([]);
+    expect(git(c.project, "branch", "--list")).toMatch(/^\* main$/);
+    expect(rev(c, "main")).toBe(before);
+  });
+
+  test("refuses without the Owner's answer (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    const { code } = await start(c, { answer: null });
+    expect(code).toBe(2);
+    expect(upgradesOf(c)).toEqual([]);
+  });
+
+  test("refuses a target that isn't newer", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    const { code, out } = await start(c, { to: "v1.0.0" });
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/not newer/);
+  });
+
+  test("refuses while a Module wave runs (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(
+      ledger(
+        ...["wave", "start", "--project", c.project, "--holder", HOLDER, "--kind", "module", "--target", "01"],
+        ...["--branch", "module/01-again"],
+      ),
+    );
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: start a wave");
+    const { code, out } = await start(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/wave.*running/);
+  });
+
+  test("refuses a tree with uncommitted changes (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    writeFiles(c.project, { "content/notes.md": "an edit" });
+    const { code, out } = await start(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/uncommitted/);
+  });
+
+  test("refuses when it isn't on main (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    git(c.project, "switch", "-q", "-c", "scratch");
+    const { code, out } = await start(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/main/);
+  });
+
+  test("refuses a template layer that isn't the pinned release's (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    writeFiles(c.project, { "template/src/site/old.ts": "export const old = 'edited';\n" });
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "an edit to the template layer");
+    const { code, out } = await start(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/template layer.*src\/site\/old\.ts/);
+  });
+
+  test("refuses another session's run (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    const { code, out } = await start(c, { holder: "session-b" });
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/lock/);
+    expect(upgradesOf(c)).toEqual([]);
+  });
+
+  test("refuses a second wave while one runs", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    git(c.project, "switch", "-q", "main");
+    const { code, out } = await start(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/Upgrade wave.*running/);
+  });
+});
+
+describe("apply", { timeout: 60_000 }, () => {
+  test("re-copies the template layer to the release's own files, and drops the retired override", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    writeFiles(c.project, { "template/node_modules/dep/index.js": "an install" });
+    must(await start(c));
+    const { code, out } = await apply(c);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(templateOnDisk(c)).toEqual(releaseHashes(c.source, "v2.0.0"));
+    expect(out).toMatchObject({ written: 4, deleted: ["src/site/old.ts"], dropped: [OVERRIDE] });
+    expect(existsSync(join(c.project, "template", "src/site/old.ts"))).toBe(false);
+    expect(existsSync(join(c.project, "overrides", OVERRIDE))).toBe(false);
+    // An install in the template layer is not part of the release and is left alone.
+    expect(readFileSync(join(c.project, "template/node_modules/dep/index.js"), "utf8")).toBe("an install");
+  });
+
+  test("is safe to run again", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    must(await apply(c));
+    const again = await apply(c);
+    expect(again.code).toBe(0);
+    expect(again.out).toMatchObject({ written: 0, deleted: [], dropped: [] });
+  });
+
+  test("refuses off the wave's branch (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    git(c.project, "switch", "-q", "main");
+    const { code, out } = await apply(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/upgrade\/v2\.0\.0-1/);
+    expect(templateOnDisk(c)).toEqual(releaseHashes(c.source, "v1.0.0"));
+  });
+
+  test("refuses a release repo whose tag isn't the release the wave started from (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    const other = releaseRepo();
+    addRelease(other, "v9.9.9", { "src/site/new.ts": "export const next = 'another';\n" });
+    git(other, "tag", "-f", "v2.0.0", "v9.9.9");
+    const { code, out } = await apply(c, other);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/v2\.0\.0/);
+    expect(templateOnDisk(c)).toEqual(releaseHashes(c.source, "v1.0.0"));
+  });
+
+  test("refuses another session's run (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    expect((await apply(c, c.source, "session-b")).code).toBe(3);
+  });
+});
+
+describe("a running Upgrade wave", { timeout: 60_000 }, () => {
+  test("is what the next run resumes, and nothing else starts or finishes meanwhile", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    const next = must(ledger("next", "--project", c.project));
+    expect(next).toMatchObject({
+      action: "resume-upgrade",
+      upgrade: { id: "upgrade-v2.0.0-1", from: "v1.0.0", to: "v2.0.0", branch: "upgrade/v2.0.0-1" },
+    });
+    const wave = ledger(
+      ...["wave", "start", "--project", c.project, "--holder", HOLDER, "--kind", "module", "--target", "01"],
+      ...["--branch", "module/01-again"],
+    );
+    expect(wave.code).toBe(3);
+    expect(wave.out.error).toMatch(/Upgrade wave/);
+    const done = ledger("done", "--project", c.project, "--holder", HOLDER);
+    expect(done.code).toBe(3);
+    expect(done.out.error).toMatch(/Upgrade wave/);
   });
 });
 

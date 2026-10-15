@@ -5,10 +5,11 @@
 import { resolve } from "node:path";
 import { Args } from "../ledger/args.ts";
 import { LedgerError } from "../ledger/file.ts";
-import { SchemaError } from "../ledger/schema.ts";
-import { ghTracker, TrackerError, type Tracker } from "../gate-gap/tracker.ts";
-import { templateVerifier, type Verifier } from "../wave/wave.ts";
-import { localToday, planUpgrade } from "./plan.ts";
+import { nonEmpty, SchemaError } from "../ledger/schema.ts";
+import { TrackerError, type Tracker } from "../gate-gap/tracker.ts";
+import type { Verifier } from "../wave/wave.ts";
+import { heldReason, localToday, planUpgrade } from "./plan.ts";
+import { applyUpgrade, startUpgrade } from "./wave.ts";
 
 export interface RunResult {
   code: number;
@@ -48,23 +49,29 @@ async function dispatch(args: Args, deps: Partial<Deps>): Promise<Output> {
   const command = args.command();
   const project = args.required("--project");
   const source = args.optional("--source") ?? RELEASE_ROOT;
-  void ghTracker;
-  void templateVerifier;
+  const today = deps.today ?? localToday();
   switch (command) {
     case "offer": {
       const to = args.required("--to");
-      const { plan, reason } = planUpgrade(project, source, to, deps.today ?? localToday());
+      const { plan, reason } = planUpgrade(project, source, to, today);
       if (plan === null) return { offer: null, held: null, reason };
       if (plan.held && plan.freeze !== null) {
         const { id, name, date } = plan.freeze;
-        return {
-          offer: null,
-          held: { to, sitting: id, name, date },
-          reason: `held: the ${name} sitting is on ${date}, within 7 days, and ${to} closes no gate gap this Course filed`,
-        };
+        return { offer: null, held: { to, sitting: id, name, date }, reason: heldReason(plan) };
       }
       return { offer: plan, held: null, reason: null };
     }
+    case "start":
+      return {
+        ...startUpgrade(project, args.required("--holder"), {
+          source,
+          to: args.required("--to"),
+          answer: nonEmpty(args.required("--answer"), "--answer"),
+          today,
+        }),
+      };
+    case "apply":
+      return { ...applyUpgrade(project, args.required("--holder"), source) };
     default:
       throw new LedgerError("invalid", `unknown command: ${command}`);
   }

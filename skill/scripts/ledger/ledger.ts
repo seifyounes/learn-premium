@@ -24,6 +24,7 @@ import {
   type ModuleMap,
   type ModuleRow,
   type Ruling,
+  type Upgrade,
   type Wave,
   type WaveKind,
   type WaveResult,
@@ -67,6 +68,7 @@ export interface PlannedWave {
 
 export type NextAction =
   | { action: "intake" }
+  | { action: "resume-upgrade"; upgrade: Pick<Upgrade, "id" | "from" | "to" | "branch"> }
   | {
       action: "resume";
       waves: Pick<Wave, "id" | "kind" | "target" | "branch" | "state">[];
@@ -79,6 +81,11 @@ export type NextAction =
 export function nextAction(project: string): NextAction {
   const ledger = readLedger(project);
   if (ledger === null) return { action: "intake" };
+  const upgrading = runningUpgrade(ledger);
+  if (upgrading !== undefined) {
+    const { id, from, to, branch } = upgrading;
+    return { action: "resume-upgrade", upgrade: { id, from, to, branch } };
+  }
   const diff = diffMaterials(ledger);
   const planned = plannedWaves(ledger, diff);
   const proposal = proposeForNew(ledger, diff.new);
@@ -116,6 +123,11 @@ function plannedWaves(ledger: Ledger, diff: MaterialsDiff): PlannedWave[] {
   return firstBuilt ? waves : waves.filter((wave) => wave.target === modules[0]?.id);
 }
 
+/** The Upgrade wave under way, if any: it moves the template layer, so no wave starts and the Course isn't done meanwhile. */
+export function runningUpgrade(ledger: Ledger): Upgrade | undefined {
+  return current(ledger.upgrades).find((u) => u.state === "running");
+}
+
 /**
  * Whether files were mapped into a live Module after its last merged wave ended. A file mapped while
  * that wave ran is the wave's own: `ready` refuses to merge on readings older than it.
@@ -139,7 +151,7 @@ export function diff(project: string): MaterialsDiff {
  * (`node_modules/`, `dist/`…): a local install or build in the template layer is not an edit to it.
  * The .gitignore is itself a pinned template file, so widening it shows as an edit.
  */
-function templateHashes(project: string): Record<string, string> {
+export function templateHashes(project: string): Record<string, string> {
   const root = join(project, TEMPLATE_DIR);
   let ignore = "";
   try {
@@ -235,6 +247,9 @@ export function releaseLock(project: string, holder: string): void {
 /** Starts a wave on a Module or Exam sitting, at the ledger's pinned release. Returns the wave's id. */
 export function startWave(project: string, holder: string, kind: WaveKind, target: string, branch: string): string {
   return mutate(project, holder, (ledger) => {
+    const upgrading = runningUpgrade(ledger);
+    if (upgrading !== undefined)
+      throw new LedgerError("refused", `the Upgrade wave ${upgrading.id} is running: it ends before any wave starts`);
     if (kind === "module" && !current(ledger.modules).some((m) => m.id === target)) {
       throw new LedgerError("invalid", `Module ${target} isn't in the Module map`);
     }
@@ -465,6 +480,7 @@ export function status(project: string) {
     gateGaps: current(ledger.gateGaps),
     done: ledger.done,
     relaunches: current(ledger.relaunches),
+    upgrades: current(ledger.upgrades),
     superseded: supersededRows(ledger),
     ...mediaItems(project),
   };
