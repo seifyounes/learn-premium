@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
@@ -545,6 +546,25 @@ describe("the fix loop: two fix rounds, then the fallback, else a Checkpoint ite
     expect(out.error).toMatch(/--detail/);
   });
 
+  test("a job escalated to the Checkpoint goes on only once the Owner answered it (negative control)", () => {
+    const { project, record } = runningWave();
+    const holder = ["--project", project, "--holder", "session-a"];
+    [1, 2, 3].forEach(() => record("writer", "blocked", "red"));
+    record("writer", "checkpoint", "sheet 2 needs the Owner's reading");
+    const wave = ledger("status", "--project", project).out.waves[0].id as string;
+
+    const early = record("writer", "passed");
+    // The Checkpoint asks it under the key wave.ts gives a job's item: the job and a hash of its detail.
+    const hash = createHash("sha256").update("writer\nsheet 2 needs the Owner's reading").digest("hex").slice(0, 6);
+    const answer = ["--question", "q", "--answer", "It reads 3."];
+    ledger("record", "checkpoint", ...holder, "--wave", wave, "--key", `01/job/writer-${hash}`, ...answer);
+    const answered = record("writer", "passed");
+
+    expect(early.code).toBe(3);
+    expect(early.out.error).toMatch(/writer waits on the Owner's answer to its Checkpoint item 01\/job\/writer-/);
+    expect(answered.code).toBe(0);
+  });
+
   test("a job falls back only once its two fix rounds are spent, never in place of them (negative control)", () => {
     const { record } = runningWave();
 
@@ -560,17 +580,24 @@ describe("the fix loop: two fix rounds, then the fallback, else a Checkpoint ite
   });
 
   test("a pass or an answered escalation ends the run of blocks: a later block gets two fresh fix rounds", () => {
-    const { record } = runningWave();
+    const { project, record } = runningWave();
     record("job-gates", "blocked", "red");
     record("job-gates", "blocked", "red");
     record("job-gates", "passed");
+    const wave = ledger("status", "--project", project).out.waves[0].id as string;
+    const detail = "the gate needs the Owner's reading";
+    const hash = createHash("sha256").update(`job-gates\n${detail}`).digest("hex").slice(0, 6);
 
     expect(record("job-gates", "blocked", "red after the Checkpoint answers").out.fixRounds).toEqual({
       used: 0,
       left: 2,
     });
     [1, 2].forEach(() => record("job-gates", "blocked", "red"));
-    record("job-gates", "checkpoint", "the gate needs the Owner's reading");
+    record("job-gates", "checkpoint", detail);
+    ledger(
+      ...["record", "checkpoint", "--project", project, "--holder", "session-a", "--wave", wave],
+      ...["--key", `01/job/job-gates-${hash}`, "--question", "q", "--answer", "It reads 3."],
+    );
     expect(record("job-gates", "passed").code).toBe(0);
   });
 });

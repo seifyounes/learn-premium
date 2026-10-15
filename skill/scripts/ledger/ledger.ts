@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { MediaItem } from "../media/model.ts";
 import { readMediaFile } from "../media/store.ts";
+import { itemKey } from "../wave/reading.ts";
 import { afterBlock, checkResult } from "./fix-loop.ts";
 import { hashTree } from "./hash.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
@@ -314,7 +315,15 @@ export function recordJob(
     const wave = current(ledger.waves).find((w) => w.id === job.wave);
     if (wave === undefined || wave.state !== "running") throw new LedgerError("invalid", `no running wave ${job.wave}`);
     const history = ledger.jobs.filter((row) => row.wave === job.wave && row.job === job.job);
-    checkResult(job.job, job.result, job.detail, history);
+    // A job that escalated waits for the Owner: its item (keyed as the batched Checkpoint keys it) answered since.
+    const last = history.at(-1);
+    const itemKeyOf = last?.result === "checkpoint" ? itemKey(wave.target, "job", job.job, [last.detail ?? ""]) : null;
+    const answered =
+      itemKeyOf !== null &&
+      current(ledger.checkpoints).some(
+        (c) => c.key === itemKeyOf && last !== undefined && c.answeredAt >= last.recordedAt,
+      );
+    checkResult(job.job, job.result, job.detail, history, itemKeyOf !== null && !answered ? itemKeyOf : null);
     const at = now();
     for (const row of current(ledger.jobs)) {
       if (row.wave === job.wave && row.job === job.job) row.superseded = { at, reason: "re-run" };
