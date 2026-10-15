@@ -210,6 +210,15 @@ describe("the fact check", () => {
     expect(out.findings).toEqual([expect.objectContaining({ kind: "number", said: "77.7", at: "0:20" })]);
   });
 
+  test("a signed value a claim carries is judged by its magnitude, as the numbers in the text are", () => {
+    // The Module's worked table holds 0.65 (a layer's drop); a drop recorded as -0.65 is the same number.
+    const { c, id } = checkedAudio(TRANSCRIPT, 1, { claims: [...CLAIMS, number("0:20", -0.65)] });
+
+    const { code, out } = check(c, id);
+
+    expect(code, JSON.stringify(out)).toBe(0);
+  });
+
   test("a percentage or a thousand of a verified value is fine; a small whole number is exempt", () => {
     const talk = {
       segments: [

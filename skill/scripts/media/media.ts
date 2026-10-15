@@ -333,8 +333,11 @@ export function place(stateDir: string, project: string, id: string, file: strin
           `the Course project isn't on ${MAIN_BRANCH}: merge the media branch into it first`,
         );
       }
-      const tracked = gitOutput(root, "cat-file", "-e", `HEAD:${inside.split(sep).join("/")}`);
-      if (tracked.status !== 0) {
+      // The bytes in HEAD's tree, not just a file in the working tree: a push publishes the commit.
+      const path = inside.split(sep).join("/");
+      const committed = gitOutput(root, "rev-parse", "--verify", "-q", `HEAD:${path}`).stdout.trim();
+      const onDisk = gitOutput(root, "hash-object", "--no-filters", "--", path).stdout.trim();
+      if (committed === "" || committed !== onDisk) {
         throw new LedgerError(
           "invalid",
           `${file} isn't committed on ${MAIN_BRANCH}: merge the media branch into it first`,

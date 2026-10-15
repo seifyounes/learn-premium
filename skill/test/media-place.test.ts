@@ -329,6 +329,23 @@ describe("placed", () => {
     expect(itemOf(c, AUDIO).state).toBe("checked");
   });
 
+  test("the re-encode copied over a path whose committed bytes are older isn't placed: main would publish the old file", () => {
+    const c = mediaCourse({ git: true });
+    approved(c, AUDIO, 1);
+    const file = `${MODULE_DIR}/media/deep-dive.mp3`;
+    mkdirSync(join(c.project, MODULE_DIR, "media"), { recursive: true });
+    writeFileSync(join(c.project, file), "an older deep dive");
+    gitIn(c.project, "add", "-A");
+    gitIn(c.project, "commit", "-q", "-m", "feat: an older deep dive");
+    writeFileSync(join(c.project, file), readFileSync(join(c.privateFolder, itemOf(c, AUDIO).encoded?.file ?? "")));
+
+    const { code, out } = media("placed", "--state", c.state, "--project", c.project, "--item", AUDIO, "--file", file);
+
+    expect(code).toBe(2);
+    expect(out.error).toMatch(/committed on main/);
+    expect(itemOf(c, AUDIO).state).toBe("checked");
+  });
+
   test("a media file written before encodes were recorded keeps today's placed", () => {
     const c = mediaCourse();
     ingestFixture(c, AUDIO, 1);
