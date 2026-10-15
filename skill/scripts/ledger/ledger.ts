@@ -171,6 +171,7 @@ export function init(project: string, holder: string, release: string, intake: I
       gateGaps: [],
       done: null,
       relaunches: [],
+      upgrades: [],
     };
     return { ledger, result: undefined };
   });
