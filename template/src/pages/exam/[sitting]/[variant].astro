@@ -1,0 +1,81 @@
+---
+// One past paper or mock of an Exam sitting, to practise untimed or sit against the clock. The
+// questions are printed with the page; the answers are checked, or marked by the student, in the
+// island once it hydrates.
+import Cell from "../../../components/Cell.astro";
+import HonestyCell from "../../../components/HonestyCell.astro";
+import TitleBlock from "../../../components/TitleBlock.astro";
+import { examRooms, getMocks, getPapers, prose, type Sitting } from "../../../content/course";
+import type { Mock, Paper } from "../../../exam/paper";
+import PaperSheet from "../../../islands/PaperSheet";
+import Sheet from "../../../layouts/Sheet.astro";
+import { examHref } from "../../../site/nav";
+
+export async function getStaticPaths() {
+  const paths = [];
+  for (const sitting of await examRooms()) {
+    const papers = (await getPapers(sitting.id)).map((p) => ({ ...p, kind: "Past paper" }));
+    const mocks = (await getMocks(sitting.id)).map((m) => ({
+      ...m,
+      kind: m.entry.data.pattern === "announced" ? "Announced format mock" : "Mock",
+    }));
+    for (const { name, entry, kind } of [...papers, ...mocks])
+      paths.push({ params: { sitting: sitting.id, variant: name }, props: { sitting, name, data: entry.data, kind } });
+  }
+  return paths;
+}
+
+interface Props {
+  sitting: Sitting;
+  name: string;
+  data: Paper | Mock;
+  kind: string;
+}
+
+const { sitting, name, data, kind } = Astro.props;
+const questions = data.questions.map((q, i) => ({
+  n: i + 1,
+  marks: q.marks,
+  questionHtml: prose(q.question),
+  answer:
+    q.answer.kind === "numeric"
+      ? {
+          kind: "numeric" as const,
+          value: q.answer.value,
+          tolerance: q.answer.tolerance,
+          ...(q.answer.unit === undefined ? {} : { unitHtml: prose(q.answer.unit) }),
+        }
+      : { kind: "prose" as const, modelHtml: prose(q.answer.model), earnsHtml: q.answer.earns.map(prose) },
+}));
+---
+
+<Sheet title={`${data.title}: ${sitting.name} Exam room`} nav="exam">
+  <TitleBlock class="grid-cols-2 pad:grid-cols-[2.6fr_1fr_1fr_1fr]">
+    <Cell label={kind} class="col-span-2 pad:col-span-1">
+      <h1
+        class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]"
+        set:html={prose(data.title)}
+      />
+    </Cell>
+    <Cell label="Marks">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums" dir="ltr">
+        {data.marks}
+      </span>
+    </Cell>
+    <Cell label="Minutes">
+      <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums" dir="ltr">
+        {data.minutes}
+      </span>
+    </Cell>
+    <Cell label="Sitting">
+      <a class="text-graphite underline" href={examHref(sitting)}>
+        {sitting.name}
+      </a>
+    </Cell>
+    <HonestyCell />
+  </TitleBlock>
+
+  <div class="mbs-6">
+    <PaperSheet client:visible progressKey={`${sitting.id}/${name}`} minutes={data.minutes} questions={questions} />
+  </div>
+</Sheet>

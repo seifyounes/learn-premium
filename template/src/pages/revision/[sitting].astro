@@ -1,14 +1,15 @@
 ---
 // Revision for one complete Exam sitting: its Modules' Summaries and rules, assembled from what the
-// Modules ship and never written separately. Exam weight orders it once #74 gives sittings one;
-// until then it follows Module order.
+// Modules ship and never written separately, in exam-weight order (the marks each Module has over
+// the sitting's past papers; Module order for a sitting without past papers, and between equal weights).
 import Cell from "../../components/Cell.astro";
 import HonestyCell from "../../components/HonestyCell.astro";
 import ModuleHeading from "../../components/ModuleHeading.astro";
 import RuleList from "../../components/RuleList.astro";
 import SummaryBeat from "../../components/SummaryBeat.astro";
 import TitleBlock from "../../components/TitleBlock.astro";
-import { getModules, getRules, getSittings, moduleEntries, prose, type Sitting } from "../../content/course";
+import { getModules, getPapers, getRules, getSittings, moduleEntries, prose, type Sitting } from "../../content/course";
+import { examWeights } from "../../exam/dna";
 import Sheet from "../../layouts/Sheet.astro";
 import { revisionHref } from "../../site/nav";
 
@@ -27,21 +28,30 @@ interface Props {
 }
 
 const { sitting, others } = Astro.props;
+const papers = await getPapers(sitting.id);
+const weights = examWeights(
+  sitting,
+  papers.map((p) => p.entry.data),
+);
+const weighted = papers.length > 0;
+const available = (await getModules()).filter((m) => sitting.modules.includes(m.id));
 const modules = await Promise.all(
-  (await getModules())
-    .filter((m) => sitting.modules.includes(m.id))
-    .map(async (module) => ({
+  weights
+    .flatMap((w) => available.filter((m) => m.id === w.module).map((module) => ({ module, marks: w.marks })))
+    .map(async ({ module, marks }) => ({
       module,
+      marks,
       beats: await moduleEntries("beats", module.id),
       rules: await getRules(module.id),
     })),
 );
+const totalMarks = weights.reduce((sum, w) => sum + w.marks, 0);
+// The title block's columns by how many of its optional cells (date, exam weight) the page has.
+const columns = ["pad:grid-cols-[2.6fr_1fr]", "pad:grid-cols-[2.6fr_1fr_1fr]", "pad:grid-cols-[2.6fr_1fr_1fr_1fr]"];
 ---
 
 <Sheet title={`Revision: ${sitting.name}`} nav="revision">
-  <TitleBlock
-    class:list={["grid-cols-2", sitting.date ? "pad:grid-cols-[2.6fr_1fr_1fr]" : "pad:grid-cols-[2.6fr_1fr]"]}
-  >
+  <TitleBlock class:list={["grid-cols-2", columns[Number(sitting.date !== undefined) + Number(weighted)]]}>
     <Cell label="Revision" class="col-span-2 pad:col-span-1">
       <h1 class="font-print text-title font-bold text-graphite [font-variation-settings:'wdth'_80]">{sitting.name}</h1>
     </Cell>
@@ -53,6 +63,13 @@ const modules = await Promise.all(
     <Cell label="Modules">
       <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums">{modules.length}</span>
     </Cell>
+    {weighted && (
+      <Cell label="Exam weight">
+        <span class="font-quantity text-quantity-large font-medium text-graphite tabular-nums" dir="ltr">
+          {totalMarks}
+        </span>
+      </Cell>
+    )}
     <HonestyCell />
   </TitleBlock>
 
@@ -70,9 +87,14 @@ const modules = await Promise.all(
     </p>
   )}
 
-  {modules.map(({ module, beats, rules }) => (
+  {modules.map(({ module, marks, beats, rules }) => (
     <section class="hub-module" aria-label={`Module ${module.number}`}>
       <ModuleHeading module={module} />
+      {weighted && (
+        <p class="field-label" data-exam-weight>
+          Exam weight: <span dir="ltr">{marks}</span> marks
+        </p>
+      )}
       {beats.length === 0 && !rules && (
         <p class="text-body-small text-muted" set:html={prose(module.entry.data.summary)} />
       )}

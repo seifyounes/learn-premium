@@ -2,12 +2,29 @@
 import Cell from "../components/Cell.astro";
 import HonestyCell from "../components/HonestyCell.astro";
 import TitleBlock from "../components/TitleBlock.astro";
-import { getCourse, getModules, getRules, getSittings, masteryShape, prose } from "../content/course";
+import {
+  examRooms,
+  getCourse,
+  getMocks,
+  getModules,
+  getRules,
+  getSittings,
+  masteryShape,
+  prose,
+} from "../content/course";
 import Sheet from "../layouts/Sheet.astro";
-import { revisionHref } from "../site/nav";
+import { examHref, revisionHref } from "../site/nav";
 
 const course = await getCourse();
 const sittings = await getSittings();
+/** The mocks of each sitting that has an Exam room, as the keys their results are kept under: readiness joins the best one. */
+const mocksOf = new Map(
+  await Promise.all(
+    (await examRooms()).map(
+      async (s) => [s.id, (await getMocks(s.id)).map((m) => `${s.id}/${m.name}`)] as [string, string[]],
+    ),
+  ),
+);
 const modules = await Promise.all(
   (await getModules()).map(async (m) => ({
     ...m,
@@ -136,7 +153,12 @@ const counts = (m: (typeof modules)[number]) => [
         <h2 class="group-heading mbs-12">Exam sittings</h2>
         <ol class="sittings">
           {sittings.map((s) => (
-            <li class="sitting-line" data-sitting={s.id} data-modules={JSON.stringify(s.modules)}>
+            <li
+              class="sitting-line"
+              data-sitting={s.id}
+              data-modules={JSON.stringify(s.modules)}
+              data-mocks={mocksOf.has(s.id) ? JSON.stringify(mocksOf.get(s.id)) : undefined}
+            >
               <span class="sitting-head">
                 <span class="sitting-name">{s.name}</span>
                 {s.date && <span class="sitting-date">{s.date}</span>}
@@ -161,9 +183,16 @@ const counts = (m: (typeof modules)[number]) => [
                 </span>
               </span>
               {s.complete && (
-                <a class="button-print label-action sitting-revision" href={revisionHref(s)}>
-                  Revision
-                </a>
+                <span class="sitting-links">
+                  {mocksOf.has(s.id) && (
+                    <a class="button-print label-action sitting-revision" href={examHref(s)}>
+                      Exam room
+                    </a>
+                  )}
+                  <a class="button-print label-action sitting-revision" href={revisionHref(s)}>
+                    Revision
+                  </a>
+                </span>
               )}
             </li>
           ))}

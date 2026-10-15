@@ -1490,7 +1490,7 @@
     /* The readiness box is never narrower than its meter and percentage, or it runs under the
        Revision button beside it (at 768px it needed 235px of a 165px column). */
     .sitting-line {
-      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(max-content, 1.4fr) 132px;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(max-content, 1.4fr) 150px;
     }
   }
 
@@ -2505,5 +2505,113 @@
   .viewer-dimensions tr[data-highlighted] td:first-of-type {
     outline: 1.5px solid var(--color-red-pen);
     outline-offset: -4px;
+  }
+}
+
+/* The Exam room (ticket #74): a paper sat on the page, its clock, its result, and the sitting's hub. */
+@layer components {
+  .paper-sheet {
+    display: grid;
+    gap: 16px;
+    max-inline-size: 68ch;
+  }
+  .paper-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
+  }
+  .paper-clock {
+    min-inline-size: 5ch;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-graphite);
+  }
+  .paper-questions {
+    display: grid;
+    gap: 28px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .paper-question {
+    display: grid;
+    gap: 10px;
+    scroll-margin-block-start: 60px;
+  }
+  .paper-result {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .paper-score {
+    margin: 0;
+    color: var(--color-red-pen);
+  }
+  .paper-sheet button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .paper-sheet .button-print:disabled:hover {
+    background: var(--color-sheet);
+  }
+
+  /* The sitting's hub: its papers and mocks as ruled lines, and the question bank under its Modules. */
+  .exam-line {
+    display: grid;
+    gap: 6px 24px;
+    align-items: center;
+    padding-block: 12px 14px;
+    border-block-end: 1px solid color-mix(in srgb, var(--color-pencil) 50%, transparent);
+  }
+  .exam-line-name {
+    font-size: var(--text-contents-title);
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-graphite);
+  }
+  .exam-line-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    color: var(--color-pencil);
+  }
+  .exam-line-link {
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+  }
+  @media (width >= 760px) {
+    .exam-line {
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 132px;
+    }
+  }
+  .bank-type {
+    margin-block-start: 16px;
+  }
+  .bank-question {
+    display: grid;
+    gap: 4px;
+    padding-block: 10px 12px;
+    border-block-end: 1px solid color-mix(in srgb, var(--color-pencil) 50%, transparent);
+    max-inline-size: 68ch;
+  }
+  .bank-source {
+    color: var(--color-pencil);
+  }
+  .sitting-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-self: start;
+  }
+  @media (width >= 760px) {
+    .sitting-links {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 }

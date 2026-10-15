@@ -1,6 +1,6 @@
 // The Study site shell around the Module pages: the routes, the fixed nav, the contents-sheet home,
 // the Course hubs (Master Rules, Lab, Revision) and About, and what every page carries.
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildCourse, FIXTURE_COURSE, fixtureWith } from "./build-course";
@@ -20,6 +20,10 @@ const ROUTES = [
   "lab",
   "about",
   "revision/midterm",
+  "exam/midterm",
+  "exam/midterm/2025",
+  "exam/midterm/mock-1",
+  "exam/midterm/announced",
   "tool-gallery",
 ];
 
@@ -47,9 +51,19 @@ describe("the Study site shell", () => {
     for (const route of ROUTES) expect(existsSync(join(build.outDir, route, "index.html")), route).toBe(true);
   });
 
-  it("builds no Revision for a sitting that isn't complete, and no Exam room before #74", () => {
+  it("builds the Exam room and one page per variant for midterm", () => {
+    expect(readdirSync(join(build.outDir, "exam"))).toEqual(["midterm"]);
+    expect(readdirSync(join(build.outDir, "exam", "midterm")).sort()).toEqual([
+      "2025",
+      "announced",
+      "index.html",
+      "mock-1",
+    ]);
+  });
+
+  it("builds no Revision or Exam room for a sitting that isn't complete", () => {
     expect(readdirSync(join(build.outDir, "revision"))).toEqual(["midterm"]);
-    expect(existsSync(join(build.outDir, "exam"))).toBe(false);
+    expect(existsSync(join(build.outDir, "exam", "final"))).toBe(false);
   });
 
   it("puts the fixed nav on every page, marking where the student is", () => {
@@ -57,6 +71,7 @@ describe("the Study site shell", () => {
       Modules: "/",
       "Master Rules": "/rules/",
       Lab: "/lab/",
+      "Exam room": "/exam/midterm/",
       Revision: "/revision/midterm/",
       About: "/about/",
     };
@@ -75,6 +90,10 @@ describe("the Study site shell", () => {
       lab: "Lab",
       about: "About",
       "revision/midterm": "Revision",
+      "exam/midterm": "Exam room",
+      "exam/midterm/2025": "Exam room",
+      "exam/midterm/mock-1": "Exam room",
+      "exam/midterm/announced": "Exam room",
       // The Tool gallery is the Lab's other page of tools.
       "tool-gallery": "Lab",
     };
@@ -149,6 +168,19 @@ describe("the Study site shell", () => {
       expect(shapes["02-convection"]).toEqual({ worked: [], practice: ["1"] });
     });
 
+    it("the midterm sitting line lists its mocks for readiness, and the final's has none", () => {
+      const line = (id: string) =>
+        new RegExp(`<li class="sitting-line"[^>]*data-sitting="${id}"[^>]*>`).exec(home())?.[0] ?? "";
+      expect(line("midterm")).toContain('data-mocks="[&quot;midterm/mock-1&quot;,&quot;midterm/announced&quot;]"');
+      expect(line("final")).not.toContain("data-mocks");
+    });
+
+    it("puts an Exam room button beside Revision on a complete sitting that has one", () => {
+      const midterm = /<li class="sitting-line"[^>]*data-sitting="midterm"[\s\S]*?<\/li>/.exec(home())?.[0] ?? "";
+      expect(midterm).toContain('href="/exam/midterm/"');
+      expect(midterm).toContain('href="/revision/midterm/"');
+    });
+
     it("keeps a margin for the resume note, hidden until the browser knows where the student stopped", () => {
       expect(home()).toMatch(/<a class="resume-note"[^>]*hidden/);
     });
@@ -204,6 +236,110 @@ describe("the Study site shell", () => {
     expect(revision).toContain("Resistance of a plane wall");
     expect(revision).not.toContain("A surface hands heat to the fluid around it");
     expect(revision).not.toContain("Newton's law of cooling");
+  });
+});
+
+describe("the Exam room's pages", () => {
+  const build = buildCourse(FIXTURE_COURSE);
+
+  it("lists the vault, the mocks and the announced format, and the question bank by Module and type", () => {
+    expect(build.ok, build.output).toBe(true);
+    const hub = build.page("exam/midterm");
+    const lines = [...hub.matchAll(/<li class="exam-line" data-paper="([^"]+)"/g)].map((m) => m[1]);
+    expect(lines).toEqual(["2025", "mock-1", "announced"]);
+    expect(hub).toContain('href="/exam/midterm/2025/"');
+    expect(hub).toContain("Announced format");
+    // 3 past-paper questions, 3 of mock-1 and 2 of the announced mock, by type under Module 01.
+    const bank = hub.slice(hub.indexOf('aria-label="Question bank"'));
+    expect(bank).toContain('aria-label="Module 01"');
+    expect([...bank.matchAll(/<div class="bank-type" data-type="([^"]+)"/g)].map((m) => m[1])).toEqual([
+      "calculation",
+      "explain",
+    ]);
+    expect(bank.match(/class="bank-question"/g)).toHaveLength(8);
+  });
+
+  it("prints the questions on a paper's page, with the island's controls off until it hydrates", () => {
+    const page = build.page("exam/midterm/2025");
+    expect(page).toContain("Find its thermal resistance");
+    expect(page).toMatch(/component-url="\/_astro\/PaperSheet\.[^"]+\.js"[^>]*client="visible"/);
+    const island = page.slice(page.indexOf("<astro-island"), page.indexOf("</astro-island>"));
+    for (const control of island.match(/<(?:button|input|textarea)\b[^>]*>/g) ?? [])
+      expect(control, control).toContain("disabled");
+    expect(page).not.toMatch(/\b0\s*\/\s*0\b/);
+  });
+
+  it("orders Revision by exam weight: a Module with more marks over the past papers comes first", () => {
+    const withTwoModules = fixtureWith("course.yaml", (c) =>
+      c.replace(
+        "modules: [01-thermal-resistance]\n    complete: true",
+        "modules: [01-thermal-resistance, 02-convection]\n    complete: true",
+      ),
+    );
+    const course = fixtureWith(
+      "sittings/midterm/papers/2025.yaml",
+      (s) => s.replaceAll("module: 01-thermal-resistance", "module: 02-convection"),
+      withTwoModules,
+    );
+    const weighted = buildCourse(course);
+    expect(weighted.ok, weighted.output).toBe(true);
+    const revision = weighted.page("revision/midterm");
+    const sections = [...revision.matchAll(/<section class="hub-module" aria-label="Module (\d+)"/g)].map((m) => m[1]);
+    expect(sections).toEqual(["02", "01"]);
+    expect(revision).toMatch(/Exam weight: <span dir="ltr">10<\/span> marks/);
+  });
+
+  it("keeps Revision's one Module in Module order for the Fixture's midterm", () => {
+    const revision = build.page("revision/midterm");
+    expect([...revision.matchAll(/<section class="hub-module" aria-label="Module (\d+)"/g)].map((m) => m[1])).toEqual([
+      "01",
+    ]);
+  });
+});
+
+describe("a complete sitting without past papers", () => {
+  it("has Revision and no Exam room or nav entry", () => {
+    const course = fixtureWith("sittings/midterm/papers/2025.yaml", (s) => s);
+    rmSync(join(course, "sittings"), { recursive: true });
+    const build = buildCourse(course);
+    expect(build.ok, build.output).toBe(true);
+    expect(existsSync(join(build.outDir, "exam"))).toBe(false);
+    expect(existsSync(join(build.outDir, "revision", "midterm", "index.html"))).toBe(true);
+    for (const route of ["", "revision/midterm"])
+      expect(Object.keys(nav(build.page(route)).links), route).toEqual([
+        "Modules",
+        "Master Rules",
+        "Lab",
+        "Revision",
+        "About",
+      ]);
+    expect(build.page("revision/midterm")).not.toContain("Exam weight");
+    expect(build.page("")).not.toContain("data-mocks");
+  });
+});
+
+describe("Exam room content that doesn't fit the sitting", () => {
+  it("fails the build for a sitting folder the Course has no sitting for", () => {
+    const build = buildCourse(fixtureWith("sittings/orphan/papers/x.yaml", () => "title: x\n"));
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain("sittings/orphan/");
+  });
+
+  it("fails the build for a question examining a Module the sitting doesn't cover", () => {
+    const build = buildCourse(
+      fixtureWith("sittings/midterm/mocks/mock-1.yaml", (s) =>
+        s.replace("module: 01-thermal-resistance", "module: 02-convection"),
+      ),
+    );
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain('question 1 examines 02-convection, which sitting "midterm" doesn\'t cover');
+  });
+
+  it("fails the build for a name used by a paper and a mock", () => {
+    const mock = readFileSync(join(FIXTURE_COURSE, "sittings/midterm/mocks/mock-1.yaml"), "utf8");
+    const build = buildCourse(fixtureWith("sittings/midterm/mocks/2025.yaml", () => mock));
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain('the name "2025" is already used');
   });
 });
 

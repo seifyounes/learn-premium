@@ -93,8 +93,8 @@ async function examContent() {
     }
   }
   const byName = <C extends "papers" | "mocks">(list: CollectionEntry<C>[]) =>
-    list.map(examRef).sort((a, b) => a.sitting.localeCompare(b.sitting) || a.name.localeCompare(b.name));
-  return { sittings, papers: byName(papers), mocks: byName(mocks), formats };
+    list.map((e) => examRef<C>(e)).sort((a, b) => a.sitting.localeCompare(b.sitting) || a.name.localeCompare(b.name));
+  return { sittings, papers: byName<"papers">(papers), mocks: byName<"mocks">(mocks), formats };
 }
 
 /** A sitting's past papers, by file name. */
@@ -102,9 +102,12 @@ export async function getPapers(sitting: string) {
   return (await examContent()).papers.filter((p) => p.sitting === sitting);
 }
 
-/** A sitting's mocks, by file name. */
+/** A sitting's mocks: the pattern-matched ones by file name, then the one for the announced format. */
 export async function getMocks(sitting: string) {
-  return (await examContent()).mocks.filter((m) => m.sitting === sitting);
+  const announced = (m: ExamSheetRef<"mocks">) => Number(m.entry.data.pattern === "announced");
+  return (await examContent()).mocks
+    .filter((m) => m.sitting === sitting)
+    .sort((a, b) => announced(a) - announced(b) || a.name.localeCompare(b.name));
 }
 
 /** The format the Professor announced for a sitting; undefined when none was. */

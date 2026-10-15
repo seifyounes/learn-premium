@@ -1,7 +1,7 @@
 // The home page's own script: each Module's Mastery and each sitting's readiness, measured on what
 // the student has done in this browser, and the red-pen resume note in the margin of the Module
 // they stopped in. Kept current as progress changes in another tab.
-import { mastery, placeHref, placeLabel, readiness, resumable, type MasteryShape } from "./progress.ts";
+import { bestMock, mastery, placeHref, placeLabel, readiness, resumable, type MasteryShape } from "./progress.ts";
 import { onProgress, readProgress } from "./store.ts";
 
 const percent = (value: number | undefined) => (value === undefined ? "–" : String(Math.round(value * 100)));
@@ -24,7 +24,9 @@ function start(contents: HTMLElement) {
 
     for (const line of contents.querySelectorAll<HTMLElement>(".sitting-line")) {
       const modules = JSON.parse(line.dataset.modules ?? "[]") as string[];
-      const ready = readiness(modules.map(masteryOf));
+      // A sitting with an Exam room lists its mocks; the best fully marked one joins readiness.
+      const mocks = line.dataset.mocks === undefined ? undefined : (JSON.parse(line.dataset.mocks) as string[]);
+      const ready = readiness(modules.map(masteryOf), mocks && bestMock(progress, mocks));
       const cell = line.querySelector("[data-readiness]");
       if (cell) cell.textContent = percent(ready);
       const boxes = line.querySelectorAll(".readiness-box");
