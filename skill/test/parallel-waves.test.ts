@@ -10,7 +10,7 @@ import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import { WAVE_JOBS } from "../scripts/wave/wave.ts";
 import { fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
-import { ledger, tempDir, writeFiles } from "./helpers.ts";
+import { jsonInput, ledger, tempDir, writeFiles } from "./helpers.ts";
 import { review, shots } from "./review-fixtures.ts";
 
 // Git-heavy like wave.test.ts: every wave is a worktree, several commits and a few `ready` runs.
@@ -301,6 +301,34 @@ describe("waves merge independently", () => {
     const problems = readyOf(c, w3.waveId).join("\n");
 
     expect(problems).toMatch(/changes another Module's files \(content\/modules\/02-m02\/extra\.md\)/);
+  });
+});
+
+describe("the ledger lock across parallel waves", () => {
+  test("while one session runs waves, every write by another session is refused and the ledger is unchanged", () => {
+    const c = parallelCourse();
+    const w2 = startWave(c, "02");
+    startWave(c, "03");
+    toCheckpoint(c, "02", w2);
+    const bytes = () => readFileSync(join(c.project, "build-ledger.json"), "utf8");
+    const before = bytes();
+    const other = ["--project", c.project, "--holder", "session-b"];
+
+    const refused = [
+      ledger("lock", "claim", ...other),
+      ledger("record", "job", ...other, "--wave", w2.waveId, "--job", "writer", "--result", "passed"),
+      ledger("wave", "end", ...other, "--wave", w2.waveId, "--result", "failed"),
+      ledger("map", ...other, "--input", jsonInput({ modules: [], unmapped: [] })),
+      ledger("supersede", ...other, "--row", "module", "--id", "03", "--reason", "not mine"),
+    ].map((r) => r.code);
+    const relaunch = wave(
+      ["relaunch", "open", ...other, "--wave", w2.waveId, "--job", "writer", "--files", "content/modules/02-m02"],
+      { jobGates: { run: () => ({ ran: true, findings: [] }) } },
+    );
+
+    expect(refused).toEqual([3, 3, 3, 3, 3]);
+    expect(relaunch.code).toBe(3);
+    expect(bytes()).toBe(before);
   });
 });
 

@@ -7,6 +7,7 @@ import { readMediaFile } from "../media/store.ts";
 import { itemKey } from "../wave/reading.ts";
 import { afterBlock, checkResult } from "./fix-loop.ts";
 import { hashTree } from "./hash.ts";
+import { maxWaves, MAX_WAVES_ENV } from "./cap.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
 import { overrideProblem, overridesAgainstLedger } from "./overrides.ts";
 import { proposeForNew } from "./proposal.ts";
@@ -87,7 +88,7 @@ export function nextAction(project: string): NextAction {
     return {
       action: "resume",
       waves: running.map(({ id, kind, target, branch, state }) => ({ id, kind, target, branch, state })),
-      toStart: planned.filter((wave) => !busy.has(wave.target)),
+      toStart: planned.filter((wave) => !busy.has(wave.target)).slice(0, Math.max(0, maxWaves() - busy.size)),
       newMaterials: diff.new,
       proposal,
     };
@@ -237,6 +238,13 @@ export function startWave(project: string, holder: string, kind: WaveKind, targe
     const running = current(ledger.waves).find((w) => w.kind === kind && w.target === target && w.state === "running");
     if (running !== undefined)
       throw new LedgerError("refused", `wave ${running.id} is already running on ${kind} ${target}`);
+    const runningModules = current(ledger.waves).filter((w) => w.kind === "module" && w.state === "running");
+    if (kind === "module" && runningModules.length >= maxWaves()) {
+      throw new LedgerError(
+        "refused",
+        `${runningModules.length} Module waves already run (the cap; ${MAX_WAVES_ENV} changes it): start Module ${target}'s wave once one merges`,
+      );
+    }
     // Module 1 runs alone first on a new Course: its wave writes the Course style sheet every other
     // Module's writer follows. Once any Module wave has merged, the style sheet exists.
     const [first] = current(ledger.modules).sort((a, b) => a.id.localeCompare(b.id));
