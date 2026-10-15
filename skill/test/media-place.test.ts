@@ -177,6 +177,24 @@ describe("ready judges every commit being merged, and each file against its own 
     expect(out.problems.join("\n")).toMatch(/media\/deep-dive\.mp3 isn't a checked item's re-encode/);
   });
 
+  test("a branch with a merge commit is refused: it is rebased onto main, never merged", () => {
+    // A merge commit's own diff is empty, so the history gate would never see what came in with it.
+    const c = mediaCourse({ git: true });
+    approved(c, AUDIO, 1);
+    const tree = mediaTree(c, 1);
+    must(stage(c, AUDIO, tree));
+    commit(tree, "feat: place Module 01's audio");
+    gitIn(tree, "checkout", "-q", "-b", "side", "HEAD~1");
+    writeFiles(tree, { [`${MODULE_DIR}/summary/1.md`]: "from a side branch\n" });
+    commit(tree, "feat: a side edit");
+    gitIn(tree, "checkout", "-q", "media/01-m01-1");
+    gitIn(tree, "merge", "-q", "--no-ff", "-m", "chore: merge the side branch", "side");
+
+    const { out } = ready(c, tree);
+
+    expect(out.problems.join("\n")).toMatch(/merge commit/);
+  });
+
   test("another Module's checked audio can't be committed as this Module's", () => {
     const c = mediaCourse({ git: true, alsoLive: ["02"] });
     approved(c, AUDIO, 1);

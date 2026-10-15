@@ -178,6 +178,15 @@ export function mediaReadyProblems(project: string, tree: string, module: string
   // The branch changes this Module's media, its slot file and its own Gate reports, and nothing else.
   const base = git(dir, "merge-base", MAIN_BRANCH, "HEAD");
   if (base.status === 0) {
+    // A merge commit's own diff is empty, so what came in with it would never be judged: rebase, never merge.
+    const merges = git(dir, "rev-list", "--merges", `${base.stdout.trim()}..HEAD`)
+      .stdout.split(/\r?\n/)
+      .filter(Boolean);
+    if (merges.length > 0) {
+      problems.push(
+        `the media branch has a merge commit (${merges.map((m) => m.slice(0, 7)).join(", ")}): rebase it onto ${MAIN_BRANCH} instead`,
+      );
+    }
     // Every commit being merged, not just the branch's end state: a fast-forward publishes each commit's blobs.
     // `--raw -z` gives `:<modes> <old blob> <new blob> <status>` and then the path, NUL-separated.
     const log = git(dir, "log", "--raw", "-z", "--no-renames", "--format=", `${base.stdout.trim()}..HEAD`);
