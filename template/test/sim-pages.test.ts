@@ -381,6 +381,10 @@ const ROUTES = [
   "about",
   "tool-gallery",
   "revision/midterm",
+  "exam/midterm",
+  "exam/midterm/2025",
+  "exam/midterm/mock-1",
+  "exam/midterm/announced",
 ];
 
 /** The `/_astro/` file an island's chunk imports lazily, picked by what its code holds. */
