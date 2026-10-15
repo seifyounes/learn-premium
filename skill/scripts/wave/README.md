@@ -30,6 +30,17 @@ document (`{"ok": true, ...}` or `{"ok": false, ...}`) and exits:
 | `relaunch open --holder H --wave W --job J [--files P…]` | A subagent relaunched after its predecessor died: re-gates the predecessor's files (paths in the wave's worktree, or `private:<path>` in the Private folder; a folder is every file in it) and returns each with `covered` and its `findings`, then records the relaunch open in the Build ledger. Content files go through the template's per-job gates on the Module; a Blind reader's reading is checked on its shape. A Blind reader (`blind-reader-a`/`-b`) is given its own reading only: naming any other file (the other reading, the settled one) is refused (2), and the output carries nothing of the other reader's. |
 | `relaunch close --holder H --wave W --job J --outcomes FILE` | `{"files": [{"path", "outcome": "kept"\|"fixed"\|"discarded"}]}` for every predecessor file. Exit 1 with `problems` unless each holds as the files are now: kept = unchanged and clean at the re-gate; fixed = changed, and clean on a fresh re-gate; discarded = deleted. Then the ledger records each file's outcome (and hash) and the relaunch closes. |
 
+| `assign --holder H --wave W --input FILE` | The wave's tool assignment: `{module, worked: [{n, model: "computable"\|"illustration", figure: null\|"none"\|"static"\|"animate"}], tools: [{name, worked: n or null, discipline, interaction, tool}]}`. Checked against each Discipline's Toolkit (`toolkits.ts`): exit 2 for a computable example with no tool, an illustration with one (or no figure kind), a repeated or non-file name, a tool or interaction the Toolkit lacks, or a Discipline whose Toolkit is empty. Exit 1 with `ask` (`key`, `question`, `discipline`, `tools`) while a tool's Discipline isn't the Course's: nothing is recorded, the Owner is asked at once, and no builder starts. Exit 0 returns `builders` (the job, name, tool and Worked example of each) and records the assignment in the Build ledger; assigning again supersedes it and keeps the fallbacks and hand-backs of unchanged tools. |
+| `discipline --holder H --wave W --name D --confirmed yes\|no --answer TEXT` | The Owner's answer on a Discipline the intake didn't list, kept as a Discipline row and as the Checkpoint row `NN/discipline/<name>`. A later answer supersedes. A Discipline the Toolkit doesn't know is refused (3): adding one waits for ticket #79. |
+| `handback --holder H --wave W --name N` | Checks a sim builder's hand-back (`builders/N.json`, below) and stores only its counts on the tool's row. Exit 2 for a hand-back that carries a time (any key naming one: the main agent measures it), names a file outside the Module's content folder or `build-records/`, lacks the tool's own file, or isn't the tool's. Exit 1, nothing stored, for a failed self-check, an unreadable region (settle it on its crop, or record the job `--result checkpoint`) or a schematic sim's part or net counts that differ from its model's. |
+| `fallback --holder H --wave W --job J --started-at ISO` | Falls a builder job of the assignment back once its two fix rounds are spent (3 before): a `sim-` job to its step-through, a `tool-` job to the next tool in its Discipline's Toolkit. One with none is refused (3): record it `--result checkpoint`. Records `fell-back` and the new `ships` together. |
+
+`ready` also holds the Module's content to the tool assignment (the template's `gates -- tools`
+lists the content's Worked examples and tools): a tool no assignment names, a computable example
+without its tool, an illustration with the wrong figure, a tool that isn't what it ships, a builder
+job not passed or without a hand-back, and any subagent job (`blind-reader-a`/`-b`, `style-sheet`,
+`writer`, `recompute`, `review`, a builder) recorded without `--started-at`.
+
 `ready` also refuses a wave with any job left blocked (a sim builder's, a tool's, a media item's
 too), a relaunch not closed, or a review that isn't settled for HEAD: the fresh reviewer's
 `review.json` must be of a commit where everything the Module page renders from is HEAD's
@@ -40,6 +51,8 @@ The jobs `ready` expects, recorded with `ledger.ts record job` (with `--started-
 `blind-reader-b`, `reconcile`, `style-sheet` (Module 1's wave only), `writer`, `recompute`,
 `job-gates`, `consistency`, `module-gates`, `deploy-gates`.
 And `review`, the fresh reviewer's, recorded passed once `review` exits 0.
+Each tool in the assignment adds its builder's job: `sim-<name>` (passed, or fell-back to its
+step-through) or `tool-<name>` (passed), recorded with `--started-at`.
 
 ## Files in the Private folder
 
@@ -77,6 +90,13 @@ Everything the Blind readers and reconcile touch carries the Professor's text, s
   is the finding's, as `review` lists it (a hash of the finding and the commit reviewed, so a verdict stands only for the
   finding it was made on). A confirmed one names its `evidence` (the crop or screenshot it was
   re-verified on, in the Private folder) and `fix`, the job that fixes it.
+
+- `builders/<name>.json`, a sim builder's hand-back: `{"handback": "learn-premium sim builder v1",
+  "module": "NN", "name", "tool", "figure": {"file", "page", "box", "label"}, "files": [...],
+  "counts": {"parts", "nets"}, "assumptions": [{"value", "why"}], "unreadables": [{"where", "what"}],
+  "selfCheck": {"ran": [...], "passed", "notes"}}`. `files` are relative to the Course project and
+  include the tool's own file. It quotes the Professor and never leaves the Private folder: the
+  ledger and the build report keep its counts only.
 
 Gate reports are read from the Course's `content/build-records/gate-reports/`, where `npm run gates`
 writes them.

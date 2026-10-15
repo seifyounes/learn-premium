@@ -495,6 +495,10 @@ keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.
   and blocking it is a miss too.
 - `rulings [--module …]` prints (JSON) every Slip and Divergence the content carries; the Module
   wave's merge gate holds each one to a stored Owner ruling.
+- `tools --module …` prints (JSON) the Module's Worked examples (each with its figure: `none`,
+  `static` or `animated`) and tools (each sim, Pyodide tool and part, with its Worked example, whether
+  it ships live, and a schematic sim's part and net counts), and any file the contract can't read.
+  Not a gate: the Module wave's merge gate holds the content to the tool assignment with it.
 - `shots --module … --out DIR [--url URL] [--commit SHA]` takes the fresh reviewer's screenshots of
   the Module page on Chromium: at 375px (phone) and 1280px (laptop), every collapsible open and the
   page scrolled through so its islands hydrate, once per tab view. `DIR/shots.json` lists them and

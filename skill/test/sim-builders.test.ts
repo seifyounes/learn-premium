@@ -1035,3 +1035,111 @@ describe("the merge gate holds the content to the assignment", () => {
     ]);
   });
 });
+
+describe("the build report", () => {
+  const report = (project: string) => readFileSync(`${project}/build-records/build-report.md`, "utf8");
+
+  test("build report lists every assignment and fallback with measured times", () => {
+    const course = built();
+    // The live sim was launched two minutes and five seconds ago: the real clock, as the ledger's own tests use.
+    must(
+      ledger(
+        ...["record", "job", ...holder(course.project), "--wave", course.waveId, "--job", "sim-descent"],
+        ...["--result", "passed", "--started-at", new Date(Date.now() - 125_000).toISOString()],
+      ),
+    );
+    // The Pyodide tool was recorded without a launch time.
+    must(
+      ledger(
+        ...["record", "job", ...holder(course.project), "--wave", course.waveId, "--job", "tool-normal-equation"],
+        ...["--result", "passed"],
+      ),
+    );
+
+    const text = report(course.project);
+
+    expect(text).toContain("Tool assignment (W03.1 computable):");
+    expect(text).toMatch(
+      /\| W03\.1 \| descent \| Machine learning \| optimisation \| gradient-descent \| gradient-descent \| sim-descent \| passed \| 2 min [5-9] s \| 1 file · 0 parts · 0 nets · 1 assumption \|/,
+    );
+    // Lab only, and fallen back to its step-through after two fix rounds.
+    expect(text).toMatch(
+      /\| Lab \| descent-steps \| Machine learning \| optimisation \| gradient-descent \| step-through \(fell back from gradient-descent\) \| sim-descent-steps \| fell-back \| 1 min \d+ s \| 1 file · 0 parts · 0 nets · 1 assumption \|/,
+    );
+    expect(text).toMatch(
+      /\| W03\.1 \| normal-equation \| Machine learning \| real Python \| pyodide \| pyodide \| tool-normal-equation \| passed \| not measured \|/,
+    );
+    expect(text).toContain("The Owner can overrule any assignment or fallback; the wave re-assigns it.");
+  });
+
+  test("a wave with no assignment, or one waiting on the Owner's answer about a Discipline, shows no tool table", () => {
+    const { project, waveId } = module03();
+    expect(report(project)).not.toContain("Tool assignment");
+
+    const asked = assignWave(
+      project,
+      waveId,
+      assignment((a) => {
+        a.tools = [
+          {
+            name: "wall",
+            worked: "1",
+            discipline: "Heat transfer",
+            interaction: "conduction field",
+            tool: "plane-wall",
+          },
+        ];
+      }),
+    );
+
+    expect(asked.code).toBe(1);
+    expect(report(project)).not.toContain("Tool assignment");
+    expect(report(project)).not.toContain("Disciplines confirmed during the build");
+    expect(must(ledger("status", "--project", project)).assignments).toEqual([]);
+  });
+
+  test("lists the Disciplines the Owner confirmed during the build, with his answer's outcome and not its text", () => {
+    const { project, waveId } = module03();
+    wave([
+      ...["discipline", ...holder(project), "--wave", waveId],
+      ...["--name", "Heat transfer", "--confirmed", "yes", "--answer", "Yes: the wall sim is Module 03's whole point."],
+    ]);
+
+    const text = report(project);
+
+    expect(text).toContain("## Disciplines confirmed during the build");
+    expect(text).toMatch(/\| Heat transfer \| module-03-1 \| confirmed \| \d{4}-/);
+    expect(text).not.toContain("whole point");
+  });
+
+  test("build report lists the deploy report's pad fixes", () => {
+    const { project, waveId } = module03();
+    const fix =
+      "course.yaml pad #D2691E: print #653518 → #533E33 (print at least 60° of hue from the red pen, or near-grey: was 18°)";
+    const touch = () =>
+      must(
+        ledger("record", "job", ...holder(project), "--wave", waveId, "--job", "deploy-gates", "--result", "passed"),
+      );
+
+    touch();
+    expect(report(project)).toContain("## Pad auto-fixes (deploy gates, reported only)\n\nNo deploy Gate report yet.");
+
+    writeFiles(project, {
+      "content/build-records/gate-reports/deploy.json": JSON.stringify({
+        gates: [{ id: "pad", fixes: [fix] }, { id: "notation" }],
+      }),
+    });
+    touch();
+    expect(report(project)).toContain(`## Pad auto-fixes (deploy gates, reported only)\n\n- ${fix}\n`);
+
+    writeFiles(project, {
+      "content/build-records/gate-reports/deploy.json": JSON.stringify({ gates: [{ id: "pad", fixes: [] }] }),
+    });
+    touch();
+    expect(report(project)).toContain("## Pad auto-fixes (deploy gates, reported only)\n\nNone.");
+
+    writeFiles(project, { "content/build-records/gate-reports/deploy.json": "{ not json" });
+    touch();
+    expect(report(project)).toContain("The deploy Gate report isn't readable.");
+  });
+});

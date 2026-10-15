@@ -41,6 +41,24 @@ describe("the sim on the built pages", () => {
     expect(sliders.map((s) => /value="([^"]+)"/.exec(s)?.[1])).toEqual(["0.1", "0", "0", "2"]);
   });
 
+  it("every tool Module 03's inventory lists is in the Lab, and inline in its Worked example", () => {
+    // The tool inventory the Module wave's merge gate holds the content to: the skill keeps it as a fixture.
+    const inventory = JSON.parse(
+      readFileSync(join(import.meta.dirname, "../../skill/test/fixtures/tool-inventory", `${MODULE}.json`), "utf8"),
+    ) as { tools: { name: string; collection: "sims" | "python" | "parts"; worked: string | null }[] };
+    const idOf = { sims: "sim", python: "python", parts: "part" } as const;
+    const lab = build.page("lab");
+    const module = build.page(MODULE);
+    expect(inventory.tools).not.toHaveLength(0);
+    for (const tool of inventory.tools) {
+      const id = `id="${idOf[tool.collection]}-${MODULE}-${tool.name}"`;
+      expect(lab, `${tool.name} is in the Lab`).toContain(id);
+      if (tool.worked !== null)
+        expect(articleOf(module, `W03.${tool.worked}`), `${tool.name} sits in W03.${tool.worked}`).toContain(id);
+      else expect(module, `${tool.name} is Lab only`).not.toContain(id);
+    }
+  });
+
   it("labels its illustrative constants with their Provenance tag", () => {
     const article = articleOf(build.page(MODULE), "W03.1");
     const sim = article.slice(article.indexOf('class="sim-card"'));

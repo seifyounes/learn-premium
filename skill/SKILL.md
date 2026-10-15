@@ -171,6 +171,12 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
    writes `content/modules/NN-<slug>/`, and the independent recompute (`briefs/recompute.md`) writes
    `content/build-records/recompute/NN-<slug>/worked-<n>.json`, never seeing the writer's files. An
    Agent-built sim gets its own sim builder and its own recompute log.
+
+   **Tool assignment and the sim builders** (`Tool assignment and sim builders` below): write the
+   assignment, `node "$W" assign --project <P> --holder <id> --wave <W> --input <file>`. Exit 1 asks
+   the Owner about a Discipline now, in chat, before any builder starts. Then launch one sim builder
+   per `builders` entry (`briefs/sim-builder.md`), note when you launched each, and when it hands back,
+   `node "$W" handback …`, then `record job --job <sim-… or tool-…> --started-at <launch>`.
 6. **Per-job gates**, from `<P>/template` (after `npm ci`), always on the Course's content:
    `npm run gates -- run --point job --module NN-<slug> --content ../content`. A block goes back to
    the job that made it. Re-verify every finding before blocking on it.
@@ -253,6 +259,10 @@ the recompute, a gate run) records `--result checkpoint --detail "<what it needs
 batched Checkpoint. The ledger refuses another try once the rounds are spent, and `ready` refuses
 any job of the wave left blocked: a Module never merges red, and never stalls on one job.
 
+A builder job of the tool assignment (`sim-<name>`, `tool-<name>`) takes its fallback with `node "$W"
+fallback --holder <id> --wave <W> --job <job> --started-at <launch>` instead, which records
+`fell-back` and the new `ships` in the assignment together.
+
 ### A subagent that dies
 
 When a subagent dies mid-job (no report, a broken session), relaunch it, but never on top of
@@ -265,6 +275,35 @@ on it. Record the outcomes with `relaunch close --outcomes <file>`; the ledger k
 and the build report lists them, and `ready` waits for every relaunch to close and for the relaunched job to record its own result. A relaunched Blind
 reader takes no `--files`: it gets its own predecessor's reading only, never the other reader's
 output.
+
+### Tool assignment and sim builders
+
+Each Module wave decides which tool each Worked example and Lab item gets, from the Toolkits of the
+Course's confirmed Disciplines (`scripts/wave/toolkits.ts`: the Disciplines' interactions and the
+tool built for each; the Owner may change them). You write the assignment once the settled reading
+is in: each Worked example is `computable` (it gets a tool) or an `illustration` (its figure stays
+`static`, `animate`s or has `none`), and each tool names its file's `name`, its `worked` example (null:
+Lab only), its `discipline`, its `interaction` and the Toolkit `tool` it is built as. `assign` refuses
+a computable example with no tool, an illustration with one, and a tool its Discipline's Toolkit lacks
+(2). A Discipline the intake didn't list exits 1 with the question to put to the Owner now, in
+chat, not in the batched Checkpoint: record his answer with `node "$W" discipline --holder <id> --wave
+<W> --name <D> --confirmed yes|no --answer "<his words>"` (it also becomes a Checkpoint row), then run
+`assign` again. A Discipline the Toolkit doesn't know is refused (3) until ticket #79 adds it.
+
+One sim builder runs per tool, in parallel, each given `briefs/sim-builder.md`. It writes its tool
+file only and leaves its hand-back in `<Private>/waves/NN/builders/<name>.json`: the figure it read,
+its files, part and net counts, assumptions, unreadable regions and its self-check. It reports no
+time: you measure it, so record the job with `--started-at` from when you launched it. `handback`
+checks it. A failed self-check, an unreadable region (settle it on its crop yourself, or record the
+job `checkpoint`) or counts that disagree with the sim's model go back (exit 1, nothing stored). Only
+its counts reach the Build ledger and the build report, never its text.
+
+After two fix rounds a sim falls back to a step-through of the Professor's figure, and a tool to the
+next tool in its Discipline's Toolkit; one with none goes to the Owner (`fallback`, above). `ready`
+holds the Module's content to the assignment (every example and tool in the content has its entry,
+and each tool is what it ships), every builder job passed and timed, and every subagent job timed.
+`build-report.md` lists every assignment and fallback, the measured time, and the pad's contrast
+auto-fixes from the deploy Gate report, for the Owner to overrule.
 
 ## Gate gaps and Course overrides
 

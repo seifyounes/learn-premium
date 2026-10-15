@@ -8,7 +8,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import { WAVE_JOBS } from "../scripts/wave/wave.ts";
-import { fixtureCourse, materialsOf } from "./fixture-courses.ts";
+import { EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { jsonInput, ledger, tempDir, writeFiles } from "./helpers.ts";
 import { review, shots } from "./review-fixtures.ts";
@@ -29,8 +29,11 @@ function gitIn(repo: string, ...args: string[]) {
 
 const headOf = (repo: string) => gitIn(repo, "rev-parse", "HEAD").trim();
 
+/** The `--started-at` flag the main agent records with a job: when it launched it, measured by itself. */
+const launched = () => ["--started-at", new Date(Date.now() - 90_000).toISOString()];
+
 const greenVerifier: Partial<WaveDeps> = {
-  verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [] },
+  verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [], inventory: () => EMPTY_INVENTORY },
 };
 
 function wave(args: string[], deps: Partial<WaveDeps> = {}) {
@@ -149,7 +152,20 @@ function toCheckpoint(
     }),
   });
   for (const job of WAVE_JOBS)
-    must(ledger("record", "job", ...holder(c.project), "--wave", w.waveId, "--job", job, "--result", "passed"));
+    must(
+      ledger(
+        "record",
+        "job",
+        ...holder(c.project),
+        "--wave",
+        w.waveId,
+        "--job",
+        job,
+        "--result",
+        "passed",
+        ...launched(),
+      ),
+    );
   gitIn(w.tree, "add", "-A");
   gitIn(w.tree, "commit", "-q", "-m", `feat: Module ${nn}`);
   const head = headOf(w.tree);
@@ -237,7 +253,7 @@ describe("each Module's wave in its own worktree", () => {
     const status = ledger("status", "--project", w2.tree);
     const record = ledger(
       ...["record", "job", ...holder(w2.tree)],
-      ...["--wave", w2.waveId, "--job", "writer", "--result", "passed"],
+      ...["--wave", w2.waveId, "--job", "writer", "--result", "passed", ...launched()],
     );
 
     expect(status.code).toBe(2);
@@ -324,7 +340,7 @@ describe("the ledger lock across parallel waves", () => {
 
     const refused = [
       ledger("lock", "claim", ...other),
-      ledger("record", "job", ...other, "--wave", w2.waveId, "--job", "writer", "--result", "passed"),
+      ledger("record", "job", ...other, "--wave", w2.waveId, "--job", "writer", "--result", "passed", ...launched()),
       ledger("wave", "end", ...other, "--wave", w2.waveId, "--result", "failed"),
       ledger("map", ...other, "--input", jsonInput({ modules: [], unmapped: [] })),
       ledger("supersede", ...other, "--row", "module", "--id", "03", "--reason", "not mine"),
