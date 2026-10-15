@@ -296,6 +296,35 @@ const upgrade = obj({
   superseded,
 });
 
+/** A past paper's name in the content and the Private folder: lower-case words and digits joined by dashes (`2025`, `midterm-2024`). */
+export const paperSlug: Schema<string> = (v, p) =>
+  typeof v === "string" && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(v) ? v : fail(p, "lower-case words joined by dashes", v);
+
+/**
+ * What the Owner says when a sitting is complete (`sitting complete`): the Modules it covers, the
+ * past papers (files in the Materials, each with its name) and the format the Professor announced
+ * (the Owner's own words; null when none was). Only his word starts a Sitting wave. A new one
+ * supersedes the last for the sitting.
+ */
+export const sittingCompleteInput = obj({
+  sitting: nonEmpty,
+  modules: arr(moduleId),
+  papers: arr(obj({ slug: paperSlug, path: nonEmpty })),
+  announced: nullable(nonEmpty),
+  /** The Owner's words, as he said them. */
+  answer: nonEmpty,
+});
+
+const sittingComplete = obj({
+  sitting: nonEmpty,
+  modules: arr(moduleId),
+  papers: arr(obj({ slug: paperSlug, path: nonEmpty })),
+  announced: nullable(nonEmpty),
+  answer: nonEmpty,
+  at: isoTime,
+  superseded,
+});
+
 const ledgerShape = obj({
   schema: (v, p) => (v === SCHEMA_VERSION ? SCHEMA_VERSION : failVersion(p, v)),
   intake: intakeSchema,
@@ -319,13 +348,27 @@ const ledgerShape = obj({
   upgrades: arr(upgrade),
   assignments: arr(assignment),
   disciplines: arr(discipline),
+  /** The Owner's word that a sitting is complete, each time he said it. */
+  sittingsComplete: arr(sittingComplete),
 });
 
-/** A ledger written before gate gaps, relaunches or Upgrade waves were recorded reads as having none, and not done. */
+/**
+ * A ledger written before gate gaps, relaunches, Upgrade waves or the Owner's complete-sitting word
+ * were recorded reads as having none, and not done.
+ */
 export const ledgerSchema: Schema<Infer<typeof ledgerShape>> = (v, p) =>
   ledgerShape(
     typeof v === "object" && v !== null && !Array.isArray(v)
-      ? { gateGaps: [], done: null, relaunches: [], upgrades: [], assignments: [], disciplines: [], ...v }
+      ? {
+          gateGaps: [],
+          done: null,
+          relaunches: [],
+          upgrades: [],
+          assignments: [],
+          disciplines: [],
+          sittingsComplete: [],
+          ...v,
+        }
       : v,
     p,
   );
@@ -352,6 +395,8 @@ export type ModuleMap = Infer<typeof moduleMapSchema>;
 export type GateGap = Infer<typeof gateGap>;
 export type Relaunch = Infer<typeof relaunch>;
 export type Upgrade = Infer<typeof upgrade>;
+export type SittingComplete = Infer<typeof sittingComplete>;
+export type SittingCompleteInput = Infer<typeof sittingCompleteInput>;
 export type RelaunchOutcome = (typeof RELAUNCH_OUTCOMES)[number];
 export type Assignment = Infer<typeof assignment>;
 export type AssignedTool = Assignment["tools"][number];

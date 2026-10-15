@@ -24,6 +24,8 @@ import {
   type ModuleMap,
   type ModuleRow,
   type Ruling,
+  type SittingComplete,
+  type SittingCompleteInput,
   type Upgrade,
   type Wave,
   type WaveKind,
@@ -186,6 +188,7 @@ export function init(project: string, holder: string, release: string, intake: I
       upgrades: [],
       assignments: [],
       disciplines: [],
+      sittingsComplete: [],
     };
     return { ledger, result: undefined };
   });
@@ -258,6 +261,13 @@ export function startWave(project: string, holder: string, kind: WaveKind, targe
     if (kind === "sitting" && !ledger.intake.sittings.some((s) => s.id === target)) {
       throw new LedgerError("invalid", `no Exam sitting "${target}" in the intake answers`);
     }
+    // A Sitting wave starts only on the Owner's word that the sitting is complete: never on the agent's own.
+    if (kind === "sitting" && completeRow(ledger, target) === null) {
+      throw new LedgerError(
+        "refused",
+        `sitting ${target} isn't complete: only the Owner's word starts its Sitting wave, recorded with sitting complete`,
+      );
+    }
     const running = current(ledger.waves).find((w) => w.kind === kind && w.target === target && w.state === "running");
     if (running !== undefined)
       throw new LedgerError("refused", `wave ${running.id} is already running on ${kind} ${target}`);
@@ -299,6 +309,43 @@ export function startWave(project: string, holder: string, kind: WaveKind, targe
       takeInMaterials(ledger, target, at);
     }
     return id;
+  });
+}
+
+/** The Owner's current word that sitting `id` is complete, or null when he hasn't said so. */
+export function completeRow(ledger: Ledger, id: string): SittingComplete | null {
+  return current(ledger.sittingsComplete).find((row) => row.sitting === id) ?? null;
+}
+
+/**
+ * Records the Owner's word that a sitting is complete: the Modules it covers, its past papers (files
+ * in the Materials) and the format the Professor announced. It supersedes his earlier word for the
+ * sitting, and doesn't start the wave: the agent does, once the Owner has said it.
+ */
+export function completeSitting(project: string, holder: string, input: SittingCompleteInput): void {
+  mutate(project, holder, (ledger) => {
+    if (!ledger.intake.sittings.some((s) => s.id === input.sitting))
+      throw new LedgerError("invalid", `no Exam sitting "${input.sitting}" in the intake answers`);
+    if (input.modules.length === 0)
+      throw new LedgerError("invalid", `sitting ${input.sitting} covers no Module: name at least one`);
+    const modules = current(ledger.modules);
+    for (const id of input.modules) {
+      if (!modules.some((m) => m.id === id)) throw new LedgerError("invalid", `Module ${id} isn't in the Module map`);
+      if (input.modules.indexOf(id) !== input.modules.lastIndexOf(id))
+        throw new LedgerError("invalid", `Module ${id} is listed twice`);
+    }
+    const materials = new Set(current(ledger.materials).map((m) => m.path));
+    const slugs = new Set<string>();
+    for (const { slug, path } of input.papers) {
+      if (slugs.has(slug)) throw new LedgerError("invalid", `the past paper name "${slug}" is used twice`);
+      slugs.add(slug);
+      if (!materials.has(path)) throw new LedgerError("invalid", `${path} isn't a Materials file in the Module map`);
+    }
+    const at = now();
+    for (const row of current(ledger.sittingsComplete)) {
+      if (row.sitting === input.sitting) row.superseded = { at, reason: "the Owner said it again" };
+    }
+    ledger.sittingsComplete.push({ ...input, at, superseded: null });
   });
 }
 
@@ -477,7 +524,11 @@ export function status(project: string) {
       state,
       materials: materials.filter((m) => m.module === id).map((m) => m.path),
     })),
-    sittings: ledger.intake.sittings.map((sitting) => ({ ...sitting, state: sittingState(ledger, sitting.id) })),
+    sittings: ledger.intake.sittings.map((sitting) => ({
+      ...sitting,
+      state: sittingState(ledger, sitting.id),
+      complete: completeRow(ledger, sitting.id),
+    })),
     waves: current(ledger.waves),
     jobs: current(ledger.jobs),
     checkpoints: current(ledger.checkpoints),
