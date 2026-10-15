@@ -15,6 +15,7 @@ import { LedgerError } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
 import { requireLedger, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
+import { staleProblems } from "./fresh.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
 import { relaunchProblems } from "./relaunch.ts";
 import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
@@ -385,6 +386,8 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   }
   const settledProblem = settledReadingProblem(privateFolder, id);
   if (settledProblem !== null) problems.push(settledProblem);
+  // A re-run wave can't merge on readings or a review older than the Materials it took in.
+  problems.push(...staleProblems(ledger, privateFolder, id));
   // A relaunched subagent's predecessor files, re-gated and each settled before the wave counts them.
   problems.push(...relaunchProblems(ledger, waveId));
   // The fresh reviewer's eyes loop and adversarial read, of HEAD's Module content, re-verified.

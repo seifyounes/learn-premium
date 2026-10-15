@@ -2,7 +2,7 @@
 // Course project, while the Build ledger stays in the main checkout. Synthetic Fixture Course projects
 // only: no Materials, no Vercel, the template's gate verify faked.
 import { spawnSync } from "node:child_process";
-import { chmodSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, readFileSync, rmSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
@@ -116,7 +116,13 @@ function readAndReconcile(c: Course, nn: string) {
  * committed on its branch, every job recorded, the reviewer's screenshots and review of that commit.
  * `items` are the Checkpoint items its gates raise.
  */
-function toCheckpoint(c: Course, nn: string, w: { tree: string; waveId: string }, items: unknown[] = []) {
+function toCheckpoint(
+  c: Course,
+  nn: string,
+  w: { tree: string; waveId: string },
+  items: unknown[] = [],
+  revision = "",
+) {
   readAndReconcile(c, nn);
   const report = (point: string, extra: Record<string, unknown>) =>
     JSON.stringify({
@@ -127,7 +133,7 @@ function toCheckpoint(c: Course, nn: string, w: { tree: string; waveId: string }
       ...extra,
     });
   writeFiles(w.tree, {
-    [`content/modules/${nn}-m${nn}/module.yaml`]: `title: Module ${nn}\n`,
+    [`content/modules/${nn}-m${nn}/module.yaml`]: `title: Module ${nn}${revision}\n`,
     [`content/build-records/gate-reports/job-${nn}-m${nn}.json`]: report("job", { module: `${nn}-m${nn}` }),
     [`content/build-records/gate-reports/module-${nn}-m${nn}.json`]: report("module", {
       module: `${nn}-m${nn}`,
@@ -295,5 +301,76 @@ describe("waves merge independently", () => {
     const problems = readyOf(c, w3.waveId).join("\n");
 
     expect(problems).toMatch(/changes another Module's files \(content\/modules\/02-m02\/extra\.md\)/);
+  });
+});
+
+/** Module 02 built and merged, then its lecture revised on disk: the Course is ready for 02's fresh wave. */
+function revisedCourse() {
+  const c = parallelCourse();
+  const first = startWave(c, "02");
+  toCheckpoint(c, "02", first);
+  mergeInto(c, "02", first);
+  const snapshot = readFileSync(join(c.project, "build-ledger.json"), "utf8");
+  writeFiles(materialsOf(c.project), { "L02.pdf": "revised" });
+  return { c, snapshot };
+}
+
+describe("incremental builds: a changed file re-runs its wave", () => {
+  test("a changed file flags its Module; a fresh wave rebuilds it from fresh readings and merges; the old rows stay marked superseded", () => {
+    const { c, snapshot } = revisedCourse();
+
+    const next = must(ledger("next", "--project", c.project));
+    const again = startWave(c, "02", "module/02-m02-2");
+    toCheckpoint(c, "02", again, [], " revised");
+    const problems = readyOf(c, again.waveId);
+    mergeInto(c, "02", again);
+
+    expect(next.waves).toEqual([
+      { kind: "module", target: "02", reasons: ["materials-changed"] },
+      { kind: "module", target: "03", reasons: ["planned"] },
+    ]);
+    expect(problems).toEqual([]);
+    const status = statusOf(c.project);
+    expect(status.superseded).toContainEqual(
+      expect.objectContaining({ row: "material", id: "L02.pdf", reason: "changed on disk" }),
+    );
+    const raw = JSON.parse(readFileSync(join(c.project, "build-ledger.json"), "utf8"));
+    const rows = raw.materials.filter((m: { path: string }) => m.path === "L02.pdf");
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((m: { superseded: unknown }) => m.superseded === null)).toHaveLength(1);
+    expect(
+      raw.waves.filter((w: { target: string }) => w.target === "02").map((w: { state: string }) => w.state),
+    ).toEqual(["merged", "merged"]);
+    // Nothing is deleted: every row the earlier ledger held is still there, only its `superseded` may differ.
+    const before = JSON.parse(snapshot);
+    for (const m of before.materials)
+      expect(raw.materials).toContainEqual(
+        expect.objectContaining({ path: m.path, hash: m.hash, recordedAt: m.recordedAt }),
+      );
+    for (const j of before.jobs)
+      expect(raw.jobs).toContainEqual(expect.objectContaining({ wave: j.wave, job: j.job, recordedAt: j.recordedAt }));
+    const page = readFileSync(join(c.project, "build-records/status.md"), "utf8");
+    expect(page).toContain("## Superseded");
+    expect(page).toContain("| material | L02.pdf |");
+  });
+
+  test("readings and a review older than the Module's Materials keep the fresh wave from merging", () => {
+    const { c } = revisedCourse();
+    const again = startWave(c, "02", "module/02-m02-2");
+    toCheckpoint(c, "02", again, [], " revised");
+    const hourAgo = new Date(Date.now() - 3_600_000);
+    const files = ["reading-a.json", "reading-b.json", "review/review.json"].map((f) =>
+      join(c.privateFolder, "waves/02", f),
+    );
+    for (const file of files) utimesSync(file, hourAgo, hourAgo);
+
+    const stale = readyOf(c, again.waveId).join("\n");
+    for (const file of files) utimesSync(file, new Date(), new Date());
+    const fresh = readyOf(c, again.waveId);
+
+    expect(stale).toMatch(/reading-a\.json in the Private folder is older than Module 02's Materials/);
+    expect(stale).toMatch(/reading-b\.json in the Private folder is older than Module 02's Materials/);
+    expect(stale).toMatch(/review\/review\.json in the Private folder is older than Module 02's Materials/);
+    expect(fresh).toEqual([]);
   });
 });

@@ -10,6 +10,7 @@ import { hashTree } from "./hash.ts";
 import { diffMaterials, kindOf, type MaterialsDiff } from "./materials.ts";
 import { overrideProblem, overridesAgainstLedger } from "./overrides.ts";
 import { proposeForNew } from "./proposal.ts";
+import { ENTRIES, ROW_KINDS, supersededRows, type RowKind } from "./rows.ts";
 import {
   current,
   SCHEMA_VERSION,
@@ -27,6 +28,8 @@ import {
   type WaveResult,
 } from "./model.ts";
 import { LedgerError, readLedger, updateLedger } from "./store.ts";
+
+export { ROW_KINDS, type RowKind };
 
 function now(): string {
   return new Date().toISOString();
@@ -53,34 +56,6 @@ export function mutate<T = void>(project: string, holder: string, change: (ledge
     }
     return { ledger, result: change(ledger) };
   });
-}
-
-export const ROW_KINDS = ["material", "module", "wave", "job", "checkpoint", "override", "gate-gap"] as const;
-export type RowKind = (typeof ROW_KINDS)[number];
-
-/** A row of any kind, with the id it goes by on the command line. */
-interface Entry {
-  id: string;
-  row: { superseded: { at: string; reason: string } | null };
-}
-
-/** Every row of one kind that can be superseded, keyed by its command-line id. */
-const ENTRIES: Record<RowKind, (ledger: Ledger) => Entry[]> = {
-  material: (l) => l.materials.map((row) => ({ id: row.path, row })),
-  module: (l) => l.modules.map((row) => ({ id: row.id, row })),
-  wave: (l) => l.waves.map((row) => ({ id: row.id, row })),
-  job: (l) => l.jobs.map((row) => ({ id: `${row.wave}/${row.job}`, row })),
-  checkpoint: (l) => l.checkpoints.map((row) => ({ id: row.key, row })),
-  override: (l) => l.template.overrides.map((row) => ({ id: row.path, row })),
-  "gate-gap": (l) => l.gateGaps.map((row) => ({ id: row.id, row })),
-};
-
-function supersededRows(ledger: Ledger) {
-  return ROW_KINDS.flatMap((kind) =>
-    ENTRIES[kind](ledger).flatMap(({ id, row }) =>
-      row.superseded === null ? [] : [{ row: kind, id, ...row.superseded }],
-    ),
-  );
 }
 
 export interface PlannedWave {
