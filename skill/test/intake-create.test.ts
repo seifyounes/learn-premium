@@ -501,7 +501,7 @@ describe("create", { timeout: 30_000 }, () => {
     const { out } = ledger("status", "--project", s.project);
     expect(out.course).toBe("Heat Transfer");
     expect(out.lock).toMatchObject({ holder: "run-1" });
-    expect(out.sittings).toEqual([{ id: "final", name: "Final", date: null, state: "open" }]);
+    expect(out.sittings).toEqual([{ id: "final", name: "Final", date: null, state: "open", complete: null }]);
     const registry = JSON.parse(readFileSync(join(s.state, "courses.json"), "utf8"));
     expect(registry.courses).toEqual([expect.objectContaining({ project: s.project, course: "Heat Transfer" })]);
   });
