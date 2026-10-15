@@ -16,7 +16,7 @@ import { mutate, requireLedger, runningUpgrade, templateHashes, verifyIntegrity 
 import { current, TEMPLATE_DIR, type Ledger, type Upgrade } from "../ledger/model.ts";
 import { OVERRIDABLE } from "../ledger/overrides.ts";
 import type { Tracker } from "../gate-gap/tracker.ts";
-import { moduleFolder, type Verifier } from "../wave/wave.ts";
+import { checkpoint, moduleFolder, type Verifier } from "../wave/wave.ts";
 import { heldReason, planUpgrade } from "./plan.ts";
 
 const BRANCH = "main";
@@ -119,7 +119,14 @@ export function startUpgrade(
   const attempt = ledger.upgrades.filter((u) => u.to === o.to).length + 1;
   const id = `upgrade-${o.to}-${attempt}`;
   const waveBranch = `upgrade/${o.to}-${attempt}`;
+  if (git(project, ["rev-parse", "--verify", "-q", `refs/heads/${waveBranch}`]).ok)
+    throw new LedgerError(
+      "refused",
+      `the branch ${waveBranch} already exists: nothing was recorded; delete or rename it first`,
+    );
   mutate(project, holder, (l) => {
+    // A Course being upgraded isn't done, as a Course being built again isn't.
+    l.done = null;
     l.upgrades.push({
       id,
       from: plan.from,
@@ -433,10 +440,10 @@ export function upgradeProblems(project: string, verifier: Verifier): string[] {
   // The template layer's own gates verify the branch: an edited layer could verify anything.
   if (changes.length > 0) return problems;
   const modules = current(ledger.modules)
-    .map((row) => moduleFolder(ledger, row.id).folder)
-    .filter((folder) => existsSync(join(project, CONTENT_DIR, "modules", folder)))
-    .sort();
-  for (const folder of modules) {
+    .map((row) => ({ id: row.id, folder: moduleFolder(ledger, row.id).folder }))
+    .filter(({ folder }) => existsSync(join(project, CONTENT_DIR, "modules", folder)))
+    .sort((a, b) => a.folder.localeCompare(b.folder));
+  for (const { id, folder } of modules) {
     for (const point of ["job", "module"] as const) {
       const verdict = verifier.verify(project, point, folder);
       if (!verdict.green)
@@ -446,6 +453,17 @@ export function upgradeProblems(project: string, verifier: Verifier): string[] {
     if (preview === null || !/^https:\/\//.test(preview))
       problems.push(
         `the module gates for ${folder} didn't run on a Vercel preview: run the module point with --url <preview URL>`,
+      );
+    // A green report can still carry a Checkpoint item for the Owner (a new gate's finding). An answer an
+    // earlier wave stored still counts; a new one is recorded under this wave's id (`ledger record checkpoint`).
+    const items = checkpoint(project, id);
+    for (const item of items.open)
+      problems.push(
+        `Checkpoint item ${item.key} is unanswered${item.sheet ? " (it needs a Slip or Divergence ruling)" : ""}: ask the Owner and record the answer with --wave ${upgrade.id}`,
+      );
+    for (const item of items.unapplied)
+      problems.push(
+        `Checkpoint item ${item.key} was ruled a ${item.ruling}, but the content doesn't carry the ruling yet`,
       );
   }
   const deploy = verifier.verify(project, "deploy", undefined);

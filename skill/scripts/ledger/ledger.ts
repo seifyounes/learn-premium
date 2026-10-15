@@ -365,7 +365,9 @@ export function recordCheckpoint(
 ): void {
   mutate(project, holder, (ledger) => {
     const wave = current(ledger.waves).find((w) => w.id === item.wave);
-    if (wave === undefined || wave.state !== "running")
+    // An Upgrade wave's gates can raise Checkpoint items no earlier wave answered: its id takes the answer too.
+    const upgrade = runningUpgrade(ledger);
+    if ((wave === undefined || wave.state !== "running") && upgrade?.id !== item.wave)
       throw new LedgerError("invalid", `no running wave ${item.wave}`);
     const at = now();
     for (const row of current(ledger.checkpoints)) {
