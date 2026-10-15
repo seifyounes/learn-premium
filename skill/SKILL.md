@@ -322,7 +322,9 @@ on its release. `$U` is `scripts/upgrade.ts` (`scripts/upgrade/README.md`), `<P>
    NN-<slug> --content ../content`); build the commit (`CONTENT_DIR=../content npm run build`); the
    module gates on the preview (`--point module … --dist dist --url <preview URL>`). Then the deploy
    gates on a production build, once for the Course (`--point deploy`, as the Module wave's step 8).
-   Commit the Gate reports. Then `node "$U" ready --project <P>`.
+   Commit the Gate reports. Then `node "$U" ready --project <P>`. An item a gate newly raises is the
+   Owner's: ask as in the Module wave's Checkpoint, and store the answer with `$L record checkpoint
+   --wave <upgrade id> …`.
 4. **Red.** Read `problems`. If dropping an override is the suspect, restore the retired overrides
    in a scratch run and see which fail; for each that does, `node "$U" keep --project <P> --holder
    <id> --path <override> --reason "<which gate fails>"` (it reopens that gate gap on learn-premium

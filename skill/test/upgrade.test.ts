@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { run as runGateGap } from "../scripts/gate-gap/cli.ts";
 import { hashTree } from "../scripts/ledger/hash.ts";
-import type { MergePoint, Verifier } from "../scripts/wave/wave.ts";
+import { checkpoint, type MergePoint, type Verifier } from "../scripts/wave/wave.ts";
 import { run as runUpgrade, type Deps } from "../scripts/upgrade/cli.ts";
 import { must } from "./fake-notebooklm.ts";
 import { FakeTracker } from "./fake-tracker.ts";
@@ -321,6 +321,27 @@ describe("start", { timeout: 60_000 }, () => {
     expect(code).toBe(3);
     expect(out.error).toMatch(/lock/);
     expect(upgradesOf(c)).toEqual([]);
+  });
+
+  test("refuses when the wave's branch name is taken, and records nothing (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    git(c.project, "branch", "upgrade/v2.0.0-1");
+    const before = rev(c, "main");
+    const { code, out } = await start(c);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/upgrade\/v2\.0\.0-1/);
+    expect(upgradesOf(c)).toEqual([]);
+    expect(rev(c, "main")).toBe(before);
+  });
+
+  test("a Course that was done is no longer done while it upgrades", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(ledger("done", "--project", c.project, "--holder", HOLDER));
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: done");
+    expect(must(ledger("status", "--project", c.project)).done).not.toBeNull();
+    must(await start(c));
+    expect(must(ledger("status", "--project", c.project)).done).toBeNull();
   });
 
   test("refuses a second wave while one runs", async () => {
@@ -659,6 +680,42 @@ describe("ready", { timeout: 120_000 }, () => {
     git(c.project, "switch", "-q", "main");
     const off = await ready(c);
     expect(off.out.problems.join("\n")).toMatch(/upgrade\/v2\.0\.0-1/);
+  });
+
+  test("holds a Checkpoint item an upgraded gate raised until the Owner answers it (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    // The v2 gates raise an item no earlier wave answered: a green gate report that still needs the Owner.
+    writeFiles(c.project, {
+      "content/build-records/gate-reports/job-01-thermal-resistance.json": JSON.stringify({
+        checkpointItems: [
+          {
+            gate: "licence",
+            message: "a new notice needs the Owner",
+            at: "modules/01-thermal-resistance/module.yaml",
+          },
+        ],
+      }),
+    });
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: Gate reports");
+    const open = await ready(c);
+    expect(open.code).toBe(1);
+    expect(open.out.problems).toEqual([expect.stringMatching(/Checkpoint item 01\/licence\/\w+ is unanswered/)]);
+    // The Owner's answer goes in the ledger under the Upgrade wave, and the wave can go on.
+    const [item] = checkpoint(c.project, "01").open;
+    expect(item).toBeDefined();
+    must(
+      ledger(
+        ...["record", "checkpoint", "--project", c.project, "--holder", HOLDER],
+        ...["--wave", "upgrade-v2.0.0-1", "--key", item?.key ?? "", "--question", item?.question ?? ""],
+        ...["--answer", "fine, keep the notice"],
+      ),
+    );
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: the Owner's answer");
+    const answered = await ready(c);
+    expect(answered.out, JSON.stringify(answered.out)).toMatchObject({ ready: true, problems: [] });
   });
 
   test("is refused when no wave runs", async () => {
