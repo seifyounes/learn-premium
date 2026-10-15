@@ -61,7 +61,7 @@ export interface PadSuggestion {
   listed: string | null;
 }
 
-function normalise(name: string): string {
+export function normalise(name: string): string {
   return name
     .toLowerCase()
     .replace(/&/g, " and ")

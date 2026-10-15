@@ -24,6 +24,10 @@ export function fixtureCourse(
     materials?: Record<string, Record<string, string | Buffer>>;
     /** Template-layer files (path under `template/` → content), in place before `init` pins their hashes. */
     template?: Record<string, string>;
+    /** The Disciplines the intake lists (default: just maths). */
+    disciplines?: string[];
+    /** A Module's slug by its number (default: `mNN`). */
+    slugs?: Record<string, string>;
   },
 ): string {
   const { sittings = [], live = [], planned = [], liveSittings = [], pad = "green" } = options;
@@ -33,12 +37,24 @@ export function fixtureCourse(
   const modules = [...live, ...planned];
   const feeds = (id: string) => options.materials?.[id] ?? { [`L${id}.pdf`]: `${name} ${id}` };
   writeFiles(folder, Object.assign({}, ...modules.map(feeds)));
-  const intake = { courseName: name, materialsPath: folder, disciplines: ["maths"], pad, arabicNotes: false, sittings };
+  const intake = {
+    courseName: name,
+    materialsPath: folder,
+    disciplines: options.disciplines ?? ["maths"],
+    pad,
+    arabicNotes: false,
+    sittings,
+  };
   must(
     ledger("init", "--project", project, "--holder", "session-a", "--release", "v2.0.0", "--intake", jsonInput(intake)),
   );
   const moduleMap = {
-    modules: modules.map((id) => ({ id, slug: `m${id}`, title: `Module ${id}`, materials: Object.keys(feeds(id)) })),
+    modules: modules.map((id) => ({
+      id,
+      slug: options.slugs?.[id] ?? `m${id}`,
+      title: `Module ${id}`,
+      materials: Object.keys(feeds(id)),
+    })),
     unmapped: [],
   };
   must(ledger("map", "--project", project, "--holder", "session-a", "--input", jsonInput(moduleMap)));

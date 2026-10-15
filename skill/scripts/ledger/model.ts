@@ -173,6 +173,57 @@ const relaunch = obj({
   superseded,
 });
 
+/** A whole number, 0 or more. */
+export const count: Schema<number> = (v, p) =>
+  Number.isInteger(v) && (v as number) >= 0 ? (v as number) : fail(p, "a count", v);
+
+export const WORKED_MODELS = ["computable", "illustration"] as const;
+/** What an illustration-only figure does on the site: no figure, one that stays as the Materials draw it, or one that animates step by step. */
+export const FIGURE_KINDS = ["none", "static", "animate"] as const;
+
+/**
+ * A Module wave's tool assignment: each Worked example is computable (it gets a tool) or an
+ * illustration (its figure stays static or animates), and each tool names its Discipline, its
+ * interaction, and the Toolkit tool it is built as. `ships` is what the Module ends up with: the
+ * assigned tool, a step-through, or the next Toolkit tool, each fallback kept in `fallbacks`. The
+ * sim builder's hand-back leaves only its counts here: the hand-back itself quotes the Professor and
+ * stays in the Private folder. A re-assignment supersedes the wave's row.
+ */
+const assignment = obj({
+  wave: nonEmpty,
+  module: moduleId,
+  recordedAt: isoTime,
+  worked: arr(obj({ n: nonEmpty, model: oneOf(...WORKED_MODELS), figure: nullable(oneOf(...FIGURE_KINDS)) })),
+  tools: arr(
+    obj({
+      name: nonEmpty,
+      worked: nullable(nonEmpty),
+      discipline: nonEmpty,
+      interaction: nonEmpty,
+      tool: nonEmpty,
+      job: nonEmpty,
+      ships: nonEmpty,
+      fallbacks: arr(obj({ from: nonEmpty, to: nonEmpty, at: isoTime })),
+      handback: nullable(obj({ at: isoTime, files: count, parts: count, nets: count, assumptions: count })),
+    }),
+  ),
+  superseded,
+});
+
+/**
+ * The Owner's answer on a Discipline the intake didn't list: confirmed (its Toolkit's tools may be
+ * assigned for this Course) or declined. The answer is also a Checkpoint row under
+ * `NN/discipline/<name>`. A later answer supersedes the earlier one.
+ */
+const discipline = obj({
+  name: nonEmpty,
+  wave: nonEmpty,
+  confirmed: bool,
+  answer: nonEmpty,
+  answeredAt: isoTime,
+  superseded,
+});
+
 /** The Owner-confirmed Module map, or an addition to it: Modules with their Materials, and the files left out. */
 export const moduleMapSchema = obj({
   modules: arr(obj({ id: moduleId, slug: nonEmpty, title: nonEmpty, materials: arr(nonEmpty) })),
@@ -266,13 +317,15 @@ const ledgerShape = obj({
   done: nullable(obj({ holder: nonEmpty, at: isoTime })),
   relaunches: arr(relaunch),
   upgrades: arr(upgrade),
+  assignments: arr(assignment),
+  disciplines: arr(discipline),
 });
 
 /** A ledger written before gate gaps, relaunches or Upgrade waves were recorded reads as having none, and not done. */
 export const ledgerSchema: Schema<Infer<typeof ledgerShape>> = (v, p) =>
   ledgerShape(
     typeof v === "object" && v !== null && !Array.isArray(v)
-      ? { gateGaps: [], done: null, relaunches: [], upgrades: [], ...v }
+      ? { gateGaps: [], done: null, relaunches: [], upgrades: [], assignments: [], disciplines: [], ...v }
       : v,
     p,
   );
@@ -300,6 +353,9 @@ export type GateGap = Infer<typeof gateGap>;
 export type Relaunch = Infer<typeof relaunch>;
 export type Upgrade = Infer<typeof upgrade>;
 export type RelaunchOutcome = (typeof RELAUNCH_OUTCOMES)[number];
+export type Assignment = Infer<typeof assignment>;
+export type AssignedTool = Assignment["tools"][number];
+export type DisciplineAnswer = Infer<typeof discipline>;
 
 /** An Exam sitting's state, from its Sitting waves: open until one runs, live once one merges. */
 export function sittingState(ledger: Ledger, id: string): "open" | "building" | "live" {
