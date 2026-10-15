@@ -63,6 +63,20 @@ describe("the Drawing gate on an editor screenshot", () => {
     expect(result.coverage.mutantsCaught).toBeGreaterThan(0);
   });
 
+  it("blocks a preset the model mistypes against the value the screenshot prints", () => {
+    const s = sim.parse(parse(readFileSync(join(FIXTURE_COURSE, SIM), "utf8")));
+    if (s.kind !== "ladder") throw new Error("not a ladder sim");
+    const reading = figureReading.parse(
+      JSON.parse(readFileSync(join(FIXTURE_COURSE, "build-records/figure", MODULE, "conveyors.json"), "utf8")),
+    );
+    const parts = s.model.parts.map((p) => (p.kind === "ton" ? { ...p, params: { ...p.params, PT: "T#4S" } } : p));
+    const model = schematicModelOf({ ...s, model: { ...s.model, parts } });
+    const verdict = checkDrawing(layOut(model, s.layout), model, reading);
+    expect(verdict.checks.find((c) => c.id === "netlist")?.problems).toEqual([
+      'N2 ton DB1\'s PT is "T#4S" in the model, the figure prints "T#5S"',
+    ]);
+  });
+
   it("blocks a model whose seal-in branch the screenshot doesn't show", () => {
     const raw = parse(readFileSync(join(FIXTURE_COURSE, SIM), "utf8"));
     const s = sim.parse(raw);

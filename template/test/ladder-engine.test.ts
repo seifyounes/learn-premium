@@ -108,6 +108,34 @@ describe("what the engine refuses to run", () => {
 
   it("passes a plain rung", () => expect(ladderProblems(base)).toEqual([]));
 
+  it("keys a box the figure prints no operand on by network and kind, counting repeats", () => {
+    const keys = screenshotKeys({
+      parts: [
+        { id: "G1", kind: "fbd-and", network: 2 },
+        { id: "G2", kind: "fbd-and", network: 2 },
+        { id: "N1", kind: "fbd-not", network: 2 },
+      ],
+    });
+    expect([...keys.values()]).toEqual(["N2 fbd-and", "N2 fbd-and #2", "N2 fbd-not"]);
+  });
+
+  it("compiles each timer symbol to its own STL instruction", () => {
+    const expected = {
+      "coil-sp": "SP",
+      "coil-se": "SE",
+      "coil-sd": "SD",
+      "coil-ss": "SS",
+      "coil-sf": "SF",
+    } as const;
+    for (const [kind, op] of Object.entries(expected)) {
+      const awl = compileLadder({
+        ...base,
+        parts: parts({ kind: kind as "coil-sd", operand: "T 1", params: { preset: "S5T#1S" } }),
+      });
+      expect(awl, kind).toContain(`\t${op} T 1`);
+    }
+  });
+
   it("takes timer and counter 0, as S7 numbers them, but no DB 0", () => {
     expect(
       ladderProblems({ ...base, parts: parts({ kind: "coil-sd", operand: "T 0", params: { preset: "S5T#1S" } }) }),

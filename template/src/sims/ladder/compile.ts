@@ -2,12 +2,28 @@
 // element's input logic as a chain of A/O (with brackets for branches), then its instruction. This is
 // what awlsim, the build oracle, runs: its logic, timers, counters and SFB 4 are awlsim's own, and
 // the compiler is a separate path from the engine's power flow, so either one's slip shows as a
-// disagreement. Only the gate's oracle uses it; nothing of it ships to the page.
+// disagreement. Only the gate's oracle runs the compiled STL; the page uses `stlOperand` alone.
 
 import { splitPin } from "../layout/drawing.ts";
 import { formatAddress } from "../s7/core.ts";
-import { TIMER_KIND } from "./engine.ts";
 import { driversOf, ELEMENTS, netOf, networksOf, parseOperand, type LadderModel, type LadderPart } from "./model.ts";
+
+/**
+ * Each timer symbol's STL instruction, named here apart from the engine's table, so a symbol mapped
+ * to the wrong timer on either side shows as a disagreement with awlsim.
+ */
+const STL_TIMER: Readonly<Partial<Record<string, "SP" | "SE" | "SD" | "SS" | "SF">>> = {
+  "coil-sp": "SP",
+  "s-pulse": "SP",
+  "coil-se": "SE",
+  "s-pext": "SE",
+  "coil-sd": "SD",
+  "s-odt": "SD",
+  "coil-ss": "SS",
+  "s-odts": "SS",
+  "coil-sf": "SF",
+  "s-offdt": "SF",
+};
 
 /** A network's logic as a boolean expression. */
 type Expr =
@@ -140,7 +156,7 @@ export function compileLadder(model: LadderModel): string {
       const operand = part.operand === undefined ? "" : stlOperand(part.operand);
       const params = part.params ?? {};
       const logic = (pin: string) => chain(exprAt(part, pin));
-      const timer = TIMER_KIND[part.kind];
+      const timer = STL_TIMER[part.kind];
       switch (part.kind) {
         case "coil":
         case "fbd-assign":
