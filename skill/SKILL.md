@@ -189,9 +189,11 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
    Course's content: `CONTENT_DIR=../content VERCEL_ENV=production npm run build -- --outDir
    dist-production`, then `npm run gates -- run --point deploy --content ../content --dist
    dist-production`. In a wave's worktree the deploy gates' `no-materials` check reads the Materials
-   hashes from the nearest `build-ledger.json`, and the copy in `<T>` is the stale one committed on
-   `main`: copy `<P>/build-ledger.json` over it for that run, and restore it afterwards (`git -C <T>
-   checkout -- build-ledger.json`), since a wave's branch never changes the ledger's files. Commit the Gate reports (only build records change, so they still prove the
+   hashes from the nearest `build-ledger.json`: the copy committed in `<T>`, not the live one in
+   `<P>`. So whenever Materials were added or changed (`map`, or `wave start` of a re-run wave),
+   commit the ledger files on `main` before cutting `<T>` (or after, then rebase `<T>` onto `main`):
+   `ready` refuses a worktree whose ledger lacks a Materials hash the live ledger has. That is the
+   only time the ledger is committed on `main` while another wave runs. Commit the Gate reports (only build records change, so they still prove the
    content commit). Any content change after this re-runs all three points.
 
    **The fresh reviewer**, once the module gates are green. Take its screenshots of the preview:
