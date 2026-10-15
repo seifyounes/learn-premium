@@ -14,8 +14,8 @@ import { current, type Ledger } from "../ledger/model.ts";
 import { readJsonFile } from "../wave/reading.ts";
 import { inventoryProblems, MAIN_BRANCH, treeProblems, waveTree } from "../wave/tree.ts";
 import { MERGE_POINTS, moduleFolder, type Verifier } from "../wave/wave.ts";
-import { checkPath, moduleItem } from "./kit.ts";
-import { checkSchema } from "./check.ts";
+import { checkPath, moduleItem, verifiedPath } from "./kit.ts";
+import { checkSchema, contentFingerprint } from "./check.ts";
 import { readMediaFile } from "./store.ts";
 import { PLACED_NAME } from "./model.ts";
 import { requirePrivateFolder } from "./notebook.ts";
@@ -61,6 +61,19 @@ const TOP_LEVEL_KEY = /^[A-Za-z_][\w-]*:/;
  */
 export function mergeMediaYaml(existing: string, slots: Partial<Record<Slot, string>>): string {
   const eol = existing.includes("\r\n") ? "\r\n" : "\n";
+  const { header, blocks } = splitMediaYaml(existing);
+  const out = [...header];
+  for (const slot of SLOTS) {
+    const given = slots[slot];
+    out.push(...(given === undefined ? (blocks.get(slot) ?? []) : given.replace(/\r?\n$/, "").split(/\r?\n/)));
+  }
+  for (const [name, block] of blocks) if (!(SLOTS as readonly string[]).includes(name)) out.push(...block);
+  while (out.length > 0 && out.at(-1)?.trim() === "") out.pop();
+  return `${out.join(eol)}${eol}`;
+}
+
+/** `media.yaml`'s header lines and its blocks by top-level key, each with the comment lines above it. */
+export function splitMediaYaml(existing: string): { header: string[]; blocks: Map<string, string[]> } {
   const lines = existing === "" ? [] : existing.replace(/\r?\n$/, "").split(/\r?\n/);
   const keys = lines.flatMap((line, at) => (TOP_LEVEL_KEY.test(line) ? [at] : []));
   // A block starts at its key, pulled up over the comment lines right above it (not the first key's: the
@@ -76,14 +89,17 @@ export function mergeMediaYaml(existing: string, slots: Partial<Record<Slot, str
     const name = /^[^:]+/.exec(lines[key] ?? "")?.[0] ?? "";
     blocks.set(name, lines.slice(starts[n], starts[n + 1] ?? lines.length));
   });
-  const out = [...header];
-  for (const slot of SLOTS) {
-    const given = slots[slot];
-    out.push(...(given === undefined ? (blocks.get(slot) ?? []) : given.replace(/\r?\n$/, "").split(/\r?\n/)));
+  return { header, blocks };
+}
+
+/** The header and blocks `stage` never writes: everything but the three media slots. */
+function outsideSlots(text: string): Map<string, string> {
+  const { header, blocks } = splitMediaYaml(text);
+  const kept = new Map([["(header)", header.join("\n").trimEnd()]]);
+  for (const [name, block] of blocks) {
+    if (!(SLOTS as readonly string[]).includes(name)) kept.set(name, block.join("\n").trimEnd());
   }
-  for (const [name, block] of blocks) if (!(SLOTS as readonly string[]).includes(name)) out.push(...block);
-  while (out.length > 0 && out.at(-1)?.trim() === "") out.pop();
-  return `${out.join(eol)}${eol}`;
+  return kept;
 }
 
 export interface StageResult {
@@ -128,6 +144,17 @@ export function stage(project: string, tree: string, id: string, privateFolder: 
   const encoded = item.encoded;
   if (encoded === null || encoded.attempt !== attempt) {
     throw new LedgerError("refused", `${id} has no re-encode of attempt ${attempt}: run encode first`);
+  }
+  // The check read the Module's content as it was: a Module rebuilt since has to be checked again.
+  const verified = verifiedPath(priv, id, attempt);
+  if (existsSync(verified)) {
+    const { content } = JSON.parse(readFileSync(verified, "utf8")) as { content?: string };
+    if (content !== contentFingerprint(root, folder)) {
+      throw new LedgerError(
+        "refused",
+        `Module ${module}'s content changed since ${id}'s fact check: it can't be placed on what it was checked against (fail it to make it again)`,
+      );
+    }
   }
   const web = join(priv, encoded.file);
   if (!existsSync(web) || hashFile(web) !== encoded.hash) {
@@ -205,6 +232,19 @@ export function mediaReadyProblems(project: string, tree: string, module: string
       [`job-${folder}.json`, `module-${folder}.json`, "deploy.json"].some((name) => path === `${reports}${name}`);
     const stray = [...new Set(touched.map((t) => t.path).filter((path) => !allowed(path)))];
     if (stray.length > 0) problems.push(`a media branch places media only: ${stray.join(", ")}`);
+    // media.yaml may change its three slots and nothing else: its header and other blocks (the Watch page's
+    // `youtube:` cards) stay what `main` has.
+    if (touched.some((t) => t.path === `${mine}media.yaml`)) {
+      const show = (rev: string) => {
+        const shown = git(dir, "show", `${rev}:${mine}media.yaml`);
+        return shown.status === 0 ? outsideSlots(shown.stdout) : new Map<string, string>();
+      };
+      const [before, after] = [show(base.stdout.trim()), show("HEAD")];
+      const changed = [...new Set([...before.keys(), ...after.keys()])].filter((k) => before.get(k) !== after.get(k));
+      if (changed.length > 0) {
+        problems.push(`media.yaml changes blocks other than the media slots (${changed.join(", ")})`);
+      }
+    }
     // Each file it puts in media/ is, in every commit, this Module's checked item of that kind: its own name and its
     // own re-encode, so a rejected output, or another Module's checked media, can't ride along.
     const wanted = new Map(

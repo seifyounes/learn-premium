@@ -2,8 +2,9 @@
 // infographic) against the Module's verified content and writes a check file; this judges it, with no model
 // in the loop: every number said or shown must round from a number the Module holds (minus the Professor's
 // Slips, whose printed value is the wrong one), and any claim the subagent marked wrong or unsupported fails.
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, join, relative, resolve } from "node:path";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { hashFile } from "../ledger/hash.ts";
@@ -11,7 +12,7 @@ import { requireLedger } from "../ledger/ledger.ts";
 import { arr, fail, nonEmpty, nullable, obj, oneOf, sha256, type Infer, type Schema } from "../ledger/schema.ts";
 import { readJsonFile } from "../wave/reading.ts";
 import { moduleFolder, type ContentRuling, type Verifier } from "../wave/wave.ts";
-import { checkPath, masterOf, moduleItem, readEvidence } from "./kit.ts";
+import { checkPath, masterOf, moduleItem, readEvidence, verifiedPath } from "./kit.ts";
 import { advance, fail as failItem } from "./media.ts";
 import { type ItemState } from "./model.ts";
 import { requirePrivateFolder } from "./notebook.ts";
@@ -66,18 +67,29 @@ interface Written {
   raw: string;
   value: number;
   decimals: number;
+  /** For a power of ten (`a \times 10^n`): n. Its digits are the coefficient's, so its rounding scales with 10^n. */
+  exp?: number;
 }
 
+/**
+ * The numbers in a text, as written. A power of ten (`1.2 \times 10^{-3}`, `1.2 × 10^-3`) is one number, the
+ * value a·10^n, and its coefficient and exponent aren't numbers of their own: judged alone, a changed
+ * exponent would escape, being a small whole number.
+ */
 function numbersIn(text: string): Written[] {
-  return [...text.matchAll(NUMBER)].map(([raw]) => {
-    const plain = raw.replace(/\\?,/g, "");
-    return { raw, value: Number(plain), decimals: plain.split(".")[1]?.length ?? 0 };
+  const powers = [...text.matchAll(POWER)];
+  const inside = (at: number) => powers.some((p) => at >= p.index && at < p.index + p[0].length);
+  const plain = [...text.matchAll(NUMBER)]
+    .filter((m) => !inside(m.index))
+    .map(([raw]) => {
+      const digits = raw.replace(/\\?,/g, "");
+      return { raw, value: Number(digits), decimals: digits.split(".")[1]?.length ?? 0 };
+    });
+  const written = powers.map(([raw, a = "", n = ""]) => {
+    const exp = Number(n.replace("−", "-"));
+    return { raw: raw.trim(), value: Number(`${a}e${exp}`), decimals: a.split(".")[1]?.length ?? 0, exp };
   });
-}
-
-/** `a \times 10^{n}` written out is the value a·10^n, which no single digit run of it is. */
-function powersIn(text: string): number[] {
-  return [...text.matchAll(POWER)].map(([, a = "", n = ""]) => Number(`${a}e${n.replace("−", "-")}`));
+  return [...plain, ...written];
 }
 
 const TEXT_LIMIT_BYTES = 5_000_000;
@@ -101,9 +113,19 @@ function textFiles(dir: string, skip: (relative: string) => boolean, base = dir)
  * values come out: the Professor's sheet is wrong there, and media must not repeat it.
  */
 export function verifiedNumbers(project: string, folder: string, rulings: ContentRuling[]): number[] {
+  const values: number[] = [];
+  for (const file of contentSources(project, folder)) {
+    values.push(...numbersIn(readFileSync(file, "utf8")).map((n) => n.value));
+  }
+  const slipped = rulings.filter((r) => r.kind === "slip").flatMap((r) => r.printed);
+  return values.filter((v) => !slipped.some((s) => Math.abs(s - v) <= 1e-9 * Math.max(1, Math.abs(s))));
+}
+
+/** The files a Module's fact check reads its numbers from, in a fixed order. */
+function contentSources(project: string, folder: string): string[] {
   const content = join(project, CONTENT_DIR);
   const records = join(content, "build-records");
-  const sources = [
+  return [
     ...textFiles(
       join(content, "modules", folder),
       (r) => r === "media.yaml" || r === "media" || r.startsWith("media/"),
@@ -115,13 +137,19 @@ export function verifiedNumbers(project: string, folder: string, rulings: Conten
       : []),
     ...(existsSync(join(content, "style-sheet.yaml")) ? [join(content, "style-sheet.yaml")] : []),
   ];
-  const values: number[] = [];
-  for (const file of sources) {
-    const text = readFileSync(file, "utf8");
-    values.push(...numbersIn(text).map((n) => n.value), ...powersIn(text));
+}
+
+/**
+ * A fingerprint of everything a Module's fact check read: its content, its build records and the style
+ * sheet. `check` writes it beside the check file, and `stage` refuses an item checked against content that
+ * has changed since (a rebuilt Module's pending media is checked again; media already placed is kept).
+ */
+export function contentFingerprint(project: string, folder: string): string {
+  const hash = createHash("sha256");
+  for (const file of contentSources(project, folder)) {
+    hash.update(`${relative(project, file).replaceAll("\\", "/")}\0`).update(readFileSync(file));
   }
-  const slipped = rulings.filter((r) => r.kind === "slip").flatMap((r) => r.printed);
-  return values.filter((v) => !slipped.some((s) => Math.abs(s - v) <= 1e-9 * Math.max(1, Math.abs(s))));
+  return hash.digest("hex");
 }
 
 /** The factors a said number may differ from a verified one by: a percentage, a thousandth or thousand (k, m, mK). */
@@ -129,7 +157,8 @@ const FACTORS = [1, 100, 1000, 0.01, 0.001];
 
 /** Whether `said`, as rounded to the digits it was written with, is some verified value (or ×100, ×1000, ÷100, ÷1000). */
 export function roundsTo(said: Written, verified: number[]): boolean {
-  const tolerance = 0.5 * 10 ** -said.decimals + 1e-9;
+  // The digits of a power of ten are its coefficient's: the rounding is at their place, scaled by 10^n.
+  const tolerance = (0.5 * 10 ** -said.decimals + 1e-9) * 10 ** (said.exp ?? 0);
   return verified.some((v) => FACTORS.some((f) => Math.abs(said.value - Math.abs(v) * f) <= tolerance));
 }
 
@@ -159,6 +188,8 @@ function said(transcript: Transcript | null, check: CheckFile): (Written & { at:
     all.push(...numbersIn(segment.text).map((n) => ({ ...n, at: clock(segment.start) })));
   }
   for (const reading of check.readings) all.push(...numbersIn(reading.text).map((n) => ({ ...n, at: reading.at })));
+  // The alt text is published too, and read aloud: its numbers are held to the Module's like any other.
+  if (check.alt !== null) all.push(...numbersIn(check.alt).map((n) => ({ ...n, at: "alt" })));
   for (const claim of check.claims) {
     if (claim.value === null) continue;
     // A sign isn't part of a number as the text gives it (`-0.65` reads as 0.65), so a claim's isn't either.
@@ -242,7 +273,7 @@ export function check(
   const findings: Finding[] = [];
   const seen = new Set<string>();
   for (const n of said(transcript, file)) {
-    const exempt = (n.decimals === 0 && n.value <= 10) || n.value === own;
+    const exempt = n.exp === undefined && ((n.decimals === 0 && n.value <= 10) || n.value === own);
     const key = `${n.raw}\0${n.at}`;
     if (exempt || seen.has(key) || roundsTo(n, verified)) continue;
     seen.add(key);
@@ -263,6 +294,9 @@ export function check(
   }
 
   if (findings.length === 0) {
+    // What the check read, so `stage` can tell that the Module was rebuilt since (written before the move, so a
+    // crash between the two leaves the item downloaded and the next `check` writes it again).
+    writeFileSync(verifiedPath(priv, id, attempt), JSON.stringify({ content: contentFingerprint(root, folder) }));
     advance(stateDir, root, id, "checked");
     return { verdict: "pass", findings, state: "checked", regenerations: item.regenerations };
   }

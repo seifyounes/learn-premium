@@ -257,6 +257,65 @@ describe("ready judges every commit being merged, and each file against its own 
   });
 });
 
+/** An item that passed the real judge (no number in what the fake kit heard): evidence, a check file, `check`. */
+function passedJudge(c: MediaCourse, id: string, attempt: number) {
+  const master = ingestFixture(c, id, attempt);
+  const evidence = must(mediaWith({ kit: fakeKit(), verifier: fakeVerifier() }, "evidence", ...pass(c, id)));
+  writeFiles(c.privateFolder, {
+    [`media/checks/${id}-${attempt}.json`]: JSON.stringify({
+      check: "learn-premium media check v1",
+      item: id,
+      attempt,
+      masterHash: createHash("sha256").update(readFileSync(master)).digest("hex"),
+      alt: null,
+      readings: [],
+      claims: [],
+    }),
+  });
+  expect(evidence.check).toBeDefined();
+  must(mediaWith({ verifier: fakeVerifier() }, "check", ...pass(c, id)));
+  encode(c, id);
+}
+
+const pass = (c: MediaCourse, id: string) => ["--project", c.project, "--item", id, "--private", c.privateFolder];
+
+describe("what was checked is what is placed", () => {
+  test("a Module rebuilt between the check and the staging must be checked again", () => {
+    // Negative control: the check bound itself to the Module's content as it was.
+    const c = mediaCourse({ git: true });
+    passedJudge(c, AUDIO, 1);
+    writeFiles(c.project, { [`${MODULE_DIR}/summary/1.md`]: "a rebuilt summary beat\n" });
+    const tree = mediaTree(c, 1);
+
+    const { code, out } = stage(c, AUDIO, tree);
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/content changed since .*fact check/);
+  });
+
+  test("a Module left alone stages the item that passed", () => {
+    const c = mediaCourse({ git: true });
+    passedJudge(c, AUDIO, 1);
+    const tree = mediaTree(c, 1);
+
+    expect(stage(c, AUDIO, tree).code).toBe(0);
+  });
+
+  test("media.yaml's other blocks must still be main's: a youtube card can't be dropped from a media branch", () => {
+    const c = mediaCourse({ git: true });
+    approved(c, AUDIO, 1);
+    const tree = mediaTree(c, 1);
+    must(stage(c, AUDIO, tree));
+    const yaml = join(tree, MODULE_DIR, "media.yaml");
+    writeFileSync(yaml, readFileSync(yaml, "utf8").replace(YOUTUBE_BLOCK, ""));
+    commit(tree, "feat: place the audio and drop a card");
+
+    const { out } = ready(c, tree);
+
+    expect(out.problems.join("\n")).toMatch(/media\.yaml changes blocks other than the media slots \(youtube\)/);
+  });
+});
+
 describe("stage and ready hold a branch to media only", () => {
   test("an item that isn't checked can't be staged", () => {
     const c = mediaCourse({ git: true });
@@ -447,25 +506,22 @@ describe("placed", () => {
     expect(itemOf(c, AUDIO).state).toBe("checked");
   });
 
-  test("a media file written before encodes were recorded keeps today's placed", () => {
+  test("a checked item with no re-encode is placed only by hand, with --unencoded", () => {
+    // Negative control: after `check` and before `encode` an item has no re-encode, and `placed` mustn't skip it.
     const c = mediaCourse();
     ingestFixture(c, AUDIO, 1);
     must(media("checked", "--state", c.state, "--project", c.project, "--item", AUDIO));
     writeFiles(c.project, { "deep-dive.mp3": "placed by hand" });
+    const place = (...more: string[]) =>
+      media("placed", "--state", c.state, "--project", c.project, "--item", AUDIO, "--file", "deep-dive.mp3", ...more);
 
-    const { code } = media(
-      "placed",
-      "--state",
-      c.state,
-      "--project",
-      c.project,
-      "--item",
-      AUDIO,
-      "--file",
-      "deep-dive.mp3",
-    );
+    const refused = place();
+    const byHand = place("--unencoded");
 
-    expect(code).toBe(0);
+    expect(refused.code).toBe(3);
+    expect(refused.out.error).toMatch(/encode/);
+    expect(byHand.code).toBe(0);
+    expect(itemOf(c, AUDIO).state).toBe("placed");
   });
 });
 
