@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
-import { fixtureCourse, materialsOf } from "./fixture-courses.ts";
+import { EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { jsonInput, ledger, writeFiles, type Result } from "./helpers.ts";
 
@@ -201,7 +201,7 @@ describe("a relaunched subagent re-gates its predecessor's files before reusing 
 
     const { out } = wave(["ready", "--project", project, "--wave", waveId], {
       ...deps,
-      verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [] },
+      verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [], inventory: () => EMPTY_INVENTORY },
     });
 
     expect(out.problems).toContainEqual(
@@ -239,7 +239,11 @@ describe("a relaunched job's own result", () => {
     const problems = () =>
       wave(["ready", "--project", project, "--wave", waveId], {
         ...deps,
-        verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [] },
+        verifier: {
+          verify: () => ({ green: true, problems: [] }),
+          rulings: () => [],
+          inventory: () => EMPTY_INVENTORY,
+        },
       }).out.problems as string[];
 
     const none = problems();

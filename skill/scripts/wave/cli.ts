@@ -8,6 +8,7 @@ import { moduleId } from "../ledger/model.ts";
 import { isoTime, oneOf, SchemaError } from "../ledger/schema.ts";
 import { LedgerError } from "../ledger/store.ts";
 import { assign, confirmDiscipline, fallback } from "./assign.ts";
+import { handback } from "./handback.ts";
 import { reconcile } from "./reading.ts";
 import { relaunchClose, relaunchOpen, templateJobGates, type JobGates } from "./relaunch.ts";
 import { reviewReport } from "./review.ts";
@@ -96,6 +97,14 @@ function dispatch(args: Args, deps: WaveDeps): Output {
         args.required("--name"),
         oneOf("yes", "no")(args.required("--confirmed"), "--confirmed") === "yes",
         args.required("--answer"),
+      );
+    case "handback":
+      return handback(
+        project,
+        args.required("--holder"),
+        args.required("--wave"),
+        args.required("--name"),
+        deps.verifier,
       );
     case "fallback":
       return fallback(
