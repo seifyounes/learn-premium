@@ -109,7 +109,11 @@ printed tabs pinned above the sections below it. Each tab jumps to its section, 
 is filled, and a done section is ticked.
 
 - **Watch** (`Watch.astro`): the NotebookLM Explainer video, then the Deep Dive audio, then the
-  YouTube cards. A card loads YouTube only when it is played; until then it is a link.
+  YouTube cards. A card loads YouTube only when it is played; until then it is a link with a lazy
+  `i.ytimg.com` thumbnail, and the player is `youtube-nocookie.com`. A card ships only at a 9/10
+  match and only once the main agent re-verified it (`wave.ts videos verify`, which `ready` holds it
+  to). After a production deploy the `live-videos` gate checks each card is still there; a dead one
+  is raised as a Checkpoint item, never a block, and hidden (`videos hide`).
 - **Summary**: the infographic at the top (`Infographic.astro`, tap to zoom), then each beat beside
   its one figure (a plot drawn at build, with no island).
 - **Worked examples**: the Worked example sheet (below).
@@ -525,6 +529,11 @@ keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.
   `static` or `animated`) and tools (each sim, Pyodide tool and part, with its Worked example, whether
   it ships live, and a schematic sim's part and net counts), and any file the contract can't read.
   Not a gate: the Module wave's merge gate holds the content to the tool assignment with it.
+- `videos list [--module NN-slug]` prints (JSON) every YouTube card the content carries, raw, for
+  the Module wave's `ready`. `videos probe --ids ID,ID` asks YouTube (oEmbed and the watch page) about
+  each video and prints the answers: the one command that touches the network, used by the wave's
+  `videos verify`. `videos hide --report FILE` removes the cards a live Gate report found dead from their
+  `media.yaml` and prints each one. None of the three is a gate.
 - `shots --module … --out DIR [--url URL] [--commit SHA]` takes the fresh reviewer's screenshots of
   the Module page on Chromium: at 375px (phone) and 1280px (laptop), every collapsible open and the
   page scrolled through so its islands hydrate, once per tab view. `DIR/shots.json` lists them and
@@ -587,6 +596,7 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `live-routes`         | live                    | every route the build made answers 200 with the build's own page; the hubs and `/licences.txt` are there                                                                                                                                                                                                                                                                                                                                                                   |
 | `live-headers`        | live                    | every response carries `X-Robots-Tag: noindex`; pages, scripts and stylesheets of 1 KiB or more come Brotli-compressed                                                                                                                                                                                                                                                                                                                                                     |
 | `live-private-paths`  | live                    | the Course's content and build records (at their content and repo paths), the Build ledger's Materials, the evidence-shaped folders, config, `.env` and `.git` answer 404                                                                                                                                                                                                                                                                                                  |
+| `live-videos`         | live                    | every YouTube card still plays (oEmbed): a removed or embedding-off one is a Checkpoint item, hidden after the deploy                                                                                                                                                                                                                                                                                                                                                      |
 
 ### Browser gates
 
