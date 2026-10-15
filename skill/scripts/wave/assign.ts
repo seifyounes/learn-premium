@@ -24,6 +24,7 @@ import {
   builderJob,
   disciplineOf,
   nextTool,
+  NO_STEP_THROUGH,
   TOOLKITS,
   toolsFor,
   type StartingDiscipline,
@@ -255,7 +256,8 @@ export function confirmDiscipline(
 
 /** The tool the wave's `job` falls back to: a sim's step-through, a tool's next Toolkit tool; null when there is none. */
 function fallbackTarget(tool: AssignedTool): string | null {
-  if (tool.job.startsWith("sim-")) return tool.ships === STEP_THROUGH ? null : STEP_THROUGH;
+  if (tool.job.startsWith("sim-"))
+    return tool.ships === STEP_THROUGH || NO_STEP_THROUGH.includes(tool.ships as ToolName) ? null : STEP_THROUGH;
   const discipline = disciplineOf(tool.discipline);
   return discipline === null ? null : nextTool(TOOLKITS[discipline], tool.interaction, tool.ships as ToolName);
 }
@@ -280,7 +282,9 @@ export function fallback(project: string, holder: string, waveId: string, job: s
     throw new LedgerError(
       "refused",
       row.job.startsWith("sim-")
-        ? `${job} already ships its ${STEP_THROUGH}: nothing is left to fall back to`
+        ? row.ships === STEP_THROUGH
+          ? `${job} already ships its ${STEP_THROUGH}: nothing is left to fall back to`
+          : `${job}'s ${row.ships} sim has no ${STEP_THROUGH} (its content contract has none): record --result checkpoint with what it needs from the Owner`
         : `${job} has no next tool after ${row.ships} in the ${row.discipline} Toolkit for ${row.interaction}: record --result checkpoint with what it needs from the Owner`,
     );
   const last = current(ledger.jobs).find((j) => j.wave === waveId && j.job === job);
@@ -345,6 +349,14 @@ export function toolProblems(
       .filter((j) => j.wave === waveId)
       .map((j) => [j.job, j]),
   );
+  // A tool's name is its builder job's (`sim-<name>`), so two content files can't share one.
+  for (const found of inventory.tools) {
+    const same = inventory.tools.filter((t) => t.name === found.name);
+    if (same[0] === found && same.length > 1)
+      problems.push(
+        `${same.map((t) => t.entry).join(" and ")} share the name ${found.name}: a tool's name is its builder job's, so rename one`,
+      );
+  }
   const untimed = (job: string) => `job ${job} wasn't timed: record it with --started-at <when you launched it>`;
 
   if (row === undefined) {

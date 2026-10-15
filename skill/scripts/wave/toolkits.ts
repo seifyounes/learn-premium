@@ -88,6 +88,12 @@ export function toolsFor(toolkit: Toolkit, interaction: string): readonly ToolNa
 
 const isSim = (tool: ToolName): tool is SimTool => (SIM_TOOLS as readonly string[]).includes(tool);
 
+/**
+ * The sim kinds whose content contract has no step-through to fall back to (`stepThrough` is never):
+ * their recompute is always independent, so a builder that can't pass goes to the Owner instead.
+ */
+export const NO_STEP_THROUGH: readonly ToolName[] = ["stl", "scl", "ladder"];
+
 /** The job that builds a tool: `sim-<name>` for a sim, `tool-<name>` for a Pyodide tool or a part. */
 export function builderJob(tool: ToolName, name: string): string {
   return `${isSim(tool) ? "sim" : "tool"}-${name}`;

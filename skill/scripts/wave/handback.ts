@@ -125,8 +125,14 @@ export function handback(project: string, holder: string, waveId: string, name: 
   if (typeof inventory === "string")
     problems.push(`the content's tools can't be read to check the counts: ${inventory}`);
   else {
-    const counts = inventory.tools.find((t) => t.name === name)?.counts ?? null;
-    if (counts !== null && (counts.parts !== given.counts.parts || counts.nets !== given.counts.nets))
+    const listed = inventory.tools.find((t) => t.name === name);
+    const counts = listed?.counts ?? null;
+    if (listed === undefined) {
+      const unreadable = inventory.problems.filter((p) => p.includes(`/${name}.`));
+      problems.push(
+        `the content has no tool ${name} the contract can read${unreadable.length === 0 ? "" : ` (${unreadable.join("; ")})`}: fix the file, then hand back again`,
+      );
+    } else if (counts !== null && (counts.parts !== given.counts.parts || counts.nets !== given.counts.nets))
       problems.push(
         `it counts ${given.counts.parts} parts and ${given.counts.nets} nets, but the sim's model has ${counts.parts} parts and ${counts.nets} nets`,
       );

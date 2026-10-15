@@ -426,7 +426,7 @@ const handBack = (
   { project, waveId, privateFolder }: ReturnType<typeof assigned>,
   name: string,
   given: unknown = handbackOf(name),
-  inventory?: ToolInventory | string,
+  inventory: ToolInventory | string = MODULE_03,
 ) => {
   writeFiles(privateFolder, { [`waves/03/builders/${name}.json`]: JSON.stringify(given) });
   return wave(["handback", ...holder(project), "--wave", waveId, "--name", name], inventory);
@@ -603,6 +603,23 @@ describe("a builder's hand-back", () => {
     expect(toolRow(course.project, "descent")?.handback).toMatchObject({ parts: 5, nets: 4 });
   });
 
+  test("a tool the template can't read has no counts to check, so its hand-back waits (exit 1)", () => {
+    const course = assigned();
+    const unread: ToolInventory = {
+      ...MODULE_03,
+      tools: MODULE_03.tools.filter((t) => t.name !== "descent"),
+      problems: [`modules/${FOLDER}/sims/descent.json: can't check the sim: the content contract reports kind`],
+    };
+
+    const { code, out } = handBack(course, "descent", handbackOf("descent"), unread);
+
+    expect(code).toBe(1);
+    expect(out.problems[0]).toMatch(
+      /no tool descent the contract can read \(modules\/03-gradient-descent\/sims\/descent\.json: can't check the sim/,
+    );
+    expect(toolRow(course.project, "descent")?.handback).toBeNull();
+  });
+
   test("a template layer that can't list the tools leaves the counts unchecked, so the hand-back waits (exit 1)", () => {
     const course = assigned();
 
@@ -705,6 +722,32 @@ describe("fallback after two fix rounds", () => {
       /no next tool after pyodide in the Machine learning Toolkit for real Python: record --result checkpoint/,
     );
     expect(toolRow(project, "normal-equation")?.ships).toBe("pyodide");
+  });
+
+  test("a sim kind whose contract has no step-through goes to the Owner (exit 3, record --result checkpoint)", () => {
+    const { project, waveId } = module03(["Automation and control"]);
+    must(
+      assignWave(project, waveId, {
+        module: "03",
+        worked: [{ n: "1", model: "computable", figure: null }],
+        tools: [
+          {
+            name: "listing",
+            worked: "1",
+            discipline: "Automation and control",
+            interaction: "STL listing",
+            tool: "stl",
+          },
+        ],
+      }),
+    );
+    blockThrice(project, waveId, "sim-listing");
+
+    const { code, out } = fallBack(project, waveId, "sim-listing");
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/sim-listing's stl sim has no step-through .*record --result checkpoint/);
+    expect(toolRow(project, "listing")?.ships).toBe("stl");
   });
 
   test("is only for a builder job of the assignment (exit 2)", () => {
@@ -1010,6 +1053,29 @@ describe("the merge gate holds the content to the assignment", () => {
         inventory((i) => (toolIn(i, "descent").live = false)),
       ),
     ).toEqual([]);
+  });
+
+  test("two content files sharing one name can't both be the assignment's tool (negative control)", () => {
+    const course = built();
+
+    expect(
+      problemsOf(
+        course,
+        inventory((i) =>
+          i.tools.push({
+            name: "descent",
+            entry: `modules/${FOLDER}/python/descent.yaml`,
+            collection: "python",
+            kind: "pyodide",
+            worked: null,
+            live: true,
+            counts: null,
+          }),
+        ),
+      ),
+    ).toEqual([
+      `modules/${FOLDER}/sims/descent.json and modules/${FOLDER}/python/descent.yaml share the name descent: a tool's name is its builder job's, so rename one`,
+    ]);
   });
 
   test("a sim job with no assignment row, and an untimed subagent job, are problems (negative controls)", () => {
