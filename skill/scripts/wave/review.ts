@@ -205,11 +205,14 @@ export function reviewReadyProblems(project: string, privateFolder: string, modu
     throw error;
   }
   if (state.commit !== null) {
-    // What the Module page renders from: its content, the Course config and style sheet, the
+    // What the Module page renders from: its content, the build records its page is built from (an
+    // STL step-through's oracle log, a 3D part's record), the Course config and style sheet, the
     // template layer and the Course overrides that shadow it. Another Module's content, the ledger
     // and the Gate reports don't change this page.
     const rendersFrom = [
       `content/modules/${folder}`,
+      `content/build-records/oracle/${folder}`,
+      `content/build-records/parts/${folder}`,
       "content/course.yaml",
       "content/style-sheet.yaml",
       "template",
