@@ -1204,7 +1204,7 @@ describe("edge cases", () => {
     const { project } = mappedCourse();
 
     expect(ledger("status", "--project", project).out.sittings).toEqual([
-      { id: "midterm", name: "Midterm", date: "2026-11-10", state: "open" },
+      { id: "midterm", name: "Midterm", date: "2026-11-10", state: "open", complete: null },
     ]);
   });
 });

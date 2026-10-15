@@ -9,14 +9,18 @@ import { isoTime, oneOf, SchemaError } from "../ledger/schema.ts";
 import { LedgerError } from "../ledger/store.ts";
 import { assign, confirmDiscipline, fallback } from "./assign.ts";
 import { handback } from "./handback.ts";
-import { reconcile } from "./reading.ts";
+import { reconcile, reconcileSitting } from "./reading.ts";
 import { relaunchClose, relaunchOpen, templateJobGates, type JobGates } from "./relaunch.ts";
 import { reviewReport } from "./review.ts";
+import { sittingCheckpoint, templateDump, type SittingDumper } from "./sitting.ts";
+import { sittingTree } from "./tree.ts";
 import { checkpoint, moduleFolder, readyProblems, templateVerifier, type Verifier } from "./wave.ts";
 
 export interface WaveDeps {
   verifier: Verifier;
   jobGates: JobGates;
+  /** Reads a sitting's content as written (the template's `gates sitting`), for a Sitting wave. */
+  dump: SittingDumper;
 }
 
 export interface RunResult {
@@ -29,6 +33,7 @@ export function run(args: string[], deps: Partial<WaveDeps> = {}): RunResult {
     const { code = 0, ...out } = dispatch(new Args(args), {
       verifier: templateVerifier,
       jobGates: templateJobGates,
+      dump: templateDump,
       ...deps,
     });
     return { code, stdout: JSON.stringify({ ok: code === 0, ...out }) };
@@ -48,10 +53,13 @@ function dispatch(args: Args, deps: WaveDeps): Output {
   const project = args.required("--project");
   switch (command) {
     case "reconcile": {
-      const module = moduleId(args.required("--module"), "--module");
+      const sitting = args.optional("--sitting");
       const ledger = requireLedger(project);
       const privateFolder = privateFolderOf(ledger.intake.materialsPath);
-      const result = reconcile(privateFolder, module);
+      const result =
+        sitting === undefined
+          ? reconcile(privateFolder, moduleId(args.required("--module"), "--module"))
+          : reconcileSitting(privateFolder, sitting);
       if (!result.settledNow) {
         return {
           code: 1,
@@ -64,6 +72,20 @@ function dispatch(args: Args, deps: WaveDeps): Output {
       return { agreed, disputes, settled, checkpointItems };
     }
     case "checkpoint": {
+      const sitting = args.optional("--sitting");
+      if (sitting !== undefined) {
+        // The announced format's item reads the content: HEAD's dump in the sitting's own checkout.
+        const ledger = requireLedger(project);
+        const content = deps.dump(sittingTree(project, ledger, sitting), sitting);
+        return {
+          ...sittingCheckpoint(
+            project,
+            sitting,
+            typeof content === "string" ? null : content,
+            args.optional("--preview"),
+          ),
+        };
+      }
       const module = moduleId(args.required("--module"), "--module");
       return { ...checkpoint(project, module, args.optional("--preview")) };
     }
@@ -84,7 +106,7 @@ function dispatch(args: Args, deps: WaveDeps): Output {
       }
     }
     case "ready": {
-      const problems = readyProblems(project, args.required("--wave"), deps.verifier);
+      const problems = readyProblems(project, args.required("--wave"), deps.verifier, deps.dump);
       return { code: problems.length === 0 ? 0 : 1, ready: problems.length === 0, problems };
     }
     case "assign":

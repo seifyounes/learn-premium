@@ -67,6 +67,7 @@ export function moduleTree(project: string, ledger: Ledger, module: string): str
  * wave writes it, alone), the Course overrides and the gate gap records. A wave rebases onto `main` to
  * pick a change up.
  */
+const COURSE_YAML = "content/course.yaml";
 const COURSE_WIDE = [
   /^content\/course\.yaml$/,
   /^content\/style-sheet\.yaml$/,
@@ -74,6 +75,30 @@ const COURSE_WIDE = [
   new RegExp(`^${BUILD_RECORDS_DIR}/gate-gaps/`),
 ];
 const isCourseWide = (path: string) => COURSE_WIDE.some((pattern) => pattern.test(path));
+
+/** Where the running Sitting wave of `id` has its files; the project itself when none runs. */
+export function sittingTree(project: string, ledger: Ledger, id: string): string {
+  const running = current(ledger.waves).find((w) => w.kind === "sitting" && w.target === id && w.state === "running");
+  return running === undefined ? project : waveTree(project, running.branch).path;
+}
+
+/**
+ * Paths that belong to an Exam sitting other than `sitting` (every sitting's, when none is given): its
+ * content, its recompute logs, its Gate report.
+ */
+export function otherSittingFiles(paths: string[], sitting?: string): string[] {
+  const owners = [
+    /^content\/sittings\/([^/]+)\//,
+    /^content\/build-records\/recompute\/sittings\/([^/]+)\//,
+    /^content\/build-records\/gate-reports\/sitting-(.+)\.json$/,
+  ];
+  return paths.filter((path) =>
+    owners.some((owner) => {
+      const id = owner.exec(path)?.[1];
+      return id !== undefined && id !== sitting;
+    }),
+  );
+}
 
 /** Paths that belong to a Module other than `module`: its content, its build records, its Gate reports. */
 export function otherModuleFiles(paths: string[], module: string): string[] {
@@ -157,15 +182,34 @@ export function treeProblems(project: string, wave: Pick<Wave, "branch" | "targe
     problems.push(
       `the wave's branch changes the Build ledger's files (${ledgerFiles.join(", ")}): they're written only in the Course project's main checkout; drop them from the branch`,
     );
-  const shared = tree.linked ? changed.filter(isCourseWide) : [];
+  // A Sitting wave marks its sitting complete in course.yaml (`sitting.ts` checks it changes nothing else there).
+  const sittingWave = wave.kind === "sitting";
+  const shared = tree.linked
+    ? changed.filter((path) => isCourseWide(path) && !(sittingWave && path === COURSE_YAML))
+    : [];
   if (shared.length > 0)
     problems.push(
       `the wave's branch changes Course-wide files (${shared.join(", ")}): every Module follows them, so they change in the Course project's main checkout, are committed on ${MAIN_BRANCH}, and the waves rebase onto it`,
     );
+  if (sittingWave) {
+    // A sitting's wave changes its own sitting's files and no Module's.
+    const others = [...otherSittingFiles(changed, wave.target), ...otherModuleFiles(changed, "")];
+    if (others.length > 0)
+      problems.push(
+        `the wave's branch changes files that aren't sitting ${wave.target}'s (${others.join(", ")}): a Sitting wave changes only its own sitting, never a Module's or another sitting's`,
+      );
+    return problems;
+  }
   const others = otherModuleFiles(changed, wave.target);
   if (others.length > 0)
     problems.push(
       `the wave's branch changes another Module's files (${others.join(", ")}): a Module wave changes only its own Module`,
+    );
+  // A Module wave builds Modules: an Exam sitting's content is a Sitting wave's.
+  const sittings = otherSittingFiles(changed);
+  if (sittings.length > 0)
+    problems.push(
+      `the wave's branch changes an Exam sitting's files (${sittings.join(", ")}): a Module wave changes only its own Module; a Sitting wave builds a sitting`,
     );
   return problems;
 }

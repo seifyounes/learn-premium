@@ -19,6 +19,7 @@ import { staleProblems } from "./fresh.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
 import { toolInventorySchema, toolProblems, type ToolInventory } from "./assign.ts";
 import { relaunchProblems } from "./relaunch.ts";
+import { sittingReadyProblems, type SittingDumper } from "./sitting.ts";
 import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
 import { inventoryProblems, moduleTree, treeProblems, waveTree } from "./tree.ts";
 
@@ -41,14 +42,19 @@ export interface ContentRuling {
  * Divergences the Module's content ships (or says why it can't).
  */
 export interface Verifier {
-  verify(project: string, point: MergePoint, module: string | undefined): { green: boolean; problems: string[] };
+  /** `module` is the Module's folder; at the `sitting` point it is the sitting's id. */
+  verify(
+    project: string,
+    point: MergePoint | "sitting",
+    module: string | undefined,
+  ): { green: boolean; problems: string[] };
   rulings(project: string, module: string): ContentRuling[] | string;
   /** The Module's Worked examples and tools as the content has them (`gates/cli.ts tools`), or why it can't say. */
   inventory(project: string, folder: string): ToolInventory | string;
 }
 
 /** Runs `node template/gates/cli.ts <args…>` in the Course project, from its template folder. */
-function gateCli(given: string, args: string[]) {
+export function gateCli(given: string, args: string[]) {
   // Absolute before the child runs from the template folder, so --content names the project's content.
   const project = resolve(given);
   if (!existsSync(join(project, TEMPLATE_DIR, "gates", "cli.ts")))
@@ -69,7 +75,8 @@ function gateCli(given: string, args: string[]) {
 /** Runs the Course project's own template layer: `node template/gates/cli.ts verify|rulings|tools …`. */
 export const templateVerifier: Verifier = {
   verify(project, point, module) {
-    const run = gateCli(project, ["verify", "--point", point, ...(module === undefined ? [] : ["--module", module])]);
+    const scope = point === "sitting" ? "--sitting" : "--module";
+    const run = gateCli(project, ["verify", "--point", point, ...(module === undefined ? [] : [scope, module])]);
     return { green: run.ok, problems: run.ok ? [] : run.said };
   },
   rulings(project, module) {
@@ -93,7 +100,7 @@ export const templateVerifier: Verifier = {
 };
 
 /** The gates whose Checkpoint items are sheet-vs-recompute: the Owner rules each a Slip or a Divergence. */
-export const SHEET_GATES = new Set(["sim-numbers", "truth-table", "worked-numbers", "stl"]);
+export const SHEET_GATES = new Set(["sim-numbers", "truth-table", "worked-numbers", "stl", "past-papers"]);
 
 /** The jobs every Module wave records before it merges; the first Module's wave also writes the style sheet. */
 export const WAVE_JOBS = [
@@ -123,7 +130,7 @@ export interface CheckpointItem {
   crop?: string;
 }
 
-interface ReportItem {
+export interface ReportItem {
   gate: string;
   message: string;
   at?: string;
@@ -138,10 +145,15 @@ export function moduleFolder(ledger: Ledger, id: string): { row: ModuleRow; fold
 }
 
 const reportsDir = (project: string) => join(project, CONTENT_DIR, "build-records", "gate-reports");
-const reportFile = (point: MergePoint, folder: string) =>
+const reportFile = (point: MergePoint | "sitting", folder: string) =>
   point === "deploy" ? "deploy.json" : `${point}-${folder}.json`;
 
-function readReport(project: string, point: MergePoint, folder: string): Record<string, unknown> | null {
+/** A Gate report in the Course project's build records: `deploy` is the whole Course's; the others are one Module's or sitting's. */
+export function readReport(
+  project: string,
+  point: MergePoint | "sitting",
+  folder: string,
+): Record<string, unknown> | null {
   const path = join(reportsDir(project), reportFile(point, folder));
   if (!existsSync(path)) return null;
   try {
@@ -155,8 +167,10 @@ function readReport(project: string, point: MergePoint, folder: string): Record<
  * A gate's Checkpoint item's key: the Module it sits in (`course` for the whole Course's, such as a
  * licence), the gate and a hash of where and what, stable while the content is.
  */
-const gateItemKey = (item: ReportItem) =>
-  `${/^modules\/(\d{2})-/.exec(item.at ?? "")?.[1] ?? "course"}/${item.gate}/${createHash("sha256")
+export const gateItemKey = (item: ReportItem) =>
+  `${/^modules\/(\d{2})-/.exec(item.at ?? "")?.[1] ?? /^sittings\/([^/]+)\//.exec(item.at ?? "")?.[1] ?? "course"}/${item.gate}/${createHash(
+    "sha256",
+  )
     .update(`${item.at ?? ""}\n${item.message}`)
     .digest("hex")
     .slice(0, 10)}`;
@@ -225,6 +239,12 @@ export interface CheckpointState {
 /** The Module's batched Checkpoint: what is still open, ready to post in chat, and what the Owner already answered. */
 export function checkpoint(project: string, id: string, preview?: string): CheckpointState {
   const { ledger, preview: base, items } = raisedItems(project, id, preview);
+  const { open, unapplied, answered } = classifyItems(ledger, items);
+  return { module: id, preview: base, open, unapplied, answered, markdown: markdownOf(`Module ${id}`, open, base) };
+}
+
+/** Each raised item against the Owner's stored answers: still open, ruled but not yet in the content, or answered. */
+export function classifyItems(ledger: Ledger, items: CheckpointItem[]) {
   const answers = new Map(current(ledger.checkpoints).map((c) => [c.key, c]));
   const open: CheckpointItem[] = [];
   const unapplied: CheckpointState["unapplied"] = [];
@@ -235,13 +255,14 @@ export function checkpoint(project: string, id: string, preview?: string): Check
     else if (item.sheet && answer.ruling !== null) unapplied.push({ ...item, ruling: answer.ruling });
     else answered += 1;
   }
-  return { module: id, preview: base, open, unapplied, answered, markdown: markdownOf(id, open, base) };
+  return { open, unapplied, answered };
 }
 
-function markdownOf(id: string, open: CheckpointItem[], preview: string | null): string {
-  if (open.length === 0) return `**Checkpoint, Module ${id}**: nothing open.`;
+/** The batch to post in chat; `label` names what it is the Checkpoint of (`Module 01`, `sitting midterm`). */
+export function markdownOf(label: string, open: CheckpointItem[], preview: string | null): string {
+  if (open.length === 0) return `**Checkpoint, ${label}**: nothing open.`;
   const lines = [
-    `**Checkpoint, Module ${id}**: ${open.length} item${open.length === 1 ? "" : "s"}${preview === null ? "" : ` (preview: ${preview})`}. Answer each by its number.`,
+    `**Checkpoint, ${label}**: ${open.length} item${open.length === 1 ? "" : "s"}${preview === null ? "" : ` (preview: ${preview})`}. Answer each by its number.`,
     "",
   ];
   open.forEach((item, i) => {
@@ -263,7 +284,7 @@ function markdownOf(id: string, open: CheckpointItem[], preview: string | null):
  * A sheet-vs-recompute item's question as the Checkpoint gives it: the content file it sits in and
  * the sheet value it asks about (`modules/01-x/worked/1.json: sheet cell D4 prints 1.45, but …`).
  */
-const SHEET_QUESTION = /^(modules\/\S+?): .*?\bprints\s+(.+?), (?:but|which)\b/;
+const SHEET_QUESTION = /^((?:modules|sittings)\/\S+?): .*?\bprints\s+(.+?), (?:but|which)\b/;
 
 /** A printed value's magnitude: `1.45`, `−1,250.5` or `5.0 \times 10^{-2}`; null when it isn't one. */
 function magnitude(written: string): number | null {
@@ -281,7 +302,7 @@ function magnitude(written: string): number | null {
  * sheet-vs-recompute item of this Module, answered with that ruling, about that sheet value. Only
  * the Owner rules on the Professor's numbers; a ruling the gates no longer raise must still be his.
  */
-function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string): string[] {
+export function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string): string[] {
   if (typeof rulings === "string") return [rulings];
   const answered = current(ledger.checkpoints).flatMap((c) => {
     // A gate's sheet item, or a ruling no gate raised (a Practice answer, a Summary value), recorded
@@ -319,7 +340,7 @@ function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | string):
 }
 
 /** Whether the Course project's commits go through the template's pre-commit gate. */
-function hookInstalled(project: string): boolean {
+export function hookInstalled(project: string): boolean {
   const child = spawnSync("git", ["-C", project, "config", "core.hooksPath"], { encoding: "utf8" });
   if (child.status !== 0 || child.stdout.trim() !== HOOKS_PATH) return false;
   const hook = join(project, HOOKS_PATH, "pre-commit");
@@ -329,17 +350,29 @@ function hookInstalled(project: string): boolean {
 }
 
 /** The branch checked out in the Course project, or null when HEAD is detached or it isn't a repo. */
-function checkedOutBranch(project: string): string | null {
+export function checkedOutBranch(project: string): string | null {
   const child = spawnSync("git", ["-C", project, "symbolic-ref", "--short", "-q", "HEAD"], { encoding: "utf8" });
   return child.status === 0 ? child.stdout.trim() : null;
 }
 
-/** Every reason the Module wave `waveId` may not merge yet; none means it may. */
-export function readyProblems(project: string, waveId: string, verifier: Verifier): string[] {
+/** Why the template layer can't verify a wave: what differs from the pinned release's files. */
+export function integrityProblem(integrity: ReturnType<typeof verifyIntegrity>): string {
+  const changes = [
+    ...integrity.modified.map((p) => `modified ${p}`),
+    ...integrity.added.map((p) => `added ${p}`),
+    ...integrity.missing.map((p) => `missing ${p}`),
+    ...integrity.unrecordedOverrides.map((p) => `unrecorded override ${p}`),
+    ...integrity.missingOverrides.map((p) => `recorded override ${p} missing from the overrides area`),
+  ];
+  return `the template layer isn't the pinned release's: ${changes.join(", ")}; its gates can't verify this wave (a fix goes in as a Course override)`;
+}
+
+/** Every reason the wave `waveId` may not merge yet; none means it may. A Sitting wave is judged by `sitting.ts`. */
+export function readyProblems(project: string, waveId: string, verifier: Verifier, dump?: SittingDumper): string[] {
   const ledger = requireLedger(project);
   const wave = current(ledger.waves).find((w) => w.id === waveId);
   if (wave === undefined) throw new LedgerError("invalid", `no current wave ${waveId}`);
-  if (wave.kind !== "module") throw new LedgerError("invalid", `${waveId} is a ${wave.kind} wave, not a Module wave`);
+  if (wave.kind === "sitting") return sittingReadyProblems(project, wave, verifier, dump);
   if (wave.state !== "running") throw new LedgerError("refused", `wave ${waveId} already ended ${wave.state}`);
   const id = wave.target;
   const { folder } = moduleFolder(ledger, id);
@@ -410,16 +443,7 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   // The template layer's own gates verify the branch: an edited layer could verify anything.
   const integrity = verifyIntegrity(project, dir);
   if (!integrity.intact) {
-    const changes = [
-      ...integrity.modified.map((p) => `modified ${p}`),
-      ...integrity.added.map((p) => `added ${p}`),
-      ...integrity.missing.map((p) => `missing ${p}`),
-      ...integrity.unrecordedOverrides.map((p) => `unrecorded override ${p}`),
-      ...integrity.missingOverrides.map((p) => `recorded override ${p} missing from the overrides area`),
-    ];
-    problems.push(
-      `the template layer isn't the pinned release's: ${changes.join(", ")}; its gates can't verify this wave (a fix goes in as a Course override)`,
-    );
+    problems.push(integrityProblem(integrity));
   } else {
     for (const point of MERGE_POINTS) {
       const verdict = verifier.verify(dir, point, point === "deploy" ? undefined : folder);

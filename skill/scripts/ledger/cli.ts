@@ -6,6 +6,7 @@ import { Args, readJson } from "./args.ts";
 import {
   checkpointAnswer,
   claimLock,
+  completeSitting,
   diff,
   endWave,
   init,
@@ -30,6 +31,7 @@ import {
   JOB_RESULTS,
   moduleMapSchema,
   RULINGS,
+  sittingCompleteInput,
   WAVE_KINDS,
   WAVE_RESULTS,
 } from "./model.ts";
@@ -79,6 +81,8 @@ function dispatch(args: Args): Output {
       return wave(args, project);
     case "lock":
       return lock(args, project);
+    case "sitting":
+      return sitting(args, project);
     case "record":
       return record(args, project);
     case "supersede": {
@@ -115,6 +119,20 @@ function lock(args: Args, project: string): Output {
       return {};
     default:
       throw new LedgerError("invalid", "lock takes claim or release");
+  }
+}
+
+function sitting(args: Args, project: string): Output {
+  switch (args.subcommand()) {
+    case "complete":
+      completeSitting(
+        project,
+        args.required("--holder"),
+        sittingCompleteInput(readJson(args.required("--input")), "input"),
+      );
+      return {};
+    default:
+      throw new LedgerError("invalid", "sitting takes complete");
   }
 }
 
