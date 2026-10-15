@@ -12,6 +12,9 @@ export function spotOf(contentDir: string, at: string | undefined): string | und
   if (at.startsWith("/")) return at.split(" ")[0];
   // `modules/01-slug/worked/1.json:12:3 (steps.2.note)` → the file.
   const file = at.split(" ")[0]?.replace(/(:\d+)+$/, "") ?? "";
+  // A past paper or mock of a sitting: its page in the Exam room.
+  const exam = /^sittings\/([^/]+)\/(?:papers|mocks)\/([^/]+?)\.(?:json|ya?ml)$/.exec(file);
+  if (exam) return `/exam/${exam[1]}/${exam[2]}/`;
   const match = /^modules\/([^/]+)\/(?:([^/]+)\/)?([^/]+)$/.exec(file);
   if (!match) return undefined;
   const [, module, folder, name] = match as unknown as [string, string, string | undefined, string];

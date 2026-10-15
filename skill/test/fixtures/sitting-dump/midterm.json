@@ -1,0 +1,80 @@
+{
+  "course": {
+    "name": "Fixture Course",
+    "code": "FX 101",
+    "pad": "green",
+    "synthetic": true,
+    "credit": { "professor": "A. N. Example", "course": "Fixture Course (FX 101)", "university": "Example University" },
+    "owner": "A. N. Owner",
+    "arabicNotes": true,
+    "sittings": [
+      {
+        "id": "midterm",
+        "name": "Midterm",
+        "date": "2026-11-10",
+        "modules": ["01-thermal-resistance"],
+        "complete": true
+      },
+      { "id": "final", "name": "Final", "date": "2027-01-20", "modules": ["01-thermal-resistance", "02-convection"] }
+    ]
+  },
+  "sitting": {
+    "id": "midterm",
+    "name": "Midterm",
+    "date": "2026-11-10",
+    "modules": ["01-thermal-resistance"],
+    "complete": true
+  },
+  "papers": [
+    {
+      "name": "2025",
+      "key": "professor",
+      "marks": 10,
+      "minutes": 30,
+      "questions": [
+        {
+          "n": 1,
+          "module": "01-thermal-resistance",
+          "type": "calculation",
+          "reverse": false,
+          "marks": 4,
+          "question": "A brick wall is $L = 0.25\\ \\text{m}$ thick, with $k = 1.0\\ \\text{W/(m·K)}$ and a face of $A = 1\\ \\text{m}^2$. Find its thermal resistance $R$.",
+          "kind": "numeric",
+          "key": "0.25"
+        },
+        {
+          "n": 2,
+          "module": "01-thermal-resistance",
+          "type": "calculation",
+          "reverse": true,
+          "marks": 4,
+          "question": "A wall of face $A = 2\\ \\text{m}^2$ and $k = 0.5\\ \\text{W/(m·K)}$ has a thermal resistance of $R = 0.1\\ \\text{K/W}$. Find its thickness $L$, in m.",
+          "kind": "numeric",
+          "key": "0.1"
+        },
+        {
+          "n": 3,
+          "module": "01-thermal-resistance",
+          "type": "explain",
+          "reverse": false,
+          "marks": 2,
+          "question": "Two layers carry heat in series. Explain which of them takes the larger temperature drop.",
+          "kind": "prose",
+          "key": null
+        }
+      ]
+    }
+  ],
+  "mocks": [
+    { "name": "announced", "pattern": "announced" },
+    { "name": "mock-1", "pattern": "dna" }
+  ],
+  "format": {
+    "minutes": 20,
+    "slots": [
+      { "type": "calculation", "marks": 6 },
+      { "type": "explain", "marks": 4 }
+    ]
+  },
+  "rulings": []
+}
