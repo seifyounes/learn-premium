@@ -829,6 +829,131 @@ describe("end", { timeout: 120_000 }, () => {
   });
 });
 
+describe("keep", { timeout: 120_000 }, () => {
+  const REASON = "the cell still fails the honesty gate on the new release";
+
+  function keep(c: UpgradeCourse, tracker: FakeTracker, o: { path?: string; holder?: string } = {}): Promise<Result> {
+    const { path = OVERRIDE, holder = HOLDER } = o;
+    return upgrade(
+      { tracker },
+      ...["keep", "--project", c.project, "--holder", holder, "--path", path, "--reason", REASON],
+    );
+  }
+
+  const baseOverride = (c: UpgradeCourse) =>
+    spawnSync("git", ["-C", c.project, "show", `main~1:overrides/${OVERRIDE}`]).stdout;
+
+  test("a dropped override whose gates fail is kept and its gate gap reopened", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    must(await apply(c));
+    expect(existsSync(join(c.project, "overrides", OVERRIDE))).toBe(false);
+    const tracker = new FakeTracker();
+    const { code, out } = await keep(c, tracker);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(out).toMatchObject({ path: OVERRIDE, gateGap: 12, reopened: 12 });
+    // The Course's own override is back, byte for byte.
+    expect(readFileSync(join(c.project, "overrides", OVERRIDE)).equals(baseOverride(c))).toBe(true);
+    expect(tracker.reopened).toHaveLength(1);
+    expect(tracker.reopened[0]).toMatchObject({ number: 12 });
+    expect(tracker.reopened[0]?.comment).toContain("Fixture Course");
+    expect(tracker.reopened[0]?.comment).toContain("v2.0.0");
+    expect(tracker.reopened[0]?.comment).toContain(OVERRIDE);
+    expect(tracker.reopened[0]?.comment).toContain(REASON);
+    expect(upgradesOf(c)[0].kept).toEqual([expect.objectContaining({ path: OVERRIDE, gateGap: 12, reason: REASON })]);
+
+    // The wave goes on to merge with the override kept: its ledger row stays current.
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: the template layer at v2.0.0, one override kept");
+    must(await migrate(c));
+    reportPreviews(c);
+    const merged = await merge(c);
+    expect(merged.code, JSON.stringify(merged.out)).toBe(0);
+    const status = must(ledger("status", "--project", c.project));
+    expect(status.template.overrides).toEqual([expect.objectContaining({ path: OVERRIDE, gateGap: 12 })]);
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: merge the Upgrade wave");
+    expect(ledger("integrity", "--project", c.project).code).toBe(0);
+  });
+
+  test("a later apply doesn't drop a kept override", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    must(await apply(c));
+    must(await keep(c, new FakeTracker()));
+    const again = await apply(c);
+    expect(again.out).toMatchObject({ dropped: [] });
+    expect(existsSync(join(c.project, "overrides", OVERRIDE))).toBe(true);
+  });
+
+  test("refuses a path the release doesn't retire (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    must(await apply(c));
+    const tracker = new FakeTracker();
+    const { code, out } = await keep(c, tracker, { path: "src/site/helper.ts" });
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/retire/);
+    expect(tracker.reopened).toEqual([]);
+  });
+
+  test("refuses to keep an override twice (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    must(await apply(c));
+    must(await keep(c, new FakeTracker()));
+    const tracker = new FakeTracker();
+    expect((await keep(c, tracker)).code).toBe(3);
+    expect(tracker.reopened).toEqual([]);
+  });
+
+  test("refuses an override whose file the release dropped, so the wave is red (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    // A Course override of src/site/old.ts, which v1.1.0 retires and v2.0.0 deletes.
+    writeFiles(c.project, { "overrides/src/site/old.ts": "export const old = 'course';\n" });
+    must(
+      ledger(
+        ...["record", "override", "--project", c.project, "--holder", HOLDER],
+        ...["--path", "src/site/old.ts", "--gate-gap", "1"],
+      ),
+    );
+    git(c.project, "add", "-A");
+    git(c.project, "commit", "-q", "-m", "chore: another override");
+    must(await start(c));
+    must(await apply(c));
+    const tracker = new FakeTracker();
+    const { code, out } = await keep(c, tracker, { path: "src/site/old.ts" });
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/v2\.0\.0 no longer has/);
+    expect(tracker.reopened).toEqual([]);
+    expect(existsSync(join(c.project, "overrides/src/site/old.ts"))).toBe(false);
+  });
+
+  test("changes nothing when GitHub refuses to reopen the gate gap (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    must(await apply(c));
+    const tracker = new FakeTracker();
+    tracker.failReopen = true;
+    const { code, out } = await keep(c, tracker);
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/GitHub/);
+    expect(existsSync(join(c.project, "overrides", OVERRIDE))).toBe(false);
+    expect(upgradesOf(c)[0].kept).toEqual([]);
+  });
+
+  test("refuses off the wave's branch, and another session's run (negative control)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    must(await start(c));
+    must(await apply(c));
+    expect((await keep(c, new FakeTracker(), { holder: "session-b" })).code).toBe(3);
+    git(c.project, "switch", "-q", "main");
+    const off = await keep(c, new FakeTracker());
+    expect(off.code).toBe(3);
+    expect(off.out.error).toMatch(/upgrade\/v2\.0\.0-1/);
+  });
+});
+
 describe("the Fixture Course", { timeout: 300_000 }, () => {
   test("upgrades from v1.0.0 to v2.0.0 across a major release", async () => {
     const c = upgradeCourse(releaseRepo(), { content: "fixture" });
