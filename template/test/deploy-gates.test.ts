@@ -114,7 +114,7 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     expect(report.gates.map((g) => g.id)).toEqual(LIVE);
     const coverage = Object.fromEntries(report.gates.map((g) => [g.id, g.coverage]));
     // Every page, and the Licences file.
-    expect(coverage["live-routes"]).toEqual({ routes: pageCount() + 1, hubs: 5 });
+    expect(coverage["live-routes"]).toEqual({ routes: pageCount() + 1, hubs: 6 });
     expect(coverage["live-private-paths"]?.["probes"]).toBeGreaterThan(40);
   });
 
