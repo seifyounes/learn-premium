@@ -3,7 +3,7 @@
 // whose lecture changed would otherwise find the last wave's files and merge on them.
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { current, type Ledger } from "../ledger/model.ts";
+import type { Ledger } from "../ledger/model.ts";
 import { waveFolder } from "./reading.ts";
 
 /** Linux file times come from a coarse clock, a few ms behind `Date.now()`; a file this much older still counts. */
@@ -13,12 +13,14 @@ const FILES = ["reading-a.json", "reading-b.json", "review/review.json"];
 
 /**
  * Why the Module's readings or review are older than its Materials: the newest Material row of the Module
- * was taken in after the file was written. A file that isn't there is reported elsewhere.
+ * was taken in, or superseded (a changed or deleted file), after the file was written. Superseded rows
+ * count: a rebuild forced only by deleted Materials adds no new row, and a Module whose every file was
+ * deleted has no current row left. A file that isn't there is reported elsewhere.
  */
 export function staleProblems(ledger: Ledger, privateFolder: string, module: string): string[] {
-  const taken = current(ledger.materials)
+  const taken = ledger.materials
     .filter((m) => m.module === module)
-    .map((m) => m.recordedAt)
+    .flatMap((m) => (m.superseded === null ? [m.recordedAt] : [m.recordedAt, m.superseded.at]))
     .sort()
     .at(-1);
   if (taken === undefined) return [];

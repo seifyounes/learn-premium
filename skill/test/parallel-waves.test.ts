@@ -401,4 +401,21 @@ describe("incremental builds: a changed file re-runs its wave", () => {
     expect(stale).toMatch(/review\/review\.json in the Private folder is older than Module 02's Materials/);
     expect(fresh).toEqual([]);
   });
+
+  test("a rebuild forced only by deleted Materials can't merge on the readings and review of the wave before", () => {
+    const c = parallelCourse();
+    const first = startWave(c, "02");
+    toCheckpoint(c, "02", first);
+    mergeInto(c, "02", first);
+    const hourAgo = new Date(Date.now() - 3_600_000);
+    for (const file of ["reading-a.json", "reading-b.json", "review/review.json"])
+      utimesSync(join(c.privateFolder, "waves/02", file), hourAgo, hourAgo);
+    rmSync(join(materialsOf(c.project), "L02.pdf"));
+
+    const again = startWave(c, "02", "module/02-m02-2");
+    const problems = readyOf(c, again.waveId).join("\n");
+
+    expect(problems).toMatch(/reading-a\.json in the Private folder is older than Module 02's Materials/);
+    expect(problems).toMatch(/review\/review\.json in the Private folder is older than Module 02's Materials/);
+  });
 });
