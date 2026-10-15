@@ -23,6 +23,7 @@ import {
 import { closeRelaunch, openRelaunch, openRelaunchOf } from "../ledger/relaunch.ts";
 import { arr, nonEmpty, obj, oneOf, SchemaError } from "../ledger/schema.ts";
 import { readingSchema, waveFolder } from "./reading.ts";
+import { waveTree } from "./tree.ts";
 import { moduleFolder } from "./wave.ts";
 
 /** One blocking finding of the template's per-job gates: the gate, the place (`file:line`) and what. */
@@ -183,14 +184,15 @@ function readingFindings(full: string, reader: string, module: string): string[]
   }
 }
 
-/** The running wave a relaunch belongs to, its Module and its Private folder. */
+/** The running wave a relaunch belongs to, its Module, its checkout (its worktree) and its Private folder. */
 function waveContext(project: string, waveId: string) {
   const ledger = requireLedger(project);
   const wave = current(ledger.waves).find((w) => w.id === waveId);
   if (wave === undefined || wave.state !== "running") throw new LedgerError("invalid", `no running wave ${waveId}`);
   if (wave.kind !== "module") throw new LedgerError("invalid", `${waveId} is a ${wave.kind} wave, not a Module wave`);
   const { folder } = moduleFolder(ledger, wave.target);
-  return { ledger, module: wave.target, folder, privateFolder: privateFolderOf(ledger.intake.materialsPath) };
+  const tree = waveTree(project, wave.branch).path;
+  return { ledger, module: wave.target, folder, tree, privateFolder: privateFolderOf(ledger.intake.materialsPath) };
 }
 
 /** `relaunch open`: re-gates the dead predecessor's files and records the relaunch as open in the ledger. */
@@ -202,7 +204,7 @@ export function relaunchOpen(
   given: string[],
   gates: JobGates,
 ) {
-  const { module, folder, privateFolder } = waveContext(project, waveId);
+  const { module, folder, privateFolder, tree } = waveContext(project, waveId);
   const reader = BLIND_READER.exec(job)?.[1];
   let files: Located[];
   if (reader !== undefined) {
@@ -215,13 +217,13 @@ export function relaunchOpen(
         `a relaunched Blind reader is given only its own predecessor's reading (${own}), never ${others.join(", ")}`,
       );
     // A reader that died before writing anything leaves nothing to re-gate: its successor starts fresh.
-    files = existsSync(join(privateFolder, own.slice(PRIVATE.length))) ? locate(project, privateFolder, own) : [];
+    files = existsSync(join(privateFolder, own.slice(PRIVATE.length))) ? locate(tree, privateFolder, own) : [];
   } else {
     if (given.length === 0) throw new LedgerError("invalid", "--files is required: the files the predecessor left");
-    files = given.flatMap((g) => locate(project, privateFolder, g));
+    files = given.flatMap((g) => locate(tree, privateFolder, g));
   }
   const unique = [...new Map(files.map((f) => [f.path, f])).values()];
-  const regated = regate(project, module, folder, job, unique, gates);
+  const regated = regate(tree, module, folder, job, unique, gates);
   openRelaunch(project, holder, {
     wave: waveId,
     job,
@@ -250,12 +252,12 @@ export function relaunchClose(
   input: unknown,
   gates: JobGates,
 ) {
-  const { ledger, module, folder, privateFolder } = waveContext(project, waveId);
+  const { ledger, module, folder, privateFolder, tree } = waveContext(project, waveId);
   const row = openRelaunchOf(ledger.relaunches, waveId, job);
   if (row === undefined) throw new LedgerError("refused", `no open relaunch of ${job} in ${waveId}`);
   const given = new Map(outcomesSchema(input, "outcomes").files.map((f) => [f.path, f.outcome]));
   const where = (path: string) =>
-    path.startsWith(PRIVATE) ? join(privateFolder, path.slice(PRIVATE.length)) : join(project, path);
+    path.startsWith(PRIVATE) ? join(privateFolder, path.slice(PRIVATE.length)) : join(tree, path);
 
   const problems: string[] = [];
   for (const path of given.keys())
@@ -263,7 +265,7 @@ export function relaunchClose(
   const fixed = row.files.filter((f) => given.get(f.path) === "fixed" && existsSync(where(f.path)));
   const regated = new Map(
     regate(
-      project,
+      tree,
       module,
       folder,
       job,
