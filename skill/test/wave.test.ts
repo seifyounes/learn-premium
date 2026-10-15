@@ -961,6 +961,16 @@ describe("ready, the Module wave's merge gate", () => {
     expect(gitIn(project, "diff", "--raw", "HEAD~1", "HEAD")).toMatch(/pre-commit/);
     expect(ready(project, waveId).out.problems).toEqual([]);
 
+    // So does the oracle log an STL step-through is built from, and a Gate report doesn't.
+    writeFiles(project, { "content/build-records/gate-reports/job-01-m01.json": "{}\n" });
+    expect(ready(project, waveId).out.problems.some((p: string) => p.includes("renders from"))).toBe(false);
+    writeFiles(project, { "content/build-records/oracle/01-m01/dosing.json": "{}\n" });
+    expect(ready(project, waveId).out.problems).toContainEqual(
+      expect.stringMatching(/renders from changed since \(content\/build-records\/oracle\/01-m01\/dosing\.json\)/),
+    );
+    review(privateFolder, [], headOf(project));
+    shots(privateFolder, headOf(project));
+
     // A Course override of a component the page renders with makes the review stale too.
     writeFiles(project, { "overrides/src/components/PlotFigure.tsx": "export {};\n" });
     expect(ready(project, waveId).out.problems).toEqual([
