@@ -349,8 +349,45 @@ it drains the one Media queue across every Course in the Course registry, within
 quota. Its state commands are in `scripts/media/README.md`; NotebookLM is driven as `notebooklm.md`
 says, through Claude in Chrome in the dedicated Chrome profile, falling back to the Notebook recipe
 the Owner follows by hand. Start by reporting `media.ts status`: the queue, the demand against the
-remaining capacity, and any limit in force. The fact check, re-encode and placement steps aren't
-built yet (ticket #78): carry an item as far as `downloaded`, and tell the Owner the rest waits on it.
+remaining capacity, and any limit in force. `$M` is `scripts/media.ts`, `<P>` the Course project and
+`<D>` its Private folder. The Python commands run with the machine venv (`--python` defaults to it;
+its PyAV is the re-encoder, so no ffmpeg is installed). Move each downloaded item (`ingest` leaves
+it `downloaded`, its master in `<D>/media/masters/`) through the rest of the pass:
+
+1. **Evidence:** `node "$M" evidence --project <P> --item <I> --private <D>` transcribes an audio or a
+   video locally and samples its frames (or takes the infographic itself), into
+   `<D>/media/evidence/<I>-<n>/`. It returns the paths and the one file to write.
+2. **The fact check** (`briefs/media-check.md`): launch a fresh subagent per item and attempt, given
+   the evidence folder, the Module's content and build records and the style sheet. It writes the
+   check file `evidence` named, in `<D>/media/checks/`.
+3. **The judge:** `node "$M" check --project <P> --item <I> --private <D>`. It is deterministic: every
+   number said or shown must round from a number the Module holds (the Professor's Slips don't count
+   as held), and any claim the subagent marked `wrong` or `unsupported` fails. Exit 0 is `checked`;
+   exit 1 is a failure, which sends the item back to `queued` for one regeneration and drops it the
+   second time. You don't re-verify the subagent's verdicts. Exit 3 refuses (a missing or stale
+   file): fix what it names and run it again.
+4. **Re-encode:** `node "$M" encode --project <P> --item <I> --private <D>` writes the web copy
+   (H.264 up to 720p with faststart, 64 kbps mono audio, an optimised PNG) in `<D>/media/web/`. A file
+   over 100 MiB is encoded harder once; still over, the item is dropped. Sizes are reported, never
+   capped, and the media page lists them. Masters, evidence, checks and encodes stay in the Private
+   folder and are never committed.
+5. **Place, once the Module's checked items are encoded and no wave or upgrade runs:** make a media
+   worktree on its own branch, `git -C <P> worktree add -b media/NN-<slug>-<n> <P>-media/NN-<slug>-<n>
+   main` (call it `<T>`; `<n>` counts the passes), then `node "$M" stage --project <P> --tree <T> --item
+   <I> --private <D>` for each item: it copies the web copy into the Module's `media/` folder and
+   writes the item's slot into `media.yaml` (the infographic with the check's alt text; every other
+   block, a `youtube:` card for one, is kept as it was). Commit in `<T>`, then gate the commit as
+   Module wave step 8 does (job, module and deploy points; the content didn't change, so the
+   reports are the Module's media only). `node "$M" ready --project <P> --tree <T> --module NN` must
+   exit 0: the branch changes media and nothing else, every file is a checked item's re-encode, the
+   gates are green for HEAD, and no Module, Sitting or Upgrade wave runs. Then `git -C <P> merge
+   --ff-only media/NN-<slug>-<n>`, push `main`, run `placed --file content/modules/<folder>/media/<file>`
+   for each item (it refuses a file that isn't the recorded re-encode on `main`), and commit
+   `build-media.json` and `build-records/` on `main`. Remove `<T>`. Placed media never blocks a
+   Module: it was live already, and an item that can't be placed is dropped, not waited on.
+
+A sitting audio isn't checked or placed yet: the ledger doesn't record which Modules a sitting covers.
+A Module rebuilt after its media was placed keeps that media; it isn't checked again.
 
 ## Reading Materials
 
