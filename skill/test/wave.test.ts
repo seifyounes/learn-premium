@@ -808,6 +808,8 @@ describe("ready, the Module wave's merge gate", () => {
     // A file in the overrides area that no recorded override names: the build would ship it all the same.
     writeFiles(project, { "overrides/src/pages/index.astro": "<p>an unrecorded fix</p>\n" });
     expect(ready(project, waveId).out.problems).toEqual([
+      // The page renders from the overrides area, so the fresh reviewer's review is stale too (#70).
+      expect.stringMatching(/the review is of .* renders from changed since \(overrides\/src\/pages\/index\.astro\)/),
       expect.stringMatching(
         /the template layer isn't the pinned release's: unrecorded override src\/pages\/index\.astro.*a fix goes in as a Course override/,
       ),
@@ -975,6 +977,8 @@ describe("ready, the Module wave's merge gate", () => {
     writeFiles(project, { "overrides/src/components/PlotFigure.tsx": "export {};\n" });
     expect(ready(project, waveId).out.problems).toEqual([
       expect.stringMatching(/renders from changed since \(overrides\/src\/components\/PlotFigure\.tsx\)/),
+      // Unrecorded, it is also refused by the integrity check (#72).
+      expect.stringMatching(/unrecorded override src\/components\/PlotFigure\.tsx/),
     ]);
   });
 
