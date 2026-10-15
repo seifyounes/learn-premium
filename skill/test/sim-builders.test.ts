@@ -633,6 +633,10 @@ describe("fallback after two fix rounds", () => {
       "--started-at",
       minutesAgo(),
     );
+  /** A first block and the two fix rounds that are blocked too: the fix loop is spent. */
+  const blockThrice = (project: string, waveId: string, job: string) => {
+    for (let round = 0; round < 3; round++) must(record(project, waveId, job, "blocked"));
+  };
   const fallBack = (project: string, waveId: string, job: string) =>
     wave(["fallback", ...holder(project), "--wave", waveId, "--job", job, "--started-at", minutesAgo()]);
 
@@ -664,7 +668,7 @@ describe("fallback after two fix rounds", () => {
 
   test("a sim already on its step-through has nothing to fall back to (exit 3)", () => {
     const { project, waveId } = assigned();
-    for (const _ of [1, 2, 3]) must(record(project, waveId, "sim-descent", "blocked"));
+    blockThrice(project, waveId, "sim-descent");
     must(fallBack(project, waveId, "sim-descent"));
 
     expect(fallBack(project, waveId, "sim-descent")).toMatchObject({
@@ -675,7 +679,7 @@ describe("fallback after two fix rounds", () => {
 
   test("a fallback recorded with a plain `record job` is finished by a re-run, not recorded twice", () => {
     const { project, waveId } = assigned();
-    for (const _ of [1, 2, 3]) must(record(project, waveId, "sim-descent", "blocked"));
+    blockThrice(project, waveId, "sim-descent");
     must(
       ledger(
         ...["record", "job", ...holder(project), "--wave", waveId, "--job", "sim-descent"],
@@ -691,7 +695,7 @@ describe("fallback after two fix rounds", () => {
 
   test("a tool with no next Toolkit tool goes to the Owner (exit 3, record --result checkpoint)", () => {
     const { project, waveId } = assigned();
-    for (const _ of [1, 2, 3]) must(record(project, waveId, "tool-normal-equation", "blocked"));
+    blockThrice(project, waveId, "tool-normal-equation");
 
     const { code, out } = fallBack(project, waveId, "tool-normal-equation");
 
