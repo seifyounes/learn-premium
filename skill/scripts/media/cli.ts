@@ -5,19 +5,22 @@
 import { Args } from "../ledger/args.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { isoTime, oneOf, SchemaError } from "../ledger/schema.ts";
+import { templateVerifier } from "../wave/wave.ts";
+import { check } from "./check.ts";
+import { DEFAULT_PYTHON, gatherEvidence, venvKit, type MediaDeps } from "./kit.ts";
 import { advance, fail, limit, place, register, setQuota, start, survey } from "./media.ts";
 import { addSource, courseNotebook, ingest, recipe } from "./notebook.ts";
 import { chromeProfile } from "./store.ts";
-import { DEFAULT_STATE_DIR, LIMITS, MEDIA_KINDS, units, type Usage } from "./model.ts";
+import { DEFAULT_STATE_DIR, GITHUB_FILE_LIMIT_BYTES, LIMITS, MEDIA_KINDS, units, type Usage } from "./model.ts";
 
 export interface RunResult {
   code: number;
   stdout: string;
 }
 
-export function run(args: string[]): RunResult {
+export function run(args: string[], deps: Partial<MediaDeps> = {}): RunResult {
   try {
-    const { code = 0, ...out } = dispatch(new Args(args));
+    const { code = 0, ...out } = dispatch(new Args(args), deps);
     return { code, stdout: JSON.stringify({ ok: code === 0, ...out }) };
   } catch (error) {
     if (error instanceof LedgerError) return failure(error.kind === "refused" ? 3 : 2, error.message);
@@ -32,9 +35,14 @@ function failure(code: number, error: string): RunResult {
 
 type Output = { code?: number } & Record<string, unknown>;
 
-function dispatch(args: Args): Output {
+function dispatch(args: Args, given: Partial<MediaDeps>): Output {
   const command = args.command();
   const stateDir = args.optional("--state") ?? DEFAULT_STATE_DIR;
+  const deps = (): MediaDeps => ({
+    kit: given.kit ?? venvKit(args.optional("--python") ?? DEFAULT_PYTHON),
+    verifier: given.verifier ?? templateVerifier,
+    limitBytes: given.limitBytes ?? GITHUB_FILE_LIMIT_BYTES,
+  });
   switch (command) {
     case "register":
       return register(stateDir, args.required("--project"));
@@ -92,6 +100,26 @@ function dispatch(args: Args): Output {
       return { ...recipe(args.required("--project"), args.required("--item")) };
     case "ingest":
       return { ...ingest(stateDir, args.required("--project"), args.required("--private")) };
+    case "evidence":
+      return {
+        ...gatherEvidence(
+          args.required("--project"),
+          args.required("--item"),
+          args.required("--private"),
+          deps().kit,
+          args.optional("--whisper-model") ?? null,
+        ),
+      };
+    case "check": {
+      const result = check(
+        stateDir,
+        args.required("--project"),
+        args.required("--item"),
+        args.required("--private"),
+        deps().verifier,
+      );
+      return { code: result.verdict === "pass" ? 0 : 1, ...result };
+    }
     case "chrome":
       return chromeProfile(stateDir, args.optional("--profile") ?? null);
     default:

@@ -250,6 +250,17 @@ function ensureInbox(project: string): string {
   return folder;
 }
 
+/** The Private folder, resolved: it must exist and sit outside the Course project, so nothing in it can be committed. */
+export function requirePrivateFolder(project: string, privateFolder: string): string {
+  const priv = resolve(privateFolder);
+  const inside = relative(resolve(project), priv);
+  if (inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside)) {
+    throw new LedgerError("invalid", `the Private folder ${priv} is inside the Course project; it must sit outside it`);
+  }
+  if (!existsSync(priv)) throw new LedgerError("invalid", `no Private folder at ${priv}`);
+  return priv;
+}
+
 export interface IngestResult {
   ingested: { item: string; attempt: number; master: string }[];
   /** Inbox copies of masters already taken, removed. */
@@ -265,12 +276,7 @@ export interface IngestResult {
  */
 export function ingest(stateDir: string, project: string, privateFolder: string): IngestResult {
   const root = resolve(project);
-  const priv = resolve(privateFolder);
-  const inside = relative(root, priv);
-  if (inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside)) {
-    throw new LedgerError("invalid", `the Private folder ${priv} is inside the Course project; it must sit outside it`);
-  }
-  if (!existsSync(priv)) throw new LedgerError("invalid", `no Private folder at ${priv}`);
+  const priv = requirePrivateFolder(root, privateFolder);
   const masters = join(priv, "media", "masters");
   const inbox = ensureInbox(root);
   const result: IngestResult = { ingested: [], cleared: [], ignored: [] };
