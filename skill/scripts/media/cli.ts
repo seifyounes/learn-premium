@@ -5,11 +5,13 @@
 import { Args } from "../ledger/args.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { isoTime, oneOf, SchemaError } from "../ledger/schema.ts";
+import { moduleId } from "../ledger/model.ts";
 import { templateVerifier } from "../wave/wave.ts";
 import { check } from "./check.ts";
 import { DEFAULT_PYTHON, encodeItem, gatherEvidence, venvKit, type MediaDeps } from "./kit.ts";
 import { advance, fail, limit, place, register, setQuota, start, survey } from "./media.ts";
 import { addSource, courseNotebook, ingest, recipe } from "./notebook.ts";
+import { mediaReadyProblems, stage } from "./place.ts";
 import { chromeProfile } from "./store.ts";
 import { DEFAULT_STATE_DIR, GITHUB_FILE_LIMIT_BYTES, LIMITS, MEDIA_KINDS, units, type Usage } from "./model.ts";
 
@@ -122,6 +124,24 @@ function dispatch(args: Args, given: Partial<MediaDeps>): Output {
           limitBytes,
         ),
       };
+    }
+    case "stage":
+      return {
+        ...stage(
+          args.required("--project"),
+          args.required("--tree"),
+          args.required("--item"),
+          args.required("--private"),
+        ),
+      };
+    case "ready": {
+      const problems = mediaReadyProblems(
+        args.required("--project"),
+        args.required("--tree"),
+        moduleId(args.required("--module"), "--module"),
+        deps().verifier,
+      );
+      return { code: problems.length === 0 ? 0 : 1, ready: problems.length === 0, problems };
     }
     case "check": {
       const result = check(
