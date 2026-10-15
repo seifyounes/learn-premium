@@ -6,10 +6,12 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { HOOKS_PATH } from "../intake/create.ts";
 import { templateAt } from "../intake/release.ts";
-import { OVERRIDES_DIR } from "../intake/scaffold.ts";
+import { CONTENT_DIR, OVERRIDES_DIR } from "../intake/scaffold.ts";
 import { LedgerError } from "../ledger/file.ts";
+import { hashTree } from "../ledger/hash.ts";
 import { mutate, requireLedger, runningUpgrade, templateHashes, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type Upgrade } from "../ledger/model.ts";
 import { heldReason, planUpgrade } from "./plan.ts";
@@ -205,4 +207,81 @@ export function applyUpgrade(project: string, holder: string, source: string) {
     dropped.push(path);
   }
   return { written, deleted: deleted.sort(), dropped };
+}
+
+/** A finding that makes the wave red but isn't a refusal: a migration threw. */
+export class UpgradeProblem extends Error {}
+
+/** The Gate reports are committed with the content but are the gates' record of it, not content. */
+const GATE_REPORTS = "build-records/gate-reports/";
+
+/** The content's files and their hashes, without its Gate reports. */
+export function contentHashes(project: string): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(hashTree(join(project, CONTENT_DIR))).filter(([path]) => !path.startsWith(GATE_REPORTS)),
+  );
+}
+
+/** The content files that differ from `base`'s: edited, deleted or added, committed or not. */
+function contentChangedSince(project: string, base: string): string[] {
+  const exclude = `:(exclude)${CONTENT_DIR}/${GATE_REPORTS}`;
+  const changed = git(project, ["diff", "--name-only", base, "--", CONTENT_DIR, exclude]);
+  const untracked = git(project, ["status", "--porcelain", "--untracked-files=all", "--", CONTENT_DIR, exclude]);
+  if (!changed.ok || !untracked.ok) throw new LedgerError("refused", `can't compare the content with ${base}`);
+  return [
+    ...changed.out.split(/\r?\n/),
+    ...untracked.out
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("??"))
+      .map((line) => line.slice(3)),
+  ].filter((path) => path !== "");
+}
+
+/**
+ * Runs the migrations the target release ships for the majors after the pinned release, oldest first,
+ * on the Course's content and course config: the one thing that may change them in an upgrade. The
+ * content has to be what it was when the wave started, and the template layer the release's own.
+ * Records what ran and the content's hashes after, which the merge gate holds the content to. A
+ * migration that throws is reported (the wave is red), and nothing is recorded.
+ */
+export async function migrateUpgrade(project: string, holder: string) {
+  const ledger = requireLedger(project);
+  assertHolder(ledger, holder);
+  const upgrade = running(ledger);
+  onWaveBranch(project, upgrade);
+  const layer = templateHashes(project);
+  if (Object.keys({ ...layer, ...upgrade.files }).some((path) => layer[path] !== upgrade.files[path]))
+    throw new LedgerError("refused", `the template layer isn't ${upgrade.to}'s yet: run apply first`);
+  if (upgrade.migrations !== null)
+    throw new LedgerError(
+      "refused",
+      `the migrations already ran for ${upgrade.id}: a second run would apply them twice; end the wave failed and start again`,
+    );
+  const edited = contentChangedSince(project, upgrade.base);
+  if (edited.length > 0)
+    throw new LedgerError(
+      "refused",
+      `the content has changed since the wave started (${edited.join(", ")}): only a migration may change it; restore it with git checkout ${upgrade.base} -- ${CONTENT_DIR}`,
+    );
+  const runner = join(project, TEMPLATE_DIR, "migrations", "runner.ts");
+  let ran: { major: number; describe: string }[] = [];
+  // A release from before migrations were shipped has no runner, and so no migration to run.
+  if (existsSync(runner)) {
+    const { runMigrations } = (await import(/* @vite-ignore */ pathToFileURL(runner).href)) as {
+      runMigrations(options: { contentDir: string; from: string; to: string }): Promise<typeof ran>;
+    };
+    try {
+      ran = await runMigrations({ contentDir: join(project, CONTENT_DIR), from: upgrade.from, to: upgrade.to });
+    } catch (error) {
+      throw new UpgradeProblem((error as Error).message);
+    }
+  }
+  const content = contentHashes(project);
+  mutate(project, holder, (l) => {
+    const row = current(l.upgrades).find((u) => u.id === upgrade.id);
+    if (row === undefined) throw new LedgerError("invalid", `no current Upgrade wave ${upgrade.id}`);
+    row.migrations = ran;
+    row.content = content;
+  });
+  return { migrations: ran };
 }
