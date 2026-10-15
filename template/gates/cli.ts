@@ -13,7 +13,7 @@
 //            Prints (JSON) every Slip and Divergence the content carries, for the Module wave's merge gate.
 //   shots    --module NN-slug --out DIR [--url URL] [--dist DIR] [--commit SHA] [--content DIR]
 //            The fresh reviewer's screenshots of the Module page (phone and laptop, every section
-//            open, each tab view) and shots.json naming the commit (the Course's HEAD by default).
+//            open, each tab view) and shots.json naming the commit (the Course project's HEAD by default).
 //
 // Exit codes: 0 green, 1 red, 2 bad usage.
 import { spawnSync } from "node:child_process";
@@ -111,7 +111,8 @@ async function main(argv: string[]): Promise<number> {
       const manifest = await takeShots({
         module: values.module,
         out: resolve(values.out),
-        commit: values.commit ?? head(contentDir),
+        // The Course's HEAD: the template layer sits in the Course project's repo, whatever --content says.
+        commit: values.commit ?? head(TEMPLATE_DIR),
         ...(values.url === undefined
           ? { distDir: resolve(values.dist ?? join(TEMPLATE_DIR, "dist")) }
           : { url: values.url }),
