@@ -97,4 +97,61 @@ describe("ledger CLI", () => {
     expect(codes.filter((code) => code === 0)).toHaveLength(1);
     expect(codes.filter((code) => code === 3)).toHaveLength(5);
   });
+
+  test("the parallel waves of one session record their jobs at the same moment, and every row lands", async () => {
+    const project = tempDir("project");
+    const materials = tempDir("materials");
+    writeFiles(materials, { "L01.pdf": "l1", "L02.pdf": "l2", "L03.pdf": "l3" });
+    const intake = { courseName: "Statics", materialsPath: materials, disciplines: ["machinery"], pad: "blueprint" };
+    const holder = ["--project", project, "--holder", "session-a"];
+    const must = (result: { code: number | null; stderr: string }) => {
+      if (result.code !== 0) throw new Error(`command failed: ${result.stderr}`);
+    };
+    must(
+      runSync(
+        "init",
+        ...holder,
+        "--release",
+        "v2.0.0",
+        "--intake",
+        jsonInput({ ...intake, arabicNotes: false, sittings: [] }),
+      ),
+    );
+    const modules = ["01", "02", "03"].map((id) => ({
+      id,
+      slug: `m${id}`,
+      title: `Module ${id}`,
+      materials: [`L${id}.pdf`],
+    }));
+    must(runSync("map", ...holder, "--input", jsonInput({ modules, unmapped: [] })));
+    const start = (target: string) =>
+      runSync("wave", "start", ...holder, "--kind", "module", "--target", target, "--branch", `module/${target}`);
+    const first = start("01");
+    must(first);
+    must(runSync("wave", "end", ...holder, "--wave", first.out.wave, "--result", "merged", "--commit", "a".repeat(40)));
+    const waves = [start("02"), start("03")].map((started) => {
+      must(started);
+      return started.out.wave as string;
+    });
+
+    const startAt = Date.now() + 1500;
+    const jobs = ["blind-reader-a", "blind-reader-b", "reconcile", "writer"];
+    const codes = await Promise.all(
+      waves.flatMap((wave) =>
+        jobs.map((job) =>
+          runAt(startAt, "record", "job", ...holder, "--wave", wave, "--job", job, "--result", "passed"),
+        ),
+      ),
+    );
+
+    expect(codes).toEqual(Array(8).fill(0));
+    const { out } = runSync("status", "--project", project);
+    for (const wave of waves)
+      expect(
+        out.jobs
+          .filter((row: { wave: string }) => row.wave === wave)
+          .map((row: { job: string }) => row.job)
+          .sort(),
+      ).toEqual([...jobs].sort());
+  }, 30_000);
 });

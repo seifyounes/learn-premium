@@ -1281,6 +1281,61 @@ describe("incremental builds: next on every run", () => {
   });
 });
 
+describe("incremental builds: the cap on waves running at once", () => {
+  /** Course with Modules 01 and 02 live and 03-06 mapped, planned. */
+  function wideCourse() {
+    const course = liveCourse();
+    writeFiles(course.materials, { "L03.pdf": "3", "L04.pdf": "4", "L05.pdf": "5", "L06.pdf": "6" });
+    const proposal = ledger("next", "--project", course.project).out.proposal;
+    ledger("map", "--project", course.project, "--holder", "session-a", "--input", jsonInput(proposal));
+    return course;
+  }
+  const startModule = (project: string, id: string) =>
+    ledger(
+      ...["wave", "start", "--project", project, "--holder", "session-a", "--kind", "module", "--target", id],
+      ...["--branch", `module/${id}`],
+    );
+
+  test("at most three Module waves run at once by default; next lists no more to start", () => {
+    const { project } = wideCourse();
+
+    const started = ["03", "04", "05"].map((id) => startModule(project, id).code);
+    const fourth = startModule(project, "06");
+    const { out } = ledger("next", "--project", project);
+
+    expect(started).toEqual([0, 0, 0]);
+    expect(fourth.code).toBe(3);
+    expect(fourth.out.error).toMatch(/3 Module waves already run/);
+    expect(out.toStart).toEqual([]);
+  });
+
+  test("the cap is configurable, and next lists only as many waves as there are free places", () => {
+    const { project } = wideCourse();
+    const set = (value: string | undefined) => {
+      if (value === undefined) delete process.env["LEARN_PREMIUM_MAX_WAVES"];
+      else process.env["LEARN_PREMIUM_MAX_WAVES"] = value;
+    };
+    try {
+      set("2");
+      startModule(project, "03");
+      const room = ledger("next", "--project", project).out.toStart;
+      const second = startModule(project, "04").code;
+      const third = startModule(project, "05").code;
+      set("4");
+      const raised = startModule(project, "05").code;
+      set("0");
+      const bad = ledger("next", "--project", project);
+
+      expect(room).toEqual([{ kind: "module", target: "04", reasons: ["planned"] }]);
+      expect([second, third, raised]).toEqual([0, 3, 0]);
+      expect(bad.code).toBe(2);
+      expect(bad.out.error).toMatch(/LEARN_PREMIUM_MAX_WAVES/);
+    } finally {
+      set(undefined);
+    }
+  });
+});
+
 /** The mapped Course with both Modules built and merged. */
 function liveCourse() {
   const course = mappedCourse();
