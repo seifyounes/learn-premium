@@ -210,6 +210,41 @@ const gateGap = obj({
   superseded,
 });
 
+/** A migration's major release number. */
+const major: Schema<number> = (v, p) =>
+  Number.isInteger(v) && (v as number) > 0 ? (v as number) : fail(p, "a major release number", v);
+
+export const UPGRADE_STATES = ["running", "merged", "failed"] as const;
+
+/**
+ * One Upgrade wave: the Course's template layer moved from release `from` to `to` on its own branch.
+ * `base` is `main`'s commit before the wave started; `files` the target release's template hashes.
+ * `retire` is the Course overrides the release retires (each tied to the gate gap it closed), `kept` the
+ * ones a failing gate put back. `migrations` and `content` are null until the migrations have run:
+ * `content` is then the content's hashes, which nothing but a migration may change.
+ */
+const upgrade = obj({
+  id: nonEmpty,
+  from: nonEmpty,
+  to: nonEmpty,
+  branch: nonEmpty,
+  base: commitSha,
+  /** The Owner's yes, in their words. */
+  answer: nonEmpty,
+  state: oneOf(...UPGRADE_STATES),
+  startedAt: isoTime,
+  endedAt: nullable(isoTime),
+  commit: nullable(commitSha),
+  files: record(sha256),
+  retire: arr(obj({ path: nonEmpty, gateGap: issueNumber })),
+  kept: arr(obj({ path: nonEmpty, gateGap: issueNumber, reason: nonEmpty, at: isoTime })),
+  migrations: nullable(arr(obj({ major, describe: nonEmpty }))),
+  content: nullable(record(sha256)),
+  /** The gate gap a red wave filed. */
+  gateGap: nullable(gateGapId),
+  superseded,
+});
+
 const ledgerShape = obj({
   schema: (v, p) => (v === SCHEMA_VERSION ? SCHEMA_VERSION : failVersion(p, v)),
   intake: intakeSchema,
@@ -230,12 +265,15 @@ const ledgerShape = obj({
   /** The Course build marked done: refused while a gate gap is unfiled; a new wave or gate gap clears it. */
   done: nullable(obj({ holder: nonEmpty, at: isoTime })),
   relaunches: arr(relaunch),
+  upgrades: arr(upgrade),
 });
 
-/** A ledger written before gate gaps or relaunches were recorded reads as having none, and not done. */
+/** A ledger written before gate gaps, relaunches or Upgrade waves were recorded reads as having none, and not done. */
 export const ledgerSchema: Schema<Infer<typeof ledgerShape>> = (v, p) =>
   ledgerShape(
-    typeof v === "object" && v !== null && !Array.isArray(v) ? { gateGaps: [], done: null, relaunches: [], ...v } : v,
+    typeof v === "object" && v !== null && !Array.isArray(v)
+      ? { gateGaps: [], done: null, relaunches: [], upgrades: [], ...v }
+      : v,
     p,
   );
 
@@ -260,6 +298,7 @@ export type Ruling = NonNullable<Checkpoint["ruling"]>;
 export type ModuleMap = Infer<typeof moduleMapSchema>;
 export type GateGap = Infer<typeof gateGap>;
 export type Relaunch = Infer<typeof relaunch>;
+export type Upgrade = Infer<typeof upgrade>;
 export type RelaunchOutcome = (typeof RELAUNCH_OUTCOMES)[number];
 
 /** An Exam sitting's state, from its Sitting waves: open until one runs, live once one merges. */
