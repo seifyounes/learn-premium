@@ -7,7 +7,7 @@ import { LedgerError } from "../ledger/file.ts";
 import { isoTime, oneOf, SchemaError } from "../ledger/schema.ts";
 import { templateVerifier } from "../wave/wave.ts";
 import { check } from "./check.ts";
-import { DEFAULT_PYTHON, gatherEvidence, venvKit, type MediaDeps } from "./kit.ts";
+import { DEFAULT_PYTHON, encodeItem, gatherEvidence, venvKit, type MediaDeps } from "./kit.ts";
 import { advance, fail, limit, place, register, setQuota, start, survey } from "./media.ts";
 import { addSource, courseNotebook, ingest, recipe } from "./notebook.ts";
 import { chromeProfile } from "./store.ts";
@@ -110,6 +110,19 @@ function dispatch(args: Args, given: Partial<MediaDeps>): Output {
           args.optional("--whisper-model") ?? null,
         ),
       };
+    case "encode": {
+      const { kit, limitBytes } = deps();
+      return {
+        ...encodeItem(
+          stateDir,
+          args.required("--project"),
+          args.required("--item"),
+          args.required("--private"),
+          kit,
+          limitBytes,
+        ),
+      };
+    }
     case "check": {
       const result = check(
         stateDir,

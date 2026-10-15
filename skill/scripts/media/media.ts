@@ -96,6 +96,7 @@ function merge(file: MediaFile, want: Wanted[], at: string): void {
         state: "queued",
         regenerations: 0,
         file: null,
+        encoded: null,
         failures: [],
         queuedAt: at,
         updatedAt: at,
@@ -290,6 +291,18 @@ export function advance(stateDir: string, project: string, id: string, to: "down
   move(stateDir, resolve(project), id, [from], (item) => (item.state = to));
 }
 
+/** Records the web copy of a checked item's master (the re-encode, in the Private folder). */
+export function recordEncoded(
+  stateDir: string,
+  project: string,
+  id: string,
+  encoded: NonNullable<MediaItem["encoded"]>,
+): void {
+  move(stateDir, resolve(project), id, ["checked"], (item) => {
+    item.encoded = encoded;
+  });
+}
+
 /** checked → placed: `file` is the published copy, already in the Course project. */
 export function place(stateDir: string, project: string, id: string, file: string): void {
   const root = resolve(project);
@@ -316,6 +329,8 @@ export function fail(
 ): { state: ItemState; regenerations: number } {
   return move(stateDir, resolve(project), id, [...IN_FLIGHT], (item) => {
     item.failures.push({ at: iso(Date.now()), state: item.state as (typeof IN_FLIGHT)[number], reason });
+    // A rejected or regenerated output keeps no web copy: the next attempt encodes its own.
+    item.encoded = null;
     if (!final && item.regenerations < MAX_REGENERATIONS) {
       item.regenerations += 1;
       item.state = "queued";
