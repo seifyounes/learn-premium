@@ -2,13 +2,19 @@
   "reading": "learn-premium figure reading v1",
   "by": "Blind reader, from the synthetic STEP 7 LAD editor screenshot build-records/figure/10-two-conveyors/conveyors.png, never seeing a builder file",
   "parts": {
-    "N1 no I0.0": { "kind": "no", "at": [0.144, 0.312], "turn": 0, "label": "above" },
-    "N1 no Q4.0": { "kind": "no", "at": [0.144, 0.390], "turn": 0, "label": "above" },
-    "N1 no I0.1": { "kind": "no", "at": [0.344, 0.312], "turn": 0, "label": "above" },
-    "N1 coil Q4.0": { "kind": "coil", "at": [0.911, 0.312], "turn": 0, "label": "above" },
-    "N2 no Q4.0": { "kind": "no", "at": [0.144, 0.577], "turn": 0, "label": "above" },
-    "N2 ton DB1": { "kind": "ton", "at": [0.466, 0.630], "turn": 0, "label": "above" },
-    "N2 coil Q4.1": { "kind": "coil", "at": [0.911, 0.577], "turn": 0, "label": "above" }
+    "N1 no I0.0": { "kind": "no", "at": [0.144, 0.313], "turn": 0, "label": "above" },
+    "N1 no Q4.0": { "kind": "no", "at": [0.144, 0.391], "turn": 0, "label": "above" },
+    "N1 no I0.1": { "kind": "no", "at": [0.344, 0.313], "turn": 0, "label": "above" },
+    "N1 coil Q4.0": { "kind": "coil", "at": [0.911, 0.313], "turn": 0, "label": "above" },
+    "N2 no Q4.0": { "kind": "no", "at": [0.144, 0.578], "turn": 0, "label": "above" },
+    "N2 ton DB1": {
+      "kind": "ton",
+      "at": [0.467, 0.631],
+      "turn": 0,
+      "label": "above",
+      "values": { "PT": "T#5S", "ET": "MD20" }
+    },
+    "N2 coil Q4.1": { "kind": "coil", "at": [0.911, 0.578], "turn": 0, "label": "above" }
   },
   "unlabelled": { "power-rail": 2 },
   "nets": [
@@ -19,10 +25,11 @@
     { "pins": ["N2 ton DB1.Q", "N2 coil Q4.1.in"], "dotted": false }
   ],
   "doubts": [
-    "Both networks' left rails share the single pin name POWER.t; since every pin may appear in only one net, I merged both rails' connections into one power net (N1 I0.0, N1 Q4.0 seal-in branch, N2 Q4.0).",
-    "I0.1 is drawn as a normally open contact -| |- even though the comment says the Stop button is normally closed (reads 1 until pressed); I read it as kind 'no', exactly as drawn.",
-    "The TON box's PT input (T#5S) and ET output (MD20) are values, not pins, and are left out of the nets; the box's printed instance operand is DB1, read as the ton's key.",
-    "The seal-in branch joins the main rung at x~200 px with a plain T-junction; no joint dots are drawn anywhere, so every net is dotted: false.",
-    "Positions measured from dark-pixel extents on the 900x640 image: contacts by their two bars, coils by their two arcs, the TON by its box outline (x 359-480, y 355-452)."
+    "Image is 900x640 px; centres are estimated by eye from the rendered screenshot, so positions may be off by a few pixels.",
+    "Network 1's branch (I0.0 in parallel with Q4.0) rejoins at x of about 200 px with a plain corner, no junction dots, so the net is recorded dotted: false.",
+    "No right power rail is drawn; the coils end the rungs with no further connection, so the coils have only their 'in' pin wired.",
+    "The TON box shows 'TON' as its type inside the box and 'DB1' above it; DB1 is taken as the operand (instance DB). PT is fed by 'T#5S' printed left of the box and ET writes to 'MD20' printed right of it, recorded under values, not in nets.",
+    "The ET pin's value is an address (MD20) rather than a current time, recorded as printed.",
+    "Two contacts read Q4.0 in different networks (N1 seal-in, N2 input), so neither needs a ' #2' suffix."
   ]
 }

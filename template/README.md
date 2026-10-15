@@ -330,7 +330,9 @@ A STEP 7 editor screenshot can be a schematic sim's figure: its Blind reader key
 network, kind and operand as printed (`N1 no I0.0`, `N1 coil Q4.0`; ` #2` on a repeat in one
 network), since one operand marks a contact and the coil it seals in, and every power rail pin is
 `POWER.t`. A part's values (a timer's preset, the word its time goes to) are drawn in its symbol's
-slots and held to the same legibility as labels.
+slots and held to the same legibility as labels; the Blind reader records them as printed (`values`), and
+a value the model gives otherwise blocks. A box the figure prints no operand on is keyed by network
+and kind (`N2 fbd-and`).
 
 ### The layout core
 

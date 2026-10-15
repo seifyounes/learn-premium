@@ -194,15 +194,19 @@ export interface LadderModel {
   watch: Readonly<Record<string, WatchType>>;
 }
 
-/** A Blind reader's key for a part of an editor screenshot: `N1 no I 0.0`, ` #2` on a repeat in its network. */
+/**
+ * A Blind reader's key for a part of an editor screenshot: `N1 no I 0.0`; a box the figure prints
+ * no operand on (FBD's &, >=1, the negation) by network and kind alone, `N1 fbd-and`; ` #2` on a
+ * repeat in its network. Repeats are counted in the model's order, which lists a network's parts as
+ * the figure reads them: left to right, then top to bottom.
+ */
 export function screenshotKeys(model: Pick<LadderModel, "parts">): Map<string, string> {
   const keys = new Map<string, string>();
   const seen = new Map<string, number>();
   for (const part of model.parts) {
     if (part.kind === "power-rail") continue;
     const printed = part.label ?? part.operand;
-    if (printed === undefined) continue;
-    const base = `N${part.network} ${part.kind} ${printed}`;
+    const base = printed === undefined ? `N${part.network} ${part.kind}` : `N${part.network} ${part.kind} ${printed}`;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
     keys.set(part.id, n === 1 ? base : `${base} #${n}`);

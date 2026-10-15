@@ -60,6 +60,8 @@ export const figureReading = z.strictObject({
       flip: z.boolean().default(false),
       /** The side its label is printed on. */
       label: z.enum(SIDES).optional(),
+      /** The values the figure prints in the part's slots, as printed (a TON's `PT: T#5S`, `ET: MD20`). */
+      values: z.record(z.string(), z.string().min(1)).optional(),
     }),
   ),
   /** Symbols the figure doesn't label, counted by kind (grounds, rails). */
@@ -446,7 +448,30 @@ function figureChecks(
     .filter((n) => n.length > 1)
     .flat()
     .filter((k) => !implicitPin(k) && !k.startsWith("?") && !figuredPins.has(k));
+  // A part's values (a timer's preset, the word its time goes to) as the figure prints them, read
+  // however the editor spaced or cased them: a preset the model mistypes runs a different timer.
+  const printed = (v: string) => v.replace(/\s+/g, "").toUpperCase();
+  const valueProblems = [...keys].flatMap(([key, id]) => {
+    const notes = model.parts.find((p) => p.id === id)?.notes ?? {};
+    const read = reading.parts[key]?.values;
+    const slots = Object.keys(notes);
+    if (slots.length === 0 && !read) return [];
+    if (!read) return [`the figure reading records none of ${key}'s values (${slots.join(", ")})`];
+    return [
+      ...slots.flatMap((slot) => {
+        const want = read[slot];
+        if (want === undefined) return [`the figure reading has no ${slot} for ${key}`];
+        return printed(want) === printed(notes[slot] ?? "")
+          ? []
+          : [`${key}'s ${slot} is "${notes[slot]}" in the model, the figure prints "${want}"`];
+      }),
+      ...Object.keys(read)
+        .filter((slot) => !(slot in notes))
+        .map((slot) => `the figure prints ${key}'s ${slot} "${read[slot]}", the model gives none`),
+    ];
+  });
   const netlist = check("netlist", "model ↔ figure", [
+    ...valueProblems,
     ...unread.map((k) => `the figure's ${k} has no part in the model`),
     ...unshown.map((p) => `${p.id} is in the model but not in the figure`),
     ...open.map((k) => `${k} is wired in the model, but the figure leaves it unconnected`),
