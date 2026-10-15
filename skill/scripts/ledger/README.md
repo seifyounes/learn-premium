@@ -66,6 +66,14 @@ Every write regenerates `build-records/status.md` (Modules, sittings, running wa
 answers, overrides, unmapped Materials) and `build-records/build-report.md` (each wave's branch,
 release, commit and measured times, its jobs, and each relaunched subagent's files with their outcome). Commit them with the ledger; don't edit them. The status page ends with a `## Superseded` table: every row a later row replaced (a changed file's old Material row, a re-run wave's earlier job rows), each with when and why. Rows are never deleted.
 
+The build report also lists each Module wave's tool assignment (every tool with its Worked example or
+`Lab`, Discipline, interaction, assigned and shipped tool with where a fallback fell back from, builder
+job, result, measured time and hand-back counts; the Owner can overrule any of it), the Disciplines the
+Owner confirmed during the build, and the pad's contrast auto-fixes from the deploy Gate report
+(`content/build-records/gate-reports/deploy.json`), reported only. `status` returns the current
+`assignments` and `disciplines`. They are written by `../wave/README.md`'s `assign`, `discipline`,
+`handback` and `fallback`.
+
 ## Layout it assumes in a Course project
 
 - `build-ledger.json`: the ledger.

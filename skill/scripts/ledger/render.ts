@@ -1,9 +1,17 @@
 // The readable status page and the build report, generated from the ledger. They are rewritten on
 // every ledger write, so they never drift from it; nobody edits them by hand.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MEDIA_PAGE } from "../media/model.ts";
-import { BUILD_RECORDS_DIR, current, GATE_GAP_REPO, LEDGER_FILE, sittingState, type Ledger } from "./model.ts";
+import {
+  BUILD_RECORDS_DIR,
+  current,
+  GATE_GAP_REPO,
+  LEDGER_FILE,
+  sittingState,
+  type Assignment,
+  type Ledger,
+} from "./model.ts";
 import { supersededRows } from "./rows.ts";
 
 export const STATUS_PAGE = "status.md";
@@ -13,7 +21,7 @@ export function writePages(project: string, ledger: Ledger): void {
   const dir = join(project, BUILD_RECORDS_DIR);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, STATUS_PAGE), statusPage(ledger));
-  writeFileSync(join(dir, BUILD_REPORT), buildReport(ledger));
+  writeFileSync(join(dir, BUILD_REPORT), buildReport(ledger, project));
 }
 
 const GENERATED = `Generated from \`${LEDGER_FILE}\` on every change to it. Don't edit.`;
@@ -101,7 +109,7 @@ function statusPage(ledger: Ledger): string {
   ].join("\n");
 }
 
-function buildReport(ledger: Ledger): string {
+function buildReport(ledger: Ledger, project: string): string {
   const sections = current(ledger.waves).map((wave) => {
     const ended =
       wave.endedAt === null ? "still running" : `ended ${wave.endedAt} (${duration(wave.startedAt, wave.endedAt)})`;
@@ -122,9 +130,18 @@ function buildReport(ledger: Ledger): string {
         ]),
       ),
       ...relaunched(ledger, wave.id),
+      ...tools(ledger, wave.id),
     ].join("\n");
   });
-  return [`# ${ledger.intake.courseName}: build report`, "", GENERATED, "", ...sections].join("\n");
+  return [
+    `# ${ledger.intake.courseName}: build report`,
+    "",
+    GENERATED,
+    "",
+    ...sections,
+    ...disciplinesConfirmed(ledger),
+    ...padFixes(project),
+  ].join("\n");
 }
 
 /** The wave's relaunched subagents: each dead predecessor's file, re-gated, and what became of it. */
@@ -142,6 +159,99 @@ function relaunched(ledger: Ledger, wave: string): string[] {
       ),
     ),
   ];
+}
+
+const plural = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
+
+/**
+ * The wave's tool assignment: each Worked example's model, and each tool with its Discipline, the
+ * Toolkit tool it was assigned, what it ships (a fallback shows where it fell back from), its builder
+ * job's result and measured time, and the counts of its hand-back. The Owner can overrule any of it.
+ */
+function tools(ledger: Ledger, wave: string): string[] {
+  const row: Assignment | undefined = current(ledger.assignments).find((a) => a.wave === wave);
+  if (row === undefined) return [];
+  const jobs = current(ledger.jobs).filter((j) => j.wave === wave);
+  const label = (n: string) => `W${row.module}.${n}`;
+  const worked = row.worked.map(
+    (w) => `${label(w.n)} ${w.model}${w.model === "illustration" && w.figure !== null ? ` (${w.figure})` : ""}`,
+  );
+  return [
+    "",
+    `Tool assignment${worked.length === 0 ? "" : ` (${worked.join("; ")})`}:`,
+    "",
+    table(
+      [
+        "Worked example",
+        "Tool",
+        "Discipline",
+        "Interaction",
+        "Assigned",
+        "Ships",
+        "Job",
+        "Result",
+        "Time",
+        "Hand-back",
+      ],
+      row.tools.map((t) => {
+        const job = jobs.find((j) => j.job === t.job);
+        const fell =
+          t.fallbacks.length === 0 ? "" : ` (fell back from ${t.fallbacks.map((f) => f.from).join(", then ")})`;
+        return [
+          t.worked === null ? "Lab" : label(t.worked),
+          t.name,
+          t.discipline,
+          t.interaction,
+          t.tool,
+          `${t.ships}${fell}`,
+          t.job,
+          job?.result ?? "not run",
+          job === undefined || job.startedAt === null ? "not measured" : duration(job.startedAt, job.recordedAt),
+          t.handback === null
+            ? "no hand-back"
+            : [
+                plural(t.handback.files, "file"),
+                plural(t.handback.parts, "part"),
+                plural(t.handback.nets, "net"),
+                plural(t.handback.assumptions, "assumption"),
+              ].join(" · "),
+        ];
+      }),
+    ),
+    "The Owner can overrule any assignment or fallback; the wave re-assigns it.",
+  ];
+}
+
+/** The Disciplines the Owner added to the Course while it was built: his answer, not its text. */
+function disciplinesConfirmed(ledger: Ledger): string[] {
+  const answers = current(ledger.disciplines);
+  if (answers.length === 0) return [];
+  return [
+    "",
+    "## Disciplines confirmed during the build",
+    "",
+    table(
+      ["Discipline", "Wave", "Answer", "Answered"],
+      answers.map((d) => [d.name, d.wave, d.confirmed ? "confirmed" : "declined", d.answeredAt]),
+    ),
+  ];
+}
+
+/** The pad's contrast auto-fixes, as the deploy Gate report records them: reported, never decided here. */
+function padFixes(project: string): string[] {
+  // The content folder's name is written out: intake imports the ledger, so its constant would be an import cycle.
+  const path = join(project, "content", BUILD_RECORDS_DIR, "gate-reports", "deploy.json");
+  const head = ["", "## Pad auto-fixes (deploy gates, reported only)", ""];
+  if (!existsSync(path)) return [...head, "No deploy Gate report yet.", ""];
+  try {
+    const report = JSON.parse(readFileSync(path, "utf8")) as { gates?: { fixes?: unknown }[] };
+    const fixes = (report.gates ?? []).flatMap((g) =>
+      Array.isArray(g.fixes) ? g.fixes.filter((f): f is string => typeof f === "string") : [],
+    );
+    return [...head, ...(fixes.length === 0 ? ["None.", ""] : [...fixes.map((f) => `- ${f}`), ""])];
+  } catch {
+    return [...head, "The deploy Gate report isn't readable.", ""];
+  }
 }
 
 /** Wall-clock time the main agent measured between two ledger timestamps. */
