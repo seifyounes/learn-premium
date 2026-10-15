@@ -188,7 +188,10 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
    Then the **deploy gates** on a production build of the
    Course's content: `CONTENT_DIR=../content VERCEL_ENV=production npm run build -- --outDir
    dist-production`, then `npm run gates -- run --point deploy --content ../content --dist
-   dist-production`. Commit the Gate reports (only build records change, so they still prove the
+   dist-production`. In a wave's worktree the deploy gates' `no-materials` check reads the Materials
+   hashes from the nearest `build-ledger.json`, and the copy in `<T>` is the stale one committed on
+   `main`: copy `<P>/build-ledger.json` over it for that run, and restore it afterwards (`git -C <T>
+   checkout -- build-ledger.json`), since a wave's branch never changes the ledger's files. Commit the Gate reports (only build records change, so they still prove the
    content commit). Any content change after this re-runs all three points.
 
    **The fresh reviewer**, once the module gates are green. Take its screenshots of the preview:
