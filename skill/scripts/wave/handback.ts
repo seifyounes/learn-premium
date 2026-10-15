@@ -126,16 +126,18 @@ export function handback(project: string, holder: string, waveId: string, name: 
     problems.push(`the content's tools can't be read to check the counts: ${inventory}`);
   else {
     const listed = inventory.tools.find((t) => t.name === name);
-    const counts = listed?.counts ?? null;
+    // Only a schematic sim has parts and nets to count; any other tool has none.
+    const counts = listed?.counts ?? { parts: 0, nets: 0 };
     if (listed === undefined) {
       const unreadable = inventory.problems.filter((p) => p.includes(`/${name}.`));
       problems.push(
         `the content has no tool ${name} the contract can read${unreadable.length === 0 ? "" : ` (${unreadable.join("; ")})`}: fix the file, then hand back again`,
       );
-    } else if (counts !== null && (counts.parts !== given.counts.parts || counts.nets !== given.counts.nets))
-      problems.push(
-        `it counts ${given.counts.parts} parts and ${given.counts.nets} nets, but the sim's model has ${counts.parts} parts and ${counts.nets} nets`,
-      );
+    } else if (counts.parts !== given.counts.parts || counts.nets !== given.counts.nets) {
+      const model =
+        listed.counts === null ? "tool has none" : `sim's model has ${counts.parts} parts and ${counts.nets} nets`;
+      problems.push(`it counts ${given.counts.parts} parts and ${given.counts.nets} nets, but the ${model}`);
+    }
   }
   if (problems.length > 0) return { code: 1, problems, next: "settle these, then run handback again" };
 

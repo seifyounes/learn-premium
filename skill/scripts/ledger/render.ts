@@ -195,15 +195,17 @@ function tools(ledger: Ledger, wave: string): string[] {
       ],
       row.tools.map((t) => {
         const job = jobs.find((j) => j.job === t.job);
-        const fell =
-          t.fallbacks.length === 0 ? "" : ` (fell back from ${t.fallbacks.map((f) => f.from).join(", then ")})`;
+        // A sim recorded fell-back by a plain `record job` ships its step-through, as `ready` judges it.
+        const ships = t.job.startsWith("sim-") && job?.result === "fell-back" ? "step-through" : t.ships;
+        const from = t.fallbacks.length > 0 ? t.fallbacks.map((f) => f.from) : ships === t.ships ? [] : [t.ships];
+        const fell = from.length === 0 ? "" : ` (fell back from ${from.join(", then ")})`;
         return [
           t.worked === null ? "Lab" : label(t.worked),
           t.name,
           t.discipline,
           t.interaction,
           t.tool,
-          `${t.ships}${fell}`,
+          `${ships}${fell}`,
           t.job,
           job?.result ?? "not run",
           job === undefined || job.startedAt === null ? "not measured" : duration(job.startedAt, job.recordedAt),

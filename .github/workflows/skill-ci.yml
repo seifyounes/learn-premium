@@ -7,6 +7,8 @@ on:
   push:
     paths:
       - "skill/**"
+      # The Toolkit's sim kinds: test/sim-builders.test.ts holds the skill's copy to the template's contract.
+      - "template/src/content/contract.ts"
       - ".github/workflows/skill-ci.yml"
   workflow_dispatch:
 
