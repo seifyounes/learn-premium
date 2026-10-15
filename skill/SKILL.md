@@ -272,6 +272,10 @@ A gate gap is a new kind of defect that no gate caught (the Owner, the fresh rev
 it on a page the gates passed). Every one is filed on learn-premium, so it becomes a gate for every
 Course. `$G` is `scripts/gate-gap.ts` (`scripts/gate-gap/README.md`).
 
+A gate gap and its override belong to the whole Course, not to one wave: do every step below in `<P>`,
+the main checkout (never in a wave's worktree), commit on `main` (step 5), and rebase each running
+wave onto `main` so it picks the override up. The ledger commands take `<P>` only.
+
 1. **Write a synthetic minimal broken fixture** in `<P>/build-records/gate-gaps/<id>/`: the smallest
    content (or page) that shows the defect, written by hand like the Fixture Course. Never copy a
    Materials file, a Private-folder file, or the Professor's wording, numbers or figures into it.
