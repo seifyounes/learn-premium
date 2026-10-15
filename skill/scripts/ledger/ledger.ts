@@ -376,16 +376,19 @@ export function checkpointAnswer(project: string, key: string): Checkpoint | nul
   return current(requireLedger(project).checkpoints).find((row) => row.key === key) ?? null;
 }
 
-/** The template layer against the hashes pinned for its release: any edit outside the overrides area shows. */
-export function verifyIntegrity(project: string) {
+/**
+ * The template layer against the hashes pinned for its release: any edit outside the overrides area shows.
+ * The ledger is the project's; `tree` is the checkout whose template layer is judged (a wave's worktree).
+ */
+export function verifyIntegrity(project: string, tree = project) {
   const ledger = requireLedger(project);
   const pinned = ledger.template.files;
-  const onDisk = templateHashes(project);
+  const onDisk = templateHashes(tree);
   const modified = Object.keys(pinned).filter((path) => path in onDisk && onDisk[path] !== pinned[path]);
   const added = Object.keys(onDisk).filter((path) => !(path in pinned));
   const missing = Object.keys(pinned).filter((path) => !(path in onDisk));
   // The overrides area shadows template files at build, so a file there is an edit unless it's a recorded override.
-  const { unrecordedOverrides, missingOverrides } = overridesAgainstLedger(project, ledger);
+  const { unrecordedOverrides, missingOverrides } = overridesAgainstLedger(tree, ledger);
   return {
     intact:
       modified.length + added.length + missing.length + unrecordedOverrides.length + missingOverrides.length === 0,

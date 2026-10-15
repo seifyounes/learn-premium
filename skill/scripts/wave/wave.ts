@@ -18,6 +18,7 @@ import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/mo
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
 import { relaunchProblems } from "./relaunch.ts";
 import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
+import { moduleTree, treeProblems, waveTree } from "./tree.ts";
 
 /** The gate points a Module merges on: per job and per Module scoped to it, per deploy on the whole Course. */
 export const MERGE_POINTS = ["job", "module", "deploy"] as const;
@@ -157,10 +158,12 @@ function previewOf(project: string, folder: string, given: string | undefined): 
 export function raisedItems(project: string, id: string, preview?: string) {
   const ledger = requireLedger(project);
   const { folder } = moduleFolder(ledger, id);
-  const base = previewOf(project, folder, preview);
+  // The Gate reports sit in the Module wave's own checkout while it runs.
+  const where = moduleTree(project, ledger, id);
+  const base = previewOf(where, folder, preview);
   const items = new Map<string, CheckpointItem>();
   for (const point of MERGE_POINTS) {
-    const report = readReport(project, point, folder);
+    const report = readReport(where, point, folder);
     const raised = Array.isArray(report?.["checkpointItems"]) ? (report["checkpointItems"] as ReportItem[]) : [];
     // The deploy point checks the whole Course: its items (a licence, another Module's) are asked
     // once under their own key, so one answered in an earlier wave stays answered.
@@ -329,15 +332,19 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   const { folder } = moduleFolder(ledger, id);
   const problems: string[] = [];
 
-  // Every check below reads the checked-out tree and HEAD: they must be the wave's branch.
-  const branch = checkedOutBranch(project);
+  // Every check below reads the wave's own checkout and its HEAD: the worktree git lists for its branch
+  // (the project itself, in the single-checkout mode).
+  const tree = waveTree(project, wave.branch);
+  const dir = tree.path;
+  const branch = checkedOutBranch(dir);
   if (branch !== wave.branch)
     problems.push(
-      `the Course project is checked out on ${branch ?? "no branch"}, not the wave's branch ${wave.branch}: check it out and run ready again`,
+      `the Course project is checked out on ${branch ?? "no branch"}, not the wave's branch ${wave.branch}: add its worktree (git worktree add) or check it out, and run ready again`,
     );
+  problems.push(...treeProblems(project, wave, tree));
   // The Gate reports prove HEAD, and HEAD is what merges: the ledger rows, records and content this
   // check reads must be HEAD's too.
-  const status = spawnSync("git", ["-C", project, "status", "--porcelain"], { encoding: "utf8" });
+  const status = spawnSync("git", ["-C", dir, "status", "--porcelain"], { encoding: "utf8" });
   const changed = status.status === 0 ? status.stdout.split(/\r?\n/).filter(Boolean) : null;
   if (changed === null) problems.push("can't read the Course project's git status");
   else if (changed.length > 0)
@@ -363,11 +370,11 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
     if (!required.has(job.job) && job.result === "blocked")
       problems.push(`job ${job.job} is blocked: its job fixes it, or it falls back`);
 
-  if (!existsSync(join(project, CONTENT_DIR, STYLE_SHEET_FILE)))
+  if (!existsSync(join(dir, CONTENT_DIR, STYLE_SHEET_FILE)))
     problems.push(
       `no Course style sheet at ${CONTENT_DIR}/${STYLE_SHEET_FILE}: Module 1's wave writes it before any other Module`,
     );
-  if (!existsSync(join(project, CONTENT_DIR, "modules", folder, "module.yaml")))
+  if (!existsSync(join(dir, CONTENT_DIR, "modules", folder, "module.yaml")))
     problems.push(`no Module page content at ${CONTENT_DIR}/modules/${folder}/`);
 
   const privateFolder = privateFolderOf(ledger.intake.materialsPath);
@@ -381,10 +388,10 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   // A relaunched subagent's predecessor files, re-gated and each settled before the wave counts them.
   problems.push(...relaunchProblems(ledger, waveId));
   // The fresh reviewer's eyes loop and adversarial read, of HEAD's Module content, re-verified.
-  problems.push(...reviewReadyProblems(project, privateFolder, id, folder));
+  problems.push(...reviewReadyProblems(dir, privateFolder, id, folder));
 
   // The template layer's own gates verify the branch: an edited layer could verify anything.
-  const integrity = verifyIntegrity(project);
+  const integrity = verifyIntegrity(project, dir);
   if (!integrity.intact) {
     const changes = [
       ...integrity.modified.map((p) => `modified ${p}`),
@@ -398,12 +405,12 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
     );
   } else {
     for (const point of MERGE_POINTS) {
-      const verdict = verifier.verify(project, point, point === "deploy" ? undefined : folder);
+      const verdict = verifier.verify(dir, point, point === "deploy" ? undefined : folder);
       if (!verdict.green)
         problems.push(`the ${point} Gate report isn't green for HEAD: ${verdict.problems.join("; ") || "red"}`);
     }
   }
-  const preview = readReport(project, "module", folder)?.["url"];
+  const preview = readReport(dir, "module", folder)?.["url"];
   if (typeof preview !== "string" || !/^https:\/\//.test(preview))
     problems.push("the Module's gates didn't run on its Vercel preview: run the module point with --url <preview URL>");
 
@@ -417,7 +424,7 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
       `Checkpoint item ${item.key} was ruled a ${item.ruling}, but the content doesn't carry the ruling yet (provenance ${item.ruling === "slip" ? "slips" : "divergences"})`,
     );
 
-  if (integrity.intact) problems.push(...unruled(ledger, id, verifier.rulings(project, folder)));
+  if (integrity.intact) problems.push(...unruled(ledger, id, verifier.rulings(dir, folder)));
 
   // The Owner's answers reach the content through the writer and the consistency pass: one recorded
   // before the latest answer can't have applied it.
@@ -440,7 +447,7 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
       );
   }
 
-  if (!hookInstalled(project))
+  if (!hookInstalled(dir))
     problems.push(`the pre-commit gate isn't the repo's hook: git config core.hooksPath ${HOOKS_PATH}`);
   return problems;
 }
