@@ -5,8 +5,9 @@ import { privateFolderOf } from "../intake/create.ts";
 import { Args, readJson } from "../ledger/args.ts";
 import { requireLedger } from "../ledger/ledger.ts";
 import { moduleId } from "../ledger/model.ts";
-import { SchemaError } from "../ledger/schema.ts";
+import { isoTime, oneOf, SchemaError } from "../ledger/schema.ts";
 import { LedgerError } from "../ledger/store.ts";
+import { assign, confirmDiscipline, fallback } from "./assign.ts";
 import { reconcile } from "./reading.ts";
 import { relaunchClose, relaunchOpen, templateJobGates, type JobGates } from "./relaunch.ts";
 import { reviewReport } from "./review.ts";
@@ -85,6 +86,25 @@ function dispatch(args: Args, deps: WaveDeps): Output {
       const problems = readyProblems(project, args.required("--wave"), deps.verifier);
       return { code: problems.length === 0 ? 0 : 1, ready: problems.length === 0, problems };
     }
+    case "assign":
+      return assign(project, args.required("--holder"), args.required("--wave"), readJson(args.required("--input")));
+    case "discipline":
+      return confirmDiscipline(
+        project,
+        args.required("--holder"),
+        args.required("--wave"),
+        args.required("--name"),
+        oneOf("yes", "no")(args.required("--confirmed"), "--confirmed") === "yes",
+        args.required("--answer"),
+      );
+    case "fallback":
+      return fallback(
+        project,
+        args.required("--holder"),
+        args.required("--wave"),
+        args.required("--job"),
+        isoTime(args.required("--started-at"), "--started-at"),
+      );
     default:
       throw new LedgerError("invalid", `unknown command: ${command}`);
   }

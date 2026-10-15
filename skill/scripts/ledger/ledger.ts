@@ -184,6 +184,8 @@ export function init(project: string, holder: string, release: string, intake: I
       done: null,
       relaunches: [],
       upgrades: [],
+      assignments: [],
+      disciplines: [],
     };
     return { ledger, result: undefined };
   });
@@ -483,6 +485,8 @@ export function status(project: string) {
     done: ledger.done,
     relaunches: current(ledger.relaunches),
     upgrades: current(ledger.upgrades),
+    assignments: current(ledger.assignments),
+    disciplines: current(ledger.disciplines),
     superseded: supersededRows(ledger),
     ...mediaItems(project),
   };
