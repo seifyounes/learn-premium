@@ -10,7 +10,7 @@ import { LedgerError } from "../ledger/store.ts";
 import { reconcile } from "./reading.ts";
 import { relaunchClose, relaunchOpen, templateJobGates, type JobGates } from "./relaunch.ts";
 import { reviewReport } from "./review.ts";
-import { checkpoint, readyProblems, templateVerifier, type Verifier } from "./wave.ts";
+import { checkpoint, moduleFolder, readyProblems, templateVerifier, type Verifier } from "./wave.ts";
 
 export interface WaveDeps {
   verifier: Verifier;
@@ -67,7 +67,8 @@ function dispatch(args: Args, deps: WaveDeps): Output {
     }
     case "review": {
       const module = moduleId(args.required("--module"), "--module");
-      return reviewReport(privateFolderOf(requireLedger(project).intake.materialsPath), module);
+      const ledger = requireLedger(project);
+      return reviewReport(privateFolderOf(ledger.intake.materialsPath), module, moduleFolder(ledger, module).folder);
     }
     case "relaunch": {
       const [holder, waveId, job] = [args.required("--holder"), args.required("--wave"), args.required("--job")];

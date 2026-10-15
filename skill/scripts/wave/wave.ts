@@ -379,7 +379,7 @@ export function readyProblems(project: string, waveId: string, verifier: Verifie
   const settledProblem = settledReadingProblem(privateFolder, id);
   if (settledProblem !== null) problems.push(settledProblem);
   // A relaunched subagent's predecessor files, re-gated and each settled before the wave counts them.
-  problems.push(...relaunchProblems(ledger.relaunches, waveId));
+  problems.push(...relaunchProblems(ledger, waveId));
   // The fresh reviewer's eyes loop and adversarial read, of HEAD's Module content, re-verified.
   problems.push(...reviewReadyProblems(project, privateFolder, id, folder));
 

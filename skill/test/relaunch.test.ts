@@ -230,6 +230,28 @@ describe("a relaunched subagent re-gates its predecessor's files before reusing 
   });
 });
 
+describe("a relaunched job's own result", () => {
+  test("a closed relaunch still keeps the wave red until the relaunched job records a result that isn't blocked", () => {
+    const { project, waveId, holder } = waveWithPredecessor();
+    const { deps } = jobGates(new Set());
+    must(open(project, waveId, "sim-ramp", [S1], deps));
+    must(close(project, waveId, "sim-ramp", { [S1]: "kept" }, deps));
+    const problems = () =>
+      wave(["ready", "--project", project, "--wave", waveId], {
+        ...deps,
+        verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [] },
+      }).out.problems as string[];
+
+    const none = problems();
+    must(ledger("record", "job", ...holder, "--wave", waveId, "--job", "sim-ramp", "--result", "passed"));
+
+    expect(none).toContainEqual(
+      expect.stringMatching(/sim-ramp was relaunched, but the relaunched job hasn't recorded its result/),
+    );
+    expect(problems().some((p) => p.includes("sim-ramp"))).toBe(false);
+  });
+});
+
 describe("a relaunched Blind reader", () => {
   const reading = (reader: "a" | "b", value: string) =>
     JSON.stringify({

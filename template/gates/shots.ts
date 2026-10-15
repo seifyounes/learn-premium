@@ -40,9 +40,11 @@ const SETTLE_MS = 400;
 export async function takeShots(options: ShotsOptions): Promise<ShotsManifest> {
   const served = options.url === undefined ? await serveSite(options.distDir ?? "dist") : null;
   const base = (options.url ?? served?.url ?? "").replace(/\/+$/, "");
-  const browser = await chromium.launch();
   const files: ShotsManifest["files"] = [];
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
   try {
+    // Launched inside the cleanup, so a browser that won't start never leaves the local server running.
+    browser = await chromium.launch();
     mkdirSync(options.out, { recursive: true });
     for (const { device, width, height } of DEVICES) {
       const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
@@ -77,7 +79,7 @@ export async function takeShots(options: ShotsOptions): Promise<ShotsManifest> {
       }
     }
   } finally {
-    await browser.close();
+    await browser?.close();
     await served?.close();
   }
   const manifest: ShotsManifest = {

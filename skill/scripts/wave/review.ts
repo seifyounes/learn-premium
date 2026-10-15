@@ -96,8 +96,11 @@ export interface ReviewState {
   rejected: number;
 }
 
-/** The Module's review as it stands: its findings, each verified or not, and the screenshots it was made on. */
-export function reviewState(privateFolder: string, module: string): ReviewState {
+/**
+ * The Module's review as it stands: its findings, each verified or not, and the screenshots it was
+ * made on. `page` is the Module's folder (`01-thermal-resistance`), the route the shots must be of.
+ */
+export function reviewState(privateFolder: string, module: string, page: string): ReviewState {
   const folder = reviewFolder(privateFolder, module);
   const empty: ReviewState = { problems: [], commit: null, unverified: [], confirmed: [], rejected: 0 };
   if (!existsSync(join(folder, "review.json")))
@@ -123,7 +126,7 @@ export function reviewState(privateFolder: string, module: string): ReviewState 
     }
   });
 
-  const problems = shotsProblems(folder, review.commit);
+  const problems = shotsProblems(folder, review.commit, page);
   const verdicts = existsSync(join(folder, "verdicts.json"))
     ? readJsonFile(join(folder, "verdicts.json"), verdictsSchema, "verdicts.json").verdicts
     : [];
@@ -149,26 +152,33 @@ export function reviewState(privateFolder: string, module: string): ReviewState 
   return state;
 }
 
-/** Why the screenshots don't stand behind the review: missing, of another commit, or short of a device. */
-function shotsProblems(folder: string, commit: string): string[] {
+/**
+ * Why the screenshots don't stand behind the review: missing, of another Module or commit, a listed
+ * shot that isn't there, or short of a device.
+ */
+function shotsProblems(folder: string, commit: string, page: string): string[] {
   const manifest = join(folder, SHOTS_MANIFEST);
   if (!existsSync(manifest))
     return [
       `no screenshots at ${manifest}: take them with the template's \`npm run gates -- shots\` before the review`,
     ];
   const shots = readJsonFile(manifest, shotsSchema, "shots.json");
+  if (shots.module !== page) return [`the screenshots are of ${shots.module}, not ${page}, the Module under review`];
   if (shots.commit !== commit)
     return [`the screenshots are of ${shots.commit}, not ${commit}, the commit the review says it reviewed`];
-  return (["phone", "laptop"] as const).flatMap((device) =>
-    shots.files.some((f) => f.device === device && existsSync(join(folder, "shots", f.file)))
-      ? []
-      : [`no ${device} screenshot in ${join(folder, "shots")}`],
+  // Every view the shots list (each tab of each device) is there to review, and both devices are.
+  const missing = shots.files
+    .filter((f) => !existsSync(join(folder, "shots", f.file)))
+    .map((f) => `the ${f.device} shot ${f.file} (view ${f.view}) that shots.json lists isn't there`);
+  const devices = (["phone", "laptop"] as const).flatMap((device) =>
+    shots.files.some((f) => f.device === device) ? [] : [`no ${device} screenshot in ${join(folder, "shots")}`],
   );
+  return [...missing, ...devices];
 }
 
 /** What `wave.ts review` reports: the review's state and the next step. */
-export function reviewReport(privateFolder: string, module: string) {
-  const state = reviewState(privateFolder, module);
+export function reviewReport(privateFolder: string, module: string, page: string) {
+  const state = reviewState(privateFolder, module, page);
   const open = state.problems.length + state.unverified.length + state.confirmed.length > 0;
   const next =
     state.problems.length > 0
@@ -188,7 +198,7 @@ export function reviewReport(privateFolder: string, module: string) {
 export function reviewReadyProblems(project: string, privateFolder: string, module: string, folder: string): string[] {
   let state: ReviewState;
   try {
-    state = reviewState(privateFolder, module);
+    state = reviewState(privateFolder, module, folder);
   } catch (error) {
     if (error instanceof LedgerError) return [`the fresh reviewer's files don't read: ${error.message}`];
     throw error;
@@ -204,12 +214,20 @@ export function reviewReadyProblems(project: string, privateFolder: string, modu
       "template",
       "overrides",
     ];
-    const diff = spawnSync("git", ["-C", project, "diff", "--name-only", state.commit, "HEAD", "--", ...rendersFrom], {
-      encoding: "utf8",
-    });
+    const diff = spawnSync(
+      "git",
+      ["-C", project, "diff", "--raw", "--no-abbrev", "--no-renames", state.commit, "HEAD", "--", ...rendersFrom],
+      { encoding: "utf8" },
+    );
     if (diff.status !== 0)
       return [`can't compare the review's commit ${state.commit} with HEAD: ${diff.stderr.trim() || "git failed"}`];
-    const changed = diff.stdout.split(/\r?\n/).filter(Boolean);
+    // `:<old mode> <new mode> <old blob> <new blob> <status>\t<path>`: a file whose contents changed
+    // (a mode change alone, such as a hook made executable, renders nothing differently).
+    const changed = diff.stdout
+      .split(/\r?\n/)
+      .map((line) => /^:\d+ \d+ ([0-9a-f]+) ([0-9a-f]+) \S+\t(.+)$/.exec(line))
+      .filter((m): m is RegExpExecArray => m !== null && m[1] !== m[2])
+      .map((m) => m[3] as string);
     if (changed.length > 0)
       return [
         `the review is of ${state.commit}, but what the Module page renders from changed since (${changed.join(", ")}): have a fresh reviewer review HEAD's preview`,

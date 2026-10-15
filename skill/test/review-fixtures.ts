@@ -3,7 +3,7 @@ import { COMMIT } from "./fixture-courses.ts";
 import { writeFiles } from "./helpers.ts";
 
 /** The phone and laptop screenshots of the preview, as the template's `gates shots` leaves them. */
-export function shots(privateFolder: string, commit = COMMIT, module = "01") {
+export function shots(privateFolder: string, commit = COMMIT, module = "01", manifest: Record<string, unknown> = {}) {
   writeFiles(privateFolder, {
     [`waves/${module}/review/shots/phone.png`]: "png",
     [`waves/${module}/review/shots/laptop.png`]: "png",
@@ -16,6 +16,7 @@ export function shots(privateFolder: string, commit = COMMIT, module = "01") {
         { device: "phone", width: 375, view: 1, file: "phone.png" },
         { device: "laptop", width: 1280, view: 1, file: "laptop.png" },
       ],
+      ...manifest,
     }),
   });
 }
