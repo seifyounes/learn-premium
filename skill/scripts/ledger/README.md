@@ -29,6 +29,10 @@ document (`{"ok": true, ...}` or `{"ok": false, "error": "..."}`) and exits:
 | `checkpoint --key K` | The Owner's current answer to Checkpoint item `K`, or `null`. Look here before asking. |
 | `integrity` | The template layer against its pinned hashes: `modified`, `added`, `missing`; and the overrides area against the ledger: `unrecordedOverrides` (a file in `overrides/` no current override names) and `missingOverrides` (a recorded override with no file). Exit 1 if any. |
 
+`next` answers `{action: "resume-upgrade", upgrade: {id, from, to, branch}}` first while an Upgrade
+wave runs (`../upgrade/README.md`). While it does, `wave start` and `done` are refused (3), and `status`
+returns its row under `upgrades`.
+
 `status` also returns `gateGaps` (the current gate gaps, each with its `issue`, null while unfiled)
 and `done` (who marked the Course build done and when, or null).
 
