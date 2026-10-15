@@ -42,6 +42,10 @@ describe("Checkpoint items in a Gate report", () => {
     expect(spot(`modules/${MODULE}/sims/plate.json`)).toBe(`/${MODULE}/#sim-${MODULE}-plate`);
     expect(spot(`modules/${MODULE}/media.yaml`)).toBe(`/${MODULE}/#watch`);
     expect(spot(`modules/${MODULE}/rules.yaml`)).toBe(`/${MODULE}/`);
+    // A past paper or mock sits on its own page in the Exam room.
+    expect(spot("sittings/midterm/papers/2025.yaml")).toBe("/exam/midterm/2025/");
+    expect(spot("sittings/midterm/mocks/mock-1.yaml:12:3")).toBe("/exam/midterm/mock-1/");
+    expect(spot("sittings/midterm/format.yaml")).toBeUndefined();
     expect(spot("/rules/")).toBe("/rules/");
     expect(spot("course.yaml")).toBeUndefined();
     expect(spot(undefined)).toBeUndefined();

@@ -14,9 +14,10 @@ import { spotOf } from "./spots.ts";
 
 /**
  * `deploy` checks the build before it merges; `live` checks the live site after Vercel deploys it,
- * and a red `live` run rolls Vercel back (`deploy/`).
+ * and a red `live` run rolls Vercel back (`deploy/`). `sitting` checks one Exam sitting's Exam room
+ * and Revision on its preview, before the Sitting wave merges.
  */
-export const GATE_POINTS = ["job", "module", "deploy", "live"] as const;
+export const GATE_POINTS = ["job", "module", "deploy", "live", "sitting"] as const;
 export type GatePoint = (typeof GATE_POINTS)[number];
 
 const OUTCOMES = ["block", "checkpoint"] as const;
@@ -43,6 +44,11 @@ export interface GateInput {
   siteUrl?: string;
   /** Scope the check to one Module (its folder name); the whole Course when absent. */
   module?: string;
+  /**
+   * Scope the check to one Exam sitting (its id): its Exam room and Revision pages, and its papers,
+   * mocks and format. The sitting gates check every complete sitting when absent.
+   */
+  sitting?: string;
   /**
    * The Site template the site was built with, for the files the deploy gates read from it
    * (`vercel.json`, the committed `public/licences.txt`); the gates' own template when absent.
@@ -110,6 +116,7 @@ const gateReport = z.strictObject({
   dirty: z.boolean(),
   point: z.enum(GATE_POINTS),
   module: z.string().optional(),
+  sitting: z.string().optional(),
   /** Where the gates opened the site (a Vercel preview, the live URL), when they were given one. */
   url: z.string().optional(),
   ranAt: z.string(),
@@ -140,6 +147,7 @@ export async function runGates({ point, commit, dirty = false, input, gates }: R
     dirty,
     point,
     ...(input.module === undefined ? {} : { module: input.module }),
+    ...(input.sitting === undefined ? {} : { sitting: input.sitting }),
     ...(input.siteUrl === undefined ? {} : { url: input.siteUrl }),
     ranAt: new Date().toISOString(),
     green: !dirty && results.length > 0 && results.every((r) => GREEN_STATUSES.includes(r.status)),
@@ -212,6 +220,7 @@ export interface ExpectedReport {
   commit: string;
   point: GatePoint;
   module?: string;
+  sitting?: string;
   /** Every gate the point must have run; one missing from the report counts as failed. */
   gates: readonly Gate[];
 }
@@ -231,6 +240,9 @@ export function verifyReport(report: unknown, expected: ExpectedReport): { green
     problems.push(
       `the report is for ${checked.module ?? "the whole Course"}, not ${expected.module ?? "the whole Course"}`,
     );
+  }
+  if (checked.sitting !== expected.sitting) {
+    problems.push(`the report is for ${checked.sitting ?? "no sitting"}, not ${expected.sitting ?? "no sitting"}`);
   }
   const expectedGates = gatesAt(expected.point, expected.gates);
   if (expectedGates.length === 0) problems.push(`no gate runs at the ${expected.point} point`);
