@@ -17,6 +17,7 @@ import { requireLedger, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
 import { staleProblems } from "./fresh.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
+import { toolInventorySchema, type ToolInventory } from "./assign.ts";
 import { relaunchProblems } from "./relaunch.ts";
 import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
 import { inventoryProblems, moduleTree, treeProblems, waveTree } from "./tree.ts";
@@ -42,6 +43,8 @@ export interface ContentRuling {
 export interface Verifier {
   verify(project: string, point: MergePoint, module: string | undefined): { green: boolean; problems: string[] };
   rulings(project: string, module: string): ContentRuling[] | string;
+  /** The Module's Worked examples and tools as the content has them (`gates/cli.ts tools`), or why it can't say. */
+  inventory(project: string, folder: string): ToolInventory | string;
 }
 
 /** Runs `node template/gates/cli.ts <args…>` in the Course project, from its template folder. */
@@ -63,7 +66,7 @@ function gateCli(given: string, args: string[]) {
   return { ok: child.status === 0, out: child.stdout ?? "", said };
 }
 
-/** Runs the Course project's own template layer: `node template/gates/cli.ts verify|rulings …`. */
+/** Runs the Course project's own template layer: `node template/gates/cli.ts verify|rulings|tools …`. */
 export const templateVerifier: Verifier = {
   verify(project, point, module) {
     const run = gateCli(project, ["verify", "--point", point, ...(module === undefined ? [] : ["--module", module])]);
@@ -76,6 +79,15 @@ export const templateVerifier: Verifier = {
       return (JSON.parse(run.out) as { rulings: ContentRuling[] }).rulings;
     } catch (error) {
       return `the template's rulings aren't JSON: ${(error as Error).message}`;
+    }
+  },
+  inventory(project, folder) {
+    const run = gateCli(project, ["tools", "--module", folder]);
+    if (!run.ok) return `the template can't list the Module's tools: ${run.said.join("; ")}`;
+    try {
+      return toolInventorySchema(JSON.parse(run.out), "tool inventory");
+    } catch (error) {
+      return `the template's tool inventory isn't the shape the skill reads: ${(error as Error).message}`;
     }
   },
 };

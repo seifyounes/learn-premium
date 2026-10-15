@@ -3,10 +3,12 @@
 // rounds, the merge gate's check of the content against the assignment and the build report. Run on
 // the Fixture Course's Module 03 (gradient descent): its live sim, its step-through sim and its
 // Pyodide tool, with no git, no template and no Materials.
-import { readFileSync } from "node:fs";
-import { describe, expect, test } from "vitest";
+import { readFileSync, rmSync } from "node:fs";
+import { afterEach, describe, expect, test } from "vitest";
+import { privateFolderOf } from "../scripts/intake/create.ts";
 import { CATALOGUE } from "../scripts/intake/pads.ts";
-import { run as runWave } from "../scripts/wave/cli.ts";
+import type { ToolInventory } from "../scripts/wave/assign.ts";
+import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import {
   builderJob,
   disciplineOf,
@@ -16,14 +18,26 @@ import {
   TOOL_NAMES,
   TOOLKITS,
 } from "../scripts/wave/toolkits.ts";
-import { fixtureCourse } from "./fixture-courses.ts";
+import { EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
-import { jsonInput, ledger, type Result } from "./helpers.ts";
+import { jsonInput, ledger, writeFiles, type Result } from "./helpers.ts";
 
 const holder = (project: string) => ["--project", project, "--holder", "session-a"];
 
-function wave(args: string[]): Result {
-  const { code, stdout } = runWave(args);
+const privates: string[] = [];
+afterEach(() => {
+  for (const dir of privates.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+/** A faked template layer: every Gate report green, no rulings, and `inventory` as the Module's tools. */
+const template = (inventory: ToolInventory | string = EMPTY_INVENTORY): WaveDeps["verifier"] => ({
+  verify: () => ({ green: true, problems: [] }),
+  rulings: () => [],
+  inventory: () => inventory,
+});
+
+function wave(args: string[], inventory?: ToolInventory | string): Result {
+  const { code, stdout } = runWave(args, { verifier: template(inventory) });
   return { code, out: JSON.parse(stdout) };
 }
 
@@ -369,5 +383,329 @@ describe("a tool in a Discipline the Course didn't list", () => {
     expect(answered.code).toBe(3);
     expect(answered.out.error).toContain("ticket #79");
     expect(must(ledger("status", "--project", project)).disciplines).toEqual([]);
+  });
+});
+
+const FOLDER = "03-gradient-descent";
+const OWN_FILE = (name: string) => `content/modules/${FOLDER}/sims/${name}.json`;
+
+/** Module 03's wave with its tool assignment recorded, the content files the builders wrote, and the Private folder to hand back in. */
+function assigned() {
+  const { project, waveId } = module03();
+  must(assignWave(project, waveId, ASSIGNMENT));
+  const privateFolder = privateFolderOf(materialsOf(project));
+  privates.push(privateFolder);
+  writeFiles(project, {
+    [OWN_FILE("descent")]: "{}",
+    [OWN_FILE("descent-steps")]: "{}",
+    [`content/modules/${FOLDER}/python/normal-equation.yaml`]: "title: x\n",
+  });
+  return { project, waveId, privateFolder };
+}
+
+/** A builder's hand-back for `name`, clean unless `change` says otherwise. */
+function handbackOf(name: string, change: (h: Record<string, unknown>) => void = () => {}) {
+  const given: Record<string, unknown> = {
+    handback: "learn-premium sim builder v1",
+    module: "03",
+    name,
+    tool: "gradient-descent",
+    figure: { file: "lecture-3-board.jpg", page: 4, box: [0.1, 0.1, 0.9, 0.5], label: "Figure 3" },
+    files: [name === "normal-equation" ? `content/modules/${FOLDER}/python/${name}.yaml` : OWN_FILE(name)],
+    counts: { parts: 0, nets: 0 },
+    assumptions: [{ value: "alpha = 0.1", why: "the figure doesn't print it" }],
+    unreadables: [],
+    selfCheck: { ran: ["gates run --point job"], passed: true, notes: null },
+  };
+  change(given);
+  return given;
+}
+
+const handBack = (
+  { project, waveId, privateFolder }: ReturnType<typeof assigned>,
+  name: string,
+  given: unknown = handbackOf(name),
+  inventory?: ToolInventory | string,
+) => {
+  writeFiles(privateFolder, { [`waves/03/builders/${name}.json`]: JSON.stringify(given) });
+  return wave(["handback", ...holder(project), "--wave", waveId, "--name", name], inventory);
+};
+
+const toolRow = (project: string, name: string) =>
+  (
+    must(ledger("status", "--project", project)).assignments[0].tools as {
+      name: string;
+      ships: string;
+      fallbacks: { from: string; to: string }[];
+      handback: Record<string, number | string> | null;
+    }[]
+  ).find((t) => t.name === name);
+
+describe("a builder's hand-back", () => {
+  test("a hand-back carrying a time is refused: the main agent measures it", () => {
+    const course = assigned();
+
+    const top = handBack(
+      course,
+      "descent",
+      handbackOf("descent", (h) => (h["minutes"] = 12)),
+    );
+    const nested = handBack(
+      course,
+      "descent",
+      handbackOf("descent", (h) => ((h["selfCheck"] as Record<string, unknown>)["took"] = "4 min")),
+    );
+
+    for (const refused of [top, nested]) {
+      expect(refused.code).toBe(2);
+      expect(refused.out.error).toMatch(
+        /the hand-back carries no time, the main agent measures it \(record job --started-at\)/,
+      );
+    }
+    expect(top.out.error).toContain("handback.minutes");
+    expect(nested.out.error).toContain("handback.selfCheck.took");
+    expect(toolRow(course.project, "descent")?.handback).toBeNull();
+  });
+
+  test("a clean hand-back is stored as counts only: the ledger carries none of its text", () => {
+    const course = assigned();
+
+    const { code, out } = handBack(course, "descent");
+
+    expect(code).toBe(0);
+    expect(out).toMatchObject({ files: 1, parts: 0, nets: 0, assumptions: 1 });
+    expect(toolRow(course.project, "descent")?.handback).toEqual({
+      at: expect.any(String),
+      files: 1,
+      parts: 0,
+      nets: 0,
+      assumptions: 1,
+    });
+    const text =
+      readFileSync(`${course.project}/build-ledger.json`, "utf8") +
+      readFileSync(`${course.project}/build-records/build-report.md`, "utf8");
+    for (const quoted of ["Figure 3", "alpha = 0.1", "doesn't print it", "lecture-3-board"])
+      expect(text).not.toContain(quoted);
+  });
+
+  test.each([
+    [
+      "a file outside the Module",
+      (h: Record<string, unknown>) => (h["files"] = [OWN_FILE("descent"), "template/src/sims/kinds.ts"]),
+      /files outside content\/modules\/03-gradient-descent\/ and content\/build-records\/: template\/src\/sims\/kinds\.ts/,
+    ],
+    [
+      "a path that climbs out of the Module",
+      (h: Record<string, unknown>) =>
+        (h["files"] = [OWN_FILE("descent"), `content/modules/${FOLDER}/../02-m02/module.yaml`]),
+      /files outside content\/modules/,
+    ],
+    [
+      "a file that isn't there",
+      (h: Record<string, unknown>) => (h["files"] = [OWN_FILE("descent"), OWN_FILE("ghost")]),
+      /files that aren't there: content\/modules\/03-gradient-descent\/sims\/ghost\.json/,
+    ],
+    [
+      "files without the tool's own file",
+      (h: Record<string, unknown>) => (h["files"] = [OWN_FILE("descent-steps")]),
+      /don't include the tool's own file/,
+    ],
+    ["another Module's hand-back", (h: Record<string, unknown>) => (h["module"] = "02"), /not descent in Module 03/],
+    [
+      "a hand-back of another tool",
+      (h: Record<string, unknown>) => (h["name"] = "descent-steps"),
+      /not descent in Module 03/,
+    ],
+    ["a hand-back of the wrong shape", (h: Record<string, unknown>) => delete h["selfCheck"], /selfCheck/],
+  ])("refuses %s (exit 2)", (_name, change, message) => {
+    const course = assigned();
+
+    const { code, out } = handBack(course, "descent", handbackOf("descent", change));
+
+    expect(code).toBe(2);
+    expect(out.error).toMatch(message);
+    expect(toolRow(course.project, "descent")?.handback).toBeNull();
+  });
+
+  test("refuses a tool the assignment doesn't have, and a missing hand-back (exit 2)", () => {
+    const course = assigned();
+    expect(handBack(course, "ghost", handbackOf("ghost")).code).toBe(2);
+    const missing = wave(["handback", ...holder(course.project), "--wave", course.waveId, "--name", "descent"]);
+    expect(missing.code).toBe(2);
+    expect(missing.out.error).toMatch(/no hand-back of descent/);
+  });
+
+  test("a failed self-check goes back to the builder (exit 1), and nothing is stored", () => {
+    const course = assigned();
+    const failed = handbackOf(
+      "descent",
+      (h) => (h["selfCheck"] = { ran: ["gates"], passed: false, notes: "drawing gate: 2 overlaps" }),
+    );
+
+    const { code, out } = handBack(course, "descent", failed);
+
+    expect(code).toBe(1);
+    expect(out.problems[0]).toMatch(/self-check didn't pass \(drawing gate: 2 overlaps\)/);
+    expect(toolRow(course.project, "descent")?.handback).toBeNull();
+  });
+
+  test("an unreadable region is settled on its crop first (exit 1): the main agent settles it, or the job goes to the Owner", () => {
+    const course = assigned();
+    const unreadable = handbackOf(
+      "descent",
+      (h) => (h["unreadables"] = [{ where: "Figure 3, the second axis", what: "tick labels" }]),
+    );
+
+    const { code, out } = handBack(course, "descent", unreadable);
+
+    expect(code).toBe(1);
+    expect(out.problems[0]).toMatch(
+      /settle each on its crop, then hand back again, or record the job --result checkpoint/,
+    );
+    expect(toolRow(course.project, "descent")?.handback).toBeNull();
+    expect(handBack(course, "descent").code).toBe(0);
+  });
+
+  test("a schematic sim's counts must be the model's: one off is refused (exit 1), the model's own are kept", () => {
+    const course = assigned();
+    const model: ToolInventory = {
+      ...EMPTY_INVENTORY,
+      tools: [
+        {
+          name: "descent",
+          entry: `modules/${FOLDER}/sims/descent.json`,
+          collection: "sims",
+          kind: "logic",
+          worked: "1",
+          live: true,
+          counts: { parts: 5, nets: 4 },
+        },
+      ],
+    };
+
+    const off = handBack(
+      course,
+      "descent",
+      handbackOf("descent", (h) => (h["counts"] = { parts: 5, nets: 3 })),
+      model,
+    );
+    const right = handBack(
+      course,
+      "descent",
+      handbackOf("descent", (h) => (h["counts"] = { parts: 5, nets: 4 })),
+      model,
+    );
+
+    expect(off.code).toBe(1);
+    expect(off.out.problems[0]).toMatch(/counts 5 parts and 3 nets, but the sim's model has 5 parts and 4 nets/);
+    expect(right.code).toBe(0);
+    expect(toolRow(course.project, "descent")?.handback).toMatchObject({ parts: 5, nets: 4 });
+  });
+
+  test("a template layer that can't list the tools leaves the counts unchecked, so the hand-back waits (exit 1)", () => {
+    const course = assigned();
+
+    const { code, out } = handBack(
+      course,
+      "descent",
+      handbackOf("descent"),
+      "the template can't list the Module's tools: boom",
+    );
+
+    expect(code).toBe(1);
+    expect(out.problems[0]).toMatch(/boom/);
+  });
+});
+
+describe("fallback after two fix rounds", () => {
+  const minutesAgo = () => new Date(Date.now() - 60_000).toISOString();
+  const record = (project: string, waveId: string, job: string, result: string) =>
+    ledger(
+      "record",
+      "job",
+      ...holder(project),
+      "--wave",
+      waveId,
+      "--job",
+      job,
+      "--result",
+      result,
+      "--started-at",
+      minutesAgo(),
+    );
+  const fallBack = (project: string, waveId: string, job: string) =>
+    wave(["fallback", ...holder(project), "--wave", waveId, "--job", job, "--started-at", minutesAgo()]);
+
+  test("is refused before the rounds are spent (exit 3), then a sim falls back to its step-through", () => {
+    const { project, waveId } = assigned();
+    must(record(project, waveId, "sim-descent", "blocked"));
+    const afterOne = fallBack(project, waveId, "sim-descent");
+    must(record(project, waveId, "sim-descent", "blocked"));
+    const afterTwo = fallBack(project, waveId, "sim-descent");
+    must(record(project, waveId, "sim-descent", "blocked"));
+
+    const fell = fallBack(project, waveId, "sim-descent");
+
+    expect(afterOne.code).toBe(3);
+    expect(afterTwo.code).toBe(3);
+    expect(afterTwo.out.error).toMatch(/falls back only once its two fix rounds are spent \(1 of 2 used\)/);
+    expect(fell).toMatchObject({ code: 0, out: { job: "sim-descent", from: "gradient-descent", to: "step-through" } });
+    expect(toolRow(project, "descent")).toMatchObject({
+      ships: "step-through",
+      fallbacks: [{ from: "gradient-descent", to: "step-through" }],
+    });
+    const job = must(ledger("status", "--project", project)).jobs.find((j: { job: string }) => j.job === "sim-descent");
+    expect(job).toMatchObject({
+      result: "fell-back",
+      detail: "step-through (fell back from gradient-descent after 2 fix rounds)",
+    });
+    expect(job.startedAt).not.toBeNull();
+  });
+
+  test("a sim already on its step-through has nothing to fall back to (exit 3)", () => {
+    const { project, waveId } = assigned();
+    for (const _ of [1, 2, 3]) must(record(project, waveId, "sim-descent", "blocked"));
+    must(fallBack(project, waveId, "sim-descent"));
+
+    expect(fallBack(project, waveId, "sim-descent")).toMatchObject({
+      code: 3,
+      out: { error: expect.stringContaining("already ships its step-through") },
+    });
+  });
+
+  test("a fallback recorded with a plain `record job` is finished by a re-run, not recorded twice", () => {
+    const { project, waveId } = assigned();
+    for (const _ of [1, 2, 3]) must(record(project, waveId, "sim-descent", "blocked"));
+    must(
+      ledger(
+        ...["record", "job", ...holder(project), "--wave", waveId, "--job", "sim-descent"],
+        ...["--result", "fell-back", "--detail", "step-through", "--started-at", minutesAgo()],
+      ),
+    );
+
+    const { code } = fallBack(project, waveId, "sim-descent");
+
+    expect(code).toBe(0);
+    expect(toolRow(project, "descent")?.ships).toBe("step-through");
+  });
+
+  test("a tool with no next Toolkit tool goes to the Owner (exit 3, record --result checkpoint)", () => {
+    const { project, waveId } = assigned();
+    for (const _ of [1, 2, 3]) must(record(project, waveId, "tool-normal-equation", "blocked"));
+
+    const { code, out } = fallBack(project, waveId, "tool-normal-equation");
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(
+      /no next tool after pyodide in the Machine learning Toolkit for real Python: record --result checkpoint/,
+    );
+    expect(toolRow(project, "normal-equation")?.ships).toBe("pyodide");
+  });
+
+  test("is only for a builder job of the assignment (exit 2)", () => {
+    const { project, waveId } = assigned();
+    const { code, out } = fallBack(project, waveId, "writer");
+    expect(code).toBe(2);
+    expect(out.error).toMatch(/writer isn't a builder job/);
   });
 });

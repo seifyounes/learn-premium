@@ -1,8 +1,12 @@
 // Synthetic Course projects for the Media pass tests, built through the ledger and media commands.
+import type { ToolInventory } from "../scripts/wave/assign.ts";
 import { must } from "./fake-notebooklm.ts";
 import { jsonInput, ledger, media, tempDir, writeFiles } from "./helpers.ts";
 
 export const COMMIT = "0123456789abcdef0123456789abcdef01234567";
+
+/** The inventory of a Module with no Worked example and no tool: what a faked template layer reports by default. */
+export const EMPTY_INVENTORY: ToolInventory = { module: "", worked: [], tools: [], problems: [] };
 
 export function sitting(id: string, date: string | null) {
   return { id, name: id, date };

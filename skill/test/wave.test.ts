@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import { templateVerifier } from "../scripts/wave/wave.ts";
-import { COMMIT, fixtureCourse, materialsOf } from "./fixture-courses.ts";
+import { COMMIT, EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { ledger, writeFiles, type Result } from "./helpers.ts";
 import { MEANING_SLIP, review, shots, verdicts } from "./review-fixtures.ts";
@@ -269,7 +269,9 @@ function gateReports(project: string, items: unknown[], url: string | null = PRE
   });
 }
 
-const greenVerifier = { verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [] } };
+const greenVerifier = {
+  verifier: { verify: () => ({ green: true, problems: [] }), rulings: () => [], inventory: () => EMPTY_INVENTORY },
+};
 
 /**
  * Module 01's wave, run to the Checkpoint on a synthetic Course project: the readings settled (one
@@ -458,6 +460,7 @@ describe("ready, the Module wave's merge gate", () => {
     const red = {
       verifier: {
         verify: (_: string, point: string) => ({ green: false, problems: [`no ${point} report`] }),
+        inventory: () => EMPTY_INVENTORY,
         rulings: () => [],
       },
     };
@@ -566,6 +569,7 @@ describe("ready, the Module wave's merge gate", () => {
     const shipped = (kind: "slip" | "divergence", entry = "modules/01-m01/worked/1.json", printed = [1.45]) => ({
       verifier: {
         verify: () => ({ green: true, problems: [] }),
+        inventory: () => EMPTY_INVENTORY,
         rulings: () => [{ entry, kind, printed }],
       },
     });
@@ -651,6 +655,7 @@ describe("ready, the Module wave's merge gate", () => {
     const practice = {
       verifier: {
         verify: () => ({ green: true, problems: [] }),
+        inventory: () => EMPTY_INVENTORY,
         rulings: () => [{ entry: "modules/01-m01/practice/2.yaml", kind: "divergence" as const, printed: [9.6] }],
       },
     };
@@ -751,6 +756,7 @@ describe("ready, the Module wave's merge gate", () => {
     const shipped = (n: number) => ({
       verifier: {
         verify: () => ({ green: true, problems: [] }),
+        inventory: () => EMPTY_INVENTORY,
         rulings: () =>
           Array.from({ length: n }, () => ({
             entry: "modules/01-m01/worked/1.json",
@@ -864,6 +870,7 @@ describe("ready, the Module wave's merge gate", () => {
     const slipOn = (cell: string) => ({
       verifier: {
         verify: () => ({ green: true, problems: [] }),
+        inventory: () => EMPTY_INVENTORY,
         rulings: () => [{ entry: "modules/01-m01/worked/1.json", kind: "slip" as const, printed: [1.45], cell }],
       },
     });
@@ -910,6 +917,7 @@ describe("ready, the Module wave's merge gate", () => {
           ? { green: false, problems: ["the report checked another commit"] }
           : { green: true, problems: [] };
       },
+      inventory: () => EMPTY_INVENTORY,
       rulings: () => [],
     };
 
