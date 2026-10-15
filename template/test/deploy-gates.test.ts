@@ -12,7 +12,7 @@ const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const TEMPLATE_DIR = resolve(import.meta.dirname, "..");
 
 const DEPLOY_ONLY = ["no-materials", "no-build-evidence", "noindex", "licences", "licences-file"];
-const LIVE = ["live-routes", "live-headers", "live-private-paths"];
+const LIVE = ["live-routes", "live-headers", "live-private-paths", "live-videos"];
 const gatesNamed = (ids: string[]) => GATES.filter((g) => ids.includes(g.id));
 const run = (point: GatePoint, input: GateInput, ids: string[]) =>
   runGates({ point, commit: COMMIT, input, gates: gatesNamed(ids) });
@@ -116,6 +116,8 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     // Every page, and the Licences file.
     expect(coverage["live-routes"]).toEqual({ routes: pageCount() + 1, hubs: 6 });
     expect(coverage["live-private-paths"]?.["probes"]).toBeGreaterThan(40);
+    // The committed Fixture has no card, and with no live URL nothing is asked of YouTube.
+    expect(coverage["live-videos"]).toEqual({ modules: 10, cards: 0, probed: 0 });
   });
 
   it("run at their own points only", () => {

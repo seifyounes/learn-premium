@@ -21,6 +21,7 @@ import { SITTING_GATES } from "./sittings.ts";
 import { stlGate } from "./stl.ts";
 import type { Gate } from "./runner.ts";
 import { teachingMethod } from "./teaching.ts";
+import { liveVideos } from "./videos.ts";
 import { workedNumbers } from "./worked-numbers.ts";
 
 export const GATES: readonly Gate[] = [
@@ -53,5 +54,6 @@ export const GATES: readonly Gate[] = [
   liveRoutes,
   liveHeaders,
   livePrivatePaths,
+  liveVideos,
   ...SITTING_GATES,
 ];
