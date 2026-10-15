@@ -954,6 +954,13 @@ describe("ready, the Module wave's merge gate", () => {
     ]);
     expect(fresh.out.problems).toEqual([]);
 
+    // A mode change alone (the hook made executable, as on Linux) renders nothing differently.
+    const mode = gitIn(project, "ls-files", "-s", "template/gates/hooks/pre-commit").startsWith("100755") ? "-x" : "+x";
+    gitIn(project, "update-index", `--chmod=${mode}`, "template/gates/hooks/pre-commit");
+    gitIn(project, "commit", "-q", "-m", "chore: the hook's mode");
+    expect(gitIn(project, "diff", "--raw", "HEAD~1", "HEAD")).toMatch(/pre-commit/);
+    expect(ready(project, waveId).out.problems).toEqual([]);
+
     // A Course override of a component the page renders with makes the review stale too.
     writeFiles(project, { "overrides/src/components/PlotFigure.tsx": "export {};\n" });
     expect(ready(project, waveId).out.problems).toEqual([

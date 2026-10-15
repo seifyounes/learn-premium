@@ -187,10 +187,22 @@ describe("the fresh reviewer's review", () => {
     shots(privateFolder);
     rmSync(`${privateFolder}/waves/01/review/shots/laptop.png`);
     const noLaptop = reviewOf(project);
+    shots(privateFolder, undefined, "01", { module: "02-m02" });
+    const otherModule = reviewOf(project);
+    shots(privateFolder, undefined, "01", {
+      files: [
+        { device: "phone", width: 375, view: 1, file: "phone.png" },
+        { device: "phone", width: 375, view: 2, file: "phone-view2.png" },
+        { device: "laptop", width: 1280, view: 1, file: "laptop.png" },
+      ],
+    });
+    const missingView = reviewOf(project);
 
+    expect(otherModule.out.problems).toEqual([expect.stringMatching(/screenshots are of 02-m02, not 01-m01/)]);
+    expect(missingView.out.problems).toEqual([expect.stringMatching(/phone-view2\.png .*isn't there/)]);
     expect(none.out.problems).toEqual([expect.stringMatching(/no screenshots/)]);
     expect(otherCommit.out.problems).toEqual([expect.stringMatching(/screenshots are of f{40}, not .*reviewed/)]);
-    expect(noLaptop.out.problems).toEqual([expect.stringMatching(/no laptop screenshot/)]);
+    expect(noLaptop.out.problems).toEqual([expect.stringMatching(/laptop shot laptop.png .*isn't there/)]);
   });
 
   test("a meaning finding names the content and the Materials region; a visual one its screenshot", () => {

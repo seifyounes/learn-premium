@@ -537,11 +537,26 @@ describe("the fix loop: two fix rounds, then the fallback, else a Checkpoint ite
 
   test("a fallback says what it fell back to", () => {
     const { record } = runningWave();
+    [1, 2, 3].forEach(() => record("sim-ramp", "blocked", "red"));
 
     const { code, out } = record("sim-ramp", "fell-back");
 
     expect(code).toBe(2);
     expect(out.error).toMatch(/--detail/);
+  });
+
+  test("a job falls back only once its two fix rounds are spent, never in place of them (negative control)", () => {
+    const { record } = runningWave();
+
+    const first = record("media-video", "fell-back", "dropped the video");
+    record("media-video", "blocked", "red");
+    const afterOne = record("media-video", "fell-back", "dropped the video");
+    record("media-video", "blocked", "red");
+    record("media-video", "blocked", "red");
+    const spent = record("media-video", "fell-back", "dropped the video");
+
+    expect([first.code, afterOne.code, spent.code]).toEqual([3, 3, 0]);
+    expect(afterOne.out.error).toMatch(/falls back only once its two fix rounds are spent \(0 of 2 used\)/);
   });
 
   test("a pass or an answered escalation ends the run of blocks: a later block gets two fresh fix rounds", () => {

@@ -224,7 +224,7 @@ unchecked work. First re-gate what its predecessor left: `node "$W" relaunch ope
 what the re-gate found. Give that to the relaunched subagent with its brief and
 `briefs/relaunch.md`: it reviews each file and leaves it kept, fixed or discarded before building
 on it. Record the outcomes with `relaunch close --outcomes <file>`; the ledger keeps them per file
-and the build report lists them, and `ready` waits for every relaunch to close. A relaunched Blind
+and the build report lists them, and `ready` waits for every relaunch to close and for the relaunched job to record its own result. A relaunched Blind
 reader takes no `--files`: it gets its own predecessor's reading only, never the other reader's
 output.
 

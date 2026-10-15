@@ -12,7 +12,14 @@ import { privateFolderOf } from "../intake/create.ts";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { requireLedger } from "../ledger/ledger.ts";
-import { current, RELAUNCH_OUTCOMES, TEMPLATE_DIR, type Relaunch, type RelaunchOutcome } from "../ledger/model.ts";
+import {
+  current,
+  RELAUNCH_OUTCOMES,
+  TEMPLATE_DIR,
+  type Ledger,
+  type Relaunch,
+  type RelaunchOutcome,
+} from "../ledger/model.ts";
 import { closeRelaunch, openRelaunch, openRelaunchOf } from "../ledger/relaunch.ts";
 import { arr, nonEmpty, obj, oneOf, SchemaError } from "../ledger/schema.ts";
 import { readingSchema, waveFolder } from "./reading.ts";
@@ -307,9 +314,21 @@ function outcomeProblem(
   }
 }
 
-/** Why the wave can't merge on its relaunches: one whose predecessor's files aren't settled. */
-export function relaunchProblems(relaunches: Relaunch[], waveId: string): string[] {
-  return current(relaunches)
-    .filter((r) => r.wave === waveId && r.closedAt === null)
-    .map((r) => `job ${r.job} was relaunched but its predecessor's files aren't settled: wave.ts relaunch close`);
+/**
+ * Why the wave can't merge on its relaunches: one whose predecessor's files aren't settled, or whose
+ * relaunched job never recorded a result of its own (a blocked one is `ready`'s own check).
+ */
+export function relaunchProblems(ledger: Ledger, waveId: string): string[] {
+  return current(ledger.relaunches)
+    .filter((r) => r.wave === waveId)
+    .flatMap((r) => {
+      if (r.closedAt === null)
+        return [`job ${r.job} was relaunched but its predecessor's files aren't settled: wave.ts relaunch close`];
+      const result = current(ledger.jobs).find((j) => j.wave === waveId && j.job === r.job);
+      return result === undefined || result.recordedAt < r.openedAt
+        ? [
+            `job ${r.job} was relaunched, but the relaunched job hasn't recorded its result: record job --job ${r.job} once it finishes`,
+          ]
+        : [];
+    });
 }

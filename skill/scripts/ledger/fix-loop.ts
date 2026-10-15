@@ -52,6 +52,12 @@ export function checkResult(job: string, result: JobResult, detail: string | nul
         `${job} has no fallback (only sim-, tool- and media- jobs do): record --result checkpoint with what it needs from the Owner`,
       );
     if (detail === null) throw new LedgerError("invalid", `a fallback needs --detail saying what ${job} fell back to`);
+    const used = spent(blocksInARow(history));
+    if (used < FIX_ROUNDS)
+      throw new LedgerError(
+        "refused",
+        `${job} falls back only once its two fix rounds are spent (${used} of ${FIX_ROUNDS} used): record each blocked result, and fix it first`,
+      );
   }
   if ((result === "blocked" || result === "passed") && spent(blocksInARow(history)) >= FIX_ROUNDS)
     throw new LedgerError(
