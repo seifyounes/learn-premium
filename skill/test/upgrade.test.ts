@@ -12,6 +12,7 @@ import { run as runGateGap } from "../scripts/gate-gap/cli.ts";
 import { hashTree } from "../scripts/ledger/hash.ts";
 import { checkpoint, type MergePoint, type Verifier } from "../scripts/wave/wave.ts";
 import { run as runUpgrade, type Deps } from "../scripts/upgrade/cli.ts";
+import { EMPTY_INVENTORY } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { FakeTracker } from "./fake-tracker.ts";
 import { ledger, writeFiles, type Result } from "./helpers.ts";
@@ -563,6 +564,10 @@ class FakeVerifier implements Verifier {
 
   rulings() {
     return [];
+  }
+
+  inventory() {
+    return EMPTY_INVENTORY;
   }
 }
 
