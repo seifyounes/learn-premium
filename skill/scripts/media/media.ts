@@ -1,9 +1,12 @@
 // The Media pass's state commands. The Media pass is the only writer of the media files, the Course
 // registry and the usage log; it only reads Build ledgers, so it never needs (or waits on) a ledger lock.
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
+import { hashFile } from "../ledger/hash.ts";
 import { current, sittingState, type Ledger } from "../ledger/model.ts";
 import { LedgerError, readLedger } from "../ledger/store.ts";
+import { MAIN_BRANCH } from "../wave/tree.ts";
 import {
   IN_FLIGHT,
   MAX_REGENERATIONS,
@@ -303,7 +306,15 @@ export function recordEncoded(
   });
 }
 
-/** checked → placed: `file` is the published copy, already in the Course project. */
+function gitOutput(project: string, ...args: string[]) {
+  return spawnSync("git", ["-C", project, ...args], { encoding: "utf8" });
+}
+
+/**
+ * checked → placed: `file` is the published copy, already in the Course project. A re-encoded item is placed
+ * only from the re-encode itself, on `main`: the file hashes to the recorded `encoded.hash` and is in the
+ * history there, so a rejected or regenerated output can't be taken for the published one.
+ */
 export function place(stateDir: string, project: string, id: string, file: string): void {
   const root = resolve(project);
   const inside = relative(root, resolve(root, file));
@@ -311,6 +322,25 @@ export function place(stateDir: string, project: string, id: string, file: strin
     throw new LedgerError("invalid", `${file} isn't a file in the Course project`);
   }
   move(stateDir, root, id, ["checked"], (item) => {
+    if (item.encoded !== null) {
+      if (hashFile(resolve(root, file)) !== item.encoded.hash) {
+        throw new LedgerError("invalid", `${file} isn't ${id}'s re-encode (its hash differs from the recorded one)`);
+      }
+      const on = gitOutput(root, "symbolic-ref", "--short", "-q", "HEAD");
+      if (on.status !== 0 || on.stdout.trim() !== MAIN_BRANCH) {
+        throw new LedgerError(
+          "invalid",
+          `the Course project isn't on ${MAIN_BRANCH}: merge the media branch into it first`,
+        );
+      }
+      const tracked = gitOutput(root, "cat-file", "-e", `HEAD:${inside.split(sep).join("/")}`);
+      if (tracked.status !== 0) {
+        throw new LedgerError(
+          "invalid",
+          `${file} isn't committed on ${MAIN_BRANCH}: merge the media branch into it first`,
+        );
+      }
+    }
     item.state = "placed";
     item.file = file;
   });
