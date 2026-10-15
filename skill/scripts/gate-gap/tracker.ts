@@ -16,6 +16,8 @@ export interface Tracker {
   labelled(label: string): Promise<TrackerIssue[]>;
   /** Opens an issue; returns its number and URL. */
   create(issue: { title: string; body: string; labels: string[] }): Promise<{ number: number; url: string }>;
+  /** Reopens a closed issue and says why, in a comment: an Upgrade wave whose release didn't close the gate gap for its Course. */
+  reopen(issue: number, comment: string): Promise<void>;
 }
 
 export function ghTracker(repo: string = GATE_GAP_REPO): Tracker {
@@ -52,6 +54,16 @@ export function ghTracker(repo: string = GATE_GAP_REPO): Tracker {
         ),
       ) as { number: number; html_url: string };
       return { number: created.number, url: created.html_url };
+    },
+    async reopen(issue, comment) {
+      gh(
+        ["api", "--method", "PATCH", `repos/${repo}/issues/${issue}`, "--input", "-"],
+        JSON.stringify({ state: "open" }),
+      );
+      gh(
+        ["api", "--method", "POST", `repos/${repo}/issues/${issue}/comments`, "--input", "-"],
+        JSON.stringify({ body: comment }),
+      );
     },
   };
 }

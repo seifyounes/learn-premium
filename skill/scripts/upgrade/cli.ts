@@ -7,12 +7,13 @@ import { Args } from "../ledger/args.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { gateGapId } from "../ledger/model.ts";
 import { nonEmpty, oneOf, SchemaError } from "../ledger/schema.ts";
-import { TrackerError, type Tracker } from "../gate-gap/tracker.ts";
+import { ghTracker, TrackerError, type Tracker } from "../gate-gap/tracker.ts";
 import { templateVerifier, type Verifier } from "../wave/wave.ts";
 import { heldReason, localToday, planUpgrade } from "./plan.ts";
 import {
   applyUpgrade,
   endUpgradeFailed,
+  keepOverride,
   mergeUpgrade,
   migrateUpgrade,
   startUpgrade,
@@ -85,6 +86,16 @@ async function dispatch(args: Args, deps: Partial<Deps>): Promise<Output> {
       return { ...applyUpgrade(project, args.required("--holder"), source) };
     case "migrate":
       return { ...(await migrateUpgrade(project, args.required("--holder"))) };
+    case "keep":
+      return {
+        ...(await keepOverride(
+          project,
+          args.required("--holder"),
+          args.required("--path"),
+          args.required("--reason"),
+          deps.tracker ?? ghTracker(),
+        )),
+      };
     case "ready": {
       const problems = upgradeProblems(project, deps.verifier ?? templateVerifier);
       return { code: problems.length === 0 ? 0 : 1, ready: problems.length === 0, problems };

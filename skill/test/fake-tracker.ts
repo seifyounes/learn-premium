@@ -6,6 +6,18 @@ export class FakeTracker implements Tracker {
   readonly issues: (TrackerIssue & { title: string; labels: string[] })[] = [];
   /** Throws after opening the next issue, as if the answer never came back. */
   dropAfterCreate = false;
+  /** The issues an Upgrade wave reopened, with the comment it left. */
+  readonly reopened: { number: number; comment: string }[] = [];
+  /** Throws on the next reopen, as if GitHub refused. */
+  failReopen = false;
+
+  async reopen(issue: number, comment: string): Promise<void> {
+    if (this.failReopen) {
+      this.failReopen = false;
+      throw new TrackerError("GitHub refused to reopen the issue");
+    }
+    this.reopened.push({ number: issue, comment });
+  }
 
   async labelled(label: string): Promise<TrackerIssue[]> {
     return this.issues.filter((issue) => issue.labels.includes(label));

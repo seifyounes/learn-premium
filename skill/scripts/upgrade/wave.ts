@@ -14,6 +14,8 @@ import { LedgerError } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
 import { mutate, requireLedger, runningUpgrade, templateHashes, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type Upgrade } from "../ledger/model.ts";
+import { OVERRIDABLE } from "../ledger/overrides.ts";
+import type { Tracker } from "../gate-gap/tracker.ts";
 import { moduleFolder, type Verifier } from "../wave/wave.ts";
 import { heldReason, planUpgrade } from "./plan.ts";
 
@@ -304,6 +306,46 @@ function bytesAt(project: string, base: string, path: string): Buffer {
   const child = spawnSync("git", ["-C", project, "show", `${base}:${path}`], { maxBuffer: 1 << 28 });
   if (child.error !== undefined) throw child.error;
   return child.status === 0 ? child.stdout : Buffer.alloc(0);
+}
+
+/**
+ * Keeps a Course override the release retires, because its gates fail without it: the release didn't
+ * close the gate gap for this Course after all, so that gate gap is reopened on learn-premium's
+ * tracker (first: if GitHub refuses, nothing here changes) and the Course's own override file comes
+ * back, byte for byte as it was at the wave's start. The override stays a current ledger row.
+ */
+export async function keepOverride(project: string, holder: string, path: string, reason: string, tracker: Tracker) {
+  const ledger = requireLedger(project);
+  assertHolder(ledger, holder);
+  const upgrade = running(ledger);
+  onWaveBranch(project, upgrade);
+  const retired = upgrade.retire.find((r) => r.path === path);
+  if (retired === undefined)
+    throw new LedgerError(
+      "refused",
+      `${path} isn't an override ${upgrade.to} retires: only a retired override is kept`,
+    );
+  if (upgrade.kept.some((k) => k.path === path)) throw new LedgerError("refused", `${path} is already kept`);
+  if (!OVERRIDABLE.test(path) || !(path in upgrade.files))
+    throw new LedgerError(
+      "refused",
+      `${path} is a file ${upgrade.to} no longer has (or can't be overridden): it can't be kept, so this wave is red`,
+    );
+  if (!overridesAt(project, upgrade.base).includes(path))
+    throw new LedgerError("refused", `there was no ${OVERRIDES_DIR}/${path} when the wave started`);
+  await tracker.reopen(
+    retired.gateGap,
+    `${ledger.intake.courseName} on ${upgrade.to}: its Course override \`${path}\` still fails the gates (${reason}), so the release didn't close this gate gap for it. Reopened by its Upgrade wave.`,
+  );
+  const file = join(project, OVERRIDES_DIR, path);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, bytesAt(project, upgrade.base, `${OVERRIDES_DIR}/${path}`));
+  mutate(project, holder, (l) => {
+    const row = current(l.upgrades).find((u) => u.id === upgrade.id);
+    if (row === undefined) throw new LedgerError("invalid", `no current Upgrade wave ${upgrade.id}`);
+    row.kept.push({ path, gateGap: retired.gateGap, reason, at: new Date().toISOString() });
+  });
+  return { path, gateGap: retired.gateGap, reopened: retired.gateGap };
 }
 
 /** The module-point Gate report's preview URL for a Module, or null. */
