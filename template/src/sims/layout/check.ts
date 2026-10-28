@@ -402,9 +402,9 @@ function sideOf(part: PlacedPart, t: Text): Side {
 }
 
 /** The figure must separate a pair by this fraction for their order to count. */
-const ORDER_TOLERANCE = 0.04;
+export const ORDER_TOLERANCE = 0.04;
 /** Drawn closer than this (px), a pair counts as lined up. */
-const LINED_UP_PX = 10;
+export const LINED_UP_PX = 10;
 
 function figureChecks(
   d: Drawing,
