@@ -24,7 +24,17 @@ const SEAT_PX = 60;
 export const toGrid = (v: number) => Math.round(v / GRID) * GRID;
 
 /** Kinds a few px can move without changing the drawing's arrangement: small parts and terminals. */
-const MOVABLE = new Set<SymbolKind>(["resistor", "capacitor", "inductor", "switch", "diode", "port", "ground", "rail"]);
+const MOVABLE = new Set<SymbolKind>([
+  "resistor",
+  "capacitor",
+  "inductor",
+  "switch",
+  "diode",
+  "port",
+  "ground",
+  "rail",
+  "air-source",
+]);
 
 export function place(model: SchematicModel, hints: LayoutHints): PlacedPart[] {
   const parts: PlacedPart[] = model.parts.map((m) => {
