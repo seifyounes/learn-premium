@@ -272,7 +272,8 @@ export function raisedItems(project: string, id: string, preview?: string) {
       const where = tool.worked === null ? "Lab" : workedLabel(id, tool.worked);
       // The Lab's anchor follows what ships (a Pyodide tool that fell back to a part is a part), a step-through is a sim.
       const prefix = tool.ships === "pyodide" ? "python" : tool.ships === "part" ? "part" : "sim";
-      const key = itemKey(id, "unproven", tool.name, [canonical, tool.tool, tool.ships]);
+      // The wave is in the key: a Module rebuilt after a failed wave is a new build, reviewed again.
+      const key = itemKey(id, "unproven", tool.name, [canonical, tool.tool, tool.ships, w.id]);
       items.set(key, {
         key,
         kind: "unproven",
