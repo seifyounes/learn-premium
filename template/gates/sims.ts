@@ -312,6 +312,13 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
   ],
   // A ladder or FBD sim draws its networks as a schematic, beside its timers' gauges and timing chart.
   ladder: ["src/islands/LadderSim.tsx", "src/islands/sim/Schematic.tsx", "src/islands/sim/timing-chart.tsx"],
+  // A pneumatic circuit is drawn as a schematic with its moving parts laid over it, beside its timing diagram.
+  pneumatic: [
+    "src/islands/PneumaticSim.tsx",
+    "src/islands/sim/Schematic.tsx",
+    "src/islands/sim/pneumatic-parts.tsx",
+    "src/islands/sim/timing-diagram.tsx",
+  ],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 /** A Pyodide tool's view: its preview and live plot draw on the sheet's plotted figure. */

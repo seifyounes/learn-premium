@@ -5,11 +5,13 @@ import { isPadKey, PAD_COLOUR, PAD_KEYS } from "../pads/catalogue.ts";
 import { loopProblems } from "../sims/control/loop.ts";
 import { BLOCK_DIAGRAM_KINDS } from "../sims/layout/block-diagram.ts";
 import { turnSchema } from "../sims/layout/check.ts";
+import { PNEUMATIC_KINDS } from "../sims/layout/pneumatic.ts";
 import { SIDES } from "../sims/layout/symbols.ts";
 import { schematicProblems } from "../sims/layout/validate.ts";
 import { LANGUAGES, PLC_KINDS, WATCH_TYPES } from "../sims/ladder/model.ts";
 import { ladderSimProblems } from "../sims/ladder/validate.ts";
 import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
+import { pneumaticProblems } from "../sims/pneumatic/model.ts";
 import { PROVENANCE_TAGS } from "../provenance/values.ts";
 import { S7_TYPES } from "../sims/s7/memory.ts";
 import { sclProblems } from "../sims/scl/validate.ts";
@@ -761,6 +763,43 @@ const sclSim = z.strictObject({
   stepThrough: z.never().optional(),
 });
 
+const pneumaticPart = z.strictObject({
+  id: partId,
+  kind: z.enum(PNEUMATIC_KINDS),
+  label: z.string().min(1).optional(),
+  /** A cylinder's stroke-end marks as the figure prints them: the roller valve at each end (`retracted: a0`). */
+  notes: z.record(z.string(), z.string().min(1)).optional(),
+  /** Where the figure draws it at rest: a cylinder's end, a 5/2 valve's pilot side. */
+  rest: z.enum(["retracted", "extended", "12", "14"]).optional(),
+});
+
+/**
+ * A pneumatic circuit (`src/sims/pneumatic/engine.ts`): the Professor's ISO 1219 figure as a netlist
+ * of the pneumatic pack, drawn by the layout core from its hints. Students press or hold its push
+ * buttons and step the cycle; pressurised lines ink in, spools shift, pistons travel, and the
+ * displacement-step diagram inks itself over the key. They never rewire it.
+ */
+const pneumaticSim = z.strictObject({
+  kind: z.literal("pneumatic"),
+  ...simCommon,
+  model: z.strictObject({
+    parts: z.array(pneumaticPart).min(1),
+    nets: z.array(z.strictObject({ id: z.string().min(1), pins: z.array(pinRef).min(1) })).min(1),
+    /** The movements the Materials state, in order: `A+` extends cylinder A, `A-` retracts it. */
+    sequence: z
+      .array(z.string().regex(/^[A-Za-z][A-Za-z0-9_]*[+-]$/, "a movement is a cylinder and + or -, e.g. A+"))
+      .min(2),
+    /** The push buttons the example presses once, at rest, to run the cycle. */
+    press: z.array(partId).min(1),
+    /** The nets the timing diagram draws as signal rows (the cascade's group lines), beside every cylinder. */
+    signals: z.array(z.string().min(1)),
+  }),
+  layout: layoutHints,
+  /** Each push button held (1) or not (0) as the sim opens; the figure draws every button released. */
+  start: z.record(partId, bit).optional(),
+  tune: z.record(partId, z.strictObject({ min: z.literal(0), max: z.literal(1), step: z.literal(1) })).optional(),
+});
+
 /**
  * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
  * the same way in Node at build and in the page. Students tune it, never rewire it.
@@ -775,6 +814,7 @@ export const sim = z
     sclSim,
     controlSim,
     ladderSim,
+    pneumaticSim,
   ])
   .superRefine((s, ctx) => {
     if (s.kind === "ladder") for (const p of ladderSimProblems(s)) ctx.addIssue({ code: "custom", ...p });
@@ -802,6 +842,21 @@ export const sim = z
       const structure = schematicProblems(s.model, s.layout);
       for (const message of structure.length > 0 ? structure : loopProblems(s.model))
         ctx.addIssue({ code: "custom", path: ["model"], message });
+    }
+    if (s.kind === "pneumatic") {
+      const structure = schematicProblems(s.model, s.layout);
+      for (const message of structure.length > 0 ? structure : pneumaticProblems(s.model))
+        ctx.addIssue({ code: "custom", path: ["model"], message });
+      const buttons = s.model.parts.filter((p) => p.kind === "valve-32-button").map((p) => p.id);
+      for (const key of ["start", "tune"] as const) {
+        const given = Object.keys(s[key] ?? {});
+        if (s[key] !== undefined && given.join() !== buttons.join())
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: `${key} gives ${given.join(", ") || "nothing"}, but the push buttons are ${buttons.join(", ")}, in that order`,
+          });
+      }
     }
     if (s.recompute === "independent") {
       for (const key of ["start", "tune"] as const) {
@@ -858,6 +913,7 @@ export const SIM_KINDS = [
   "scl",
   "control",
   "ladder",
+  "pneumatic",
 ] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /**

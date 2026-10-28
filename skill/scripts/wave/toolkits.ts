@@ -18,6 +18,7 @@ export const SIM_TOOLS = [
   "scl",
   "control",
   "ladder",
+  "pneumatic",
 ] as const;
 /** Every tool a Toolkit can list: a sim kind, a Pyodide tool or a machine-part viewer. */
 export const TOOL_NAMES = [...SIM_TOOLS, "pyodide", "part"] as const;
@@ -53,6 +54,7 @@ export const TOOLKITS: Record<StartingDiscipline, Toolkit> = {
     "STL listing": ["stl"],
     "SCL listing": ["scl"],
     "ladder or FBD": ["ladder"],
+    "pneumatic circuit": ["pneumatic"],
     "control response": ["control"],
   },
 };

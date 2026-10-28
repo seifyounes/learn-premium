@@ -62,13 +62,15 @@ export interface Comparison {
   exact: boolean;
   /** The Course style sheet's pinned definitions, which the engine works to. */
   pinned?: PinnedDefinitions | undefined;
+  /** What an exact comparison says the recompute works out, when it owes the engine's every value: a truth table's rows, a timing diagram's steps. */
+  every?: string | undefined;
 }
 
 export function threeWay(
   s: LiveSim,
   log: RecomputeLog,
   sheet: Sheet | undefined,
-  { exact, pinned }: Comparison = { exact: false },
+  { exact, pinned, every = "a truth table's recompute works out every row" }: Comparison = { exact: false },
 ): ThreeWay {
   const result: ThreeWay = { problems: [], sheetValues: 0, recomputedValues: 0 };
   const agrees = (value: number, printed: Printed) => (exact ? value === printed.value : agreesAtPrint(value, printed));
@@ -174,15 +176,14 @@ export function threeWay(
   }
   if (exact) {
     for (const quantity of Object.keys(engine)) {
-      if (!(quantity in log.values))
-        block(`the recompute log doesn't give ${quantity}: a truth table's recompute works out every row`);
+      if (!(quantity in log.values)) block(`the recompute log doesn't give ${quantity}: ${every}`);
     }
   }
   return result;
 }
 
 /** Leaf paths where `log` and `sim` differ, each as `path: <log> in the log, <sim> in the sim`. */
-function differences(log: unknown, sim: unknown, path: string): string[] {
+export function differences(log: unknown, sim: unknown, path: string): string[] {
   if (Array.isArray(log) && Array.isArray(sim) && log.length === sim.length)
     return log.flatMap((item, i) => differences(item, sim[i], `${path}.${i}`));
   const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
