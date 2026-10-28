@@ -228,8 +228,12 @@ export const liveVideos: Gate = {
         }
       }
     }
-    const modules = courseFiles(input).filter((f) => f.collection === "modules").length;
-    return { coverage: { modules, cards: cards.length, probed }, findings };
+    // The course config counts as looked at: a Course with no Module yet has no card to check, and
+    // checking it is not a gate that saw nothing (its live run would fail and roll the deploy back).
+    const files = courseFiles(input);
+    const courses = files.filter((f) => f.collection === "course").length;
+    const modules = files.filter((f) => f.collection === "modules").length;
+    return { coverage: { courses, modules, cards: cards.length, probed }, findings };
   },
   controls: [
     {

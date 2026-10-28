@@ -140,6 +140,17 @@ describe("videos verify, one candidate at a time", () => {
     expect(out.error).toMatch(/--id/);
   });
 
+  test.each(["", "   "])("`never` refuses the empty reason %j and leaves the do-not-use list intact", (reason) => {
+    const { project, privateFolder } = newCourse();
+    const refused = wave(["videos", "never", "--project", project, "--id", A, "--reason", reason]);
+    expect(refused.code).toBe(2);
+    expect(existsSync(join(privateFolder, "youtube/do-not-use.json"))).toBe(false);
+    // A later, valid ruling still lands: nothing invalid was written before it.
+    const later = wave(["videos", "never", "--project", project, "--id", B, "--reason", "wrong method"]);
+    expect(later.code).toBe(0);
+    expect(later.out.listed).toBe(1);
+  });
+
   test.each([
     [401, /oEmbed answered 401/],
     [404, /oEmbed answered 404/],
