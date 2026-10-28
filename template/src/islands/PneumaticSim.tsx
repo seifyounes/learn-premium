@@ -189,10 +189,10 @@ export default function PneumaticSim({ model, drawing, nets, start, keyLevels, l
                 drawing={drawing}
                 nets={nets}
                 high={(net) => net !== undefined && state.lines[net] === 1}
-                draw={touched}
+                draw={touched && !reduced}
                 terminalNets={{}}
                 wireClass={(net) => (net !== undefined && control.has(net) ? "is-pilot" : undefined)}
-                overlay={<PneumaticParts drawing={drawing} model={model} state={state} />}
+                overlay={<PneumaticParts drawing={drawing} model={model} state={state} reduced={reduced} />}
                 label={`${label}: the circuit, ${run.recorded.length === 0 ? "at rest" : `at step ${run.recorded.length}`}`}
               />
             </div>

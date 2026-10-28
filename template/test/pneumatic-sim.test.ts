@@ -224,6 +224,17 @@ describe("the pneumatic sim in a browser", () => {
     await context.close();
   });
 
+  it("under reduced motion the pilot leads snap with the spools", async () => {
+    const { context, sim } = await open({ reduced: true });
+    await sim.getByRole("button", { name: "Press S" }).click();
+    await expect.poll(() => caption(sim)).toBe(CAPTIONS[0]);
+    // VA has shifted to 14: its pilot leads are at their final length the moment the page says so,
+    // not 160 ms later.
+    const lead = await sim.locator('[data-valve="VA"] .pneumatic-pilot').getAttribute("d");
+    expect(lead).toBe("M-120 0H-42M120 0H102");
+    await context.close();
+  });
+
   it("on a phone: drawn at its own size, every text at 12px or more, every control 44px square, the circuit scrolling inside its box", async () => {
     const { context, tab, sim, errors } = await open({ width: 375, height: 812, touch: true });
     // The schematic is drawn at its own width, never scaled to fit.
