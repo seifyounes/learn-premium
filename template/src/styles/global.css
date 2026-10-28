@@ -1944,6 +1944,105 @@
     font-family: var(--font-quantity);
     fill: var(--color-red-pen);
   }
+  /* The pneumatic sim and timing diagrams: the circuit across the sim, the keys and the
+     displacement-step diagram below. A control line is dashed, a pressurised one inked. */
+  .pneumatic-grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "figure" "controls" "diagram";
+  }
+  @container sim (width >= 900px) {
+    .pneumatic-grid {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "figure figure"
+        "controls diagram";
+      gap: 20px 32px;
+    }
+  }
+  .pneumatic-figure {
+    grid-area: figure;
+  }
+  .pneumatic-controls {
+    grid-area: controls;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+  .pneumatic-diagram {
+    grid-area: diagram;
+    min-inline-size: 0;
+  }
+  /* The shared note button is 38px: this sim's keys are held and tapped, so they take the touch size. */
+  .pneumatic-controls .note-button {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+  /* The caption changes with every step: room for its longest, so the figure below doesn't jump. */
+  .pneumatic-caption {
+    min-block-size: 3em;
+  }
+  .schematic-wire.is-pilot {
+    stroke-dasharray: 6 4;
+  }
+  .pneumatic-moving {
+    fill: none;
+    stroke: var(--color-graphite);
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+  }
+  .pneumatic-fill {
+    fill: var(--color-graphite);
+    stroke: none;
+  }
+  .pneumatic-pilot {
+    fill: none;
+    stroke: var(--color-pencil);
+    stroke-width: 1.25;
+    stroke-dasharray: 6 4;
+  }
+  .timing-diagram {
+    display: block;
+    max-inline-size: none;
+  }
+  .timing-rule {
+    stroke: var(--color-grid-major);
+    stroke-width: 1;
+  }
+  .timing-key {
+    fill: none;
+    stroke: var(--color-pencil);
+    stroke-width: 2;
+    stroke-linejoin: miter;
+  }
+  .timing-live {
+    fill: none;
+    stroke: var(--color-graphite);
+    stroke-width: 3;
+    stroke-linejoin: miter;
+  }
+  .timing-diagram .timing-label,
+  .timing-diagram .timing-level {
+    font-family: var(--font-quantity);
+    fill: var(--color-graphite);
+  }
+  .timing-step rect {
+    fill: var(--color-sheet);
+    stroke: var(--color-graphite);
+    stroke-width: 1.5;
+  }
+  .timing-step text {
+    font-family: var(--font-quantity);
+    fill: var(--color-graphite);
+  }
+  /* The step line the run has reached: filled graphite, as the Worked sheet's current step is. */
+  .timing-step.is-current rect {
+    fill: var(--color-graphite);
+  }
+  .timing-step.is-current text {
+    fill: var(--color-sheet);
+  }
   .logic-input {
     gap: 8px;
   }

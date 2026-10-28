@@ -25,13 +25,19 @@ interface Props {
   partHigh?: (id: string) => boolean;
   /** Drawn over the parts (a timer's gauge), in drawing px. */
   overlay?: ReactNode;
+  /** A class for a wire by its net, joined to its pencil and its inked line (a control line's dashes). */
+  wireClass?: (net: string | undefined) => string | undefined;
 }
 
 /** How long a wire takes to ink in, in seconds. */
 const INK_IN = 0.45;
 
-export function Schematic({ drawing, nets, high, draw, terminalNets, label, partHigh, overlay }: Props) {
+export function Schematic({ drawing, nets, high, draw, terminalNets, label, partHigh, overlay, wireClass }: Props) {
   const points = (w: Drawing["wires"][number]) => w.points.map(([x, y]) => `${x},${y}`).join(" ");
+  const classed = (base: string, net: string | undefined) => {
+    const extra = wireClass?.(net);
+    return extra ? `${base} ${extra}` : base;
+  };
   return (
     <svg
       className="schematic"
@@ -43,12 +49,24 @@ export function Schematic({ drawing, nets, high, draw, terminalNets, label, part
     >
       <g className="schematic-wires">
         {drawing.wires.map((w, i) => (
-          <polyline key={i} className="schematic-wire" points={points(w)} />
+          <polyline key={i} className={classed("schematic-wire", nets.wires[i])} points={points(w)} />
         ))}
       </g>
       <g className="schematic-ink">
-        {drawing.wires.map((w, i) =>
-          high(nets.wires[i]) ? (
+        {drawing.wires.map((w, i) => {
+          if (!high(nets.wires[i])) return null;
+          // A wire given a class (a control line's dashes) is inked in at once: drawing it in sets
+          // the dash pattern the class would otherwise own.
+          if (wireClass?.(nets.wires[i]))
+            return (
+              <polyline
+                key={i}
+                className={classed("schematic-wire is-high", nets.wires[i])}
+                data-net={nets.wires[i]}
+                points={points(w)}
+              />
+            );
+          return (
             <motion.polyline
               key={i}
               className="schematic-wire is-high"
@@ -58,8 +76,8 @@ export function Schematic({ drawing, nets, high, draw, terminalNets, label, part
               animate={{ pathLength: 1 }}
               transition={{ duration: INK_IN, ease: "easeOut" }}
             />
-          ) : null,
-        )}
+          );
+        })}
         {drawing.dots.map(([x, y], i) => (
           <circle
             key={`${x},${y}`}
