@@ -10,13 +10,15 @@ import LogicSim from "../islands/LogicSim";
 import PlaneWallSim from "../islands/PlaneWallSim";
 import PneumaticSim from "../islands/PneumaticSim";
 import SclSim from "../islands/SclSim";
+import StateMachineSim from "../islands/StateMachineSim";
 import StepThrough from "../islands/StepThrough";
 import StlSim from "../islands/StlSim";
 import { buildContentDir } from "../content/layout";
 import { pinnedIn } from "../content/style-sheet";
 import TangentSim from "../islands/TangentSim";
 import { provenanceNotes } from "../provenance/notes";
-import { definitionsFor, isLive, schematicModelOf } from "../sims/kinds";
+import { definitionsFor, diagramModelOf, isLive, isStateDiagram, schematicModelOf } from "../sims/kinds";
+import { layOutDiagram, modelEdgesOf } from "../sims/layout/diagram";
 import { inkNets } from "../sims/layout/geometry";
 import { layOut } from "../sims/layout/layout";
 import { printedDecimals, readPrinted } from "../sims/precision";
@@ -74,6 +76,11 @@ const timingKey = Object.fromEntries(
     return typeof printed === "string" ? [] : [[quantity, printed.value]];
   }),
 );
+// A state diagram is laid out here at build, exactly as the state-diagram gate checked it; its
+// strip is drawn over the key (`timingKey`, above).
+const machine = live && isStateDiagram(live) ? live : undefined;
+const machineDiagram = machine && diagramModelOf(machine);
+const machineDrawing = machine && machineDiagram && layOutDiagram(machineDiagram, machine.layout);
 // An STL listing with an instruction the interpreter lacks plays awlsim's own trace of the example's
 // values, from its oracle log in the build records (the stl gate checked the log is current).
 const stl = s.kind === "stl" ? s : undefined;
@@ -160,6 +167,17 @@ const controlDefinitions = control && definitionsFor(control, pinnedIn(buildCont
       drawing={pneumaticDrawing}
       nets={inkNets(pneumaticDrawing, pneumatic.model.nets)}
       start={pneumatic.start}
+      keyLevels={timingKey}
+      label={label}
+    />
+  ) : machine && machineDiagram && machineDrawing ? (
+    <StateMachineSim
+      client:visible
+      family={machine.kind}
+      model={machine.model}
+      drawing={machineDrawing}
+      edges={modelEdgesOf(machineDrawing, machineDiagram)}
+      start={machine.start}
       keyLevels={timingKey}
       label={label}
     />
