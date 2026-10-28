@@ -28,6 +28,48 @@ export const SCHEMA_VERSION = 1;
 export const moduleCount: Schema<number> = (v, p) =>
   Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 99 ? (v as number) : fail(p, "a whole number 1–99", v);
 
+/** One of the five eligibility checks a ready-made tool is held to, with the evidence for its verdict. */
+const eligibilityCheck = obj({ pass: bool, evidence: nonEmpty });
+
+/** A ready-made tool considered for an interaction: where it is from, its licence and its five checks. */
+export const readyMadeCandidate = obj({
+  name: nonEmpty,
+  /** Its repo or page, as the research matrix cites it. */
+  source: nonEmpty,
+  licence: nonEmpty,
+  checks: obj({
+    embeddable: eligibilityCheck,
+    padFrame: eligibilityCheck,
+    touch: eligibilityCheck,
+    writable: eligibilityCheck,
+    headless: eligibilityCheck,
+  }),
+});
+
+const proposalShape = {
+  name: nonEmpty,
+  /** The nearest listed Discipline, whose pad and Toolkit the proposal starts from; null when none is close. */
+  nearest: nullable(nonEmpty),
+  interactions: arr(
+    obj({
+      interaction: nonEmpty,
+      /** The Agent-built tools the template ships, the default first; empty when no engine is built yet. */
+      tools: arr(nonEmpty),
+      readyMade: arr(readyMadeCandidate),
+    }),
+  ),
+};
+
+/** The Toolkit the agent proposes for a Discipline the template doesn't list. */
+export const toolkitProposal = obj(proposalShape);
+
+/** A Discipline added at intake: the Toolkit the Owner confirmed, the ready-made tools he chose on feel, his words. */
+export const addedDiscipline = obj({
+  ...proposalShape,
+  chosen: arr(obj({ interaction: nonEmpty, readyMade: nonEmpty })),
+  answer: nonEmpty,
+});
+
 const intakeShape = obj({
   courseName: nonEmpty,
   materialsPath: nonEmpty,
@@ -37,14 +79,17 @@ const intakeShape = obj({
   sittings: arr(obj({ id: nonEmpty, name: nonEmpty, date: nullable(isoDate) })),
   /** Null when the intake didn't record it (a ledger made before the media budget check). */
   expectedModules: nullable(moduleCount),
+  /** The Disciplines off the Toolkit's list that the Owner added, each with his confirmed Toolkit. */
+  added: arr(addedDiscipline),
 });
 
-/** Intake answers recorded before the media budget check read as expecting no particular Module count. */
+/**
+ * Intake answers recorded before the media budget check read as expecting no particular Module
+ * count, and ones recorded before Disciplines could be added as adding none.
+ */
 export const intakeSchema: Schema<Infer<typeof intakeShape>> = (v, p) =>
   intakeShape(
-    typeof v === "object" && v !== null && !Array.isArray(v) && !("expectedModules" in v)
-      ? { ...v, expectedModules: null }
-      : v,
+    typeof v === "object" && v !== null && !Array.isArray(v) ? { expectedModules: null, added: [], ...v } : v,
     p,
   );
 
@@ -402,7 +447,9 @@ export type RelaunchOutcome = (typeof RELAUNCH_OUTCOMES)[number];
 export type Assignment = Infer<typeof assignment>;
 export type AssignedTool = Assignment["tools"][number];
 export type DisciplineAnswer = Infer<typeof discipline>;
-
+export type ReadyMadeCandidate = Infer<typeof readyMadeCandidate>;
+export type ToolkitProposal = Infer<typeof toolkitProposal>;
+export type AddedDiscipline = Infer<typeof addedDiscipline>;
 /** An Exam sitting's state, from its Sitting waves: open until one runs, live once one merges. */
 export function sittingState(ledger: Ledger, id: string): "open" | "building" | "live" {
   const waves = current(ledger.waves).filter((w) => w.kind === "sitting" && w.target === id);

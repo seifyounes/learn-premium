@@ -1,6 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { join } from "node:path";
+import { ELIGIBILITY_CHECKS } from "../scripts/ledger/disciplines.ts";
+import type { ReadyMadeCandidate, ToolkitProposal } from "../scripts/ledger/model.ts";
+import { interactionOf, PROPOSAL } from "./discipline-fixtures.ts";
 import { must } from "./fake-notebooklm.ts";
 import { fixtureCourse, registered } from "./fixture-courses.ts";
 import { intake, jsonInput, ledger, media, tempDir, writeFiles } from "./helpers.ts";
@@ -404,5 +407,136 @@ describe("budget", () => {
     expect(out.window).toBeNull();
     expect(out.verdict).toBe("unknown");
     expect(out.reason).toMatch(/dated Exam sitting/);
+  });
+});
+
+describe("toolkit", () => {
+  const motorLab = (p: ToolkitProposal) => interactionOf(p, 0).readyMade[0] as ReadyMadeCandidate;
+
+  /** The proposal with `change` applied to a copy of it. */
+  const changed = (change: (p: ToolkitProposal) => void) => {
+    const copy = structuredClone(PROPOSAL);
+    change(copy);
+    return copy;
+  };
+  const toolkit = (proposal: unknown) => intake("toolkit", "--input", jsonInput(proposal));
+
+  test("runs the five eligibility checks on every ready-made candidate", async () => {
+    const { code, out } = await toolkit(PROPOSAL);
+
+    expect(code).toBe(0);
+    expect(out.name).toBe("Electric machines");
+    expect(out.nearest).toBe("Electric circuits");
+    expect(out.pad).toMatchObject({ pad: "bluegrey", match: "nearest", listed: "Electric circuits" });
+    expect(out.interactions[0].readyMade).toEqual([
+      { name: "Motor Lab", eligible: true, failed: [] },
+      { name: "Desmos", eligible: false, failed: ["embeddable"] },
+    ]);
+    // The Owner judges feel only on the eligible candidate; the failed one is named by its failed check.
+    expect(out.question).toContain(
+      "does Motor Lab win on feel over the Agent-built ladder for motor starting sequence?",
+    );
+    expect(out.question).not.toContain("does Desmos win on feel");
+    expect(out.question).toMatch(/Desmos[^\n]*embeddable/i);
+    expect(out.question).toContain("pad Blue-grey");
+    // The candidates' evidence stays out of the chat.
+    expect(out.question).not.toContain("paid Commercial Tier");
+  });
+
+  test.each(ELIGIBILITY_CHECKS)("a candidate failing only %s is ineligible", async (check) => {
+    const proposal = changed((p) => {
+      motorLab(p).checks[check] = { pass: false, evidence: "synthetic failure" };
+    });
+
+    const { code, out } = await toolkit(proposal);
+
+    expect(code).toBe(0);
+    expect(out.interactions[0].readyMade[0]).toEqual({ name: "Motor Lab", eligible: false, failed: [check] });
+  });
+
+  test("a candidate missing a check is refused as a bad proposal, not read as passing", async () => {
+    const proposal = changed((p) => {
+      delete (motorLab(p).checks as Partial<Record<string, unknown>>)["touch"];
+    });
+
+    const { code, out } = await toolkit(proposal);
+
+    expect(code).toBe(2);
+    expect(out.error).toContain("touch");
+  });
+
+  test("a check with no evidence is refused", async () => {
+    const proposal = changed((p) => {
+      motorLab(p).checks.headless.evidence = " ";
+    });
+
+    expect((await toolkit(proposal)).code).toBe(2);
+  });
+
+  test("the pad is the Discipline's own nearest-listed pad when the catalogue has one, else the nearest Discipline's, else the fallback", async () => {
+    const own = await toolkit(changed((p) => (p.name = "Thermodynamics")));
+    const nearest = await toolkit(changed((p) => (p.nearest = "Heat transfer")));
+    const none = await toolkit(changed((p) => (p.nearest = null)));
+
+    expect(own.out.pad).toMatchObject({ pad: "teal", match: "nearest", listed: "Heat transfer" });
+    expect(nearest.out.pad).toMatchObject({ pad: "teal", match: "nearest", listed: "Heat transfer" });
+    expect(none.out.pad).toMatchObject({ pad: "graphite", match: "fallback", listed: null });
+  });
+
+  test("PhET and Falstad are refused as ready-made candidates and as Toolkit tools", async () => {
+    const byName = changed((p) => (motorLab(p).name = "PhET Circuit Construction Kit"));
+    const bySource = changed((p) => (motorLab(p).source = "https://www.falstad.com/circuit/"));
+    const phetTool = changed((p) => (interactionOf(p, 0).tools = ["phet"]));
+    const falstadTool = changed((p) => (interactionOf(p, 0).tools = ["falstad"]));
+
+    for (const proposal of [byName, bySource, phetTool, falstadTool]) {
+      const { code, out } = await toolkit(proposal);
+      expect(code).toBe(2);
+      expect(out.error).toContain("PhET and Falstad appear only as credited links");
+    }
+  });
+
+  test("a Discipline the Toolkit lists is refused: list it as that, nothing to add", async () => {
+    const { code, out } = await toolkit(changed((p) => (p.name = "maths")));
+
+    expect(code).toBe(2);
+    expect(out.error).toContain("is the Toolkit's Mathematics");
+  });
+
+  test.each([
+    [
+      "an unknown tool",
+      (p: ToolkitProposal) => (interactionOf(p, 0).tools = ["circuitjs"]),
+      "isn't a tool the template ships",
+    ],
+    ["a nearest Discipline the Toolkit doesn't list", (p: ToolkitProposal) => (p.nearest = "Fluids"), "nearest"],
+    [
+      "a duplicate interaction",
+      (p: ToolkitProposal) => (interactionOf(p, 1).interaction = "Motor  starting sequence"),
+      "listed twice",
+    ],
+    [
+      "a duplicate tool in one list",
+      (p: ToolkitProposal) => (interactionOf(p, 2).tools = ["pyodide", "pyodide"]),
+      "twice",
+    ],
+    ["no interactions", (p: ToolkitProposal) => (p.interactions = []), "no interaction"],
+  ])("%s is refused", async (_name, change, message) => {
+    const { code, out } = await toolkit(changed(change));
+
+    expect(code).toBe(2);
+    expect(out.error).toContain(message);
+  });
+
+  test("every problem is reported at once", async () => {
+    const proposal = changed((p) => {
+      interactionOf(p, 0).tools = ["circuitjs"];
+      interactionOf(p, 2).tools = ["pyodide", "pyodide"];
+    });
+
+    const { out } = await toolkit(proposal);
+
+    expect(out.error).toContain("circuitjs");
+    expect(out.error).toContain("twice");
   });
 });
