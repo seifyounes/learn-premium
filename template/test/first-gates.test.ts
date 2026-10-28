@@ -145,6 +145,10 @@ describe("the first gates on the Fixture Course", () => {
     expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(23);
   });
 
+  // Every static gate runs its positive fixture and each planted control, each on its own copy of the
+  // Fixture Course: about 110 s of work alone on an idle core, which a 4-core CI runner or a parallel
+  // session stretches past the global 120 s. Each Module and gate the Course gains adds to it, so this
+  // test gets the time its work takes, not a longer wait for a failure.
   it("each ship a negative control that they catch, and pass their positive fixture", async () => {
     const result = await runControls({ input, gates: STATIC_GATES });
     expect(result.ok, JSON.stringify(result, null, 2)).toBe(true);
@@ -152,7 +156,7 @@ describe("the first gates on the Fixture Course", () => {
       expect(g.positive).toBe("pass");
       expect(g.controls.length).toBeGreaterThan(0);
     }
-  });
+  }, 300_000);
 
   it("the rendered-page scan blocks a KaTeX error span and raw TeX, naming the page", async () => {
     const error = siteWith(build.outDir, MODULE, '<span class="katex-error" title="ParseError">x</span>');
