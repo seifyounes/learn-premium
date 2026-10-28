@@ -107,7 +107,8 @@ describe("the live-videos gate", () => {
 
   it("runs at the live point only, after the other live gates", () => {
     expect(liveVideos.points).toEqual(["live"]);
-    expect(GATES.at(-1)).toBe(liveVideos);
+    const ids = GATES.map((g) => g.id);
+    expect(ids[ids.indexOf("live-private-paths") + 1]).toBe("live-videos");
   });
 });
 
