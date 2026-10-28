@@ -8,6 +8,7 @@
 // at turn 0 has its inputs on the left and its output on the right.
 import { BLOCK_DIAGRAM_SYMBOLS } from "./block-diagram.ts";
 import { PNEUMATIC_SYMBOLS } from "./pneumatic.ts";
+import { STATE_DIAGRAM_SYMBOLS } from "./state-diagram.ts";
 
 export type Point = readonly [number, number];
 export type Turn = 0 | 90 | 180 | 270;
@@ -395,6 +396,7 @@ export const SYMBOLS = {
   "fbd-s": fbdBox("S", 1),
   "fbd-r": fbdBox("R", 1),
   ...PNEUMATIC_SYMBOLS,
+  ...STATE_DIAGRAM_SYMBOLS,
 } as const satisfies Record<string, SymbolDef>;
 
 export type SymbolKind = keyof typeof SYMBOLS;
