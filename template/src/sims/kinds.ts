@@ -18,8 +18,10 @@ import * as logic from "./logic/engine.ts";
 import * as planeWall from "./plane-wall/engine.ts";
 import * as pneumatic from "./pneumatic/engine.ts";
 import * as scl from "./scl/engine.ts";
+import * as stateMachine from "./state-machine/engine.ts";
 import * as stl from "./stl/engine.ts";
 import * as tangent from "./tangent/engine.ts";
+import type { DiagramModel } from "./layout/diagram.ts";
 import type { SchematicModel } from "./layout/drawing.ts";
 import type { Inputs } from "./tuning.ts";
 
@@ -41,7 +43,7 @@ interface Kind<K extends SimKind> {
    * against awlsim after every statement, and an SCL listing by `scl`, against the blind
    * interpreter on every scan; a ladder or FBD sim by `ladder`, bit for bit against awlsim after
    * every scan; a pneumatic circuit by `timing-key`, its displacement-step diagram bit for bit at
-   * every step, three ways, against the key.
+   * every step, three ways, against the key; an FSM or a GRAFCET by timing-key too, its strip bit for bit.
    */
   checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl" | "ladder" | "timing-key";
   /** The Professor's definitions its engine works to, pinned in the Course style sheet. */
@@ -74,6 +76,9 @@ export const KINDS: { [K in SimKind]: Kind<K> } = {
     quantities: (model, inputs) => pneumatic.quantities(model, inputs),
     checkedBy: "timing-key",
   },
+  // A state machine's timing strip: each input, state variable and output in every clock period of the example.
+  fsm: { quantities: (model) => stateMachine.quantities("fsm", model), checkedBy: "timing-key" },
+  grafcet: { quantities: (model) => stateMachine.quantities("grafcet", model), checkedBy: "timing-key" },
 };
 
 /**
@@ -132,12 +137,21 @@ export function engineQuantities(
       return ladder.quantities(s.model, { ...s.start, ...inputs }, s.scenario, s.cycle);
     case "pneumatic":
       return pneumatic.quantities(s.model, { ...s.start, ...inputs });
+    case "fsm":
+    case "grafcet":
+      return stateMachine.quantities(s.kind, s.model);
   }
 }
 
-/** A sim drawn as a schematic by the layout core: its model and the Layout hints read off its figure. */
-export type SchematicSim = Extract<Sim, { layout: unknown }>;
-export const isSchematic = (s: Sim): s is SchematicSim => "layout" in s;
+/** A state diagram (an FSM, a GRAFCET): drawn by the layout core's curve drawer, not its router. */
+export type StateDiagramSim = Extract<Sim, { kind: "fsm" | "grafcet" }>;
+export const isStateDiagram = (s: Sim): s is StateDiagramSim => s.kind === "fsm" || s.kind === "grafcet";
+/** A state diagram's model as the layout core draws it. */
+export const diagramModelOf = (s: StateDiagramSim): DiagramModel => stateMachine.diagramOf(s.kind, s.model);
+
+/** A sim drawn as a schematic by the layout core's router: its model and the Layout hints read off its figure. */
+export type SchematicSim = Exclude<Extract<Sim, { layout: unknown }>, StateDiagramSim>;
+export const isSchematic = (s: Sim): s is SchematicSim => "layout" in s && !isStateDiagram(s);
 
 /** A schematic sim's model as the layout core draws it: a ladder's parts with their printed labels, values and keys. */
 export const schematicModelOf = (s: SchematicSim): SchematicModel =>

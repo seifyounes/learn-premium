@@ -13,6 +13,7 @@ import { numbersIn } from "../src/provenance/values.ts";
 import { engineQuantities, isLive, KINDS, type LiveSim, type Sim, type SimKind } from "../src/sims/kinds.ts";
 import { pneumaticLog } from "../src/sims/pneumatic/log.ts";
 import { printAt, readPrinted } from "../src/sims/precision.ts";
+import { stateMachineLog } from "../src/sims/state-machine/log.ts";
 import { keyRows, rowOf } from "../src/sims/timing/diagram.ts";
 import { recomputeLog, threeWay } from "../src/sims/three-way.ts";
 import { snap } from "../src/sims/tuning.ts";
@@ -78,6 +79,8 @@ const RECOMPUTE_LOGS: Partial<
   Record<SimKind, { safeParse(value: unknown): ReturnType<typeof recomputeLog.safeParse> }>
 > = {
   pneumatic: pneumaticLog,
+  fsm: stateMachineLog,
+  grafcet: stateMachineLog,
 };
 
 /**
@@ -440,6 +443,13 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
     "src/islands/PneumaticSim.tsx",
     "src/islands/sim/Schematic.tsx",
     "src/islands/sim/pneumatic-parts.tsx",
+    "src/islands/sim/timing-diagram.tsx",
+  ],
+  // A state machine draws its diagram with the curve drawer, beside its table and timing strip.
+  fsm: ["src/islands/StateMachineSim.tsx", "src/islands/sim/state-diagram.tsx", "src/islands/sim/timing-diagram.tsx"],
+  grafcet: [
+    "src/islands/StateMachineSim.tsx",
+    "src/islands/sim/state-diagram.tsx",
     "src/islands/sim/timing-diagram.tsx",
   ],
 };

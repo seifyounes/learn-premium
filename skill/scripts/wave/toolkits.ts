@@ -19,6 +19,8 @@ export const SIM_TOOLS = [
   "control",
   "ladder",
   "pneumatic",
+  "fsm",
+  "grafcet",
 ] as const;
 /** Every tool a Toolkit can list: a sim kind, a Pyodide tool or a machine-part viewer. */
 export const TOOL_NAMES = [...SIM_TOOLS, "pyodide", "part"] as const;
@@ -46,7 +48,7 @@ export const TOOLKITS: Record<StartingDiscipline, Toolkit> = {
   Mathematics: { "function plot": ["tangent"] },
   // No engine built for these two yet: a computable example in them goes to the Owner.
   "Electric circuits": {},
-  "Logic circuits": { "combinational circuit": ["logic"] },
+  "Logic circuits": { "combinational circuit": ["logic"], "sequential circuit": ["fsm"] },
   "Heat transfer": { "conduction field": ["plane-wall"] },
   Machinery: { part: ["part"] },
   "Engineering chemistry": {},
@@ -56,6 +58,7 @@ export const TOOLKITS: Record<StartingDiscipline, Toolkit> = {
     "ladder or FBD": ["ladder"],
     "pneumatic circuit": ["pneumatic"],
     "control response": ["control"],
+    "GRAFCET or SFC": ["grafcet"],
   },
 };
 
