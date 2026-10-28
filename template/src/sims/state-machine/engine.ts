@@ -147,6 +147,18 @@ export interface Period {
   next: Situation;
 }
 
+/** One clock, period `k`: the inputs it samples, the edges it takes and the situation after. */
+export function periodOf(
+  machine: Machine,
+  active: Situation,
+  inputs: Record<string, Bit>,
+  k: number,
+  semantics: Semantics = SEMANTICS,
+): Period {
+  const { next, taken } = fire(machine, active, inputs, semantics);
+  return { k, inputs, active, outputs: outputsOf(machine, semantics.outputsIn(active, next)), taken, next };
+}
+
 /** The example's stimulus, period by period, from the start situation. */
 export function run(machine: Machine, semantics: Semantics = SEMANTICS): Period[] {
   const { model } = machine;
@@ -154,17 +166,9 @@ export function run(machine: Machine, semantics: Semantics = SEMANTICS): Period[
   const periods: Period[] = [];
   let active = machine.initial;
   for (let k = 1; k <= n; k++) {
-    const inputs = semantics.sample(model.stimulus, model.inputs, k);
-    const { next, taken } = fire(machine, active, inputs, semantics);
-    periods.push({
-      k,
-      inputs,
-      active,
-      outputs: outputsOf(machine, semantics.outputsIn(active, next)),
-      taken,
-      next,
-    });
-    active = next;
+    const period = periodOf(machine, active, semantics.sample(model.stimulus, model.inputs, k), k, semantics);
+    periods.push(period);
+    active = period.next;
   }
   return periods;
 }

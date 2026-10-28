@@ -2043,6 +2043,113 @@
   .timing-step.is-current text {
     fill: var(--color-sheet);
   }
+  /* The state-machine sims: the diagram across the sim, then the keys and the state table, the
+     equations and the timing strip. An edge is pencil, the one the clock will take is inked, and a
+     token sits in each active state. The only red here is the table's ring. */
+  .machine-grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "figure" "controls" "table" "equations" "strip";
+  }
+  @container sim (width >= 900px) {
+    .machine-grid {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "figure figure"
+        "controls table"
+        "equations strip";
+      gap: 20px 32px;
+    }
+  }
+  .machine-figure {
+    grid-area: figure;
+  }
+  .machine-controls {
+    grid-area: controls;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+  .machine-table {
+    grid-area: table;
+    min-inline-size: 0;
+  }
+  .machine-equations {
+    grid-area: equations;
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    min-inline-size: 0;
+    color: var(--color-pencil);
+    overflow-wrap: anywhere;
+  }
+  .machine-equations [data-true] {
+    color: var(--color-graphite);
+    font-weight: 600;
+  }
+  .machine-strip {
+    grid-area: strip;
+    min-inline-size: 0;
+  }
+  /* The keys are tapped: they take the touch size, where the shared note button is 38px. */
+  .machine-controls .note-button {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+  /* The caption changes with every clock: room for its longest, so the figure below doesn't jump. */
+  .machine-caption {
+    min-block-size: 3em;
+  }
+  .machine-code {
+    color: var(--color-pencil);
+  }
+  .state-diagram {
+    display: block;
+    max-inline-size: none;
+  }
+  .diagram-edge {
+    fill: none;
+    stroke: var(--color-pencil);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+  .diagram-arrow {
+    fill: var(--color-pencil);
+    stroke: none;
+  }
+  .diagram-bar {
+    stroke: var(--color-graphite);
+    stroke-width: 3;
+  }
+  .diagram-edge-group.is-taken .diagram-edge {
+    stroke: var(--color-graphite);
+    stroke-width: 1.75;
+  }
+  .diagram-edge-group.is-next .diagram-edge {
+    stroke: var(--color-graphite);
+    stroke-width: 3;
+  }
+  .diagram-edge-group.is-taken .diagram-arrow,
+  .diagram-edge-group.is-next .diagram-arrow {
+    fill: var(--color-graphite);
+  }
+  .diagram-body {
+    fill: var(--color-sheet);
+  }
+  .diagram-connector {
+    stroke: var(--color-pencil);
+    stroke-width: 1.25;
+  }
+  .diagram-action-box {
+    fill: var(--color-sheet);
+    stroke: var(--color-graphite);
+    stroke-width: 1.5;
+  }
+  .diagram-token {
+    fill: var(--color-graphite);
+    stroke: none;
+  }
   .logic-input {
     gap: 8px;
   }
