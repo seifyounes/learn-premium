@@ -41,6 +41,8 @@ const CONTENT_GATES = [
   "ladder",
   "pneumatic-cycle",
   "timing-key",
+  "state-table",
+  "state-diagram",
   "drawing",
   "part-checks",
   "tools",
