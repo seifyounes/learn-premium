@@ -111,11 +111,24 @@ The commands are in `scripts/intake/README.md`; `$I` is `intake.ts` as above.
    line), the Owner's name as the About page should show it, the Disciplines you suggest (the Owner
    confirms or edits; the main one first), the Arabic-notes toggle, the known Exam sittings (name,
    and date if known), and how many Modules the Owner expects this semester. Propose the project
-   folder name (`slug`, lower-case-dashes). A Discipline off the starting list waits for ticket #79:
-   record it as the Owner names it.
+   folder name (`slug`, lower-case-dashes). A Discipline off the starting list is added only here, at
+   intake, with its own Toolkit: read `references/discipline-tools.md` (§3 matrix, §5 licences), pick
+   the nearest listed Discipline, and write a proposal as a JSON file in the scratchpad (the intake
+   README's shape): its interactions, each with the Agent-built tools the template ships (the default
+   first; none when no engine is built) and the ready-made candidates the matrix names, with the
+   evidence for each of the five eligibility checks. A non-commercial-only licence (the Desmos API
+   trial, GeoGebra) fails "embeddable", since a Course project can go public. PhET and Falstad are
+   never a tool, only credited links. Run `node "$I" toolkit --input <file>` and post its `question`
+   in the batch; the Owner judges feel on each eligible candidate on its own demo beside the
+   Agent-built tool. Then put the Toolkit he confirmed, his feel picks (`chosen`) and his words in
+   `added` in the answers file: `create` refuses a Discipline off the list without them, and only then
+   writes it into `content/course.yaml` and the ledger. A ready-made tool he picks is recorded, but the
+   template ships none, so the Agent-built tool is built meanwhile. The Discipline stays **unproven**
+   (see Tool assignment) until he says it met the bar.
 3. **The pad:** `node "$I" pad --discipline "<main Discipline>"`; suggest it (say when it's the
    nearest listed Discipline's, or the Graphite-grey fallback) and the Owner confirms or swaps it,
-   from the catalogue or by naming any colour (`#RRGGBB`).
+   from the catalogue or by naming any colour (`#RRGGBB`). If the main Discipline is one you added,
+   take the pad from `toolkit`'s answer.
 4. Write the confirmed answers to a JSON file in the scratchpad (the README's shape) and run the
    **media budget check**: `node "$I" budget --answers <file>`. Report this Course's demand against
    the remaining capacity in a line or two; on `over` or `unknown`, say why, and go on only on the
@@ -314,7 +327,15 @@ a computable example with no tool, an illustration with one, and a tool its Disc
 (2). A Discipline the intake didn't list exits 1 with the question to put to the Owner now, in
 chat, not in the batched Checkpoint: record his answer with `node "$W" discipline --holder <id> --wave
 <W> --name <D> --confirmed yes|no --answer "<his words>"` (it also becomes a Checkpoint row), then run
-`assign` again. A Discipline the Toolkit doesn't know is refused (3) until ticket #79 adds it.
+`assign` again. A Discipline the Toolkit doesn't list and the intake didn't add is refused (3): it is
+added only at intake. A Discipline the intake added needs no answer, and `assign` and `fallback` use
+the Toolkit the Owner confirmed for it. PhET and Falstad are refused as a tool (2).
+
+A Discipline added at intake is **unproven**: every Checkpoint of a Module with its tools asks the
+Owner to review each of those tools on the preview (a `kind: "unproven"` item), and the build report
+lists it as unproven. Once a Module with its tools has merged, ask the Owner whether it met the bar
+and record his word with `node "$L" proven --project <Course project> --holder <id> --discipline "<D>"
+--answer "<his words>"` (refused until then); from that point the report says proven and no item asks.
 
 One sim builder runs per tool, in parallel, each given `briefs/sim-builder.md`. It writes its tool
 file only and leaves its hand-back in `<Private>/waves/NN/builders/<name>.json`: the figure it read,
