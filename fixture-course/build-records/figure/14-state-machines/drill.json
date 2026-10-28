@@ -1,0 +1,15 @@
+{
+  "reading": "learn-premium diagram reading v1",
+  "by": "Blind reader, from the synthetic drill GRAFCET figure (fixture-course README, Module 14), never seeing a builder file",
+  "states": {
+    "0": { "kind": "step-initial", "at": [0.5, 0] },
+    "1": { "kind": "step", "at": [0.5, 0.5], "output": "KM1" },
+    "2": { "kind": "step", "at": [0.5, 1], "output": "KM2" }
+  },
+  "edges": [
+    { "from": "0", "to": "1", "label": "m·a" },
+    { "from": "1", "to": "2", "label": "b" },
+    { "from": "2", "to": "0", "label": "a", "bow": "left" }
+  ],
+  "doubts": []
+}

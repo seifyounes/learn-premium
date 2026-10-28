@@ -1,0 +1,61 @@
+{
+  "kind": "fsm",
+  "title": "The '101' detector, clock by clock",
+  "caption": "Set $x$ and press Clock: the token travels the edge $x$ takes, the state table's row and the equations follow, and the timing strip grows over the key. Clock on to play the example.",
+  "recompute": "independent",
+  "worked": "1",
+  "sheet": {
+    "B1": "x[1]", "B2": "x[2]", "B3": "x[3]", "B4": "x[4]", "B5": "x[5]", "B6": "x[6]", "B7": "x[7]", "B8": "x[8]", "B9": "x[9]",
+    "D1": "Q1[1]", "D2": "Q1[2]", "D3": "Q1[3]", "D4": "Q1[4]", "D5": "Q1[5]", "D6": "Q1[6]", "D7": "Q1[7]", "D8": "Q1[8]", "D9": "Q1[9]",
+    "E1": "Q0[1]", "E2": "Q0[2]", "E3": "Q0[3]", "E4": "Q0[4]", "E5": "Q0[5]", "E6": "Q0[6]", "E7": "Q0[7]", "E8": "Q0[8]", "E9": "Q0[9]",
+    "F1": "z[1]", "F2": "z[2]", "F3": "z[3]", "F4": "z[4]", "F5": "z[5]", "F6": "z[6]", "F7": "z[7]", "F8": "z[8]", "F9": "z[9]"
+  },
+  "model": {
+    "states": [
+      { "id": "S0", "kind": "state", "label": "S0" },
+      { "id": "S1", "kind": "state", "label": "S1" },
+      { "id": "S2", "kind": "state", "label": "S2" },
+      { "id": "S3", "kind": "state-accepting", "label": "S3", "out": ["z"] }
+    ],
+    "edges": [
+      { "from": "S0", "to": "S0", "label": "0" },
+      { "from": "S0", "to": "S1", "label": "1" },
+      { "from": "S1", "to": "S1", "label": "1" },
+      { "from": "S1", "to": "S2", "label": "0" },
+      { "from": "S2", "to": "S0", "label": "0" },
+      { "from": "S2", "to": "S3", "label": "1" },
+      { "from": "S3", "to": "S1", "label": "1" },
+      { "from": "S3", "to": "S2", "label": "0" }
+    ],
+    "initial": "S0",
+    "inputs": ["x"],
+    "outputs": ["z"],
+    "encoding": { "variables": ["Q1", "Q0"], "codes": { "S0": "00", "S1": "01", "S2": "10", "S3": "11" } },
+    "equations": [
+      { "name": "D1", "gives": "Q1", "expr": "Q0·x' + Q1·Q0'·x" },
+      { "name": "D0", "gives": "Q0", "expr": "x" },
+      { "name": "z", "gives": "z", "expr": "Q1·Q0" }
+    ],
+    "stimulus": { "x": "011010100" }
+  },
+  "layout": {
+    "states": {
+      "S0": { "at": [0, 1], "loop": "below" },
+      "S1": { "at": [2, 0], "loop": "above" },
+      "S2": { "at": [2, 2] },
+      "S3": { "at": [4, 1] }
+    },
+    "edges": { "S2>S3": { "bow": "below" }, "S3>S2": { "bow": "above" } },
+    "start": "left"
+  },
+  "start": { "x": 0 },
+  "tune": { "x": { "min": 0, "max": 1, "step": 1 } },
+  "provenance": {
+    "stated": [
+      "the '101' detector: the states $S_0$ to $S_3$ and the edge each input takes",
+      "the codes $S_0 = 00$, $S_1 = 01$, $S_2 = 10$, $S_3 = 11$",
+      "the equations $D_1$, $D_0$ and $z$",
+      "the input sequence $0, 1, 1, 0, 1, 0, 1, 0, 0$"
+    ]
+  }
+}

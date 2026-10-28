@@ -1,0 +1,76 @@
+{
+  "code": "W14.1",
+  "title": "The '101' detector, clock by clock",
+  "statement": "The figure's Moore machine watches its input $x$ for the sequence $1, 0, 1$, overlaps included. Its output $z$ is $1$ only in $S_3$, the double circle. With the codes $S_0 = 00$, $S_1 = 01$, $S_2 = 10$ and $S_3 = 11$ on $Q_1 Q_0$, its next-state equations are $D_1 = Q_0 x' + Q_1 Q_0' x$ and $D_0 = x$, and $z = Q_1 Q_0$. Starting in $S_0$, trace it period by period on the inputs below: the state, its code and $z$.",
+  "given": [
+    "the states $S_0$ to $S_3$, starting in $S_0$ at reset",
+    "the codes $S_0 = 00$, $S_1 = 01$, $S_2 = 10$ and $S_3 = 11$ on $Q_1 Q_0$",
+    "$x$ in periods $1$ to $9$: $0, 1, 1, 0, 1, 0, 1, 0, 0$"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "Each clock period: the input, the state, its code and the output",
+    "columns": [
+      { "label": "Period", "given": true },
+      { "label": "$x$", "given": true },
+      { "label": "State" },
+      { "label": "$Q_1$" },
+      { "label": "$Q_0$" },
+      { "label": "$z$" }
+    ],
+    "rows": [
+      ["$1$", "0", "$S_0$", "0", "0", "0"],
+      ["$2$", "1", "$S_0$", "0", "0", "0"],
+      ["$3$", "1", "$S_1$", "0", "1", "0"],
+      ["$4$", "0", "$S_1$", "0", "1", "0"],
+      ["$5$", "1", "$S_2$", "1", "0", "0"],
+      ["$6$", "0", "$S_3$", "1", "1", "1"],
+      ["$7$", "1", "$S_2$", "1", "0", "0"],
+      ["$8$", "0", "$S_3$", "1", "1", "1"],
+      ["$9$", "0", "$S_2$", "1", "0", "0"]
+    ]
+  },
+  "fillOrder": "rows",
+  "steps": [
+    {
+      "title": "Read the machine",
+      "note": "$S_0$ is the reset state. A $1$ takes $S_0$ to $S_1$, a $0$ then takes $S_1$ to $S_2$, and a $1$ takes $S_2$ to $S_3$, the double circle where $z = 1$."
+    },
+    {
+      "title": "Periods 1 to 3",
+      "note": "The $0$ in period $1$ keeps $S_0$; the $1$ in period $2$ is the first $1$ of the pattern, so period $3$ is in $S_1$.",
+      "fill": ["C1", "D1", "E1", "F1", "C2", "D2", "E2", "F2", "C3", "D3", "E3", "F3"]
+    },
+    {
+      "title": "Periods 4 and 5",
+      "note": "The $1$ in period $3$ keeps $S_1$; the $0$ in period $4$ takes it to $S_2$, so period $5$ is in $S_2$.",
+      "fill": ["C4", "D4", "E4", "F4", "C5", "D5", "E5", "F5"]
+    },
+    {
+      "title": "Period 6: 101 seen",
+      "note": "The $1$ in period $5$ takes $S_2$ to $S_3$. $z$ rises a period after the last $1$, since a Moore output belongs to the state.",
+      "fill": ["C6", "D6", "E6", "F6"],
+      "marks": ["F6"]
+    },
+    {
+      "title": "Periods 7 to 9: the overlap",
+      "note": "From $S_3$ a $0$ goes to $S_2$ and a $1$ then goes back to $S_3$: the $1$ of period $5$ serves both patterns, so $z$ rises again in period $8$.",
+      "fill": ["C7", "D7", "E7", "F7", "C8", "D8", "E8", "F8", "C9", "D9", "E9", "F9"],
+      "marks": ["F8"]
+    }
+  ],
+  "answer": "$z = 1$ in periods $6$ and $8$: after the $1, 0, 1$ of periods $3$ to $5$, and again after periods $5$ to $7$, which share the $1$ of period $5$.",
+  "provenance": {
+    "stated": [
+      "the states $S_0$ to $S_3$, starting in $S_0$ at reset",
+      "the codes $S_0 = 00$, $S_1 = 01$, $S_2 = 10$ and $S_3 = 11$",
+      "the pattern $1, 0, 1$ of the '101' detector, overlaps included",
+      "$x$ in periods $1$ to $9$: $0, 1, 1, 0, 1, 0, 1, 0, 0$"
+    ],
+    "derived": [
+      "the periods $2$, $3$, $4$, $5$, $6$, $7$, $8$ and $9$ the table counts",
+      "the state, its code and $z$ in each period",
+      "the periods $6$ and $8$, where $z = 1$"
+    ]
+  }
+}
