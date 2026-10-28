@@ -2714,6 +2714,83 @@
   }
 }
 
+/* Mechanisms (ticket #61): a four-bar or a gear pair in 3D on the viewer's frame, or as the Professor's
+   sheet drawing: pencil bars, hatched ground pins, the trace inking in. The drawing is never scaled to
+   its box (its letters stay 14px, its digits 12px): a wide one scrolls inside it. */
+@layer components {
+  .mechanism-viewer[data-active="true"] .viewer-object {
+    touch-action: none;
+    cursor: grab;
+  }
+  .viewer-label sub {
+    font-size: 12px;
+    line-height: 0;
+  }
+  .mechanism-sheet-box {
+    overflow-x: auto;
+    border: 1.2px solid var(--color-pencil);
+  }
+  .mechanism-sheet {
+    display: block;
+    max-inline-size: none;
+  }
+  .mechanism-bar {
+    fill: var(--color-sheet);
+    stroke: var(--color-graphite);
+    stroke-width: 1.5px;
+    stroke-linejoin: round;
+  }
+  .mechanism-pitch {
+    stroke: var(--color-pencil);
+    stroke-width: 1px;
+    stroke-dasharray: 4 3;
+  }
+  .mechanism-pin {
+    fill: var(--color-graphite);
+    stroke: none;
+  }
+  .mechanism-ground {
+    fill: var(--color-sheet);
+    stroke: var(--color-graphite);
+    stroke-width: 1.5px;
+    stroke-linejoin: round;
+  }
+  /* The whole path, faint; the part the mechanism has turned through is inked over it. */
+  .mechanism-path {
+    stroke: var(--color-pencil);
+    stroke-width: 1px;
+    opacity: 0.35;
+  }
+  .mechanism-ink {
+    stroke: var(--color-graphite);
+    stroke-width: 2px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .mechanism-letter {
+    fill: var(--color-graphite);
+    font-family: var(--font-quantity);
+    font-size: 14px;
+  }
+  .mechanism-letter-sub {
+    font-size: 12px;
+  }
+  .mechanism-ring {
+    stroke: var(--color-graphite);
+    stroke-width: 1.5px;
+  }
+  /* The drive handle's 24px hit circle takes a drag; the rest of the drawing scrolls the page. */
+  .mechanism-hit {
+    fill: transparent;
+    touch-action: none;
+    cursor: grab;
+  }
+  .mechanism-values th,
+  .mechanism-values td {
+    min-inline-size: 7ch;
+  }
+}
+
 /* The Exam room (ticket #74): a paper sat on the page, its clock, its result, and the sitting's hub. */
 @layer components {
   .paper-sheet {

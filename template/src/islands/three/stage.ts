@@ -48,6 +48,11 @@ export interface Stage {
   atHome(): boolean;
   /** Where a point in the scene falls on the stage, in CSS pixels, and whether it is on it. */
   project(point: THREE.Vector3): { x: number; y: number; inside: boolean };
+  /**
+   * Where a stage pixel (CSS px, as `project` gives them) lands on the plane z = 0 of `plane`'s local frame
+   * (a mechanism's sheet), in that frame; null when the camera's ray runs parallel to it. A pin drag uses it.
+   */
+  pointOnPlane(x: number, y: number, plane: THREE.Object3D): { x: number; y: number } | null;
   /** The stage's size in CSS pixels. */
   size(): { width: number; height: number };
   /** Lines drawn over the scene in screen space, beside the object, never across it. */
@@ -227,6 +232,19 @@ export function createStage(host: HTMLElement, inks: ViewerInks): Stage {
       return { x, y, inside: p.z < 1 && x >= 0 && x <= width && y >= 0 && y <= height };
     },
     size: () => ({ width, height }),
+    pointOnPlane(x, y, plane) {
+      // The camera is placed at each draw; a drag may come before the first one.
+      place();
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(new THREE.Vector2((x / width) * 2 - 1, 1 - (y / height) * 2), camera);
+      plane.updateWorldMatrix(true, false);
+      const inverse = plane.matrixWorld.clone().invert();
+      const origin = ray.ray.origin.clone().applyMatrix4(inverse);
+      const direction = ray.ray.direction.clone().transformDirection(inverse);
+      if (Math.abs(direction.z) < 1e-9) return null;
+      const t = -origin.z / direction.z;
+      return { x: origin.x + t * direction.x, y: origin.y + t * direction.y };
+    },
     setLeaders(leaders) {
       for (const strong of [false, true]) {
         const points = leaders

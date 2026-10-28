@@ -7,6 +7,7 @@ import ControlSim from "../islands/ControlSim";
 import GradientDescentSim from "../islands/GradientDescentSim";
 import LadderSim from "../islands/LadderSim";
 import LogicSim from "../islands/LogicSim";
+import MechanismSim from "../islands/MechanismSim";
 import PlaneWallSim from "../islands/PlaneWallSim";
 import PneumaticSim from "../islands/PneumaticSim";
 import SclSim from "../islands/SclSim";
@@ -106,7 +107,13 @@ const controlDrawing = control && layOut(control.model, control.layout);
 const controlDefinitions = control && definitionsFor(control, pinnedIn(buildContentDir()));
 ---
 
-<article class="sim-card" id={`sim-${ref.module}-${ref.name}`} data-sim-kind={s.kind} data-recompute={s.recompute}>
+<article
+  class="sim-card"
+  id={`sim-${ref.module}-${ref.name}`}
+  data-sim-kind={s.kind}
+  data-recompute={s.recompute}
+  data-mechanism={s.kind === "mechanism" ? s.model.type : undefined}
+>
   <div class="sim-head">
     <span class="field-label">{live ? "Sim" : "Step-through"}</span>
     <Heading
@@ -263,6 +270,23 @@ const controlDefinitions = control && definitionsFor(control, pinnedIn(buildCont
         Ts: math("T_s"),
         wc: math("\\omega_c"),
         PM: prose("PM"),
+      }}
+    />
+  ) : live?.kind === "mechanism" ? (
+    <MechanismSim
+      client:visible
+      model={live.model}
+      start={live.start}
+      tune={live.tune}
+      decimals={decimals}
+      label={label}
+      mathHtml={{
+        theta: math(live.model.type === "four-bar" ? "\\theta_2" : "\\theta_1"),
+        theta3: math("\\theta_3"),
+        theta4: math("\\theta_4"),
+        mu: math("\\mu"),
+        driven: math("\\theta_2"),
+        ratio: math("i"),
       }}
     />
   ) : live?.kind === "plane-wall" ? (

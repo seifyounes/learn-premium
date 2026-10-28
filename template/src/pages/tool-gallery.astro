@@ -9,15 +9,22 @@ import { SIM_KINDS } from "../content/contract";
 import { getParts, getPythonTools, getSims } from "../content/course";
 import Sheet from "../layouts/Sheet.astro";
 
-// The Tool gallery: one live sim of every kind the Course has, one step-through, one Pyodide
+// The Tool gallery: one live sim of every kind the Course has (a mechanism: one of each type), one step-through, one Pyodide
 // tool and one machine part in its 3D viewer, the page the Owner tries on a real phone before every Template release. The Pyodide tool
 // is the timing run: a live run shows how long Python took to start, load and run, and what it
 // fetched. Linked from no page; the nav marks it with the Lab, the other page of tools.
 const sims = await getSims();
 const shown = [
   ...SIM_KINDS.flatMap((kind) => {
-    const first = sims.find((s) => s.entry.data.kind === kind && s.entry.data.recompute === "independent");
-    return first ? [first] : [];
+    const live = sims.filter((s) => s.entry.data.kind === kind && s.entry.data.recompute === "independent");
+    // A mechanism is one kind with two model types, each its own view: the first live one of each, so a
+    // phone pass covers the four-bar and the gear pair, not one of them.
+    if (kind === "mechanism")
+      return ["four-bar", "gear-pair"].flatMap((type) => {
+        const first = live.find((s) => s.entry.data.kind === "mechanism" && s.entry.data.model.type === type);
+        return first ? [first] : [];
+      });
+    return live.slice(0, 1);
   }),
   ...sims.filter((s) => s.entry.data.recompute === "none").slice(0, 1),
 ];
