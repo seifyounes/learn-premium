@@ -13,12 +13,16 @@ interface Props {
   drawing: Drawing;
   model: PneumaticModel;
   state: State;
+  /** Reduced motion: nothing slides, every part is at its state the moment the engine says so. */
+  reduced: boolean;
 }
 
 /** How long a spool takes to slide, in seconds. */
 const SLIDE = { duration: 0.16, ease: "easeOut" } as const;
+const INSTANT = { duration: 0 } as const;
 
-export function PneumaticParts({ drawing, model, state }: Props) {
+export function PneumaticParts({ drawing, model, state, reduced }: Props) {
+  const slide = reduced ? INSTANT : SLIDE;
   return (
     <g className="pneumatic-parts">
       {drawing.parts.map((placed) => {
@@ -34,14 +38,14 @@ export function PneumaticParts({ drawing, model, state }: Props) {
                 className="pneumatic-pilot"
                 initial={false}
                 animate={{ d: pilotLeads(offset) }}
-                transition={SLIDE}
+                transition={slide}
               />
               <motion.g
                 data-spool={part.id}
                 data-side={side}
                 initial={false}
                 animate={{ x: offset }}
-                transition={SLIDE}
+                transition={slide}
               >
                 <path className="pneumatic-moving" d={pair.d} />
                 <path className="pneumatic-fill" d={pair.fill} />
@@ -59,7 +63,7 @@ export function PneumaticParts({ drawing, model, state }: Props) {
                 data-side={made ? "made" : "freed"}
                 initial={false}
                 animate={{ x: valveOffset(part.kind, made ? "made" : "freed") }}
-                transition={SLIDE}
+                transition={slide}
               >
                 <path className="pneumatic-moving" d={pair.d} />
                 <path className="pneumatic-fill" d={pair.fill} />
