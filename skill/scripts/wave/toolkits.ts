@@ -6,6 +6,7 @@
 // kinds are copied, and a test holds the copy to `template/src/content/contract.ts`. These are
 // defaults the Owner may overrule.
 import { normalise } from "../intake/pads.ts";
+import type { AddedDiscipline } from "../ledger/model.ts";
 
 /** The sim kinds the template's content contract ships. */
 export const SIM_TOOLS = [
@@ -104,4 +105,29 @@ export function nextTool(toolkit: Toolkit, interaction: string, tool: ToolName):
   const list = toolsFor(toolkit, interaction) ?? [];
   const at = list.indexOf(tool);
   return at === -1 ? null : (list[at + 1] ?? null);
+}
+
+/** The Toolkit of an added Discipline: each interaction with its tools, the default first. */
+export function toolkitOf(added: Pick<AddedDiscipline, "interactions">): Toolkit {
+  return Object.fromEntries(added.interactions.map((i) => [i.interaction, i.tools as ToolName[]]));
+}
+
+export interface KnownDiscipline {
+  /** The registry's name for a listed Discipline, the intake's own for an added one. */
+  name: string;
+  toolkit: Toolkit;
+  /** Whether this Course added it at intake (rather than the template's Toolkit listing it). */
+  added: boolean;
+}
+
+/**
+ * The Discipline `name` as this Course knows it: one the Toolkit lists, else one its intake added with
+ * the Toolkit the Owner confirmed; null when it is neither.
+ */
+export function knownDiscipline(added: readonly AddedDiscipline[], name: string): KnownDiscipline | null {
+  const listed = disciplineOf(name);
+  if (listed !== null) return { name: listed, toolkit: TOOLKITS[listed], added: false };
+  const wanted = normalise(name);
+  const entry = added.find((a) => normalise(a.name) === wanted);
+  return entry === undefined ? null : { name: entry.name, toolkit: toolkitOf(entry), added: true };
 }

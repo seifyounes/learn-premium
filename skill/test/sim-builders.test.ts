@@ -19,6 +19,7 @@ import {
   TOOL_NAMES,
   TOOLKITS,
 } from "../scripts/wave/toolkits.ts";
+import { addedCourse } from "./discipline-fixtures.ts";
 import { EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { jsonInput, ledger, writeFiles, type Result } from "./helpers.ts";
@@ -366,7 +367,7 @@ describe("a tool in a Discipline the Course didn't list", () => {
     expect(assignWave(project, waveId, input).code).toBe(0);
   });
 
-  test("a Discipline the Toolkit doesn't list asks with ticket #79, and can't be added by an answer (exit 3)", () => {
+  test("a Discipline the Toolkit doesn't list asks, and can't be added by an answer: it is added only at intake (exit 3)", () => {
     const { project, waveId } = module03();
     const input = assignment((a) => {
       a.tools = [{ name: "motor", worked: "1", discipline: "Electric machines", interaction: "rotor", tool: "part" }];
@@ -380,9 +381,119 @@ describe("a tool in a Discipline the Course didn't list", () => {
 
     expect(asked.code).toBe(1);
     expect(asked.out.ask[0]).toMatchObject({ key: "03/discipline/electric-machines", discipline: "Electric machines" });
-    expect(asked.out.ask[0].question).toContain("ticket #79");
+    expect(asked.out.ask[0].question).toContain("added only at intake");
     expect(answered.code).toBe(3);
-    expect(answered.out.error).toContain("ticket #79");
+    expect(answered.out.error).toContain("added only at intake");
+    expect(must(ledger("status", "--project", project)).disciplines).toEqual([]);
+  });
+});
+
+describe("a tool in a Discipline added at intake", () => {
+  /** The Course whose intake added Electric machines, with Module 03's wave running. */
+  function electric() {
+    const project = addedCourse();
+    const { wave: waveId } = must(
+      ledger("wave", "start", ...holder(project), "--kind", "module", "--target", "03", "--branch", "module/03"),
+    );
+    return { project, waveId: waveId as string };
+  }
+  const motor = (name: string, interaction: string, tool: string) => ({
+    name,
+    worked: null,
+    discipline: "Electric machines",
+    interaction,
+    tool,
+  });
+  /** Module 03's assignment with Lab-only tools of Electric machines added. */
+  const withMotor = (...tools: ReturnType<typeof motor>[]) =>
+    assignment((a) => {
+      a.tools.push(...(tools as unknown as typeof a.tools));
+    });
+
+  test("is assigned without asking: the Course's own Toolkit lists it", () => {
+    const { project, waveId } = electric();
+
+    const { code, out } = assignWave(project, waveId, withMotor(motor("starter", "motor starting sequence", "ladder")));
+
+    expect(code).toBe(0);
+    expect(out.builders).toEqual(expect.arrayContaining([expect.objectContaining({ job: "sim-starter" })]));
+  });
+
+  test("an interaction with no engine built goes to the Owner (exit 2), and so does a tool the Toolkit doesn't list for it", () => {
+    const { project, waveId } = electric();
+
+    const noEngine = assignWave(project, waveId, withMotor(motor("curve", "torque-speed curve", "tangent")));
+    const wrongTool = assignWave(project, waveId, withMotor(motor("starter", "motor starting sequence", "logic")));
+
+    expect(noEngine.code).toBe(2);
+    expect(noEngine.out.error).toContain("ask the Owner");
+    expect(wrongTool.code).toBe(2);
+    expect(wrongTool.out.error).toContain("logic isn't in Electric machines's Toolkit for motor starting sequence");
+    expect(must(ledger("status", "--project", project)).assignments).toEqual([]);
+  });
+
+  test("assign refuses PhET or Falstad as a tool", () => {
+    const { project, waveId } = electric();
+
+    for (const tool of ["phet", "falstad"]) {
+      const { code, out } = assignWave(project, waveId, withMotor(motor("starter", "motor starting sequence", tool)));
+      expect(code).toBe(2);
+      expect(out.error).toContain(
+        "PhET and Falstad appear only as credited links in a new tab, never as a Worked or Lab tool",
+      );
+    }
+    // A listed Discipline's Toolkit refuses it the same way.
+    const ml = module03();
+    const listed = assignWave(
+      ml.project,
+      ml.waveId,
+      assignment((a) => {
+        a.tools = [
+          { name: "x", worked: "1", discipline: "Machine learning", interaction: "optimisation", tool: "phet" },
+        ];
+      }),
+    );
+    expect(listed.code).toBe(2);
+    expect(listed.out.error).toContain("PhET and Falstad appear only as credited links");
+  });
+
+  test("a Discipline off the Toolkit's list that this Course didn't add still asks, and says where it is added", () => {
+    const { project, waveId } = electric();
+    const input = assignment((a) => {
+      a.tools = [{ name: "grid", worked: "1", discipline: "Power systems", interaction: "load flow", tool: "part" }];
+    });
+
+    const { code, out } = assignWave(project, waveId, input);
+
+    expect(code).toBe(1);
+    expect(out.ask[0].question).toContain("neither a Toolkit Discipline nor one this Course added at intake");
+    expect(out.ask[0].question).toContain("intake.ts toolkit");
+  });
+
+  test("falls back along the added Discipline's own Toolkit: pyodide to part, then to the Owner", () => {
+    const { project, waveId } = electric();
+    must(assignWave(project, waveId, withMotor(motor("eq", "motor equations", "pyodide"))));
+    blockThrice(project, waveId, "tool-eq");
+
+    const fell = fallBack(project, waveId, "tool-eq");
+    blockThrice(project, waveId, "tool-eq");
+    const last = fallBack(project, waveId, "tool-eq");
+
+    expect(fell).toMatchObject({ code: 0, out: { job: "tool-eq", from: "pyodide", to: "part" } });
+    expect(last.code).toBe(3);
+    expect(last.out.error).toContain("no next tool after part in the Electric machines Toolkit for motor equations");
+  });
+
+  test("is already the Course's: an answer can't add it again (exit 3)", () => {
+    const { project, waveId } = electric();
+
+    const { code, out } = wave([
+      ...["discipline", ...holder(project), "--wave", waveId],
+      ...["--name", "Electric machines", "--confirmed", "yes", "--answer", "yes"],
+    ]);
+
+    expect(code).toBe(3);
+    expect(out.error).toContain("was added at intake with its Toolkit: it is already this Course's");
     expect(must(ledger("status", "--project", project)).disciplines).toEqual([]);
   });
 });
