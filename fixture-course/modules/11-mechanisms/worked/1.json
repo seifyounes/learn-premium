@@ -1,0 +1,73 @@
+{
+  "code": "W11.1",
+  "title": "A spur gear pair",
+  "statement": "A standard full-depth spur gear pair of module $m = 2\\ \\text{mm}$ has $N_1 = 18$ teeth on the driver and $N_2 = 36$ on the driven gear, at the pressure angle $\\phi = 20°$ and $12\\ \\text{mm}$ wide. Find the pitch diameters, the centre distance, the speed ratio, the base diameters and the contact ratio.",
+  "given": [
+    "module $m = 2\\ \\text{mm}$",
+    "$N_1 = 18$ and $N_2 = 36$ teeth",
+    "pressure angle $\\phi = 20°$",
+    "face width $12\\ \\text{mm}$"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "The gear pair: diameters, centre distance, speed ratio and contact ratio",
+    "columns": [
+      { "label": "Quantity", "given": true },
+      { "label": "Value" }
+    ],
+    "rows": [
+      ["$d_1$ (mm)", "36"],
+      ["$d_2$ (mm)", "72"],
+      ["$a$ (mm)", "54"],
+      ["$i = \\frac{N_2}{N_1}$", "2"],
+      ["$d_{b1}$ (mm)", "33.83"],
+      ["$d_{b2}$ (mm)", "67.66"],
+      ["$\\varepsilon$", "1.611"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Pitch circles and centre distance",
+      "note": "A gear's pitch diameter is $d = mN$, so $d_1 = 2 \\times 18 = 36\\ \\text{mm}$ and $d_2 = 2 \\times 36 = 72\\ \\text{mm}$. The pitch circles touch on the line of centres: $a = \\frac{d_1 + d_2}{2} = 54\\ \\text{mm}$.",
+      "fill": ["B1", "B2", "B3"]
+    },
+    {
+      "title": "Speed ratio",
+      "note": "The pitch circles roll without slipping, so the speeds are inversely as the teeth: $i = \\frac{N_2}{N_1} = \\frac{36}{18} = 2$. The driven gear turns once for two turns of the driver, the other way.",
+      "fill": ["B4"]
+    },
+    {
+      "title": "Base circles",
+      "note": "The involute is unwound from the base circle, $d_b = d\\cos\\phi$: $d_{b1} = 36\\cos 20° = 33.83\\ \\text{mm}$ and $d_{b2} = 72\\cos 20° = 67.66\\ \\text{mm}$.",
+      "fill": ["B5", "B6"]
+    },
+    {
+      "title": "Contact ratio",
+      "note": "The path of contact along the line of action is $Z = \\sqrt{r_{a1}^2 - r_{b1}^2} + \\sqrt{r_{a2}^2 - r_{b2}^2} - a\\sin\\phi$, with the tip radii $r_a = \\frac{d}{2} + m$, that is $20\\ \\text{mm}$ and $38\\ \\text{mm}$, and the base radii $16.91\\ \\text{mm}$ and $33.83\\ \\text{mm}$. So $Z = 10.67 + 17.31 - 18.47 = 9.51\\ \\text{mm}$. Over the base pitch $p_b = \\pi m\\cos\\phi = 5.904\\ \\text{mm}$ it is $\\varepsilon = \\frac{Z}{p_b} = 1.611$: always at least one pair of teeth in contact, and two for $61\\ \\%$ of the turn.",
+      "fill": ["B7"]
+    }
+  ],
+  "answer": "$d_1 = 36\\ \\text{mm}$, $d_2 = 72\\ \\text{mm}$, $a = 54\\ \\text{mm}$, $i = 2$, $d_{b1} = 33.83\\ \\text{mm}$, $d_{b2} = 67.66\\ \\text{mm}$ and a contact ratio of $1.611$",
+  "provenance": {
+    "stated": [
+      "module $m = 2\\ \\text{mm}$",
+      "$N_1 = 18$ and $N_2 = 36$ teeth",
+      "pressure angle $\\phi = 20°$",
+      "face width $12\\ \\text{mm}$",
+      "$d_1 = 36\\ \\text{mm}$ and $d_2 = 72\\ \\text{mm}$",
+      "$a = 54\\ \\text{mm}$",
+      "$i = 2$",
+      "$d_{b1} = 33.83\\ \\text{mm}$ and $d_{b2} = 67.66\\ \\text{mm}$",
+      "$\\varepsilon = 1.611$"
+    ],
+    "derived": [
+      "$d_1 = mN_1 = 2 \\times 18$ and $d_2 = mN_2 = 2 \\times 36$",
+      "tip radii $r_{a1} = 20\\ \\text{mm}$ and $r_{a2} = 38\\ \\text{mm}$",
+      "base radii $r_{b1} = 16.91\\ \\text{mm}$ and $r_{b2} = 33.83\\ \\text{mm}$",
+      "$Z = 10.67 + 17.31 - 18.47 = 9.51\\ \\text{mm}$",
+      "base pitch $p_b = 5.904\\ \\text{mm}$",
+      "$61\\ \\%$ of the turn in two-tooth contact"
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "kind": "mechanism",
+  "title": "A spur gear pair",
+  "caption": "Drag the ringed handle on the driver or slide $\\theta_1$ and the pair turns, the driven gear the other way. Switch the view for the sheet drawing.",
+  "recompute": "independent",
+  "worked": "1",
+  "sheet": {
+    "B1": "d1",
+    "B2": "d2",
+    "B3": "a",
+    "B4": "ratio",
+    "B5": "db1",
+    "B6": "db2",
+    "B7": "contactRatio"
+  },
+  "model": {
+    "type": "gear-pair",
+    "module": 2,
+    "teeth": [18, 36],
+    "pressureAngle": 20,
+    "faceWidth": 12
+  },
+  "start": { "theta": 0 },
+  "tune": { "theta": { "min": 0, "max": 360, "step": 0.5 } },
+  "provenance": {
+    "stated": [
+      "module $m = 2$ mm",
+      "$N_1 = 18$ and $N_2 = 36$ teeth",
+      "pressure angle $\\phi = 20°$",
+      "face width $12$ mm",
+      "the driver at $\\theta_1 = 0°$"
+    ],
+    "assumed": ["$\\theta_1$ tuned from $0°$ to $360°$ in steps of $0.5°$"]
+  }
+}

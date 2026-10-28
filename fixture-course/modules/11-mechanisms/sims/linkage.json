@@ -1,0 +1,38 @@
+{
+  "kind": "mechanism",
+  "title": "A crank-rocker four-bar",
+  "caption": "Drag the ringed crank pin $A$ or slide $\\theta_2$ and the linkage follows; the coupler point $P$ inks its path as the crank turns. Switch the view for the sheet drawing.",
+  "recompute": "independent",
+  "worked": "2",
+  "sheet": {
+    "B1": "theta3",
+    "B2": "theta4",
+    "B3": "mu",
+    "B4": "Bx",
+    "B5": "By",
+    "B6": "Px",
+    "B7": "Py"
+  },
+  "model": {
+    "type": "four-bar",
+    "ground": 100,
+    "crank": 40,
+    "coupler": 120,
+    "rocker": 80,
+    "assembly": "open",
+    "couplerPoint": { "along": 60, "off": 30 }
+  },
+  "start": { "theta": 60 },
+  "tune": { "theta": { "min": 0, "max": 360, "step": 1 } },
+  "provenance": {
+    "stated": [
+      "ground link $O_2O_4 = 100$ mm",
+      "crank $O_2A = 40$ mm",
+      "coupler $AB = 120$ mm",
+      "rocker $O_4B = 80$ mm",
+      "the coupler point $P$, $60$ mm along $AB$ and $30$ mm off it",
+      "the crank at $\\theta_2 = 60°$"
+    ],
+    "assumed": ["$\\theta_2$ tuned from $0°$ to $360°$ in steps of $1°$"]
+  }
+}
