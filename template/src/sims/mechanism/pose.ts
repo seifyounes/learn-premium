@@ -2,7 +2,16 @@
 // frame (x along the ground line, y up, mm and degrees, counterclockwise). Both views draw from it:
 // the 3D scene turns each link's group by it, and the 2D drawing sets it as the link's SVG matrix.
 import { solveFourBar, wrapDegrees } from "./four-bar.ts";
-import { MOVING_LINKS, TRACED_PINS, type FourBar, type LinkId, type Model, type Point } from "./model.ts";
+import { centreOf, drivenAngle, gearOf } from "./gears.ts";
+import {
+  MOVING_LINKS,
+  TRACED_PINS,
+  type FourBar,
+  type GearPair,
+  type LinkId,
+  type Model,
+  type Point,
+} from "./model.ts";
 
 export const TRACE_STEPS = 360;
 
@@ -57,12 +66,27 @@ export function linkPins(model: Model): Pins {
       rocker: { O4: [0, 0], B: [c, 0] },
     };
   }
-  throw new Error("gear pairs arrive with the gear geometry");
+  // The driver's handle H sits on its pitch circle; T is the tip of the driven gear's tooth 0.
+  return {
+    ground: { O1: [0, 0], O2: [centreOf(model), 0] },
+    driver: { O1: [0, 0], H: [gearOf(model, 0).r, 0] },
+    driven: { O2: [0, 0], T: [gearOf(model, 1).ra, 0] },
+  };
 }
 
 export function pose(model: Model, theta: number): Pose {
-  if (model.type === "four-bar") return fourBarPose(model, theta);
-  throw new Error("gear pairs arrive with the gear geometry");
+  return model.type === "four-bar" ? fourBarPose(model, theta) : gearPose(model, theta);
+}
+
+function gearPose(model: GearPair, theta: number): Pose {
+  return {
+    theta,
+    links: {
+      ground: { at: [0, 0], angle: 0 },
+      driver: { at: [0, 0], angle: wrapDegrees(theta) },
+      driven: { at: [centreOf(model), 0], angle: drivenAngle(model, theta) },
+    },
+  };
 }
 
 function fourBarPose(model: FourBar, theta: number): Pose {

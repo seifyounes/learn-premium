@@ -3,10 +3,14 @@
 // the ground line, y up). The 3D scene, the 2D sheet drawing, the number gates and the tests all
 // import from here, never from the files behind it: one engine answers every view.
 import { transmissionAngle } from "./four-bar.ts";
+import { gearQuantities } from "./gears.ts";
 import type { Model } from "./model.ts";
 import { pins, pose } from "./pose.ts";
 
 export { AssemblyError, fourBarProblems } from "./four-bar.ts";
+export { gearOutline, insideDepth } from "./gears.ts";
+export { meshAt, outlinesAt, overlapOf } from "./mesh.ts";
+export type { Meshing } from "./mesh.ts";
 export { MOVING_LINKS, TRACED_PINS } from "./model.ts";
 export type { FourBar, GearPair, LinkId, Model, Point } from "./model.ts";
 export {
@@ -44,5 +48,5 @@ export function quantities(model: Model, inputs: Inputs): Record<string, number>
     }
     return found;
   }
-  throw new Error("gear pairs arrive with the gear geometry");
+  return gearQuantities(model, inputs.theta);
 }
