@@ -39,6 +39,8 @@ const CONTENT_GATES = [
   "scl",
   "pinned-definitions",
   "ladder",
+  "pneumatic-cycle",
+  "timing-key",
   "drawing",
   "part-checks",
   "tools",

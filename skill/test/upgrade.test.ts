@@ -1019,7 +1019,8 @@ describe("keep", { timeout: 120_000 }, () => {
 describe("the Fixture Course", { timeout: 300_000 }, () => {
   test("upgrades from v1.0.0 to v2.0.0 across a major release", async () => {
     const c = upgradeCourse(releaseRepo(), { content: "fixture" });
-    expect(c.folders).toHaveLength(10);
+    // The Fixture Course's Module folders: ten, and the pneumatic cascade (12) is the eleventh.
+    expect(c.folders).toHaveLength(11);
     const before = contentOf(c);
     const verifier = new FakeVerifier();
 

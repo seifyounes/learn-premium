@@ -1,0 +1,189 @@
+{
+  "reading": "learn-premium figure reading v1",
+  "by": "Blind reader, from the synthetic cascade figure (fixture-course README, Module 12), never seeing a builder file",
+  "parts": {
+    "A": {
+      "kind": "cylinder",
+      "at": [
+        0.308,
+        0
+      ],
+      "turn": 0,
+      "label": "left",
+      "values": {
+        "retracted": "a0",
+        "extended": "a1"
+      }
+    },
+    "B": {
+      "kind": "cylinder",
+      "at": [
+        0.821,
+        0
+      ],
+      "turn": 0,
+      "label": "left",
+      "values": {
+        "retracted": "b0",
+        "extended": "b1"
+      }
+    },
+    "VA": {
+      "kind": "valve-52",
+      "at": [
+        0.308,
+        0.286
+      ],
+      "turn": 0,
+      "label": "above"
+    },
+    "VB": {
+      "kind": "valve-52",
+      "at": [
+        0.821,
+        0.286
+      ],
+      "turn": 0,
+      "label": "above"
+    },
+    "CV": {
+      "kind": "valve-52",
+      "at": [
+        0.308,
+        1
+      ],
+      "turn": 0,
+      "label": "above"
+    },
+    "a0": {
+      "kind": "valve-32-roller",
+      "at": [
+        0,
+        0.607
+      ],
+      "turn": 0,
+      "label": "left"
+    },
+    "a1": {
+      "kind": "valve-32-roller",
+      "at": [
+        0.718,
+        0.607
+      ],
+      "turn": 0,
+      "label": "left"
+    },
+    "b0": {
+      "kind": "valve-32-roller",
+      "at": [
+        0.462,
+        0.607
+      ],
+      "turn": 0,
+      "label": "left"
+    },
+    "b1": {
+      "kind": "valve-32-roller",
+      "at": [
+        1,
+        0.607
+      ],
+      "turn": 0,
+      "label": "left"
+    },
+    "S": {
+      "kind": "valve-32-button",
+      "at": [
+        0,
+        0.429
+      ],
+      "turn": 0,
+      "label": "left"
+    }
+  },
+  "unlabelled": {
+    "air-source": 3
+  },
+  "nets": [
+    {
+      "pins": [
+        "AIR.t",
+        "VA.1",
+        "VB.1",
+        "CV.1"
+      ]
+    },
+    {
+      "pins": [
+        "VA.4",
+        "A.cap"
+      ]
+    },
+    {
+      "pins": [
+        "VA.2",
+        "A.rod"
+      ]
+    },
+    {
+      "pins": [
+        "VB.4",
+        "B.cap"
+      ]
+    },
+    {
+      "pins": [
+        "VB.2",
+        "B.rod"
+      ]
+    },
+    {
+      "pins": [
+        "CV.4",
+        "VA.14",
+        "a1.1",
+        "b1.1"
+      ],
+      "dotted": true
+    },
+    {
+      "pins": [
+        "CV.2",
+        "VB.12",
+        "b0.1",
+        "a0.1"
+      ],
+      "dotted": true
+    },
+    {
+      "pins": [
+        "a1.2",
+        "VB.14"
+      ]
+    },
+    {
+      "pins": [
+        "b1.2",
+        "CV.12"
+      ]
+    },
+    {
+      "pins": [
+        "b0.2",
+        "VA.12"
+      ]
+    },
+    {
+      "pins": [
+        "a0.2",
+        "S.1"
+      ]
+    },
+    {
+      "pins": [
+        "S.2",
+        "CV.14"
+      ]
+    }
+  ]
+}

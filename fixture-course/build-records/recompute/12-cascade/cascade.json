@@ -1,0 +1,435 @@
+{
+  "recompute": "learn-premium recompute log v1",
+  "by": "fixture-course/tools/recompute-cascade.py: each line walked back through the valves to the supply or an exhaust, valves re-piloted one at a time, apart from the engine",
+  "inputs": {
+    "model": {
+      "parts": [
+        {
+          "id": "A",
+          "kind": "cylinder",
+          "label": "A",
+          "notes": {
+            "retracted": "a0",
+            "extended": "a1"
+          },
+          "rest": "retracted"
+        },
+        {
+          "id": "B",
+          "kind": "cylinder",
+          "label": "B",
+          "notes": {
+            "retracted": "b0",
+            "extended": "b1"
+          },
+          "rest": "retracted"
+        },
+        {
+          "id": "VA",
+          "kind": "valve-52",
+          "label": "VA",
+          "rest": "12"
+        },
+        {
+          "id": "VB",
+          "kind": "valve-52",
+          "label": "VB",
+          "rest": "12"
+        },
+        {
+          "id": "CV",
+          "kind": "valve-52",
+          "label": "CV",
+          "rest": "12"
+        },
+        {
+          "id": "a0",
+          "kind": "valve-32-roller",
+          "label": "a0"
+        },
+        {
+          "id": "a1",
+          "kind": "valve-32-roller",
+          "label": "a1"
+        },
+        {
+          "id": "b0",
+          "kind": "valve-32-roller",
+          "label": "b0"
+        },
+        {
+          "id": "b1",
+          "kind": "valve-32-roller",
+          "label": "b1"
+        },
+        {
+          "id": "S",
+          "kind": "valve-32-button",
+          "label": "S"
+        },
+        {
+          "id": "P1",
+          "kind": "air-source"
+        },
+        {
+          "id": "P2",
+          "kind": "air-source"
+        },
+        {
+          "id": "P3",
+          "kind": "air-source"
+        }
+      ],
+      "nets": [
+        {
+          "id": "P",
+          "pins": [
+            "P1.t",
+            "P2.t",
+            "P3.t",
+            "VA.1",
+            "VB.1",
+            "CV.1"
+          ]
+        },
+        {
+          "id": "Acap",
+          "pins": [
+            "VA.4",
+            "A.cap"
+          ]
+        },
+        {
+          "id": "Arod",
+          "pins": [
+            "VA.2",
+            "A.rod"
+          ]
+        },
+        {
+          "id": "Bcap",
+          "pins": [
+            "VB.4",
+            "B.cap"
+          ]
+        },
+        {
+          "id": "Brod",
+          "pins": [
+            "VB.2",
+            "B.rod"
+          ]
+        },
+        {
+          "id": "I",
+          "pins": [
+            "CV.4",
+            "VA.14",
+            "a1.1",
+            "b1.1"
+          ]
+        },
+        {
+          "id": "II",
+          "pins": [
+            "CV.2",
+            "VB.12",
+            "b0.1",
+            "a0.1"
+          ]
+        },
+        {
+          "id": "a1out",
+          "pins": [
+            "a1.2",
+            "VB.14"
+          ]
+        },
+        {
+          "id": "b1out",
+          "pins": [
+            "b1.2",
+            "CV.12"
+          ]
+        },
+        {
+          "id": "b0out",
+          "pins": [
+            "b0.2",
+            "VA.12"
+          ]
+        },
+        {
+          "id": "a0out",
+          "pins": [
+            "a0.2",
+            "S.1"
+          ]
+        },
+        {
+          "id": "Sout",
+          "pins": [
+            "S.2",
+            "CV.14"
+          ]
+        }
+      ],
+      "sequence": [
+        "A+",
+        "B+",
+        "B-",
+        "A-"
+      ],
+      "press": [
+        "S"
+      ],
+      "signals": [
+        "I",
+        "II"
+      ]
+    },
+    "start": {
+      "S": 0
+    }
+  },
+  "values": {
+    "A[1]": 0,
+    "B[1]": 0,
+    "I[1]": 1,
+    "II[1]": 0,
+    "A[2]": 1,
+    "B[2]": 0,
+    "I[2]": 1,
+    "II[2]": 0,
+    "A[3]": 1,
+    "B[3]": 1,
+    "I[3]": 0,
+    "II[3]": 1,
+    "A[4]": 1,
+    "B[4]": 0,
+    "I[4]": 0,
+    "II[4]": 1,
+    "A[5]": 0,
+    "B[5]": 0
+  },
+  "trace": {
+    "rest": {
+      "cylinders": {
+        "A": 0,
+        "B": 0
+      },
+      "motion": {
+        "A": 0,
+        "B": 0
+      },
+      "spools": {
+        "VA": "12",
+        "VB": "12",
+        "CV": "12"
+      },
+      "lines": {
+        "P": 1,
+        "Acap": 0,
+        "Arod": 1,
+        "Bcap": 0,
+        "Brod": 1,
+        "I": 0,
+        "II": 1,
+        "a1out": 0,
+        "b1out": 0,
+        "b0out": 1,
+        "a0out": 1,
+        "Sout": 0
+      },
+      "made": {
+        "a0": 1,
+        "a1": 0,
+        "b0": 1,
+        "b1": 0,
+        "S": 0
+      }
+    },
+    "steps": [
+      {
+        "cylinders": {
+          "A": 0,
+          "B": 0
+        },
+        "motion": {
+          "A": 1,
+          "B": 0
+        },
+        "spools": {
+          "VA": "14",
+          "VB": "12",
+          "CV": "14"
+        },
+        "lines": {
+          "P": 1,
+          "Acap": 1,
+          "Arod": 0,
+          "Bcap": 0,
+          "Brod": 1,
+          "I": 1,
+          "II": 0,
+          "a1out": 0,
+          "b1out": 0,
+          "b0out": 0,
+          "a0out": 0,
+          "Sout": 0
+        },
+        "made": {
+          "a0": 0,
+          "a1": 0,
+          "b0": 1,
+          "b1": 0,
+          "S": 0
+        }
+      },
+      {
+        "cylinders": {
+          "A": 1,
+          "B": 0
+        },
+        "motion": {
+          "A": 0,
+          "B": 1
+        },
+        "spools": {
+          "VA": "14",
+          "VB": "14",
+          "CV": "14"
+        },
+        "lines": {
+          "P": 1,
+          "Acap": 1,
+          "Arod": 0,
+          "Bcap": 1,
+          "Brod": 0,
+          "I": 1,
+          "II": 0,
+          "a1out": 1,
+          "b1out": 0,
+          "b0out": 0,
+          "a0out": 0,
+          "Sout": 0
+        },
+        "made": {
+          "a0": 0,
+          "a1": 1,
+          "b0": 0,
+          "b1": 0,
+          "S": 0
+        }
+      },
+      {
+        "cylinders": {
+          "A": 1,
+          "B": 1
+        },
+        "motion": {
+          "A": 0,
+          "B": -1
+        },
+        "spools": {
+          "VA": "14",
+          "VB": "12",
+          "CV": "12"
+        },
+        "lines": {
+          "P": 1,
+          "Acap": 1,
+          "Arod": 0,
+          "Bcap": 0,
+          "Brod": 1,
+          "I": 0,
+          "II": 1,
+          "a1out": 0,
+          "b1out": 0,
+          "b0out": 0,
+          "a0out": 0,
+          "Sout": 0
+        },
+        "made": {
+          "a0": 0,
+          "a1": 1,
+          "b0": 0,
+          "b1": 0,
+          "S": 0
+        }
+      },
+      {
+        "cylinders": {
+          "A": 1,
+          "B": 0
+        },
+        "motion": {
+          "A": -1,
+          "B": 0
+        },
+        "spools": {
+          "VA": "12",
+          "VB": "12",
+          "CV": "12"
+        },
+        "lines": {
+          "P": 1,
+          "Acap": 0,
+          "Arod": 1,
+          "Bcap": 0,
+          "Brod": 1,
+          "I": 0,
+          "II": 1,
+          "a1out": 0,
+          "b1out": 0,
+          "b0out": 1,
+          "a0out": 0,
+          "Sout": 0
+        },
+        "made": {
+          "a0": 0,
+          "a1": 0,
+          "b0": 1,
+          "b1": 0,
+          "S": 0
+        }
+      },
+      {
+        "cylinders": {
+          "A": 0,
+          "B": 0
+        },
+        "motion": {
+          "A": 0,
+          "B": 0
+        },
+        "spools": {
+          "VA": "12",
+          "VB": "12",
+          "CV": "12"
+        },
+        "lines": {
+          "P": 1,
+          "Acap": 0,
+          "Arod": 1,
+          "Bcap": 0,
+          "Brod": 1,
+          "I": 0,
+          "II": 1,
+          "a1out": 0,
+          "b1out": 0,
+          "b0out": 1,
+          "a0out": 1,
+          "Sout": 0
+        },
+        "made": {
+          "a0": 1,
+          "a1": 0,
+          "b0": 1,
+          "b1": 0,
+          "S": 0
+        }
+      }
+    ]
+  }
+}
