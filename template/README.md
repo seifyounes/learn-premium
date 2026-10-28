@@ -198,6 +198,7 @@ kinds:
 | `scl`              | automation    | the Professor's SCL function block on the S7 core, a call a scan   | the block's inputs                | the blind interpreter, on every scan      |
 | `control`          | control       | K·G(s) under unity feedback: poles, exact step, Bode, margins      | K (a pole drags)                  | python-control (build-time oracle)        |
 | `ladder`           | automation    | the Professor's LAD or FBD networks on the S7 core, scan by scan   | the input bits, and time          | awlsim on the compiled STL, every scan    |
+| `pneumatic`        | automation    | an ISO 1219 circuit's lines, spools and pistons, stroke by stroke  | the push buttons, and time        | a walk-back recompute, every step         |
 
 - **Gradient descent** (`src/islands/GradientDescentSim.tsx`): its table fills in hand order and
   the red pen rings each new θ. The path moves on the contours of J, and α can diverge.
@@ -358,9 +359,62 @@ slots and held to the same legibility as labels; the Blind reader records them a
 a value the model gives otherwise blocks. A box the figure prints no operand on is keyed by network
 and kind (`N2 fbd-and`).
 
+### The pneumatic sim and timing diagrams
+
+A pneumatic sim (`kind: pneumatic`, `src/sims/pneumatic/`) holds the Professor's ISO 1219 circuit as a
+netlist of the pneumatic pack (`model`): `parts` (each cylinder with its stroke-end `notes`, the roller
+valve the figure prints at each end, and its `rest`; each 5/2 valve with the `rest` side it is drawn
+on), `nets`, the movements the Materials state as `sequence` (`A+`, `B-`: one cylinder each), the
+push buttons the example presses once as `press`, and the nets its timing diagram draws as signal
+rows as `signals`. Its Layout hints and `start`/`tune` (each push button, held 1 or let go 0) are a
+logic sim's. The pack (`src/sims/layout/pneumatic.ts`) has five symbols, each drawn for turn 0, never
+turned, since its port numbers are 12px text: a double-acting `cylinder`, a 5/2 double-pilot
+`valve-52`, a 3/2 normally closed `valve-32-roller` and `valve-32-button` (spring return) and an
+`air-source`.
+
+The engine is idealised, as the other engines are the Professor's. Valves switch instantly, every
+stroke takes one second (`STROKE_MS`) and travel is a whole number of ms, so a run's trace is exact;
+a cylinder with both ports pressurised, or both exhausted, holds still; trapped air keeps its level;
+a double-pilot valve with both pilots pressurised keeps its side, recorded as a signal overlap.
+The circuit settles in rounds (every roller and button, every line's pressure, then every spool and
+every cylinder's drive from those pressures at once), and time then moves the pistons to the next
+stroke end. Supply meeting exhaust is an error that names the pins. A press is the example's `press`
+buttons pulsed at rest. Its quantities are the displacement-step diagram's bits, named `row[k]`: each
+cylinder at every step line (`A[3]`, 1 out, 0 back), each signal line during every movement (`I[2]`,
+the lines that drive the movement after step line 2), so the diagram has one interval fewer than
+lines. With a button held the cycle repeats, and the diagram is still one cycle.
+
+The view (`src/islands/PneumaticSim.tsx`) opens at rest as the figure draws it. A pressurised line is
+inked in graphite over its pencil line, a control line (one with no cylinder port and no air source
+on it) is dashed, a spool slides to put the box for its state over its ports (the pilot leads
+stretching to follow, `src/islands/sim/pneumatic-parts.tsx`, laid over the drawing through
+`Schematic`'s `overlay`), and a piston travels. Press S pulses a push button, Hold S holds it (the
+cycle repeats), Step moves to the next stroke end, Pause holds the clock and Reset returns to rest.
+The caption says what set what off, in order (`a1 made; VB shifts to 14; B extends (B+)`). Under
+reduced motion no clock runs and nothing animates: Press and Hold still shift the valves, and Step
+moves each cylinder its whole stroke. The controls are 44px, a touch size.
+
+Below it the displacement-step diagram (`src/islands/sim/timing-diagram.tsx`, generic over
+`src/sims/timing/diagram.ts`) draws each cylinder at every step line and each signal as a square
+wave, the key (the Worked example's own diagram, as its cells print) in pencil and the run inked
+over it in graphite. It is drawn at its own size, so a narrow screen scrolls it inside its box. A
+later kind (an FSM's timing strip) gives the same rows and levels and gets the same view and gate.
+
+Its independent check is a walk-back recompute (`fixture-course/tools/recompute-cascade.py`): each
+line's pressure found by a search outward through the nets and each valve's open passages to the
+supply or an exhaust, the valves re-piloted one at a time in the figure's order, a step moving every
+cylinder that is going to its end at once, so it shares no method with the engine. Its log in
+`build-records/recompute/<NN-slug>/<name>.json` is a recompute log plus a `trace`: the circuit at rest,
+then at every step line from the press until it is back at rest, every cylinder's end, its motion,
+every 5/2 valve's side, every line's pressure and every roller or button made. Two gates check it:
+`pneumatic-cycle` (the circuit stays as drawn at rest, runs exactly the stated sequence once its
+button is pressed, comes back to rest and stops, every state of the trace agrees, and five broken
+engines are each caught where the cycle reaches them) and `timing-key` (the diagram three ways, bit
+for bit, and each key row whole: a key that maps only some steps of a row blocks).
+
 ### The layout core
 
-A schematic sim (logic now; circuits, ladder, pneumatics, block diagrams and FSMs to come) is drawn
+A schematic sim (logic and pneumatics now; circuits, ladder, block diagrams and FSMs to come) is drawn
 by the layout core (`src/sims/layout/`), never by hand. The builder writes the model and its Layout
 hints (`layout`): each part's cell on the figure's coarse grid (`at`, `[column, row]`, to a tenth of
 a step), its `turn` and `flip`, the side its `label` is printed on, and the nets whose joints the
@@ -381,6 +435,16 @@ Symbol packs join the kit in `symbols.ts` as one spread each. The block-diagram 
 three grid steps down so a terminal on the forward path is never pulled into line with it), each
 with the signal's arrowhead where it enters. A figure never labels a summing junction, so a Blind
 reader keys it `SUM` (its `figureKey`), as grounds are `GND`.
+
+The pneumatic pack (`pneumatic.ts`) adds a double-acting `cylinder` whose `notes` are its stroke-end
+marks (the roller valve the figure prints over each end, set in its `retracted` and `extended` slots),
+5/2 and 3/2 valves with their port numbers at 12px, and an `air-source` that joins every other
+without a wire (an implicit symbol, so the router wires each to its nearest valve; a Blind reader
+keys it `AIR`, its `figureKey`). A control line is dashed through `Schematic`'s `wireClass`. The
+pack holds only what never moves: a valve's boxes and a cylinder's piston are pure functions in the
+pack file (`valveBoxes`, `pairPath`, `cylinderMoving`), drawn over the figure by the island's
+`overlay`, and tested against the engine's own passages, so the drawing can't show what the engine
+doesn't do.
 
 - `recompute: independent`: the independent recompute logs what it worked out from the Materials in
   the Course's `build-records/recompute/<module>/<name>.json`, and the sim ships live.
@@ -577,6 +641,8 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `stl`                 | job, deploy             | every STL listing agrees with its awlsim log bit for bit after every statement of every case; every instruction it uses runs in a case; nine broken interpreters, each caught wherever the cases reach its defect; the sheet three ways; an unsupported instruction needs a Gate gap                                                                                                                                                                                       |
 | `scl`                 | job, deploy             | every SCL listing agrees with the blind interpreter on every variable after every scan of every case (a value they part on blocks unless listed `silent`); a result the manual leaves undefined is a Checkpoint item until ruled; every construct runs in a case; every Divergence line is reached; seven broken interpreters caught where reached; the sheet three ways                                                                                                   |
 | `ladder`              | job, deploy             | every ladder or FBD sim agrees with its awlsim log bit for bit after every scan of every case; every rung segment powered and unpowered, every timer run out, every counter counted; six broken engines, each caught wherever the cases reach its defect; the sheet three ways, exactly                                                                                                                                                                                    |
+| `pneumatic-cycle`     | job, deploy             | every pneumatic sim stays as drawn at rest, runs the stated sequence once pressed, returns to rest and stops; every state at every step equals the recompute's trace; five broken engines, each caught where the cycle reaches its defect                                                                                                                                                                                                                                  |
+| `timing-key`          | job, deploy             | every timing diagram three ways, bit for bit at every step: engine ≠ recompute blocks, both ≠ the key is a Checkpoint item; a key row is checked whole                                                                                                                                                                                                                                                                                                                     |
 | `part-checks`         | job, deploy             | every machine part's GLB against its B-rep record (each tagged dimension and the bounding box within 0.01 mm), its volume against the independent sum of the drawing's primitives (0.5 %); a scaled or assumed dimension is a Checkpoint item linking to the viewer                                                                                                                                                                                                        |
 | `drawing`             | job, deploy             | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                                                                                                                                                                                                                                                                                          |
 | `tools`               | job, deploy             | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable                                                                                                                                                                                                                                                                          |

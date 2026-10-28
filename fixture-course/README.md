@@ -78,6 +78,11 @@ Layout (content contract v0):
   input bits (`start`) and timeline (`scenario`), and more timelines as `cases`. Its log in
   `build-records/oracle/<NN>-<slug>/<name>.json` is awlsim's run of the networks compiled to STL,
   scan by scan; the `ladder` gate checks the engine against it bit for bit.
+- A pneumatic sim (`kind: pneumatic`, Module 12) holds its circuit as a netlist of the pneumatic pack
+  (cylinders with their stroke-end `notes` and `rest`, 5/2 valves with their rest side, roller and
+  push-button valves, air sources), the stated `sequence`, the buttons the example `press`es and the
+  `signals` its timing diagram draws. Its log in `build-records/recompute/` carries the recompute's
+  `trace` of the cycle.
 - `modules/<NN>-<slug>/parts/<name>.json` (JSON only) and `<name>.py`: one machine part each, its
   build123d script and the dimensions its drawing gives (each between two points on the part, with
   its Provenance tag; `confirmed` once the Owner has ruled on a scaled or assumed one). `<name>.glb`
@@ -163,6 +168,12 @@ starts conveyor 2 five seconds later. W10.1 fills a timing table from the exampl
 (Start pressed at 1.0 s, Stop at 8.0 s), the key the `ladder` gate checks three ways. Its figure is
 a synthetic STEP 7 LAD editor screenshot (`build-records/figure/10-two-conveyors/conveyors.png`); a
 Blind reader read it, never seeing a builder file, keying each part by network, kind and operand.
+
+Module 12 (pneumatic cascade) carries the pneumatic sim: cylinders A and B run A+ B+ B− A− in two
+groups, switched by the cascade valve CV. W12.1 draws the displacement-step diagram, the key the
+`timing-key` gate checks three ways; `tools/recompute-cascade.py` walks each line back to the supply
+or an exhaust, apart from the engine. Its figure is synthetic, described by the Blind reader's
+reading in `build-records/figure/12-cascade/`.
 
 Every string is prose: math is written between `$…$` (inline) or `$$…$$` (display), `\ce{…}`
 renders chemistry, and a literal dollar sign is written `\$`. In JSON every backslash is doubled;

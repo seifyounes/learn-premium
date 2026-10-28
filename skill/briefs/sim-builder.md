@@ -12,7 +12,7 @@ Worked example, Discipline, interaction and tool), and the contract for your too
 - Read the model off the Professor's figure: the quantities it names, the values it prints, the ranges a
   student would tune. Copy every printed number exactly as the settled reading gives it, even one you
   think is wrong. The recompute and the Owner settle that, never you.
-- For a schematic sim (a circuit, a ladder, a control loop), write the Layout hints only (the cell of each
+- For a schematic sim (a circuit, a ladder, a pneumatic circuit, a control loop), write the Layout hints only (the cell of each
   part, its turn, its label side), never a coordinate. The Figure reading is a Blind reader's, not yours:
   don't redo it. A part count or net count that disagrees with it is a finding, not something to fix.
 - Tag every number: `stated`, `derived`, `scaled` or `assumed`. A constant the figure doesn't print is
