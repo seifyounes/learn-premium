@@ -21,6 +21,7 @@ export const SIM_TOOLS = [
   "pneumatic",
   "fsm",
   "grafcet",
+  "mechanism",
 ] as const;
 /** Every tool a Toolkit can list: a sim kind, a Pyodide tool or a machine-part viewer. */
 export const TOOL_NAMES = [...SIM_TOOLS, "pyodide", "part"] as const;
@@ -50,7 +51,7 @@ export const TOOLKITS: Record<StartingDiscipline, Toolkit> = {
   "Electric circuits": {},
   "Logic circuits": { "combinational circuit": ["logic"], "sequential circuit": ["fsm"] },
   "Heat transfer": { "conduction field": ["plane-wall"] },
-  Machinery: { part: ["part"] },
+  Machinery: { part: ["part"], mechanism: ["mechanism"] },
   "Engineering chemistry": {},
   "Automation and control": {
     "STL listing": ["stl"],
