@@ -1,0 +1,50 @@
+{
+  "kind": "grafcet",
+  "title": "The drill's GRAFCET, clock by clock",
+  "caption": "Set $m$, $a$ and $b$ and press Clock: the token moves down the fired link, the transitions table follows, and the timing strip grows over the key. Clock on to play the example.",
+  "recompute": "independent",
+  "worked": "2",
+  "sheet": {
+    "B1": "m[1]", "B2": "m[2]", "B3": "m[3]", "B4": "m[4]", "B5": "m[5]", "B6": "m[6]", "B7": "m[7]", "B8": "m[8]", "B9": "m[9]",
+    "C1": "a[1]", "C2": "a[2]", "C3": "a[3]", "C4": "a[4]", "C5": "a[5]", "C6": "a[6]", "C7": "a[7]", "C8": "a[8]", "C9": "a[9]",
+    "D1": "b[1]", "D2": "b[2]", "D3": "b[3]", "D4": "b[4]", "D5": "b[5]", "D6": "b[6]", "D7": "b[7]", "D8": "b[8]", "D9": "b[9]",
+    "E1": "X0[1]", "E2": "X0[2]", "E3": "X0[3]", "E4": "X0[4]", "E5": "X0[5]", "E6": "X0[6]", "E7": "X0[7]", "E8": "X0[8]", "E9": "X0[9]",
+    "F1": "X1[1]", "F2": "X1[2]", "F3": "X1[3]", "F4": "X1[4]", "F5": "X1[5]", "F6": "X1[6]", "F7": "X1[7]", "F8": "X1[8]", "F9": "X1[9]",
+    "G1": "X2[1]", "G2": "X2[2]", "G3": "X2[3]", "G4": "X2[4]", "G5": "X2[5]", "G6": "X2[6]", "G7": "X2[7]", "G8": "X2[8]", "G9": "X2[9]",
+    "H1": "KM1[1]", "H2": "KM1[2]", "H3": "KM1[3]", "H4": "KM1[4]", "H5": "KM1[5]", "H6": "KM1[6]", "H7": "KM1[7]", "H8": "KM1[8]", "H9": "KM1[9]",
+    "I1": "KM2[1]", "I2": "KM2[2]", "I3": "KM2[3]", "I4": "KM2[4]", "I5": "KM2[5]", "I6": "KM2[6]", "I7": "KM2[7]", "I8": "KM2[8]", "I9": "KM2[9]"
+  },
+  "model": {
+    "states": [
+      { "id": "X0", "kind": "step-initial", "label": "0" },
+      { "id": "X1", "kind": "step", "label": "1", "out": ["KM1"] },
+      { "id": "X2", "kind": "step", "label": "2", "out": ["KM2"] }
+    ],
+    "edges": [
+      { "from": "X0", "to": "X1", "label": "m·a" },
+      { "from": "X1", "to": "X2", "label": "b" },
+      { "from": "X2", "to": "X0", "label": "a" }
+    ],
+    "inputs": ["m", "a", "b"],
+    "outputs": ["KM1", "KM2"],
+    "stimulus": { "m": "010000000", "a": "111000011", "b": "000011000" }
+  },
+  "layout": {
+    "states": { "X0": { "at": [1, 0] }, "X1": { "at": [1, 1.2] }, "X2": { "at": [1, 2.4] } },
+    "edges": { "X2>X0": { "bow": "left" } }
+  },
+  "start": { "m": 0, "a": 1, "b": 0 },
+  "tune": {
+    "m": { "min": 0, "max": 1, "step": 1 },
+    "a": { "min": 0, "max": 1, "step": 1 },
+    "b": { "min": 0, "max": 1, "step": 1 }
+  },
+  "provenance": {
+    "stated": [
+      "the steps $0$, $1$ and $2$ and the transition between each",
+      "the receptivities $m \\cdot a$, $b$ and $a$",
+      "the actions KM1 in step $1$ and KM2 in step $2$",
+      "the input sequences of $m$, $a$ and $b$"
+    ]
+  }
+}

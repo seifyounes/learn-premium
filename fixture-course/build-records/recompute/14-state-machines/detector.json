@@ -1,0 +1,269 @@
+{
+  "recompute": "learn-premium recompute log v1",
+  "by": "fixture-course/tools/recompute-state-machines.py: the detector by a hand-read lookup table, apart from the engine",
+  "inputs": {
+    "model": {
+      "states": [
+        {
+          "id": "S0",
+          "kind": "state",
+          "label": "S0"
+        },
+        {
+          "id": "S1",
+          "kind": "state",
+          "label": "S1"
+        },
+        {
+          "id": "S2",
+          "kind": "state",
+          "label": "S2"
+        },
+        {
+          "id": "S3",
+          "kind": "state-accepting",
+          "label": "S3",
+          "out": [
+            "z"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "S0",
+          "to": "S0",
+          "label": "0"
+        },
+        {
+          "from": "S0",
+          "to": "S1",
+          "label": "1"
+        },
+        {
+          "from": "S1",
+          "to": "S1",
+          "label": "1"
+        },
+        {
+          "from": "S1",
+          "to": "S2",
+          "label": "0"
+        },
+        {
+          "from": "S2",
+          "to": "S0",
+          "label": "0"
+        },
+        {
+          "from": "S2",
+          "to": "S3",
+          "label": "1"
+        },
+        {
+          "from": "S3",
+          "to": "S1",
+          "label": "1"
+        },
+        {
+          "from": "S3",
+          "to": "S2",
+          "label": "0"
+        }
+      ],
+      "initial": "S0",
+      "inputs": [
+        "x"
+      ],
+      "outputs": [
+        "z"
+      ],
+      "encoding": {
+        "variables": [
+          "Q1",
+          "Q0"
+        ],
+        "codes": {
+          "S0": "00",
+          "S1": "01",
+          "S2": "10",
+          "S3": "11"
+        }
+      },
+      "equations": [
+        {
+          "name": "D1",
+          "gives": "Q1",
+          "expr": "Q0·x' + Q1·Q0'·x"
+        },
+        {
+          "name": "D0",
+          "gives": "Q0",
+          "expr": "x"
+        },
+        {
+          "name": "z",
+          "gives": "z",
+          "expr": "Q1·Q0"
+        }
+      ],
+      "stimulus": {
+        "x": "011010100"
+      }
+    },
+    "start": {
+      "x": 0
+    }
+  },
+  "values": {
+    "x[1]": 0,
+    "Q1[1]": 0,
+    "Q0[1]": 0,
+    "z[1]": 0,
+    "x[2]": 1,
+    "Q1[2]": 0,
+    "Q0[2]": 0,
+    "z[2]": 0,
+    "x[3]": 1,
+    "Q1[3]": 0,
+    "Q0[3]": 1,
+    "z[3]": 0,
+    "x[4]": 0,
+    "Q1[4]": 0,
+    "Q0[4]": 1,
+    "z[4]": 0,
+    "x[5]": 1,
+    "Q1[5]": 1,
+    "Q0[5]": 0,
+    "z[5]": 0,
+    "x[6]": 0,
+    "Q1[6]": 1,
+    "Q0[6]": 1,
+    "z[6]": 1,
+    "x[7]": 1,
+    "Q1[7]": 1,
+    "Q0[7]": 0,
+    "z[7]": 0,
+    "x[8]": 0,
+    "Q1[8]": 1,
+    "Q0[8]": 1,
+    "z[8]": 1,
+    "x[9]": 0,
+    "Q1[9]": 1,
+    "Q0[9]": 0,
+    "z[9]": 0
+  },
+  "table": [
+    {
+      "from": [
+        "S0"
+      ],
+      "inputs": {
+        "x": 0
+      },
+      "to": [
+        "S0"
+      ],
+      "outputs": {
+        "z": 0
+      }
+    },
+    {
+      "from": [
+        "S0"
+      ],
+      "inputs": {
+        "x": 1
+      },
+      "to": [
+        "S1"
+      ],
+      "outputs": {
+        "z": 0
+      }
+    },
+    {
+      "from": [
+        "S1"
+      ],
+      "inputs": {
+        "x": 0
+      },
+      "to": [
+        "S2"
+      ],
+      "outputs": {
+        "z": 0
+      }
+    },
+    {
+      "from": [
+        "S1"
+      ],
+      "inputs": {
+        "x": 1
+      },
+      "to": [
+        "S1"
+      ],
+      "outputs": {
+        "z": 0
+      }
+    },
+    {
+      "from": [
+        "S2"
+      ],
+      "inputs": {
+        "x": 0
+      },
+      "to": [
+        "S0"
+      ],
+      "outputs": {
+        "z": 0
+      }
+    },
+    {
+      "from": [
+        "S2"
+      ],
+      "inputs": {
+        "x": 1
+      },
+      "to": [
+        "S3"
+      ],
+      "outputs": {
+        "z": 0
+      }
+    },
+    {
+      "from": [
+        "S3"
+      ],
+      "inputs": {
+        "x": 0
+      },
+      "to": [
+        "S2"
+      ],
+      "outputs": {
+        "z": 1
+      }
+    },
+    {
+      "from": [
+        "S3"
+      ],
+      "inputs": {
+        "x": 1
+      },
+      "to": [
+        "S1"
+      ],
+      "outputs": {
+        "z": 1
+      }
+    }
+  ]
+}

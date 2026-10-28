@@ -1,0 +1,22 @@
+{
+  "reading": "learn-premium diagram reading v1",
+  "by": "Blind reader, from the synthetic '101' detector figure (fixture-course README, Module 14), never seeing a builder file",
+  "states": {
+    "S0": { "kind": "state", "at": [0, 0.5], "output": "0", "loop": "below" },
+    "S1": { "kind": "state", "at": [0.5, 0], "output": "0", "loop": "above" },
+    "S2": { "kind": "state", "at": [0.5, 1], "output": "0" },
+    "S3": { "kind": "state-accepting", "at": [1, 0.5], "output": "1" }
+  },
+  "edges": [
+    { "from": "S0", "to": "S0", "label": "0" },
+    { "from": "S0", "to": "S1", "label": "1" },
+    { "from": "S1", "to": "S1", "label": "1" },
+    { "from": "S1", "to": "S2", "label": "0" },
+    { "from": "S2", "to": "S0", "label": "0" },
+    { "from": "S2", "to": "S3", "label": "1", "bow": "below" },
+    { "from": "S3", "to": "S1", "label": "1" },
+    { "from": "S3", "to": "S2", "label": "0", "bow": "above" }
+  ],
+  "start": "S0",
+  "doubts": []
+}

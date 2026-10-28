@@ -1,0 +1,78 @@
+{
+  "code": "W14.2",
+  "title": "The drill's GRAFCET, clock by clock",
+  "statement": "The figure's GRAFCET runs a drill. Step $0$ waits; step $1$ runs the spindle down (KM1) until the lower limit switch $b$; step $2$ brings it back up (KM2) until the upper limit switch $a$. The start button $m$ counts only at the top ($m \\cdot a$). Starting with step $0$ active, trace it period by period on the inputs below: which steps are active and which actions are on.",
+  "given": [
+    "step $0$ active at the start, the transitions $m \\cdot a$, $b$ and $a$",
+    "$m$ in periods $1$ to $9$: $0, 1, 0, 0, 0, 0, 0, 0, 0$",
+    "$a$ in periods $1$ to $9$: $1, 1, 1, 0, 0, 0, 0, 1, 1$",
+    "$b$ in periods $1$ to $9$: $0, 0, 0, 0, 1, 1, 0, 0, 0$"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "Each clock period: the inputs, the active steps and the actions on",
+    "columns": [
+      { "label": "Period", "given": true },
+      { "label": "$m$", "given": true },
+      { "label": "$a$", "given": true },
+      { "label": "$b$", "given": true },
+      { "label": "$X_0$" },
+      { "label": "$X_1$" },
+      { "label": "$X_2$" },
+      { "label": "KM1" },
+      { "label": "KM2" }
+    ],
+    "rows": [
+      ["$1$", "0", "1", "0", "1", "0", "0", "0", "0"],
+      ["$2$", "1", "1", "0", "1", "0", "0", "0", "0"],
+      ["$3$", "0", "1", "0", "0", "1", "0", "1", "0"],
+      ["$4$", "0", "0", "0", "0", "1", "0", "1", "0"],
+      ["$5$", "0", "0", "1", "0", "1", "0", "1", "0"],
+      ["$6$", "0", "0", "1", "0", "0", "1", "0", "1"],
+      ["$7$", "0", "0", "0", "0", "0", "1", "0", "1"],
+      ["$8$", "0", "1", "0", "0", "0", "1", "0", "1"],
+      ["$9$", "0", "1", "0", "1", "0", "0", "0", "0"]
+    ]
+  },
+  "fillOrder": "rows",
+  "steps": [
+    {
+      "title": "Read the GRAFCET",
+      "note": "Step $0$ is the double square. $m \\cdot a$ takes it to step $1$, $b$ takes step $1$ to step $2$, and $a$ takes step $2$ back to step $0$. An action is on while its step is active."
+    },
+    {
+      "title": "Periods 1 and 2: the start",
+      "note": "In period $1$ $m = 0$, so step $0$ stays. In period $2$ $m \\cdot a$ holds, so step $1$ is active from period $3$.",
+      "fill": ["E1", "F1", "G1", "H1", "I1", "E2", "F2", "G2", "H2", "I2"]
+    },
+    {
+      "title": "Periods 3 to 5: down",
+      "note": "Step $1$ is active and KM1 is on until $b$ closes in period $5$; the $a = 1$ of period $3$ does nothing, since step $2$ is not active.",
+      "fill": ["E3", "F3", "G3", "H3", "I3", "E4", "F4", "G4", "H4", "I4", "E5", "F5", "G5", "H5", "I5"],
+      "marks": ["F3"]
+    },
+    {
+      "title": "Periods 6 to 8: back up",
+      "note": "$b$ takes step $1$ to step $2$, so KM1 goes off and KM2 comes on until $a$ is made again in period $8$.",
+      "fill": ["E6", "F6", "G6", "H6", "I6", "E7", "F7", "G7", "H7", "I7", "E8", "F8", "G8", "H8", "I8"]
+    },
+    {
+      "title": "Period 9: at rest",
+      "note": "$a$ takes step $2$ back to step $0$: both actions are off.",
+      "fill": ["E9", "F9", "G9", "H9", "I9"]
+    }
+  ],
+  "answer": "Step $1$ is active in periods $3$ to $5$ and step $2$ in periods $6$ to $8$; step $0$ is active again in period $9$. KM1 follows step $1$ and KM2 step $2$.",
+  "provenance": {
+    "stated": [
+      "the steps $0$, $1$ and $2$, with the transitions $m \\cdot a$, $b$ and $a$",
+      "the actions KM1 in step $1$ and KM2 in step $2$",
+      "$m$, $a$ and $b$ in periods $1$ to $9$"
+    ],
+    "derived": [
+      "the periods $2$, $3$, $4$, $5$, $6$, $7$ and $8$",
+      "the active steps in each period",
+      "the actions on in each period"
+    ]
+  }
+}
