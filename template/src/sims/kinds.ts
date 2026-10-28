@@ -16,6 +16,7 @@ import * as ladder from "./ladder/engine.ts";
 import { schematicOf } from "./ladder/model.ts";
 import * as logic from "./logic/engine.ts";
 import * as planeWall from "./plane-wall/engine.ts";
+import * as pneumatic from "./pneumatic/engine.ts";
 import * as scl from "./scl/engine.ts";
 import * as stl from "./stl/engine.ts";
 import * as tangent from "./tangent/engine.ts";
@@ -39,9 +40,10 @@ interface Kind<K extends SimKind> {
    * or `truth-table` bit for bit, every row of it; an STL listing is checked by `stl`, bit for bit
    * against awlsim after every statement, and an SCL listing by `scl`, against the blind
    * interpreter on every scan; a ladder or FBD sim by `ladder`, bit for bit against awlsim after
-   * every scan.
+   * every scan; a pneumatic circuit by `timing-key`, its displacement-step diagram bit for bit at
+   * every step, three ways, against the key.
    */
-  checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl" | "ladder";
+  checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl" | "ladder" | "timing-key";
   /** The Professor's definitions its engine works to, pinned in the Course style sheet. */
   definitions?: readonly DefinitionName[];
 }
@@ -65,6 +67,12 @@ export const KINDS: { [K in SimKind]: Kind<K> } = {
   ladder: {
     quantities: (model, inputs) => ladder.quantities(model, inputs, { until: 0, events: [] }, 1),
     checkedBy: "ladder",
+  },
+  // The displacement-step diagram's bits: each cylinder at every step line, each group line during
+  // every movement, from one press of the push button (held, the cycle repeats; the diagram is one).
+  pneumatic: {
+    quantities: (model, inputs) => pneumatic.quantities(model, inputs),
+    checkedBy: "timing-key",
   },
 };
 
@@ -122,6 +130,8 @@ export function engineQuantities(
     case "ladder":
       // Every watched value after every scan of the example's timeline, from these inputs.
       return ladder.quantities(s.model, { ...s.start, ...inputs }, s.scenario, s.cycle);
+    case "pneumatic":
+      return pneumatic.quantities(s.model, { ...s.start, ...inputs });
   }
 }
 

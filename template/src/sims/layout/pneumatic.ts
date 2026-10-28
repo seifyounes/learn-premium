@@ -21,7 +21,7 @@ export const PNEUMATIC_KINDS = ["cylinder", "valve-52", "valve-32-roller", "valv
 export type PneumaticKind = (typeof PNEUMATIC_KINDS)[number];
 
 export const PNEUMATIC_SYMBOLS = {
-  /** A double-acting, single-rod cylinder, rod to the right: `cap` extends it, `rod` retracts it. */
+  /** A double-acting, single-rod cylinder, rod toward the inline end: `cap` extends it, `rod` retracts it. */
   cylinder: {
     pins: { cap: pin([-40, 40], S), rod: pin([40, 40], S) },
     box: [-62, -30, 142, 16],
