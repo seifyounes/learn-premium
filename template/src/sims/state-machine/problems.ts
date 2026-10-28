@@ -28,7 +28,9 @@ const say = (inputs: Readonly<Record<string, number>>) =>
 export function machineProblems(family: Family, model: MachineModel): string[] {
   const statics = staticProblems(family, model);
   if (statics.length > 0) return statics;
-  return [...determinismProblems(family, model), ...equationProblems(family, model)];
+  // The equations are run on the diagram only once every state says where each input takes it.
+  const deterministic = determinismProblems(family, model);
+  return deterministic.length > 0 ? deterministic : equationProblems(family, model);
 }
 
 function staticProblems(family: Family, model: MachineModel): string[] {

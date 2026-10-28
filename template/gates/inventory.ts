@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { basename, extname } from "node:path";
 import { part as partSchema, pythonTool as pythonSchema, worked as workedSchema } from "../src/content/contract.ts";
 import { readStructured } from "../src/content/loaders.ts";
-import { isLive, isSchematic, schematicModelOf } from "../src/sims/kinds.ts";
+import { isLive, isSchematic, isStateDiagram, schematicModelOf } from "../src/sims/kinds.ts";
 import { courseFiles, type CourseFile } from "./course-files.ts";
 import { problems, readSim } from "./sims.ts";
 import type { GateInput } from "./runner.ts";
@@ -23,7 +23,7 @@ export interface InventoryTool {
   worked: string | null;
   /** Whether it ships live: a sim an independent recompute checks; always true for a Pyodide tool or a part. */
   live: boolean;
-  /** A schematic sim's parts and nets, as the layout core draws them; null for any other tool. */
+  /** A schematic sim's parts and nets, as the layout core draws them (a state diagram's states and edges); null for any other tool. */
   counts: { parts: number; nets: number } | null;
 }
 
@@ -76,6 +76,11 @@ export function toolInventory(input: GateInput): ToolInventory {
       continue;
     }
     const model = isSchematic(sim.sim) ? schematicModelOf(sim.sim) : null;
+    const counts = isStateDiagram(sim.sim)
+      ? { parts: sim.sim.model.states.length, nets: sim.sim.model.edges.length }
+      : model === null
+        ? null
+        : { parts: model.parts.length, nets: model.nets.length };
     found.tools.push({
       name: nameOf(file),
       entry: file.entry,
@@ -83,7 +88,7 @@ export function toolInventory(input: GateInput): ToolInventory {
       kind: sim.sim.kind,
       worked: sim.sim.worked ?? null,
       live: isLive(sim.sim),
-      counts: model === null ? null : { parts: model.parts.length, nets: model.nets.length },
+      counts,
     });
   }
 

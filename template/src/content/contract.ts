@@ -5,7 +5,9 @@ import { isPadKey, PAD_COLOUR, PAD_KEYS } from "../pads/catalogue.ts";
 import { loopProblems } from "../sims/control/loop.ts";
 import { BLOCK_DIAGRAM_KINDS } from "../sims/layout/block-diagram.ts";
 import { turnSchema } from "../sims/layout/check.ts";
+import { diagramProblems } from "../sims/layout/diagram.ts";
 import { PNEUMATIC_KINDS } from "../sims/layout/pneumatic.ts";
+import { FSM_KINDS, GRAFCET_KINDS } from "../sims/layout/state-diagram.ts";
 import { SIDES } from "../sims/layout/symbols.ts";
 import { schematicProblems } from "../sims/layout/validate.ts";
 import { LANGUAGES, PLC_KINDS, WATCH_TYPES } from "../sims/ladder/model.ts";
@@ -15,6 +17,8 @@ import { pneumaticProblems } from "../sims/pneumatic/model.ts";
 import { PROVENANCE_TAGS } from "../provenance/values.ts";
 import { S7_TYPES } from "../sims/s7/memory.ts";
 import { sclProblems } from "../sims/scl/validate.ts";
+import { diagramOf } from "../sims/state-machine/engine.ts";
+import { machineProblems } from "../sims/state-machine/problems.ts";
 import { stlProblems } from "../sims/stl/validate.ts";
 import { CELL_REF, parseCell } from "../worked/cells.ts";
 
@@ -800,6 +804,87 @@ const pneumaticSim = z.strictObject({
   tune: z.record(partId, z.strictObject({ min: z.literal(0), max: z.literal(1), step: z.literal(1) })).optional(),
 });
 
+/** A state of a state machine: its part, the name the figure prints in it, the outputs it sets. */
+const machineState = <K extends readonly [string, ...string[]]>(kinds: K) =>
+  z.strictObject({
+    id: partId,
+    kind: z.enum(kinds),
+    /** The name the figure prints in it: S0, or a step's number. */
+    label: z.string().min(1),
+    /** The outputs it sets to 1 while active: a Moore state's output, a step's actions. */
+    out: z.array(partId).min(1).optional(),
+  });
+const machineEdge = z.strictObject({
+  from: partId,
+  to: partId,
+  /** As the figure prints it: an input pattern (an FSM), a receptivity (a GRAFCET). */
+  label: z.string().min(1),
+});
+const machineEquation = z.strictObject({ name: z.string().min(1), gives: partId, expr: z.string().min(1) });
+/** The input bits clock period by clock period, as the Worked example gives them: `x: "011010100"`. */
+const stimulus = z.record(partId, z.string().regex(/^[01]+$/, "a stimulus is one 0 or 1 per clock period"));
+/** Layout hints for a state diagram (CONTEXT.md): each state's cell and self-loop side, an edge's bow where the figure bends it. */
+const diagramHints = z.strictObject({
+  states: z.record(partId, z.strictObject({ at: z.tuple([cell, cell]), loop: z.enum(SIDES).optional() })),
+  edges: z
+    .record(
+      z.string().regex(/^[A-Za-z][A-Za-z0-9_]*>[A-Za-z][A-Za-z0-9_]*$/, "an edge is named from>to, e.g. S2>S3"),
+      z.strictObject({
+        bow: z.enum(SIDES).optional(),
+        bend: cell.refine((n) => n > 0 && n <= 2, "a bend is 0.1 to 2 steps").optional(),
+        label: z.enum(SIDES).optional(),
+      }),
+    )
+    .default({}),
+  start: z.enum(SIDES).optional(),
+});
+const machineInputs = z.record(partId, bit);
+const machineTune = z.record(partId, z.strictObject({ min: z.literal(0), max: z.literal(1), step: z.literal(1) }));
+
+/**
+ * A Moore state machine (`src/sims/state-machine/engine.ts`): the Professor's state diagram, its edges
+ * labelled with input patterns, drawn by the layout core and its curve drawer from the hints. Students
+ * set the inputs and clock it; a token travels the taken edge, the state table's row and the equations
+ * follow, and the timing strip grows over the key. They never redraw it.
+ */
+const fsmSim = z.strictObject({
+  kind: z.literal("fsm"),
+  ...simCommon,
+  model: z.strictObject({
+    states: z.array(machineState(FSM_KINDS)).min(2),
+    edges: z.array(machineEdge).min(1),
+    initial: partId,
+    inputs: z.array(partId).min(1).max(3),
+    outputs: z.array(partId).min(1),
+    encoding: z
+      .strictObject({ variables: z.array(partId).min(1), codes: z.record(partId, z.string().regex(/^[01]+$/)) })
+      .optional(),
+    equations: z.array(machineEquation).min(1).optional(),
+    stimulus,
+  }),
+  layout: diagramHints,
+  /** The example's first period's inputs: the sim opens on them. */
+  start: machineInputs.optional(),
+  tune: machineTune.optional(),
+});
+
+/** A GRAFCET (IEC 60848, SFC): steps, transitions with their receptivities, each step's actions; the same engine. */
+const grafcetSim = z.strictObject({
+  kind: z.literal("grafcet"),
+  ...simCommon,
+  model: z.strictObject({
+    states: z.array(machineState(GRAFCET_KINDS)).min(2),
+    edges: z.array(machineEdge).min(1),
+    inputs: z.array(partId).min(1).max(6),
+    outputs: z.array(partId).min(1),
+    equations: z.array(machineEquation).min(1).optional(),
+    stimulus,
+  }),
+  layout: diagramHints,
+  start: machineInputs.optional(),
+  tune: machineTune.optional(),
+});
+
 /**
  * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
  * the same way in Node at build and in the page. Students tune it, never rewire it.
@@ -815,6 +900,8 @@ export const sim = z
     controlSim,
     ladderSim,
     pneumaticSim,
+    fsmSim,
+    grafcetSim,
   ])
   .superRefine((s, ctx) => {
     if (s.kind === "ladder") for (const p of ladderSimProblems(s)) ctx.addIssue({ code: "custom", ...p });
@@ -855,6 +942,29 @@ export const sim = z
             code: "custom",
             path: [key],
             message: `${key} gives ${given.join(", ") || "nothing"}, but the push buttons are ${buttons.join(", ")}, in that order`,
+          });
+      }
+    }
+    if (s.kind === "fsm" || s.kind === "grafcet") {
+      const structure = diagramProblems(diagramOf(s.kind, s.model), s.layout);
+      for (const message of structure.length > 0 ? structure : machineProblems(s.kind, s.model))
+        ctx.addIssue({ code: "custom", path: ["model"], message });
+      for (const key of ["start", "tune"] as const) {
+        const given = Object.keys(s[key] ?? {});
+        if (s[key] !== undefined && given.join() !== s.model.inputs.join())
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: `${key} gives ${given.join(", ") || "nothing"}, but the inputs are ${s.model.inputs.join(", ")}, in that order`,
+          });
+      }
+      for (const input of s.model.inputs) {
+        const first = s.model.stimulus[input]?.[0];
+        if (s.start !== undefined && first !== undefined && String(s.start[input]) !== first)
+          ctx.addIssue({
+            code: "custom",
+            path: ["start", input],
+            message: `start gives ${input} = ${s.start[input]}, but the example's first period has ${input} = ${first}: the sim opens on it`,
           });
       }
     }
@@ -914,6 +1024,8 @@ export const SIM_KINDS = [
   "control",
   "ladder",
   "pneumatic",
+  "fsm",
+  "grafcet",
 ] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /**
