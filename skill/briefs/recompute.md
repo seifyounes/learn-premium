@@ -44,3 +44,9 @@ solver's answers. Write `content/build-records/recompute/sittings/<ID>/<name>.js
 the file), at full precision. A paper or mock with no numeric question still gets its log, with `{}`
 answers. Leave out a question the statement doesn't determine and say why: the gate blocks, and the main
 agent decides.
+
+**A live mechanism.** A live mechanism's log is `recompute/<NN>-<slug>/<name>.json`, in the sim recompute's
+format with a `trace` added: `values` holds the sheet cells' quantities at the example's angle, and
+`trace` holds one driver turn at 1° (`theta` 0 … 359, `angles` for every moving link, `points` for every
+pin off the ground, each `[x, y]` in mm). Work it by a method of your own (Freudenstein's equation, a
+vector-loop solve), never the template's engine.

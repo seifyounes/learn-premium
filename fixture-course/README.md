@@ -96,6 +96,13 @@ Layout (content contract v0):
   step's actions in `out`, the `inputs` and the `stimulus`. Its log in `build-records/recompute/` carries
   the recompute's `table` of every reachable situation under every input combination, which the
   `state-table` gate checks the engine's against.
+- A mechanism (`kind: mechanism`, Module 11) holds a `model` of one of two types: a `four-bar` (its
+  four links in mm, the `assembly`, an optional `couplerPoint`) or a `gear-pair` (module, teeth,
+  pressure angle, face width); students turn the driver's angle (`start.theta`, `tune.theta`), never
+  the links. Its log in `build-records/recompute/<NN>-<slug>/<name>.json` is the independent
+  recompute's: the sheet's `values` at the example's angle and a `trace` of one driver turn at 1°
+  (each moving link's angle, every pin off the ground), which the `kinematics` gate holds the
+  viewer's motion to at 360 steps; the `gear-interference` gate checks a pair's teeth at 0.5°.
 - `modules/<NN>-<slug>/parts/<name>.json` (JSON only) and `<name>.py`: one machine part each, its
   build123d script and the dimensions its drawing gives (each between two points on the part, with
   its Provenance tag; `confirmed` once the Owner has ruled on a scaled or assumed one). `<name>.glb`
@@ -187,6 +194,13 @@ groups, switched by the cascade valve CV. W12.1 draws the displacement-step diag
 `timing-key` gate checks three ways; `tools/recompute-cascade.py` walks each line back to the supply
 or an exhaust, apart from the engine. Its figure is synthetic, described by the Blind reader's
 reading in `build-records/figure/12-cascade/`.
+Module 11 (mechanisms) carries the mechanism sim, twice: a standard spur gear pair (module 2, 18 and
+36 teeth, 20°) in W11.1 and a crank-rocker four-bar (ground 100, crank 40, coupler 120, rocker 80 mm,
+with a coupler point) in W11.2, each sim sitting below its Worked example. Both are synthetic, no
+Professor's figure. The recompute logs are written by `tools/recompute-gear-pair.py` (the
+path-of-contact formulas and rolling) and `tools/recompute-four-bar.py` (Freudenstein's equation in
+half-angle form), never by hand: run `python fixture-course/tools/recompute-four-bar.py` (or
+`recompute-gear-pair.py`) from the repo root, and the sheets' values are read off their output.
 
 Module 14 (state machines) carries the FSM and GRAFCET sims. The detector is a Moore machine that
 watches its input x for 1, 0, 1 with overlaps. Its synthetic figure has S0 at the left middle, its

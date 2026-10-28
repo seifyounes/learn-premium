@@ -30,7 +30,7 @@
   "steps": [
     {
       "title": "The rocker's angle",
-      "note": "Closing the loop $a\\,e^{j\\theta_2} + b\\,e^{j\\theta_3} = d + c\\,e^{j\\theta_4}$ and eliminating $\\theta_3$ gives Freudenstein's equation $K_1\\cos\\theta_4 - K_2\\cos\\theta_2 + K_3 = \\cos(\\theta_2 - \\theta_4)$, with $K_1 = \\frac{d}{a} = 2.5$, $K_2 = \\frac{d}{c} = 1.25$ and $K_3 = \\frac{a^2 - b^2 + c^2 + d^2}{2ac} = 0.5625$. At $\\theta_2 = 60°$ its root on the open assembly is $\\theta_4 = 64.94°$.",
+      "note": "Closing the loop $a\\,e^{j\\theta_2} + b\\,e^{j\\theta_3} = d + c\\,e^{j\\theta_4}$ and eliminating $\\theta_3$ gives Freudenstein's equation: $K_1\\cos\\theta_4 - K_2\\cos\\theta_2 + K_3$ equals $\\cos(\\theta_2 - \\theta_4)$, with $K_1 = \\frac{d}{a} = 2.5$, $K_2 = \\frac{d}{c} = 1.25$ and $K_3 = \\frac{a^2 - b^2 + c^2 + d^2}{2ac} = 0.5625$. At $\\theta_2 = 60°$ its root on the open assembly is $\\theta_4 = 64.94°$.",
       "fill": ["B2"]
     },
     {

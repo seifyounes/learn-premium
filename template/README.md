@@ -201,6 +201,7 @@ kinds:
 | `pneumatic`        | automation    | an ISO 1219 circuit's lines, spools and pistons, stroke by stroke  | the push buttons, and time        | a walk-back recompute, every step         |
 | `fsm`              | logic         | the Moore state diagram, a clock at a time, a token on its edge    | the inputs, and the clock         | a hand-read lookup table, every state     |
 | `grafcet`          | automation    | the GRAFCET (SFC) by IEC 60848's firing rules, a clock at a time   | the inputs, and the clock         | the firing rules worked by hand           |
+| `mechanism`        | machinery     | a four-bar or a spur gear pair, solved live, in 3D or as the sheet | the driver's angle (a pin drags)  | an independent solve, at 360 steps        |
 
 - **Gradient descent** (`src/islands/GradientDescentSim.tsx`): its table fills in hand order and
   the red pen rings each new θ. The path moves on the contours of J, and α can diverge.
@@ -580,6 +581,59 @@ The stage is the shared core for every 3D viewer: a mechanism (#61) or a chemist
 adds its objects to `stage.scene`, moves them, and asks for a `draw()`; it marks the surface a
 gesture lands on `data-viewer-object`, which the scroll pass-through gate checks.
 
+### Mechanisms
+
+A mechanism sim (`kind: mechanism`, `src/sims/mechanism/`) is a linkage or a gear pair the Professor
+draws, solved live by one kinematics engine and shown in 3D by default, with a printed `2D | 3D`
+switch to the Professor's sheet drawing. Its `model` has a `type`:
+
+- `four-bar`: the ground link `O2O4`, the crank `O2A` (the driver), the coupler `AB` and the rocker
+  `O4B`, in mm, an `assembly` (`open`: B to the left of the line from A to O4; `crossed`: to its
+  right), an optional `couplerPoint` (`along` AB from A, `off` to its left) whose path is traced,
+  and optional `labels` for the letters the figure prints. The contract refuses a linkage whose
+  crank can't turn fully (Grashof: s + l < p + q, and the shortest link the crank or the ground).
+- `gear-pair`: standard full-depth involute spur gears (addendum m, dedendum 1.25 m, no backlash,
+  no profile shift, no undercut model): `module`, `teeth` (driver first, whole numbers from 8),
+  `pressureAngle` (between 10° and 35°), `faceWidth` and an optional `centreDistance` (m(N1 + N2)/2
+  when the figure states none; the gear-interference gate judges it).
+
+Students turn the driver, never the links: `start.theta` is the crank's angle from O2→O4
+(counterclockwise), or the driver gear's from home, and `tune.theta` its range.
+
+- **The engine** (`src/sims/mechanism/engine.ts`, the one public interface; the files behind it are
+  its own) is a pure function of the model and the driver's angle: `pose` gives each link's origin
+  and turn, `pins` its pins placed, `quantities` the numbers sheets and logs name (four-bar:
+  `theta3`, `theta4`, `mu`, `Bx`, `By`, `Px`, `Py`; gears: `d1`, `d2`, `a`, `ratio`, `db1`, `db2`,
+  `da1`, `da2`, `contactRatio`, `driven`), `trace` one driver turn. The four-bar is closed by
+  intersecting two circles, so it is exact at every angle. The tests reach it only through
+  `engine.ts` and hold it to `test/kinematics/reference.ts`, which solves the four-bar by
+  Newton–Raphson on the loop's closure and shares no method with it.
+- **Shown.** One pose drives both views. The 3D view draws links extruded from the model (and the
+  gears from the engine's own involute outlines: no GLB is built for a mechanism) on the part
+  viewer's stage, in matte with pencil edges, the driving pin ringed in graphite, its pin letters in
+  the gutter. It takes the page's gestures only once tapped, like the part viewer; then a drag that
+  starts on the ringed pin turns the driver (the pointer is cast onto the sheet's plane by
+  `Stage.pointOnPlane`) and any other drag turns the view. The 2D drawing is SVG at its own size (at
+  most 3 px/mm), never scaled to its box, its letters 14px and digits 12px, `dir="ltr"` on a page
+  set in Arabic too: hatched ground pins, pencil bars or gear outlines, the coupler point's (or the
+  gear tip's) whole path faint and the part the mechanism has turned through inked over it, the
+  ringed pin draggable. A browser with no WebGL opens on 2D and says why.
+- **Motion.** Play turns the driver once in six seconds (one frame loop, running only while
+  playing). Under reduced motion a running mechanism stops at the angle it has, Play is disabled, and
+  the slider and the pin still turn it, instantly (`src/islands/sim/reduced-motion.ts` follows the
+  preference live).
+- **Checked.** The `kinematics` gate holds what the viewer draws, the engine's poses, to the
+  independent recompute's log (`build-records/recompute/<module>/<name>.json`: the usual `inputs`
+  and the sheet's `values`, plus a `trace` of one driver turn at 1°: each moving link's angle and
+  every pin off the ground) at 360 steps, each moving link within 0.1° and each pin within 0.1 mm
+  of every link's copy of it, and the sheet's values three ways like `sim-numbers`. The
+  `gear-interference` gate runs each live gear pair's teeth at 0.5° steps of the driver until each
+  gear has turned once, judging every vertex of one gear on the other's true involute
+  (`insideDepth`: the distance in mm to the profile, so a vertex at the contact point reads 0,
+  never inside): they must never overlap (more than 1e-6 mm) and always touch (within 0.05 mm). A
+  centre distance off m(N1 + N2)/2, and a pinion whose neighbour's tips reach below its base circle,
+  both block, with the reason.
+
 ## Pyodide tools
 
 Real Python, only where real Python is the point (the Professor's own code, scikit-learn, SciPy).
@@ -717,6 +771,8 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `state-table`         | job, deploy             | every FSM and GRAFCET sim's whole table, each reachable situation under each input combination, equals the recompute's; four broken engines, each caught where the example reaches it                                                                                                                                                                                                                                                                                      |
 | `state-diagram`       | job, deploy             | the Drawing gate's half for state diagrams: drawing ↔ model with edges read from the curves alone, model ↔ the Blind reader's reading, drawing ↔ figure (arrangement, loop and bow sides, symbols, start arrow); nine broken drawings caught on every build                                                                                                                                                                                                                |
 | `part-checks`         | job, deploy             | every machine part's GLB against its B-rep record (each tagged dimension and the bounding box within 0.01 mm), its volume against the independent sum of the drawing's primitives (0.5 %); a scaled or assumed dimension is a Checkpoint item linking to the viewer                                                                                                                                                                                                        |
+| `kinematics`          | job, deploy             | every live mechanism's motion, as the viewer draws it (the engine's poses), against the independent recompute at 360 steps of one driver turn: each moving link within 0.1°, each pin within 0.1 mm; the trace complete; the sheet three ways; eight broken logs, each caught                                                                                                                                                                                              |
+| `gear-interference`   | job, deploy             | every gear pair's teeth, on the true involutes, at 0.5° steps of the driver until each gear has turned once: never overlapping, always touching; a pair 0.5 mm too close or too far apart, and a 12-tooth pinion on a 48-tooth wheel, each caught                                                                                                                                                                                                                          |
 | `drawing`             | job, deploy             | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                                                                                                                                                                                                                                                                                          |
 | `tools`               | job, deploy             | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable                                                                                                                                                                                                                                                                          |
 | `past-papers`         | sitting                 | every past paper's numeric answers three ways (the content's answer, the Professor's printed key, the independent recompute) at the key's printed precision: answer ≠ recompute blocks; key ≠ both is a Checkpoint item unless ruled a Slip (the site ships the recompute) or a Divergence (it ships the key); marks sum per paper and written answers list one point per mark; a key-less paper (`key: solved`) is a Checkpoint item for the Owner to confirm its answers |
