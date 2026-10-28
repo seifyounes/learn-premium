@@ -3,7 +3,7 @@
 // profile (`insideDepth`), so a vertex at the contact point reads ≈ 0, never inside: the verdict
 // doesn't depend on how coarsely a polygon approximates the curve, only on how densely the vertices
 // sample the flanks. Lengths are in mm.
-import { centreOf, gearOf, gearOutline, insideDepth, toothOutline } from "./gears.ts";
+import { centreOf, gearOf, gearOutline, insideDepth, toothOutline, type Gear } from "./gears.ts";
 import type { GearPair, Point } from "./model.ts";
 import { applyMatrix, linkMatrix, pose, type LinkPose } from "./pose.ts";
 
@@ -31,12 +31,15 @@ export interface Meshing {
   by?: 0 | 1;
 }
 
-/** A point of the sheet in a gear's own frame. */
-function toLocal(link: LinkPose, p: Point): Point {
+/** The sheet's points in a gear's own frame: its turn's cosine and sine taken once, for a whole outline. */
+function intoFrame(link: LinkPose): (p: Point) => Point {
   const t = (-link.angle * Math.PI) / 180;
-  const x = p[0] - link.at[0];
-  const y = p[1] - link.at[1];
-  return [x * Math.cos(t) - y * Math.sin(t), x * Math.sin(t) + y * Math.cos(t)];
+  const [cos, sin] = [Math.cos(t), Math.sin(t)];
+  return (p) => {
+    const x = p[0] - link.at[0];
+    const y = p[1] - link.at[1];
+    return [x * cos - y * sin, x * sin + y * cos];
+  };
 }
 
 /**
@@ -51,9 +54,10 @@ export function overlapOf(model: GearPair, posed: [Point[], Point[]], poses: [Li
   for (const mine of [0, 1] as const) {
     const other = (1 - mine) as 0 | 1;
     const tip = gearOf(model, other).ra;
+    const toLocal = intoFrame(poses[other]);
     for (const vertex of posed[mine]) {
-      const local = toLocal(poses[other], vertex);
-      if (Math.hypot(local[0], local[1]) > tip) continue;
+      const local = toLocal(vertex);
+      if (local[0] * local[0] + local[1] * local[1] > tip * tip) continue;
       const depth = insideDepth(model, other, local);
       if (depth > overlap) {
         overlap = depth;
@@ -67,6 +71,23 @@ export function overlapOf(model: GearPair, posed: [Point[], Point[]], poses: [Li
 
 /** Per flank, how many vertices `meshAt` samples: one every ≈ 0.04 mm on an m 2 flank. */
 const MESH_SAMPLES = 96;
+
+/**
+ * A tooth's dense outline in its gear's own frame, which never changes while the gear's shape doesn't:
+ * kept, so a sweep of thousands of steps builds each tooth once. Keyed by what shapes the tooth.
+ */
+const teethMade = new Map<string, Point[]>();
+function denseTooth(gear: Gear, k: number): Point[] {
+  const key = `${gear.n}|${gear.r}|${gear.phi}|${k}`;
+  let made = teethMade.get(key);
+  if (!made) {
+    // A long session turning many different gears never holds more than a few hundred teeth.
+    if (teethMade.size > 2_000) teethMade.clear();
+    made = toothOutline(gear, k, MESH_SAMPLES);
+    teethMade.set(key, made);
+  }
+  return made;
+}
 
 /** The teeth of gear `which` that can reach the other gear's tip circle, as the gear sits in its pose. */
 function teethInMesh(model: GearPair, which: 0 | 1, poses: [LinkPose, LinkPose]): number[] {
@@ -100,7 +121,7 @@ export function meshAt(model: GearPair, theta: number): Meshing {
     const matrix = linkMatrix(poses[which]);
     const gear = gearOf(model, which);
     return teethInMesh(model, which, poses)
-      .flatMap((k) => toothOutline(gear, k, MESH_SAMPLES))
+      .flatMap((k) => denseTooth(gear, k))
       .map((p) => applyMatrix(matrix, p));
   }) as [Point[], Point[]];
   return overlapOf(model, posed, poses);
