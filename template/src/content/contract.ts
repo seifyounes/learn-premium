@@ -14,6 +14,7 @@ import { LANGUAGES, PLC_KINDS, WATCH_TYPES } from "../sims/ladder/model.ts";
 import { ladderSimProblems } from "../sims/ladder/validate.ts";
 import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
 import { pneumaticProblems } from "../sims/pneumatic/model.ts";
+import { fourBarProblems } from "../sims/mechanism/engine.ts";
 import { PROVENANCE_TAGS } from "../provenance/values.ts";
 import { S7_TYPES } from "../sims/s7/memory.ts";
 import { sclProblems } from "../sims/scl/validate.ts";
@@ -884,6 +885,68 @@ const grafcetSim = z.strictObject({
   start: machineInputs.optional(),
   tune: machineTune.optional(),
 });
+/** The letters a figure prints a pin with: one letter and at most one digit (`O`, `A`, `O2`). */
+const pinLabels = z.record(z.string().regex(/^[A-Z][0-9]?$/), z.string().regex(/^[A-Za-z][0-9]?$/)).optional();
+/** Lengths in mm and angles in degrees. No `.default()` in a model: the recompute log must carry it verbatim. */
+const fourBarModel = z.strictObject({
+  type: z.literal("four-bar"),
+  /** O2O4, O2A, AB, O4B as the figure gives them: ground, crank (the driver), coupler, rocker. */
+  ground: z.number().positive(),
+  crank: z.number().positive(),
+  coupler: z.number().positive(),
+  rocker: z.number().positive(),
+  /** `open`: B lies to the left of the line from A to O4 (sheet frame: x along O2→O4, y up); `crossed`: to its right. */
+  assembly: z.enum(["open", "crossed"]),
+  /** A point on the coupler whose path the drawing traces: `along` AB from A, `off` to its left (negative: right). */
+  couplerPoint: z.strictObject({ along: z.number(), off: z.number() }).optional(),
+  /** The figure's letters for O2, A, B, O4, P, when it prints others (one letter and at most one digit). */
+  labels: pinLabels,
+});
+const gearPairModel = z.strictObject({
+  type: z.literal("gear-pair"),
+  /** Standard full-depth involute spur gears: addendum m, dedendum 1.25 m, no backlash, no profile shift. */
+  module: z.number().positive(),
+  /** The driver's teeth first. */
+  teeth: z.tuple([z.number().int().min(8), z.number().int().min(8)]),
+  pressureAngle: z.number().gt(10).lt(35),
+  faceWidth: z.number().positive(),
+  /** As the figure states it; m(N1 + N2)/2 when it states none. The gear-interference gate judges it. */
+  centreDistance: z.number().positive().optional(),
+  /** The figure's letters for O1 and O2, when it prints others. */
+  labels: pinLabels,
+});
+
+/**
+ * A mechanism (`src/sims/mechanism/engine.ts`): the Professor's linkage or gear pair, solved live by
+ * the kinematics engine and drawn in 3D or as the sheet drawing. Students turn the driver (θ), never
+ * the links.
+ */
+const mechanismSim = z.strictObject({
+  kind: z.literal("mechanism"),
+  ...simCommon,
+  model: z.discriminatedUnion("type", [fourBarModel, gearPairModel]),
+  /** The driver's angle the example works at: the crank's from O2→O4, counterclockwise; the driver gear's from home. */
+  start: z.strictObject({ theta: z.number() }).optional(),
+  tune: z.strictObject({ theta: tuneRange }).optional(),
+});
+
+/** What a mechanism's model gets wrong beyond its shape: a crank that can't turn fully, labels for pins it lacks. */
+function mechanismProblems(model: z.output<typeof mechanismSim>["model"]): { path: string[]; message: string }[] {
+  if (model.type === "four-bar") {
+    const found = fourBarProblems(model).map((message) => ({ path: ["model"], message }));
+    const pins = ["O2", "A", "B", "O4", "P"];
+    for (const key of Object.keys(model.labels ?? {})) {
+      if (!pins.includes(key))
+        found.push({ path: ["model", "labels"], message: `a four-bar's pins are O2, A, B, O4 and P: no ${key}` });
+      else if (key === "P" && model.couplerPoint === undefined)
+        found.push({ path: ["model", "labels"], message: "P labels the coupler point, and the four-bar has none" });
+    }
+    return found;
+  }
+  return Object.keys(model.labels ?? {})
+    .filter((key) => key !== "O1" && key !== "O2")
+    .map((key) => ({ path: ["model", "labels"], message: `a gear pair's pins are O1 and O2: no ${key}` }));
+}
 
 /**
  * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
@@ -902,8 +965,10 @@ export const sim = z
     pneumaticSim,
     fsmSim,
     grafcetSim,
+    mechanismSim,
   ])
   .superRefine((s, ctx) => {
+    if (s.kind === "mechanism") for (const p of mechanismProblems(s.model)) ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "ladder") for (const p of ladderSimProblems(s)) ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "stl")
       for (const p of stlProblems(s.model, s.start, s.tune, s.cases)) ctx.addIssue({ code: "custom", ...p });
@@ -1026,6 +1091,7 @@ export const SIM_KINDS = [
   "pneumatic",
   "fsm",
   "grafcet",
+  "mechanism",
 ] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /**

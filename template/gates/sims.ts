@@ -452,6 +452,16 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
     "src/islands/sim/state-diagram.tsx",
     "src/islands/sim/timing-diagram.tsx",
   ],
+  // A mechanism is drawn in 3D on the part viewer's stage, or as the sheet drawing in SVG.
+  mechanism: [
+    "src/islands/MechanismSim.tsx",
+    "src/islands/sim/mechanism-sheet.tsx",
+    "src/islands/sim/mechanism-viewer.tsx",
+    "src/islands/three/mechanism-scene.ts",
+    "src/islands/three/stage.ts",
+    "src/viewer/gesture.ts",
+    ...SHARED_VIEW,
+  ],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 /** A Pyodide tool's view: its preview and live plot draw on the sheet's plotted figure. */
