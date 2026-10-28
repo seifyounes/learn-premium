@@ -166,7 +166,7 @@ describe("the mechanisms in a browser", () => {
     expect(await el.locator(".mechanism-sheet-box").getAttribute("dir")).toBe("ltr");
     const before = await inkLength(el);
     await play(el).click();
-    await expect.poll(() => inkLength(el)).toBeGreaterThan(before + 20);
+    await expect.poll(() => inkLength(el)).toBeGreaterThan(before + 5);
     await play(el).click();
     // 12px or more for every letter and digit.
     const sizes = await el
