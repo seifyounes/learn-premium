@@ -36,4 +36,4 @@ paper numbers it, `<name>/q<n>/text` (the question exactly as printed, formulas 
 `<name>/q<n>/marks` (its marks, a digit string) and, only where the Professor printed one beside the
 question or on a key sheet, `<name>/q<n>/key` (the key as printed, trailing zeros kept); then
 `<name>/total` (the printed total marks) and `<name>/minutes` (the printed time). List the questions in the
-order the paper prints them. A key the paper doesn't print has no item: never work one out.
+order the paper prints them. A key the paper doesn't print has no item: never work one out; and only a numeric answer has a key item (a written answer's model is the content's to write). Every item's `file` is the Materials file the Owner named for that paper, and a key keeps its printed digits (`0.250`, not `0.25`): `ready` holds both to the content.

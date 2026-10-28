@@ -2,8 +2,8 @@
 // fixture holds it (skill/test/fixtures/sitting-dump/midterm.json: both layers hold the same file,
 // so a change to either side's reading fails the other's test).
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { sittingDump } from "../gates/sittings.ts";
 import { FIXTURE_COURSE, fixtureWith } from "./build-course";
@@ -49,6 +49,38 @@ describe("the sitting command", () => {
     ]);
     // Module 01's own Divergence (Practice item 1) is the Module wave's, not the sitting's.
     expect(sittingDump(FIXTURE_COURSE, "midterm").rulings).toEqual([]);
+  });
+
+  it("reads course.yaml as a revision has it, so a wave's own edit isn't the base's", () => {
+    const course = fixtureWith("course.yaml", (s) => s);
+    const git = (...args: string[]) => {
+      const run = spawnSync("git", ["-C", course, ...args], { encoding: "utf8" });
+      expect(run.status, run.stderr).toBe(0);
+    };
+    git("init", "-q");
+    git("-c", "user.name=T", "-c", "user.email=t@example.test", "-c", "commit.gpgsign=false", "add", "-A");
+    git(
+      "-c",
+      "user.name=T",
+      "-c",
+      "user.email=t@example.test",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-q",
+      "-m",
+      "base",
+    );
+    const path = join(course, "course.yaml");
+    writeFileSync(path, readFileSync(path, "utf8").replace("name: Fixture Course", "name: Renamed"));
+    expect(sittingDump(course, "midterm").course["name"]).toBe("Renamed");
+    expect(sittingDump(course, "midterm", { courseRef: "HEAD" }).course["name"]).toBe("Fixture Course");
+    const cli = spawnSync(
+      process.execPath,
+      ["gates/cli.ts", "sitting", "--sitting", "midterm", "--content", course, "--course-ref", "HEAD"],
+      { cwd: TEMPLATE_DIR, encoding: "utf8" },
+    );
+    expect((JSON.parse(cli.stdout) as { course: { name: string } }).course.name).toBe("Fixture Course");
   });
 
   it("says a sitting the Course doesn't have is null, with no papers", () => {

@@ -87,7 +87,13 @@ describe("the Owner's word that a sitting is complete", () => {
   test("a later word for the sitting supersedes the earlier one", () => {
     const project = course();
     must(ownerSaysComplete(project, "midterm", { modules: ["01"] }));
-    must(ownerSaysComplete(project, "midterm", { modules: ["01", "02"], announced: "A written paper." }));
+    must(
+      ownerSaysComplete(project, "midterm", {
+        modules: ["01", "02"],
+        papers: [{ slug: "2025", path: "midterm-2025.pdf" }],
+        announced: "A written paper.",
+      }),
+    );
 
     const { sittings } = must(ledger("status", "--project", project)) as {
       sittings: { id: string; complete: { modules: string[]; announced: string | null } | null }[];
@@ -123,6 +129,13 @@ describe("the Owner's word that a sitting is complete", () => {
     // Nothing was recorded by any of them.
     const { sittings } = must(ledger("status", "--project", project)) as { sittings: { complete: unknown }[] };
     expect(sittings.every((s) => s.complete === null)).toBe(true);
+  });
+
+  test("is refused (2) for an announced format when no past paper is named: nothing could be built to match it", () => {
+    const project = course();
+    const { code, out } = ownerSaysComplete(project, "midterm", { modules: ["01"], announced: "A written paper." });
+    expect(code).toBe(2);
+    expect(out.error).toMatch(/announced format but no past paper/);
   });
 
   test("is refused (2) for a bad input file, and for a past paper name that isn't kebab-case", () => {
@@ -320,15 +333,25 @@ describe("a past paper must match its settled reading", () => {
     ]);
   });
 
-  test("whitespace and trailing zeros aside, the same reading holds", () => {
-    const loose = settled().map((i) =>
-      i.key === "2025/q1/key"
-        ? { ...i, value: "0.250" }
-        : i.key === "2025/q3/text"
-          ? { ...i, value: `  ${i.value}  ` }
-          : i,
-    );
+  test("whitespace aside, the same reading holds; a key keeps its printed precision", () => {
+    const loose = settled().map((i) => (i.key === "2025/q3/text" ? { ...i, value: `  ${i.value}  ` } : i));
     expect(faithfulProblems(dump.papers, loose)).toEqual([]);
+    // The Professor printed 0.250: the content's 0.25 is a shorter key, whose precision the gate would take as the paper's.
+    const precise = settled().map((i) => (i.key === "2025/q1/key" ? { ...i, value: "0.250" } : i));
+    expect(faithfulProblems(dump.papers, precise)).toEqual([
+      expect.stringMatching(/question 1: the content's key 0\.25 isn't the Professor's printed 0\.250/),
+    ]);
+  });
+
+  test("an item read from a file other than the one named for its paper is refused", () => {
+    const named = { "2025": "midterm-2025.pdf" };
+    expect(faithfulProblems(dump.papers, settled(), { "2025": "2025.pdf" })).toEqual([]);
+    const items = dump.papers.flatMap((p) => readingItems(p, p.name, "other.pdf"));
+    expect(faithfulProblems(dump.papers, items, named)).toEqual([
+      expect.stringMatching(
+        /past paper "2025" was read from other\.pdf, not the file the Owner named for it \(midterm-2025\.pdf\)/,
+      ),
+    ]);
   });
 
   test("a total or a time that differs is named, and so are a missing question and an extra one", () => {

@@ -100,6 +100,13 @@ export const templateVerifier: Verifier = {
 };
 
 /** The gates whose Checkpoint items are sheet-vs-recompute: the Owner rules each a Slip or a Divergence. */
+/**
+ * Whether a gate's Checkpoint item asks the Owner for a Slip or Divergence ruling. A key-less past
+ * paper's confirmation of the build's own answers is an ordinary item: no ruling can answer it.
+ */
+export const isSheetItem = (item: { gate: string; message: string }) =>
+  SHEET_GATES.has(item.gate) && !(item.gate === "past-papers" && item.message.startsWith("no Professor key;"));
+
 export const SHEET_GATES = new Set(["sim-numbers", "truth-table", "worked-numbers", "stl", "past-papers"]);
 
 /** The jobs every Module wave records before it merges; the first Module's wave also writes the style sheet. */
@@ -201,7 +208,7 @@ export function raisedItems(project: string, id: string, preview?: string) {
         kind: "gate",
         question: item.at === undefined ? item.message : `${item.at}: ${item.message}`,
         gate: item.gate,
-        sheet: SHEET_GATES.has(item.gate),
+        sheet: isSheetItem(item),
         ...(base !== null && item.spot !== undefined ? { link: `${base}${item.spot}` } : {}),
       });
     }
@@ -284,7 +291,8 @@ export function markdownOf(label: string, open: CheckpointItem[], preview: strin
  * A sheet-vs-recompute item's question as the Checkpoint gives it: the content file it sits in and
  * the sheet value it asks about (`modules/01-x/worked/1.json: sheet cell D4 prints 1.45, but …`).
  */
-const SHEET_QUESTION = /^((?:modules|sittings)\/\S+?): .*?\bprints\s+(.+?), (?:but|which)\b/;
+const SHEET_QUESTION =
+  /^((?:modules|sittings)\/\S+?): .*?\bprints\s+(.+?)(?: and the answer matches it)?, (?:but|which)\b/;
 
 /** A printed value's magnitude: `1.45`, `−1,250.5` or `5.0 \times 10^{-2}`; null when it isn't one. */
 function magnitude(written: string): number | null {

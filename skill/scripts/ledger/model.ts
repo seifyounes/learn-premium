@@ -318,7 +318,8 @@ export const sittingCompleteInput = obj({
 const sittingComplete = obj({
   sitting: nonEmpty,
   modules: arr(moduleId),
-  papers: arr(obj({ slug: paperSlug, path: nonEmpty })),
+  /** Each past paper with its Materials file's hash when the Owner said it: the wave is held to that file. */
+  papers: arr(obj({ slug: paperSlug, path: nonEmpty, hash: sha256 })),
   announced: nullable(nonEmpty),
   answer: nonEmpty,
   at: isoTime,

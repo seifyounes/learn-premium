@@ -14,7 +14,7 @@
 //            Prints (JSON) every Slip and Divergence the content carries, for the Module wave's merge gate.
 //   tools    --module NN-slug [--content DIR]
 //            Prints (JSON) the Module's Worked examples and tools, for the Module wave's tool assignment. Not a gate.
-//   sitting  --sitting ID [--content DIR]
+//   sitting  --sitting ID [--content DIR] [--course-ref REV]
 //            Prints (JSON) a sitting's content as written, for the Sitting wave: its past papers' questions,
 //            the mocks, the format, the rulings. Not a gate.
 //   shots    --module NN-slug --out DIR [--url URL] [--dist DIR] [--commit SHA] [--content DIR]
@@ -53,6 +53,7 @@ async function main(argv: string[]): Promise<number> {
       point: { type: "string" },
       module: { type: "string" },
       sitting: { type: "string" },
+      "course-ref": { type: "string" },
       content: { type: "string" },
       dist: { type: "string" },
       url: { type: "string" },
@@ -143,7 +144,15 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     case "sitting":
       if (values.sitting === undefined) throw new UsageError("sitting needs --sitting ID");
-      console.log(JSON.stringify(sittingDump(contentDir, values.sitting)));
+      console.log(
+        JSON.stringify(
+          sittingDump(
+            contentDir,
+            values.sitting,
+            values["course-ref"] === undefined ? {} : { courseRef: values["course-ref"] },
+          ),
+        ),
+      );
       return 0;
     case "controls": {
       const result = await runControls({ input, gates: GATES });
