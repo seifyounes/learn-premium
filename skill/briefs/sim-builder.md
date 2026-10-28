@@ -15,6 +15,8 @@ Worked example, Discipline, interaction and tool), and the contract for your too
 - For a schematic sim (a circuit, a ladder, a pneumatic circuit, a control loop), write the Layout hints only (the cell of each
   part, its turn, its label side), never a coordinate. The Figure reading is a Blind reader's, not yours:
   don't redo it. A part count or net count that disagrees with it is a finding, not something to fix.
+  For a state diagram (an FSM, a GRAFCET), the cell of each state or step, the side of each self-loop, and an
+  edge's bow only where the figure bends it; its counts are its states (parts) and edges (nets).
 - Tag every number: `stated`, `derived`, `scaled` or `assumed`. A constant the figure doesn't print is
   `assumed`, and goes in your assumptions.
 - A region you can't read is not a guess: list it as unreadable. The main agent settles it on its crop.

@@ -199,6 +199,8 @@ kinds:
 | `control`          | control       | K·G(s) under unity feedback: poles, exact step, Bode, margins      | K (a pole drags)                  | python-control (build-time oracle)        |
 | `ladder`           | automation    | the Professor's LAD or FBD networks on the S7 core, scan by scan   | the input bits, and time          | awlsim on the compiled STL, every scan    |
 | `pneumatic`        | automation    | an ISO 1219 circuit's lines, spools and pistons, stroke by stroke  | the push buttons, and time        | a walk-back recompute, every step         |
+| `fsm`              | logic         | the Moore state diagram, a clock at a time, a token on its edge    | the inputs, and the clock         | a hand-read lookup table, every state     |
+| `grafcet`          | automation    | the GRAFCET (SFC) by IEC 60848's firing rules, a clock at a time   | the inputs, and the clock         | the firing rules worked by hand           |
 
 - **Gradient descent** (`src/islands/GradientDescentSim.tsx`): its table fills in hand order and
   the red pen rings each new θ. The path moves on the contours of J, and α can diverge.
@@ -412,10 +414,71 @@ button is pressed, comes back to rest and stops, every state of the trace agrees
 engines are each caught where the cycle reaches them) and `timing-key` (the diagram three ways, bit
 for bit, and each key row whole: a key that maps only some steps of a row blocks).
 
+### The state-machine sims (FSM and GRAFCET)
+
+Two kinds share one token engine (`src/sims/state-machine/engine.ts`). An `fsm` is the Professor's
+Moore state diagram: `model.states` (each with the `label` the figure prints, a `kind` of `state` or
+the accepting `state-accepting`, and the outputs it sets in `out`), `edges` labelled with an input
+pattern (one `0`, `1` or `-` per input, several joined by commas), the `initial` state, `inputs`
+(up to three), `outputs`, an optional `encoding` (the state variables and each state's code) and
+`equations` (copied from the Materials, `Q0·x' + Q1·Q0'·x`), and the `stimulus` the Worked example
+clocks, one 0 or 1 per period per input (`x: "011010100"`). A `grafcet` is a GRAFCET (IEC 60848, SFC):
+`step` and the double-square `step-initial` states (id `X` and the step's number), each link's
+receptivity (a Boolean expression over the inputs: `·` AND, `+` OR, `¬`, `/`, `!` or a trailing `'`
+for NOT, `1`), each step's actions in `out`, up to six inputs. The `layout` hints give each state's cell
+(`at`), each self-loop's side (`loop`) and an edge's `bow` only where the figure bends it (a `bend` in
+coarse steps, arcs only); a GRAFCET's return link runs on its `bow` side, the figure's left by
+default; an FSM's start arrow comes from `start` (default left). Like every sim's, the contract has
+no field for a coordinate.
+
+A situation is the set of active states (an FSM's is always one). At each clock every edge whose source
+is active and whose label holds fires at once: the fired edges' sources leave, then their targets
+enter, so a step both left and entered stays active (IEC 60848's rule) and a self-loop stays. An FSM is
+the one-token case. Outputs belong to states and are read in the present situation (Moore), and an
+action is on while its step is active (IEC's continuous N action). One clock is one evolution, as a
+PLC scan runs an SFC; there is no search for a stable situation, so the strip's axis is clock periods,
+never seconds. There are no timers, edges (`↑m`), step variables in receptivities, macro-steps or
+parallel (AND) branches yet: alternative branches must have exclusive receptivities, and the contract
+blocks two that can hold at once, as it blocks an FSM state that doesn't say where an input takes it.
+Equations, when given, must reproduce the diagram on every reachable situation. The engine's
+quantities are the timing strip's bits, named `row[k]`: each input, each state variable (an FSM's
+code bits, a GRAFCET's step activities `X0`…) and each output in each clock period of the example.
+
+The diagram is drawn by the layout core and its curve drawer, never by the router. The
+state-diagram pack (`src/sims/layout/state-diagram.ts`) has four symbols with no pins, since an
+edge meets a state anywhere on its outline: a `state` (a circle), the accepting `state-accepting`
+(the double circle), a `step` (a square, its actions in a box beside it) and the initial
+`step-initial` (the double square). `layOutDiagram` (`src/sims/layout/diagram.ts`) places the states
+with `place` and draws every edge with `curves.ts`: cubic arcs between circles (an opposed pair
+bowed apart by 0.3 of a coarse step unless hinted, any other edge straight unless hinted), a
+self-loop on its hinted side, and orthogonal GRAFCET links with a transition bar, a return link
+running out on its side and entering the step from above. Every edge ends in an arrowhead. An edge
+carries no id and no state name: the check reads each one's ends from the outlines that hold them
+and its label by nearness to the edge, so a redirected edge, a swapped label or a dropped state is
+caught as drawn.
+
+The view (`src/islands/StateMachineSim.tsx`, with `src/islands/sim/state-diagram.tsx`) opens on the
+example's first period. Inputs are toggles; Clock fires one clock with the inputs shown and moves
+them on to the example's next period, so Clock alone plays the example and a toggle deviates from
+it; Reset starts again. A token travels the taken edge in 700 ms (under reduced motion it jumps, and
+no frame loop runs while idle). The table follows: an FSM's state table (its present-state row and the
+cell for the inputs shown, the red pen ringing that cell) or a GRAFCET's transitions (each enabled
+row marked, each firable one ringed), then the equations with each true term inked and its value,
+and the timing strip (`src/islands/sim/timing-diagram.tsx`) growing period by period over the key.
+The controls are 44px, a touch size. Its independent check is a hand-held lookup table for the FSM
+and IEC 60848's rules for the GRAFCET (`fixture-course/tools/recompute-state-machines.py`), which parse no
+label and share nothing with the engine; its log is a recompute log plus a `table`: every situation
+the machine reaches under every combination of its inputs, with where the clock takes it and its
+outputs. Three gates check it: `state-table` (the whole table equals the recompute's, and four
+broken engines are each caught where the example reaches them), `state-diagram` (the Drawing
+gate's half for state diagrams: drawing against model, model against the Blind reader's reading,
+drawing against figure, and nine broken drawings caught on every build) and `timing-key` (the strip
+bit for bit three ways).
+
 ### The layout core
 
-A schematic sim (logic and pneumatics now; circuits, ladder, block diagrams and FSMs to come) is drawn
-by the layout core (`src/sims/layout/`), never by hand. The builder writes the model and its Layout
+A sim's figure (logic, pneumatics and state diagrams now; circuits, ladder and block diagrams to come)
+is drawn by the layout core (`src/sims/layout/`), never by hand. The builder writes the model and its Layout
 hints (`layout`): each part's cell on the figure's coarse grid (`at`, `[column, row]`, to a tenth of
 a step), its `turn` and `flip`, the side its `label` is printed on, and the nets whose joints the
 figure dots (`dots`). The contract has no field for a coordinate and no hand-placed override.
@@ -445,6 +508,13 @@ pack holds only what never moves: a valve's boxes and a cylinder's piston are pu
 pack file (`valveBoxes`, `pairPath`, `cylinderMoving`), drawn over the figure by the island's
 `overlay`, and tested against the engine's own passages, so the drawing can't show what the engine
 doesn't do.
+
+The state-diagram pack (`state-diagram.ts`) has no pins: a state's edges meet its outline anywhere, so
+the router is never used for it. Its edges are drawn by the curve drawer (`curves.ts`: arcs,
+self-loops, GRAFCET links, arrowheads, and the sampling and distances the check reads them back
+with), and `layOutDiagram` (`diagram.ts`) places its states with `place` like any pack's, then draws
+the edges from the hints. A pure function of the model and the hints, so the state-diagram gate checks
+exactly the drawing the page shows.
 
 - `recompute: independent`: the independent recompute logs what it worked out from the Materials in
   the Course's `build-records/recompute/<module>/<name>.json`, and the sim ships live.
@@ -643,6 +713,8 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `ladder`              | job, deploy             | every ladder or FBD sim agrees with its awlsim log bit for bit after every scan of every case; every rung segment powered and unpowered, every timer run out, every counter counted; six broken engines, each caught wherever the cases reach its defect; the sheet three ways, exactly                                                                                                                                                                                    |
 | `pneumatic-cycle`     | job, deploy             | every pneumatic sim stays as drawn at rest, runs the stated sequence once pressed, returns to rest and stops; every state at every step equals the recompute's trace; five broken engines, each caught where the cycle reaches its defect                                                                                                                                                                                                                                  |
 | `timing-key`          | job, deploy             | every timing diagram three ways, bit for bit at every step: engine ≠ recompute blocks, both ≠ the key is a Checkpoint item; a key row is checked whole                                                                                                                                                                                                                                                                                                                     |
+| `state-table`         | job, deploy             | every FSM and GRAFCET sim's whole table, each reachable situation under each input combination, equals the recompute's; four broken engines, each caught where the example reaches it                                                                                                                                                                                                                                                                                      |
+| `state-diagram`       | job, deploy             | the Drawing gate's half for state diagrams: drawing ↔ model with edges read from the curves alone, model ↔ the Blind reader's reading, drawing ↔ figure (arrangement, loop and bow sides, symbols, start arrow); nine broken drawings caught on every build                                                                                                                                                                                                                |
 | `part-checks`         | job, deploy             | every machine part's GLB against its B-rep record (each tagged dimension and the bounding box within 0.01 mm), its volume against the independent sum of the drawing's primitives (0.5 %); a scaled or assumed dimension is a Checkpoint item linking to the viewer                                                                                                                                                                                                        |
 | `drawing`             | job, deploy             | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                                                                                                                                                                                                                                                                                          |
 | `tools`               | job, deploy             | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable                                                                                                                                                                                                                                                                          |

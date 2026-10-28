@@ -83,6 +83,19 @@ Layout (content contract v0):
   push-button valves, air sources), the stated `sequence`, the buttons the example `press`es and the
   `signals` its timing diagram draws. Its log in `build-records/recompute/` carries the recompute's
   `trace` of the cycle.
+- A state-machine sim (`kind: fsm`, Module 14) holds a Moore state diagram as `states` (each with the
+  `label` the figure prints, a `kind` of `state` or the accepting `state-accepting`, and the outputs it
+  sets in `out`) and `edges` labelled with input patterns, with the `initial` state, `inputs`,
+  `outputs`, the state `encoding` and the printed `equations`, and the `stimulus` the Worked example
+  clocks. Its Layout hints give each state's cell and self-loop side (`loop`) and an edge's `bow` where
+  the figure bends it. `build-records/figure/<NN>-<slug>/<name>.json` is the Blind reader's account of
+  the diagram (each state's kind, place, output and loop side, every edge with its printed label and
+  bow, the start arrow), which the `state-diagram` gate checks the model and the drawing against.
+- A GRAFCET sim (`kind: grafcet`, Module 14) holds its steps (`step`, and the double-square
+  `step-initial`; ids `X0`…) and the receptivity on each link as the figure prints it (`m·a`, `b`), each
+  step's actions in `out`, the `inputs` and the `stimulus`. Its log in `build-records/recompute/` carries
+  the recompute's `table` of every reachable situation under every input combination, which the
+  `state-table` gate checks the engine's against.
 - `modules/<NN>-<slug>/parts/<name>.json` (JSON only) and `<name>.py`: one machine part each, its
   build123d script and the dimensions its drawing gives (each between two points on the part, with
   its Provenance tag; `confirmed` once the Owner has ruled on a scaled or assumed one). `<name>.glb`
@@ -174,6 +187,20 @@ groups, switched by the cascade valve CV. W12.1 draws the displacement-step diag
 `timing-key` gate checks three ways; `tools/recompute-cascade.py` walks each line back to the supply
 or an exhaust, apart from the engine. Its figure is synthetic, described by the Blind reader's
 reading in `build-records/figure/12-cascade/`.
+
+Module 14 (state machines) carries the FSM and GRAFCET sims. The detector is a Moore machine that
+watches its input x for 1, 0, 1 with overlaps. Its synthetic figure has S0 at the left middle, its
+self-loop below it and the start arrow coming in from the left; S1 above and S2 below in the middle
+column, S1's self-loop above; S3, the double circle, at the right middle; and the two arcs between S2
+and S3, S2's to S3 bowed below and S3's to S2 above. W14.1 traces it period by period on the input
+0, 1, 1, 0, 1, 0, 1, 0, 0, the key the `timing-key` gate checks three ways against the detector's
+strip. The drill is a GRAFCET: steps 0, 1 and 2 in one column, step 0 a double square, the actions KM1
+and KM2 in boxes on the right of steps 1 and 2, and the return link from step 2 to step 0 running up
+the left. W14.2 traces it on the inputs m, a and b, keyed the same way. `tools/recompute-state-machines.py`
+recomputes both apart from the engine, the detector from a hand-read lookup table and the drill from
+IEC 60848's firing rules, and writes each sim's whole table to its log in `build-records/recompute/`.
+Both figures are synthetic, described by the Blind reader's readings in
+`build-records/figure/14-state-machines/`.
 
 Every string is prose: math is written between `$…$` (inline) or `$$…$$` (display), `\ce{…}`
 renders chemistry, and a literal dollar sign is written `\$`. In JSON every backslash is doubled;
