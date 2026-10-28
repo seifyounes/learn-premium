@@ -6,6 +6,7 @@
 // assignment (`toolProblems`), so a tool no assignment names, or an example left without its tool,
 // can't merge. A tool whose builder can't pass its gates after two fix rounds falls back (`fallback`).
 import { assignmentOf, recordAssignment, recordDiscipline, updateTool } from "../ledger/assignments.ts";
+import { isLinkOnly, LINKS_ONLY } from "../ledger/disciplines.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { recordJob, requireLedger } from "../ledger/ledger.ts";
 import {
@@ -23,11 +24,11 @@ import { FIX_ROUNDS } from "../ledger/fix-loop.ts";
 import {
   builderJob,
   disciplineOf,
+  knownDiscipline,
   nextTool,
   NO_STEP_THROUGH,
-  TOOLKITS,
   toolsFor,
-  type StartingDiscipline,
+  type KnownDiscipline,
   type ToolName,
 } from "./toolkits.ts";
 
@@ -78,11 +79,15 @@ const slug = (name: string) =>
 /** A Discipline's Checkpoint key: `03/discipline/heat-transfer`. */
 export const disciplineKey = (module: string, name: string) => `${module}/discipline/${slug(name)}`;
 
+/** Why a Discipline off the Toolkit's list can't be had mid-build. */
+const ADDED_ONLY_AT_INTAKE =
+  "a Discipline is added only at intake, with its Toolkit (intake.ts toolkit); use a listed one";
+
 /** The question asked about a Discipline the intake didn't list. It names no Materials text. */
 export const disciplineQuestion = (module: string, name: string, onList: boolean) =>
   onList
     ? `Module ${module} needs tools from ${name}, a Discipline this Course's intake didn't list. Add ${name} to this Course?`
-    : `Module ${module} needs tools from "${name}", which the Toolkit doesn't list: adding a Discipline waits for ticket #79.`;
+    : `Module ${module} needs tools from "${name}", which is neither a Toolkit Discipline nor one this Course added at intake: ${ADDED_ONLY_AT_INTAKE}`;
 
 /** The label a Worked example goes by on the site: `W03.1`. */
 export const workedLabel = (module: string, n: string) => `W${module}.${n}`;
@@ -94,11 +99,15 @@ function moduleWave(ledger: Ledger, waveId: string) {
   return wave;
 }
 
-/** Whether the Course may use a Discipline's Toolkit: its intake lists it, or the Owner confirmed it; his latest answer wins. */
-function confirmation(ledger: Ledger, discipline: StartingDiscipline): "confirmed" | "declined" | "unasked" {
-  const answer = current(ledger.disciplines).find((d) => d.name === discipline);
+/**
+ * Whether the Course may use a Discipline's Toolkit: it added the Discipline at intake, its intake lists
+ * it, or the Owner confirmed it; his latest answer wins.
+ */
+function confirmation(ledger: Ledger, known: KnownDiscipline): "confirmed" | "declined" | "unasked" {
+  if (known.added) return "confirmed";
+  const answer = current(ledger.disciplines).find((d) => d.name === known.name);
   if (answer !== undefined) return answer.confirmed ? "confirmed" : "declined";
-  return ledger.intake.disciplines.some((d) => disciplineOf(d) === discipline) ? "confirmed" : "unasked";
+  return ledger.intake.disciplines.some((d) => disciplineOf(d) === known.name) ? "confirmed" : "unasked";
 }
 
 export interface DisciplineAsk {
@@ -156,11 +165,13 @@ function inputProblems(input: AssignmentInput, target: string, waveId: string): 
 }
 
 /** What is wrong with a tool's interaction and Toolkit tool in its Discipline's Toolkit. */
-function toolkitProblem(discipline: StartingDiscipline, tool: AssignmentInput["tools"][number]): string | null {
-  const toolkit = TOOLKITS[discipline];
-  if (Object.keys(toolkit).length === 0)
-    return `${discipline} has no built tool for ${tool.interaction} (tool ${tool.name}): ask the Owner`;
+function toolkitProblem(
+  { name: discipline, toolkit }: Pick<KnownDiscipline, "name" | "toolkit">,
+  tool: AssignmentInput["tools"][number],
+): string | null {
   const list = toolsFor(toolkit, tool.interaction);
+  if (Object.keys(toolkit).length === 0 || list?.length === 0)
+    return `${discipline} has no built tool for ${tool.interaction} (tool ${tool.name}): ask the Owner`;
   if (list === null)
     return `tool ${tool.name}: ${discipline}'s Toolkit has no interaction "${tool.interaction}" (it has ${Object.keys(toolkit).join(", ")})`;
   if (!(list as readonly string[]).includes(tool.tool))
@@ -178,19 +189,24 @@ export function assign(project: string, holder: string, waveId: string, given: u
   const ledger = requireLedger(project);
   const wave = moduleWave(ledger, waveId);
   const problems = inputProblems(input, wave.target, waveId);
-  const resolved = input.tools.map((tool) => ({ tool, discipline: disciplineOf(tool.discipline) }));
-  for (const { tool, discipline } of resolved) {
-    const problem = discipline === null ? null : toolkitProblem(discipline, tool);
+  const resolved = input.tools.map((tool) => ({ tool, known: knownDiscipline(ledger.intake.added, tool.discipline) }));
+  for (const { tool, known } of resolved) {
+    // PhET and Falstad are credited links, so they are no tool of any Discipline's Toolkit.
+    const problem = isLinkOnly(tool.tool)
+      ? `tool ${tool.name}: ${LINKS_ONLY}`
+      : known === null
+        ? null
+        : toolkitProblem(known, tool);
     if (problem !== null) problems.push(problem);
   }
   if (problems.length > 0) throw new LedgerError("invalid", problems.join("; "));
 
   const asks = new Map<string, DisciplineAsk>();
-  for (const { tool, discipline } of resolved) {
-    const state = discipline === null ? "unasked" : confirmation(ledger, discipline);
+  for (const { tool, known } of resolved) {
+    const state = known === null ? "unasked" : confirmation(ledger, known);
     if (state === "confirmed") continue;
-    const name = discipline ?? tool.discipline;
-    const base = disciplineQuestion(wave.target, name, discipline !== null);
+    const name = known?.name ?? tool.discipline;
+    const base = disciplineQuestion(wave.target, name, known !== null);
     const ask = asks.get(name) ?? {
       key: disciplineKey(wave.target, name),
       question:
@@ -236,13 +252,17 @@ export function confirmDiscipline(
   confirmed: boolean,
   answer: string,
 ) {
-  const wave = moduleWave(requireLedger(project), waveId);
-  const discipline = disciplineOf(name);
-  if (discipline === null)
+  const ledger = requireLedger(project);
+  const wave = moduleWave(ledger, waveId);
+  const known = knownDiscipline(ledger.intake.added, name);
+  if (known === null)
     throw new LedgerError(
       "refused",
-      `${name} isn't a Discipline the Toolkit lists: adding a Discipline waits for ticket #79`,
+      `${name} is neither a Toolkit Discipline nor one this Course added at intake: ${ADDED_ONLY_AT_INTAKE}`,
     );
+  if (known.added)
+    throw new LedgerError("refused", `${known.name} was added at intake with its Toolkit: it is already this Course's`);
+  const discipline = known.name;
   recordDiscipline(project, holder, {
     wave: waveId,
     name: discipline,
@@ -255,11 +275,11 @@ export function confirmDiscipline(
 }
 
 /** The tool the wave's `job` falls back to: a sim's step-through, a tool's next Toolkit tool; null when there is none. */
-function fallbackTarget(tool: AssignedTool): string | null {
+function fallbackTarget(ledger: Ledger, tool: AssignedTool): string | null {
   if (tool.job.startsWith("sim-"))
     return tool.ships === STEP_THROUGH || NO_STEP_THROUGH.includes(tool.ships as ToolName) ? null : STEP_THROUGH;
-  const discipline = disciplineOf(tool.discipline);
-  return discipline === null ? null : nextTool(TOOLKITS[discipline], tool.interaction, tool.ships as ToolName);
+  const known = knownDiscipline(ledger.intake.added, tool.discipline);
+  return known === null ? null : nextTool(known.toolkit, tool.interaction, tool.ships as ToolName);
 }
 
 /**
@@ -277,7 +297,7 @@ export function fallback(project: string, holder: string, waveId: string, job: s
       "invalid",
       `${job} isn't a builder job of the wave's tool assignment (sim-<name> or tool-<name>)`,
     );
-  const to = fallbackTarget(row);
+  const to = fallbackTarget(ledger, row);
   if (to === null)
     throw new LedgerError(
       "refused",
