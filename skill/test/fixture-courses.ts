@@ -30,6 +30,8 @@ export function fixtureCourse(
     template?: Record<string, string>;
     /** The Disciplines the intake lists (default: just maths). */
     disciplines?: string[];
+    /** The Disciplines the intake added, each with the Toolkit the Owner confirmed (`test/discipline-fixtures.ts`). */
+    added?: unknown[];
     /** A Module's slug by its number (default: `mNN`). */
     slugs?: Record<string, string>;
   },
@@ -48,6 +50,7 @@ export function fixtureCourse(
     pad,
     arabicNotes: false,
     sittings,
+    ...(options.added === undefined ? {} : { added: options.added }),
   };
   must(
     ledger("init", "--project", project, "--holder", "session-a", "--release", "v2.0.0", "--intake", jsonInput(intake)),

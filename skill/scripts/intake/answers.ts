@@ -1,7 +1,7 @@
 // The intake interview's answers, as one JSON file the agent writes once the Owner has confirmed
 // them: what the Build ledger records (`ledgerIntake`), plus what the course config's Credit line
 // and About page need.
-import { moduleCount, type Intake } from "../ledger/model.ts";
+import { addedDiscipline, moduleCount, type Intake } from "../ledger/model.ts";
 import { arr, bool, fail, isoDate, nonEmpty, nullable, obj, type Infer, type Schema } from "../ledger/schema.ts";
 import { PAD_COLOURS } from "../media/pads.ts";
 
@@ -30,7 +30,7 @@ const disciplines: Schema<string[]> = (v, p) => {
   return list.length > 0 ? list : fail(p, "at least one Discipline (the main one first)", v);
 };
 
-export const answersSchema = obj({
+const answersShape = obj({
   courseName: nonEmpty,
   /** The Course code, for the title block. */
   code: nonEmpty,
@@ -39,6 +39,8 @@ export const answersSchema = obj({
   materialsPath: nonEmpty,
   /** The Owner-confirmed Disciplines, the main one (which picks the pad) first. */
   disciplines,
+  /** The Toolkit the Owner confirmed for each Discipline off the template's list (`intake.ts toolkit`), with his words. */
+  added: arr(addedDiscipline),
   pad,
   arabicNotes: bool,
   /** The Exam sittings known so far; a date only once it is known. */
@@ -52,7 +54,11 @@ export const answersSchema = obj({
   owner: nonEmpty,
 });
 
-export type Answers = Infer<typeof answersSchema>;
+/** Answers written before a Discipline could be added read as adding none. */
+export const answersSchema: Schema<Infer<typeof answersShape>> = (v, p) =>
+  answersShape(typeof v === "object" && v !== null && !Array.isArray(v) ? { added: [], ...v } : v, p);
+
+export type Answers = Infer<typeof answersShape>;
 
 /** The part of the answers the Build ledger records, with the Materials folder as an absolute path. */
 export function ledgerIntake(answers: Answers, materialsPath: string): Intake {
@@ -65,5 +71,6 @@ export function ledgerIntake(answers: Answers, materialsPath: string): Intake {
     arabicNotes,
     sittings: known,
     expectedModules,
+    added: answers.added,
   };
 }

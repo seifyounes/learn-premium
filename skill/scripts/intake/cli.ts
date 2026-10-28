@@ -6,6 +6,7 @@
 import { resolve } from "node:path";
 import { Args, readJson } from "../ledger/args.ts";
 import { LedgerError } from "../ledger/file.ts";
+import { toolkitProposal } from "../ledger/model.ts";
 import { SchemaError } from "../ledger/schema.ts";
 import { DEFAULT_STATE_DIR } from "../media/model.ts";
 import { answersSchema, type Answers } from "./answers.ts";
@@ -16,6 +17,7 @@ import { host } from "./host.ts";
 import { HostingError, realHosting, type Hosting } from "./hosting.ts";
 import { suggestPad } from "./pads.ts";
 import { propose } from "./propose.ts";
+import { checkProposal } from "./toolkit.ts";
 
 export interface RunResult {
   code: number;
@@ -54,6 +56,8 @@ async function dispatch(args: Args, deps: Partial<Deps>): Promise<Output> {
       return { ...findCourse(stateDir(args), args.required("--materials")) };
     case "propose":
       return propose(args.required("--materials"));
+    case "toolkit":
+      return checkProposal(toolkitProposal(readJson(args.required("--input")), "proposal"));
     case "budget":
       return budget(stateDir(args), answers(args));
     case "create":
