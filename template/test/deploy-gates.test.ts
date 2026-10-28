@@ -117,8 +117,8 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     expect(coverage["live-routes"]).toEqual({ routes: pageCount() + 1, hubs: 6 });
     expect(coverage["live-private-paths"]?.["probes"]).toBeGreaterThan(40);
     // The committed Fixture has no card, and with no live URL nothing is asked of YouTube.
-    // Twelve Modules: the pneumatic cascade (Module 12) joins the ten, then the state machines (Module 14).
-    expect(coverage["live-videos"]).toEqual({ courses: 1, modules: 12, cards: 0, probed: 0 });
+    // Thirteen Modules: the mechanisms (Module 11) and the pneumatic cascade (Module 12) join the ten, then the state machines (Module 14).
+    expect(coverage["live-videos"]).toEqual({ courses: 1, modules: 13, cards: 0, probed: 0 });
   });
 
   it("run at their own points only", () => {

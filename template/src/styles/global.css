@@ -2722,7 +2722,8 @@
     touch-action: none;
     cursor: grab;
   }
-  .viewer-label sub {
+  .viewer-label sub,
+  .mechanism-values sub {
     font-size: 12px;
     line-height: 0;
   }

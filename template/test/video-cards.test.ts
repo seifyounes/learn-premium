@@ -73,8 +73,8 @@ describe("the live-videos gate", () => {
   it("passes the committed Fixture Course, which has no card, without a probe", async () => {
     const report = await runLive({ contentDir: FIXTURE_COURSE });
     expect(report.gates[0]?.status).toBe("pass");
-    // Twelve Modules: the pneumatic cascade (Module 12) joins the ten, then the state machines (Module 14).
-    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 12, cards: 0, probed: 0 });
+    // Thirteen Modules: the mechanisms (Module 11) and the pneumatic cascade (Module 12) join the ten, then the state machines (Module 14).
+    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 13, cards: 0, probed: 0 });
   });
 
   it("passes a newly scaffolded Course with no Module yet: nothing to check is not a gate that saw nothing", async () => {
@@ -90,16 +90,16 @@ describe("the live-videos gate", () => {
   it("never asks YouTube without a live URL or a probe, whatever the Course holds", async () => {
     const report = await runLive(coursePlanted());
     expect(report.gates[0]?.status).toBe("pass");
-    // Twelve Modules: the pneumatic cascade (Module 12) joins the ten, then the state machines (Module 14).
-    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 12, cards: 1, probed: 0 });
+    // Thirteen Modules: the mechanisms (Module 11) and the pneumatic cascade (Module 12) join the ten, then the state machines (Module 14).
+    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 13, cards: 1, probed: 0 });
   });
 
   it("passes a card whose video answers 200, and counts it as probed", async () => {
     const { probe, asked } = fakeProbe({ status: 200, title: "T", author: "A" });
     const report = await runLive({ ...coursePlanted(), videoProbe: probe });
     expect(report.gates[0]?.status).toBe("pass");
-    // Twelve Modules: the pneumatic cascade (Module 12) joins the ten, then the state machines (Module 14).
-    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 12, cards: 1, probed: 1 });
+    // Thirteen Modules: the mechanisms (Module 11) and the pneumatic cascade (Module 12) join the ten, then the state machines (Module 14).
+    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 13, cards: 1, probed: 1 });
     expect(asked).toEqual(["abcdefghijk"]);
   });
 
