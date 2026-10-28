@@ -270,7 +270,8 @@ export function raisedItems(project: string, id: string, preview?: string) {
       const canonical = unproven.find((name) => sameDiscipline(name, tool.discipline));
       if (canonical === undefined) continue;
       const where = tool.worked === null ? "Lab" : workedLabel(id, tool.worked);
-      const prefix = tool.tool === "pyodide" ? "python" : tool.tool === "part" ? "part" : "sim";
+      // The Lab's anchor follows what ships (a Pyodide tool that fell back to a part is a part), a step-through is a sim.
+      const prefix = tool.ships === "pyodide" ? "python" : tool.ships === "part" ? "part" : "sim";
       const key = itemKey(id, "unproven", tool.name, [canonical, tool.tool, tool.ships]);
       items.set(key, {
         key,
