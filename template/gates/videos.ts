@@ -18,8 +18,11 @@ export type OembedAnswer = { status: number; title?: string; author?: string } |
 /** How the live gates ask YouTube about a card. */
 export interface VideoProbe {
   oembed(id: string): Promise<OembedAnswer>;
-  /** The video's length in seconds, from its watch page; null when the page doesn't say. */
-  lengthSeconds(id: string): Promise<number | null>;
+  /**
+   * The video's length in seconds, from its watch page; null when the page was read and doesn't say,
+   * and `{ error }` when it couldn't be read (a retry may do).
+   */
+  lengthSeconds(id: string): Promise<number | null | { error: string }>;
 }
 
 /** How long one YouTube request may take before it counts as unanswered. */
@@ -50,10 +53,11 @@ export function youtubeProbe(fetchImpl: typeof fetch = fetch): VideoProbe {
     async lengthSeconds(id) {
       try {
         const response = await fetchImpl(watchUrl(id), { signal: AbortSignal.timeout(REQUEST_MS) });
+        if (!response.ok) return { error: `the watch page answered ${response.status}` };
         const seconds = /"lengthSeconds":"(\d+)"/.exec(await response.text())?.[1];
         return seconds === undefined ? null : Number(seconds);
-      } catch {
-        return null;
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : String(error) };
       }
     },
   };

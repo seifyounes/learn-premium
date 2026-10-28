@@ -1,9 +1,10 @@
 // The YouTube video cards' skill side (`wave.ts videos …`) through the command interface, on a
 // synthetic Course project and Private folder. The template's `videos probe` is faked: no test asks
 // YouTube anything, and every id here is synthetic.
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
@@ -140,6 +141,29 @@ describe("videos verify, one candidate at a time", () => {
     expect(out.error).toMatch(/--id/);
   });
 
+  test("parallel waves ruling videos off at once each keep their entry on the shared list", async () => {
+    const { project, privateFolder } = newCourse();
+    const entry = fileURLToPath(new URL("../scripts/wave.ts", import.meta.url));
+    const together = new URL("./start-together.ts", import.meta.url).href;
+    const startAt = Date.now() + 1500;
+    const ids = ["aaaaaaaaaa1", "aaaaaaaaaa2", "aaaaaaaaaa3", "aaaaaaaaaa4", "aaaaaaaaaa5", "aaaaaaaaaa6"];
+    const codes = await Promise.all(
+      ids.map(
+        (id) =>
+          new Promise<number | null>((resolve) =>
+            spawn(
+              process.execPath,
+              ["--import", together, entry, ...["videos", "never", "--project", project, "--id", id, "--reason", "r"]],
+              { stdio: "ignore", env: { ...process.env, START_AT: String(startAt) } },
+            ).on("close", resolve),
+          ),
+      ),
+    );
+    expect(codes).toEqual(ids.map(() => 0));
+    const list = JSON.parse(readFileSync(join(privateFolder, "youtube/do-not-use.json"), "utf8"));
+    expect(list.videos.map((v: { id: string }) => v.id).sort()).toEqual(ids);
+  });
+
   test.each(["", "   "])("`never` refuses the empty reason %j and leaves the do-not-use list intact", (reason) => {
     const { project, privateFolder } = newCourse();
     const refused = wave(["videos", "never", "--project", project, "--id", A, "--reason", reason]);
@@ -216,6 +240,26 @@ describe("videos verify, one candidate at a time", () => {
     const { code, out } = verify(project, fakeVideos({ [A]: { oembed: { status } } }).videos);
     expect(code).toBe(0);
     expect(out.rejected).toEqual([{ id: A, reasons: [expect.stringMatching(`oEmbed answered ${status}`)] }]);
+  });
+
+  test("a watch page that couldn't be read leaves the candidate waiting: it isn't a page with no length", () => {
+    const { project } = oneCard();
+    const { code, out } = verify(project, fakeVideos({ [A]: { lengthSeconds: { error: "timed out" } } }).videos);
+    expect(code).toBe(1);
+    expect(out.waiting).toEqual([A]);
+    expect(out.rejected).toEqual([]);
+    expect(out.next).toMatch(/watch page couldn't be read: timed out/);
+  });
+
+  test("a dollar sign in YouTube's title or channel is written escaped, so the content's prose reads it literally", () => {
+    const { project } = oneCard();
+    const { out } = verify(
+      project,
+      fakeVideos({ [A]: { oembed: { status: 200, title: "Economics of a $5 price", author: "Cost $ Channel" } } })
+        .videos,
+    );
+    expect(out.cards[0].title).toBe("Economics of a \\$5 price");
+    expect(out.cards[0].channel).toBe("Cost \\$ Channel");
   });
 
   test("a YouTube that can't be asked leaves the candidate waiting, not rejected", () => {

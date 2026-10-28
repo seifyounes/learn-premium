@@ -166,7 +166,14 @@ describe("youtubeProbe", () => {
       throw new Error("offline");
     });
     expect(await probe.oembed("abcdefghijk")).toEqual({ error: "offline" });
-    expect(await probe.lengthSeconds("abcdefghijk")).toBeNull();
+    // A watch page that couldn't be read is not a page with no length: the first may be retried.
+    expect(await probe.lengthSeconds("abcdefghijk")).toEqual({ error: "offline" });
+  });
+
+  it("gives the error, not null, when the watch page answers a throttle", async () => {
+    expect(await youtubeProbe(respond("", 429)).lengthSeconds("abcdefghijk")).toEqual({
+      error: "the watch page answered 429",
+    });
   });
 
   it("reads the length from the watch page, else null", async () => {

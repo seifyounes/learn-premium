@@ -13,7 +13,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
-import { LedgerError } from "../ledger/file.ts";
+import { LedgerError, withMutex } from "../ledger/file.ts";
 import { arr, fail, isoTime, nonEmpty, obj, type Infer } from "../ledger/schema.ts";
 import { readJsonFile, waveFolder } from "./reading.ts";
 
@@ -35,7 +35,8 @@ const MIN_QUOTE_WORDS = 4;
 export interface ProbeAnswer {
   id: string;
   oembed: { status: number; title?: string; author?: string } | { error: string };
-  lengthSeconds: number | null;
+  /** Null: the watch page was read and has no length. `{ error }`: it couldn't be read, so a retry may do. */
+  lengthSeconds: number | null | { error: string };
 }
 
 /** A card as `media.yaml` writes it, as the template lists it. */
@@ -137,11 +138,14 @@ function listNever(privateFolder: string, id: string, reason: string): void {
   // Checked before anything is written: the shared list must never hold an entry its schema rejects.
   youtubeId(id, "id");
   nonEmpty(reason, "reason");
-  const list = readDoNotUse(privateFolder);
-  if (list.videos.some((v) => v.id === id)) return;
-  list.videos.push({ id, reason, at: new Date().toISOString() });
   mkdirSync(join(privateFolder, "youtube"), { recursive: true });
-  writeFileSync(doNotUsePath(privateFolder), `${JSON.stringify(list, null, 2)}\n`);
+  // Parallel Module waves share this list: the read and the write are one step under the file's mutex.
+  withMutex(doNotUsePath(privateFolder), () => {
+    const list = readDoNotUse(privateFolder);
+    if (list.videos.some((v) => v.id === id)) return;
+    list.videos.push({ id, reason, at: new Date().toISOString() });
+    writeFileSync(doNotUsePath(privateFolder), `${JSON.stringify(list, null, 2)}\n`);
+  });
 }
 
 /** Records a video the main agent ruled off the Professor's method: it is never a card, here or in a later wave. */
@@ -151,6 +155,9 @@ export function neverUse(privateFolder: string, id: string, reason: string) {
   listNever(privateFolder, id, reason);
   return { id, reason, listed: readDoNotUse(privateFolder).videos.length };
 }
+
+/** External text as the content's prose format reads it literally: each `$` escaped. */
+const literal = (text: string) => text.replace(/\$/g, "\\$");
 
 /** `m:ss` or `h:mm:ss` → seconds. */
 const secondsOf = (at: string) => at.split(":").reduce((total, part) => total * 60 + Number(part), 0);
@@ -290,6 +297,10 @@ export function verifyVideos(project: string, privateFolder: string, module: str
       reject(c.id, "oEmbed gave no title or channel");
       continue;
     }
+    if (typeof probe.lengthSeconds === "object" && probe.lengthSeconds !== null) {
+      waiting.push({ id: c.id, why: `its watch page couldn't be read: ${probe.lengthSeconds.error}` });
+      continue;
+    }
     if (probe.lengthSeconds === null) {
       reject(c.id, "YouTube's watch page gave no length, so its duration can't be checked");
       continue;
@@ -318,8 +329,9 @@ export function verifyVideos(project: string, privateFolder: string, module: str
     }
     cards.push({
       id: c.id,
-      title,
-      channel: author,
+      // YouTube's words go into content as prose, where `$` opens a formula: `\$` is a literal dollar.
+      title: literal(title),
+      channel: literal(author),
       duration: clockOf(probe.lengthSeconds),
       match: c.match,
       why: c.why,
