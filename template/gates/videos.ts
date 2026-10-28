@@ -6,8 +6,8 @@
 //
 // The probe is the only place that touches YouTube, and it is injectable: tests, `controls` and a
 // pre-merge run give no URL and no probe, so none of them reaches the network.
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { isMap, isSeq, parseDocument } from "yaml";
 import { courseCopy, courseFiles, slashes } from "./course-files.ts";
 import type { Finding, Gate, GateInput, GateReport } from "./runner.ts";
@@ -120,7 +120,8 @@ export function videoCards(input: GateInput): ListedCard[] {
   return cards;
 }
 
-const MEDIA_FILE = /^modules\/[^/]+\/media\.yaml$/;
+/** A Module's media.yaml, written with forward slashes and no `.`, `..` or backslash in the Module's name. */
+const MEDIA_FILE = /^modules\/(?!\.\.?\/)[^/\\]+\/media\.yaml$/;
 const DEAD_MESSAGE = /^([\w-]{11}) is dead: /;
 
 /** The cards the live-videos gate found dead, from a live Gate report: where each sits and its id. */
@@ -144,6 +145,8 @@ export function hideCards(
     // Only a Module's media.yaml: a report says where an item was raised, never a path to trust.
     if (!MEDIA_FILE.test(at)) continue;
     const path = join(contentDir, at);
+    const outside = relative(resolve(contentDir), resolve(path));
+    if (outside.startsWith("..") || isAbsolute(outside) || !existsSync(path)) continue;
     const doc = parseDocument(readFileSync(path, "utf8"));
     const cards = doc.get("youtube", true);
     if (!isSeq(cards)) continue;

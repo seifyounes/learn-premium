@@ -21,6 +21,9 @@ export const HUNT = "learn-premium youtube hunt v1";
 export const VERIFIED = "learn-premium video check v1";
 export const DO_NOT_USE = "learn-premium do-not-use v1";
 
+/** The oEmbed statuses that say a video can't play in a card (the template's live gate reads the same four as dead). */
+const DEAD_STATUSES = new Set([400, 401, 403, 404]);
+
 /** A card ships only at this match, out of 10, to the Professor's method. */
 export const MIN_MATCH = 9;
 /** A moment's quote must be heard this many seconds either side of its timestamp. */
@@ -263,6 +266,12 @@ export function verifyVideos(project: string, privateFolder: string, module: str
     }
     if ("error" in probe.oembed) {
       waiting.push({ id: c.id, why: `YouTube couldn't be asked: ${probe.oembed.error}` });
+      continue;
+    }
+    // Only a status that says the video can't play in a card is a rejection; a throttle or an outage
+    // (429, 5xx…) is no verdict, so the candidate waits for a retry rather than being dropped.
+    if (!DEAD_STATUSES.has(probe.oembed.status) && probe.oembed.status !== 200) {
+      waiting.push({ id: c.id, why: `YouTube answered ${probe.oembed.status}, which says nothing about the video` });
       continue;
     }
     if (probe.oembed.status !== 200) {

@@ -187,6 +187,26 @@ describe("videos verify, one candidate at a time", () => {
     expect(out.cards[0].duration).toBe(written);
   });
 
+  test.each([429, 500, 503])(
+    "oEmbed answering %i is a throttle or an outage: the candidate waits, it isn't rejected",
+    (status) => {
+      const { project } = oneCard();
+      const { code, out } = verify(project, fakeVideos({ [A]: { oembed: { status } } }).videos);
+      expect(code).toBe(1);
+      expect(out.waiting).toEqual([A]);
+      expect(out.rejected).toEqual([]);
+      expect(out.cards).toEqual([]);
+      expect(out.next).toMatch(new RegExp(`${A}: YouTube answered ${status}`));
+    },
+  );
+
+  test.each([400, 403])("oEmbed answering %i rejects the candidate like 401 and 404", (status) => {
+    const { project } = oneCard();
+    const { code, out } = verify(project, fakeVideos({ [A]: { oembed: { status } } }).videos);
+    expect(code).toBe(0);
+    expect(out.rejected).toEqual([{ id: A, reasons: [expect.stringMatching(`oEmbed answered ${status}`)] }]);
+  });
+
   test("a YouTube that can't be asked leaves the candidate waiting, not rejected", () => {
     const { project } = oneCard();
     const { code, out } = verify(project, fakeVideos({ [A]: { oembed: { error: "offline" } } }).videos);

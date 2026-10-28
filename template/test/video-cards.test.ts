@@ -2,7 +2,7 @@
 // synthetic id `abcdefghijk` is planted in a copy of the Fixture Course; the committed Fixture has
 // no card.
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseDocument } from "yaml";
@@ -281,6 +281,25 @@ describe("videos hide", () => {
     expect(hideCards(contentDir, [{ at: "course.yaml", id: "abcdefghijk" }])).toEqual([]);
     expect(hideCards(contentDir, [{ at: "modules/../course.yaml", id: "abcdefghijk" }])).toEqual([]);
     expect(readFileSync(join(contentDir, "course.yaml"), "utf8")).toBe(before);
+  });
+
+  it("refuses a path that climbs out of the content folder, a backslash form included", () => {
+    const contentDir = courseWithTwo();
+    const outside = join(contentDir, "..", `outside-${Date.now()}`);
+    mkdirSync(join(outside), { recursive: true });
+    const planted = join(outside, "media.yaml");
+    writeFileSync(planted, `${CARD}${OTHER}`);
+    const before = readFileSync(planted, "utf8");
+    const name = outside.split(/[\\/]/).at(-1) ?? "";
+    for (const at of [
+      `modules/..\\..\\${name}/media.yaml`,
+      `modules/../../${name}/media.yaml`,
+      `modules/../media.yaml`,
+    ])
+      expect(hideCards(contentDir, [{ at, id: "abcdefghijk" }]), at).toEqual([]);
+    const after = readFileSync(planted, "utf8");
+    rmSync(outside, { recursive: true, force: true });
+    expect(after).toBe(before);
   });
 
   it("the CLI needs --report", () => {
