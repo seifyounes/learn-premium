@@ -44,7 +44,7 @@
     },
     {
       "title": "Contact ratio",
-      "note": "The path of contact along the line of action is $Z = \\sqrt{r_{a1}^2 - r_{b1}^2} + \\sqrt{r_{a2}^2 - r_{b2}^2} - a\\sin\\phi$, with the tip radii $r_a = \\frac{d}{2} + m$, that is $20\\ \\text{mm}$ and $38\\ \\text{mm}$, and the base radii $16.91\\ \\text{mm}$ and $33.83\\ \\text{mm}$. So $Z = 10.67 + 17.31 - 18.47 = 9.51\\ \\text{mm}$. Over the base pitch $p_b = \\pi m\\cos\\phi = 5.904\\ \\text{mm}$ it is $\\varepsilon = \\frac{Z}{p_b} = 1.611$: always at least one pair of teeth in contact, and two for $61\\ \\%$ of the turn.",
+      "note": "The path of contact along the line of action is $Z = \\sqrt{r_{a1}^2 - r_{b1}^2}$ plus $\\sqrt{r_{a2}^2 - r_{b2}^2}$ less $a\\sin\\phi$, with the tip radii $r_a = \\frac{d}{2} + m$, that is $20\\ \\text{mm}$ and $38\\ \\text{mm}$, and the base radii $16.91\\ \\text{mm}$ and $33.83\\ \\text{mm}$. So $Z = 10.67 + 17.31 - 18.47 = 9.51\\ \\text{mm}$. Over the base pitch $p_b = \\pi m\\cos\\phi = 5.904\\ \\text{mm}$ it is $\\varepsilon = \\frac{Z}{p_b} = 1.611$: always at least one pair of teeth in contact, and two for $61\\ \\%$ of the turn.",
       "fill": ["B7"]
     }
   ],

@@ -46,7 +46,7 @@
     },
     {
       "title": "The coupler point",
-      "note": "$P$ sits $60\\ \\text{mm}$ along $AB$ from $A$ and $30\\ \\text{mm}$ to its left: $P = A + 60\\,e^{j\\theta_3} + 30\\,j\\,e^{j\\theta_3}$, so $P_x = 20 + 60\\cos\\theta_3 - 30\\sin\\theta_3 = 67.48\\ \\text{mm}$ and $P_y = 34.64 + 60\\sin\\theta_3 + 30\\cos\\theta_3 = 82.03\\ \\text{mm}$.",
+      "note": "$P$ sits $60\\ \\text{mm}$ along $AB$ from $A$ and $30\\ \\text{mm}$ to its left: $P = A + 60\\,e^{j\\theta_3} + 30\\,j\\,e^{j\\theta_3}$, so $P_x = 20 + 60\\cos\\theta_3$ less $30\\sin\\theta_3$ is $67.48\\ \\text{mm}$, and $P_y = 34.64 + 60\\sin\\theta_3$ plus $30\\cos\\theta_3$ is $82.03\\ \\text{mm}$.",
       "fill": ["B6", "B7"]
     }
   ],
