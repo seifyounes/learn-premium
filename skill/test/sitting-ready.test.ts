@@ -3,7 +3,7 @@
 // test that breaks exactly one thing. The template's gate verify and its content dump are faked.
 import { spawnSync } from "node:child_process";
 import { chmodSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
@@ -58,9 +58,14 @@ interface Sitting {
   tree: string;
   waveId: string;
   calls: Calls;
+  /** The wave runs in the project's own checkout (no worktree of its own). */
+  single?: boolean;
   /** The dump the fake template prints: `head` for the wave's checkout, `main` for the main one. */
   dumps: { head: SittingDump; main: SittingDump };
 }
+
+/** The Materials file the Owner names as the 2025 past paper. */
+const PAPER_FILE = "midterm-2025.pdf";
 
 const REPORT = (point: string, extra: Record<string, unknown> = {}) =>
   JSON.stringify({
@@ -178,7 +183,7 @@ function sittingWave(options: Options = {}): Sitting {
   const calls: Calls = { verified: [] };
   const c: Sitting = { project, privateFolder, tree, waveId, calls, dumps };
   if (papers) {
-    const items = readingItems(dumps.head.papers[0] as DumpPaper, "2025");
+    const items = readingItems(dumps.head.papers[0] as DumpPaper, "2025", PAPER_FILE);
     writeFiles(privateFolder, {
       "sittings/midterm/reading-a.json": JSON.stringify(sittingReading("a", items)),
       "sittings/midterm/reading-b.json": JSON.stringify(sittingReading("b", items)),
@@ -213,8 +218,9 @@ function sittingWave(options: Options = {}): Sitting {
 
 const dumper =
   (c: Sitting): SittingDumper =>
-  (dir) =>
-    dir === c.project ? c.dumps.main : c.dumps.head;
+  (dir, _id, courseRef) =>
+    // A revision's Course config is the base's; the project's own checkout is the base only while the wave has its own worktree.
+    courseRef !== undefined || (resolve(dir) === resolve(c.project) && c.single !== true) ? c.dumps.main : c.dumps.head;
 
 function ready(c: Sitting, red?: string): string[] {
   const { stdout } = runWave(["ready", "--project", c.project, "--wave", c.waveId], {
@@ -340,9 +346,58 @@ describe("what the Owner named", () => {
     writeFileSync(join(materialsOf(c.project), "midterm-2025.pdf"), "the 2025 midterm, edited");
     expect(ready(c)).toEqual([expect.stringMatching(/midterm-2025\.pdf changed since the Owner named it/)]);
   });
+
+  test("a ledger row refreshed to the changed file by another wave doesn't stand in for the hash he named", () => {
+    const c = sittingWave();
+    writeFileSync(join(materialsOf(c.project), "midterm-2025.pdf"), "the 2025 midterm, edited");
+    // A later Module wave takes the changed file in: the ledger's current row now holds the new hash.
+    must(
+      ledger(
+        "wave",
+        "start",
+        "--project",
+        c.project,
+        "--holder",
+        "session-a",
+        "--kind",
+        "module",
+        "--target",
+        "01",
+        "--branch",
+        "module/01-again",
+      ),
+    );
+    expect(ready(c).join("\n")).toMatch(/midterm-2025\.pdf changed since the Owner named it/);
+  });
+
+  test("in the project's own checkout, course.yaml is judged against the base the branch left, not against itself", () => {
+    const c = sittingWave({ head: (d) => ({ ...d, course: { ...d.course, name: "Renamed" } }) });
+    gitIn(c.project, "worktree", "remove", "--force", c.tree);
+    gitIn(c.project, "checkout", "-q", "sitting/midterm");
+    c.single = true;
+    // The ledger and build records live in the project's own checkout here: committed on the branch.
+    gitIn(c.project, "add", "-A");
+    gitIn(c.project, "commit", "-q", "-m", "chore: the ledger on the branch");
+    expect(ready(c)).toEqual([expect.stringMatching(/changes content\/course\.yaml beyond sitting midterm's entry/)]);
+  });
 });
 
 describe("the past papers' settled reading", () => {
+  test("every reading item came from the file the Owner named for its paper", () => {
+    const c = sittingWave();
+    const items = readingItems(c.dumps.head.papers[0] as DumpPaper, "2025", "somewhere-else.pdf");
+    writeFiles(c.privateFolder, {
+      "sittings/midterm/reading-a.json": JSON.stringify(sittingReading("a", items)),
+      "sittings/midterm/reading-b.json": JSON.stringify(sittingReading("b", items)),
+    });
+    expect(runWave(["reconcile", "--project", c.project, "--sitting", "midterm"]).code).toBe(0);
+    expect(ready(c)).toEqual([
+      expect.stringMatching(
+        /past paper "2025" was read from somewhere-else\.pdf, not the file the Owner named for it \(midterm-2025\.pdf\)/,
+      ),
+    ]);
+  });
+
   test("both readers read, and reconcile settles", () => {
     const c = sittingWave();
     rmSync(join(c.privateFolder, "sittings/midterm/reading-b.json"));
@@ -353,7 +408,7 @@ describe("the past papers' settled reading", () => {
 
   test("a settled reading older than its readings is refused, not trusted", () => {
     const c = sittingWave();
-    const items = readingItems(c.dumps.head.papers[0] as DumpPaper, "2025");
+    const items = readingItems(c.dumps.head.papers[0] as DumpPaper, "2025", PAPER_FILE);
     writeFiles(c.privateFolder, {
       "sittings/midterm/reading-a.json": JSON.stringify(sittingReading("a", items.slice(1))),
     });
@@ -438,7 +493,7 @@ describe("the jobs", () => {
     });
     // The solver job is owed.
     const noSolver = sittingWave({ paper: solvedHead });
-    const items = readingItems(noSolver.dumps.head.papers[0] as DumpPaper, "2025");
+    const items = readingItems(noSolver.dumps.head.papers[0] as DumpPaper, "2025", PAPER_FILE);
     expect(ready(noSolver).join("\n")).toMatch(/job solver hasn't been recorded/);
     expect(ready(noSolver).join("\n")).toMatch(/has no Professor key, so the solver must solve and recompute it/);
     // With the solver recorded, the Owner's confirmation of the build's own answers is the open item.
@@ -473,11 +528,13 @@ describe("the jobs", () => {
     expect(items.length).toBeGreaterThan(0);
     const open = checkpoint(noSolver).open;
     expect(open).toHaveLength(1);
+    // An ordinary item: his plain answer is all it takes, and there is no ruling to give.
+    expect(open[0]?.sheet).toBe(false);
     expect(ready(noSolver)).toEqual([
-      expect.stringMatching(
-        /Checkpoint item midterm\/past-papers\/[0-9a-f]{10} is unanswered \(it needs a Slip or Divergence ruling\)/,
-      ),
+      expect.stringMatching(/Checkpoint item midterm\/past-papers\/[0-9a-f]{10} is unanswered$/),
     ]);
+    answer(noSolver, firstOf(open).key, firstOf(open).question);
+    expect(ready(noSolver)).toEqual([]);
   });
 });
 
@@ -541,6 +598,22 @@ describe("the Checkpoint", () => {
     expect(ready(c)).toEqual([]);
   });
 
+  test("a key the answer matches while the recompute differs is ruled on its printed value alone", () => {
+    const c = sittingWave();
+    const both = {
+      ...keyItem,
+      message:
+        "question 1's key prints 0.30 and the answer matches it, but the independent recompute gives 0.25: rule it a Slip or a Divergence",
+    };
+    reportWith(c, "sitting", { checkpointItems: [both] });
+    const item = firstOpen(c);
+    answer(c, item.key, item.question, "divergence");
+    // The ruling is applied: the gate no longer raises it, the content ships it, and his answer covers it.
+    reportWith(c, "sitting", { checkpointItems: [] });
+    c.dumps.head = { ...c.dumps.head, rulings: [{ entry: key, kind: "divergence", printed: [0.3] }] };
+    expect(ready(c)).toEqual([]);
+  });
+
   test("a Slip or Divergence the content ships without his answer on its item is refused", () => {
     const c = sittingWave();
     c.dumps.head = { ...c.dumps.head, rulings: [{ entry: key, kind: "slip", printed: [0.3] }] };
@@ -564,6 +637,22 @@ describe("the Checkpoint", () => {
     expect(ready(c)).toEqual([]);
     c.dumps.head = { ...c.dumps.head, format: { minutes: 25, slots: [{ type: "calculation", marks: 10 }] } };
     expect(checkpoint(c).open.map((i) => i.key)).not.toContain(item.key);
+    expect(ready(c)).toEqual([expect.stringMatching(/Checkpoint item midterm\/announced\/[0-9a-f]{10} is unanswered/)]);
+  });
+
+  test("new words from the Owner about the format ask again, even for the same format.yaml", () => {
+    const c = sittingWave();
+    expect(ready(c)).toEqual([]);
+    must(
+      ownerSaysComplete(c.project, "midterm", {
+        modules: ["01"],
+        papers: [{ slug: "2025", path: "midterm-2025.pdf" }],
+        announced: "Actually a written paper of three questions.",
+      }),
+    );
+    expect(checkpoint(c).open.map((i) => i.question)).toEqual([
+      expect.stringContaining("Actually a written paper of three questions."),
+    ]);
     expect(ready(c)).toEqual([expect.stringMatching(/Checkpoint item midterm\/announced\/[0-9a-f]{10} is unanswered/)]);
   });
 

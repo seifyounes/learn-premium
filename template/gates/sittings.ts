@@ -5,6 +5,7 @@
 // With no `sitting` in the input they check every complete sitting. A sitting with no past papers
 // has Revision only: papers' gates then have nothing to check, and mocks or a format without a
 // paper block.
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -153,14 +154,14 @@ function recomputeOf(
 const numericQuestions = (sheet: Paper | Mock) =>
   sheet.questions.flatMap((q, i) => (q.answer.kind === "numeric" ? [i + 1] : []));
 
-/** The answers of a key-less paper as the Owner is asked to confirm them: a short digest of them. */
+/**
+ * The answers of a key-less paper as the Owner is asked to confirm them: a short digest of every
+ * answer in full (value, unit and tolerance; model answer and each point it earns), so a change to
+ * any of them asks him again.
+ */
 const answersDigest = (paper: Paper) =>
   createHash("sha256")
-    .update(
-      JSON.stringify(
-        paper.questions.map((q, i) => [i + 1, q.answer.kind === "numeric" ? q.answer.value : q.answer.model]),
-      ),
-    )
+    .update(JSON.stringify(paper.questions.map((q, i) => [i + 1, q.marks, q.answer])))
     .digest("hex")
     .slice(0, 10);
 
@@ -220,7 +221,15 @@ async function runPapers(input: GateInput): Promise<GateRun> {
         const answerIsKey = agreesAtPrint(answer, printed);
         const recomputeIsKey = agreesAtPrint(recomputed, printed);
         const computed = printAt(recomputed, printed.decimals).replace("−", "-");
-        if (answerIsKey && recomputeIsKey) return;
+        if (answerIsKey && recomputeIsKey && answerIsRecompute) return;
+        if (answerIsKey && recomputeIsKey) {
+          // Each within one unit of the key's last digit, but on opposite sides of it: the answer the
+          // Exam room grades against and the recompute disagree with each other.
+          block(
+            `question ${n}'s answer ${answer} and the independent recompute ${computed} disagree with each other, though each is within a unit of the key ${printed.written}`,
+          );
+          return;
+        }
         const ruling = (counts: Map<number, number>) => take(counts, Math.abs(printed.value));
         if (answerIsRecompute) {
           // The answer follows the recompute and the key prints something else: the Professor's call.
@@ -708,16 +717,28 @@ export interface SittingDump {
 const objectOf = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 
+/** course.yaml as `ref` has it, from the repo the content folder sits in. */
+function courseAt(contentDir: string, ref: string): string {
+  const shown = spawnSync("git", ["-C", contentDir, "show", `${ref}:./course.yaml`], { encoding: "utf8" });
+  if (shown.status !== 0) throw new Error(`can't read course.yaml at ${ref}: ${shown.stderr.trim()}`);
+  return shown.stdout;
+}
+
 /**
  * What the Sitting wave reads of a sitting's content, raw (no schema defaults, no rendering): the
  * papers' questions by number with their text, marks and keys, the mocks' patterns, the format, and
  * the rulings the papers and mocks carry. The skill's scripts carry no YAML parser, so the template
  * reads it, and the skill holds the papers to the settled reading with it.
  */
-export function sittingDump(contentDir: string, id: string): SittingDump {
+export function sittingDump(contentDir: string, id: string, options: { courseRef?: string } = {}): SittingDump {
   const read = (entry: string) =>
     objectOf(readStructured(readFileSync(join(contentDir, entry), "utf8"), entry, ignoreMath));
-  const course = read("course.yaml");
+  // `courseRef`: read course.yaml as the revision has it (the base a single-checkout wave left), so a
+  // wave can't pass its own edit of the Course config off as the base's.
+  const course =
+    options.courseRef === undefined
+      ? read("course.yaml")
+      : objectOf(readStructured(courseAt(contentDir, options.courseRef), "course.yaml", ignoreMath));
   const sittings = Array.isArray(course["sittings"]) ? course["sittings"].map(objectOf) : [];
   const files = (folder: string) => filesIn(contentDir, PATTERN(id, folder), () => true);
   const papers = files("papers").map(({ entry }) => {

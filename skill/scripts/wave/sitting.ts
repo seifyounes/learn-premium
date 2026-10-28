@@ -25,18 +25,18 @@ import {
   sittingFolder,
   type ReadItem,
 } from "./reading.ts";
-import { inventoryProblems, sittingTree, treeProblems, waveTree } from "./tree.ts";
+import { inventoryProblems, MAIN_BRANCH, sittingTree, treeProblems, waveTree, type WaveTree } from "./tree.ts";
 import {
   checkedOutBranch,
   classifyItems,
   gateCli,
   gateItemKey,
+  isSheetItem,
   hookInstalled,
   integrityProblem,
   markdownOf,
   moduleFolder,
   readReport,
-  SHEET_GATES,
   unruled,
   type CheckpointItem,
   type CheckpointState,
@@ -93,11 +93,19 @@ const dumpSchema = obj({
 export type SittingDump = ReturnType<typeof dumpSchema>;
 export type DumpPaper = SittingDump["papers"][number];
 /** Reads a sitting's content as written, in a checkout of the Course project (a seam: faked in tests). */
-export type SittingDumper = (dir: string, id: string) => SittingDump | string;
+export type SittingDumper = (dir: string, id: string, courseRef?: string) => SittingDump | string;
 
-/** Runs the Course project's own template layer: `node template/gates/cli.ts sitting --sitting ID`. */
-export const templateDump: SittingDumper = (dir, id) => {
-  const run = gateCli(dir, ["sitting", "--sitting", id]);
+/**
+ * Runs the Course project's own template layer: `node template/gates/cli.ts sitting --sitting ID`.
+ * With `courseRef` the Course config is read as that git revision has it.
+ */
+export const templateDump: SittingDumper = (dir, id, courseRef) => {
+  const run = gateCli(dir, [
+    "sitting",
+    "--sitting",
+    id,
+    ...(courseRef === undefined ? [] : ["--course-ref", courseRef]),
+  ]);
   if (!run.ok) return `the template can't read sitting ${id}'s content: ${run.said.join("; ")}`;
   try {
     return dumpSchema(JSON.parse(run.out), "the sitting dump");
@@ -125,6 +133,9 @@ export const SOLVER_JOB = "solver";
 
 const quoted = (list: readonly string[]) => list.map((s) => `"${s}"`).join(", ");
 
+/** A key as printed: whitespace aside, character for character, so `0.250` isn't `0.25` (its precision is the key's). */
+const sameKey = (a: string, b: string) => a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " ");
+
 /**
  * How the content's past papers differ from the settled reading of the Materials: a paper the
  * reading or the content lacks, a question count, order, text (whitespace aside), marks, key (a key
@@ -133,7 +144,12 @@ const quoted = (list: readonly string[]) => list.map((s) => `"${s}"`).join(", ")
  * mismatch. Question n of the content is the n-th question the reading names, in the order it first
  * names them, which is the paper's own order.
  */
-export function faithfulProblems(papers: readonly DumpPaper[], settled: readonly ReadItem[]): string[] {
+export function faithfulProblems(
+  papers: readonly DumpPaper[],
+  settled: readonly ReadItem[],
+  /** Each named paper's Materials file by its name: an item read from any other file is refused. */
+  files: Readonly<Record<string, string>> = {},
+): string[] {
   const problems: string[] = [];
   const bySlug = new Map<string, ReadItem[]>();
   for (const item of settled) {
@@ -148,6 +164,14 @@ export function faithfulProblems(papers: readonly DumpPaper[], settled: readonly
     if (items === undefined) {
       problems.push(`the content has a past paper "${paper.name}" that no Blind reader read: a paper is never made up`);
       continue;
+    }
+    const path = files[paper.name];
+    if (path !== undefined) {
+      const elsewhere = [...new Set(items.filter((i) => i.file !== path).map((i) => i.file))];
+      if (elsewhere.length > 0)
+        problems.push(
+          `past paper "${paper.name}" was read from ${elsewhere.join(", ")}, not the file the Owner named for it (${path})`,
+        );
     }
     const find = (rest: string) => items.find((i) => i.key === `${paper.name}/${rest}`);
     const labels = [...new Set(items.flatMap((i) => /^[^/]+\/q([^/]+)\//.exec(i.key)?.[1] ?? []))];
@@ -175,7 +199,7 @@ export function faithfulProblems(papers: readonly DumpPaper[], settled: readonly
         problems.push(`${at}: the Professor's paper prints a key, which the content doesn't carry`);
       else if (key === undefined && printsKey)
         problems.push(`${at}: the content carries a key (${q.key}) that the Professor's paper doesn't print`);
-      else if (key?.value != null && q.key !== null && !same(key.value, q.key))
+      else if (key?.value != null && q.key !== null && !sameKey(key.value, q.key))
         problems.push(`${at}: the content's key ${q.key} isn't the Professor's printed ${key.value}`);
     });
     for (const [rest, label, given] of [
@@ -273,7 +297,7 @@ export function sittingReadyProblems(
   if (typeof head === "string") problems.push(head);
   else {
     content = head;
-    problems.push(...contentProblems(project, dir, id, row, head, folders, dump));
+    problems.push(...contentProblems(project, tree, id, row, head, folders, dump));
   }
   const withPapers = row.papers.length > 0;
 
@@ -291,7 +315,13 @@ export function sittingReadyProblems(
     if (stale !== null) problems.push(stale);
     else if (content !== null) {
       try {
-        problems.push(...faithfulProblems(content.papers, settledSittingReading(privateFolder, id)));
+        problems.push(
+          ...faithfulProblems(
+            content.papers,
+            settledSittingReading(privateFolder, id),
+            Object.fromEntries(row.papers.map((p) => [p.slug, p.path])),
+          ),
+        );
       } catch (error) {
         if (!(error instanceof LedgerError)) throw error;
         problems.push(error.message);
@@ -345,11 +375,11 @@ export function sittingReadyProblems(
     );
   if (integrity.intact && content !== null) problems.push(...unruled(ledger, id, content.rulings));
 
-  // 9. The past papers are the files the Owner named, as the wave took them in.
+  // 9. The past papers are the files the Owner named, as they were when he named them: the hash
+  // recorded with his word, never the ledger's current row, which a later Module wave may refresh.
   const onDisk = hashTree(ledger.intake.materialsPath);
   for (const paper of row.papers) {
-    const held = current(ledger.materials).find((m) => m.path === paper.path);
-    if (held === undefined || onDisk[paper.path] !== held.hash)
+    if (onDisk[paper.path] !== paper.hash)
       problems.push(
         `${paper.path} changed since the Owner named it${onDisk[paper.path] === undefined ? " (it was deleted)" : ""}: end the wave failed and start a fresh one`,
       );
@@ -360,7 +390,7 @@ export function sittingReadyProblems(
 /** Checks 3 and 4: what HEAD's content says against the Owner's word and against `main`. */
 function contentProblems(
   project: string,
-  dir: string,
+  tree: WaveTree,
   id: string,
   row: SittingComplete,
   head: SittingDump,
@@ -379,8 +409,12 @@ function contentProblems(
         `sitting ${id} covers ${listed.join(", ") || "no Module"} in content/course.yaml; the Owner named ${folders.join(", ")}`,
       );
   }
-  // main's Course config, but for this sitting's entry, is what the wave must leave.
-  const main = dir === project ? head : dump(project, id);
+  // main's Course config, but for this sitting's entry, is what the wave must leave. A wave in the
+  // project's own checkout reads it as the revision the branch left `main` at has it.
+  const base = !tree.linked
+    ? spawnSync("git", ["-C", project, "merge-base", MAIN_BRANCH, "HEAD"], { encoding: "utf8" })
+    : null;
+  const main = tree.linked ? dump(project, id) : base?.status === 0 ? dump(project, id, base.stdout.trim()) : head;
   if (typeof main === "string") problems.push(main);
   else if (!isDeepStrictEqual(withoutSitting(head.course, id), withoutSitting(main.course, id)))
     problems.push(
@@ -435,7 +469,7 @@ export function sittingCheckpoint(
         kind: "gate",
         question: item.at === undefined ? item.message : `${item.at}: ${item.message}`,
         gate: item.gate,
-        sheet: SHEET_GATES.has(item.gate),
+        sheet: isSheetItem(item),
         ...(base !== null && item.spot !== undefined ? { link: `${base}${item.spot}` } : {}),
       });
     }
@@ -457,7 +491,11 @@ export function sittingCheckpoint(
   }
   const row = completeRow(ledger, id);
   if (row?.announced != null && content?.format != null) {
-    const hash = createHash("sha256").update(JSON.stringify(content.format)).digest("hex").slice(0, 10);
+    // Bound to the Owner's words as well as the format: new words ask again, even for the same format.
+    const hash = createHash("sha256")
+      .update(JSON.stringify([row.announced, content.format]))
+      .digest("hex")
+      .slice(0, 10);
     const key = `${id}/announced/${hash}`;
     items.set(key, {
       key,

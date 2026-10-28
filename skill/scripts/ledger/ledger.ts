@@ -326,6 +326,11 @@ export function completeSitting(project: string, holder: string, input: SittingC
   mutate(project, holder, (ledger) => {
     if (!ledger.intake.sittings.some((s) => s.id === input.sitting))
       throw new LedgerError("invalid", `no Exam sitting "${input.sitting}" in the intake answers`);
+    if (input.announced !== null && input.papers.length === 0)
+      throw new LedgerError(
+        "invalid",
+        `sitting ${input.sitting} has an announced format but no past paper: the mocks and the format are matched to the papers, so name them (or leave the format out for a Revision-only sitting)`,
+      );
     if (input.modules.length === 0)
       throw new LedgerError("invalid", `sitting ${input.sitting} covers no Module: name at least one`);
     const modules = current(ledger.modules);
@@ -335,17 +340,22 @@ export function completeSitting(project: string, holder: string, input: SittingC
         throw new LedgerError("invalid", `Module ${id} is listed twice`);
     }
     const materials = new Set(current(ledger.materials).map((m) => m.path));
+    // The hash of each file as it is on disk now: the file the Owner named, which the wave is held to.
+    const onDisk = hashTree(ledger.intake.materialsPath);
     const slugs = new Set<string>();
-    for (const { slug, path } of input.papers) {
+    const papers = input.papers.map(({ slug, path }) => {
       if (slugs.has(slug)) throw new LedgerError("invalid", `the past paper name "${slug}" is used twice`);
       slugs.add(slug);
-      if (!materials.has(path)) throw new LedgerError("invalid", `${path} isn't a Materials file in the Module map`);
-    }
+      const hash = onDisk[path];
+      if (!materials.has(path) || hash === undefined)
+        throw new LedgerError("invalid", `${path} isn't a Materials file in the Module map`);
+      return { slug, path, hash };
+    });
     const at = now();
     for (const row of current(ledger.sittingsComplete)) {
       if (row.sitting === input.sitting) row.superseded = { at, reason: "the Owner said it again" };
     }
-    ledger.sittingsComplete.push({ ...input, at, superseded: null });
+    ledger.sittingsComplete.push({ ...input, papers, at, superseded: null });
   });
 }
 

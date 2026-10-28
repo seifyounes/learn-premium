@@ -182,6 +182,17 @@ describe("past-papers on content planted with a defect", () => {
     );
     expect(changed).toHaveLength(1);
     expect(changed[0]).not.toBe(found[0]);
+    // So is a change to what only the rubric or the unit says: the Owner confirms the whole answer.
+    const solved = (edit: (s: string) => string) =>
+      messages(
+        fixtureWith(PAPER, (s) => edit(s.replace("key: professor", "key: solved").replaceAll(/, key: '[^']*'/g, ""))),
+      );
+    const earns = await solved((s) =>
+      s.replace("The same $\\dot{Q}$ crosses every layer in series.", "Heat is the same in every layer."),
+    );
+    expect(earns[0]).not.toBe(found[0]);
+    const tolerance = await solved((s) => s.replace("tolerance: 0.005 }", "tolerance: 0.01 }"));
+    expect(tolerance[0]).not.toBe(found[0]);
   });
 
   it("blocks a solved paper whose answer differs from the recompute by more than its tolerance", async () => {
@@ -193,6 +204,23 @@ describe("past-papers on content planted with a defect", () => {
     );
     expect((await messages(course)).filter((m) => m.startsWith("block:"))).toEqual([
       expect.stringMatching(/question 1's answer 0.3 and the independent recompute 0.25 differ/),
+    ]);
+  });
+
+  it("blocks an answer and a recompute on opposite sides of the key, each a unit from it", async () => {
+    const recompute = (s: string) => {
+      const log = JSON.parse(s) as { answers: Record<string, number> };
+      return JSON.stringify({ ...log, answers: { ...log.answers, "1": 0.26 } });
+    };
+    const course = fixtureWith(
+      "build-records/recompute/sittings/midterm/2025.json",
+      recompute,
+      fixtureWith(PAPER, (s) => s.replace("value: 0.25, unit: K/W", "value: 0.24, unit: K/W")),
+    );
+    expect(await messages(course)).toEqual([
+      expect.stringMatching(
+        /^block: question 1's answer 0.24 and the independent recompute 0.26 disagree with each other/,
+      ),
     ]);
   });
 
