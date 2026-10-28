@@ -107,6 +107,13 @@ every net with whether the figure dots its joints. The Drawing gate checks the m
 drawing against it. Kept in the Course's build records beside the recompute logs.
 _Avoid_: facts file, netlist (alone)
 
+**Timing diagram**:
+A sim's run drawn step by step from its engine: each actuator's position at every step line and each
+signal's level during every step (a pneumatic circuit's displacement-step diagram with its group
+lines; later an FSM's timing strip). It is drawn over the key, the Worked example's own diagram, and
+gated against it bit for bit.
+_Avoid_: chart, waveform (alone)
+
 **Pilot course**:
 The Course whose v1 build is rebuilt first in v2 to prove the new pipeline end to end.
 Currently Machine Learning.
