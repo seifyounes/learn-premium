@@ -73,6 +73,8 @@ describe("the first gates on the Fixture Course", () => {
       "state-diagram",
       "drawing",
       "part-checks",
+      "kinematics",
+      "gear-interference",
       "tools",
     ]);
     expect(gate(job, "content-contract")?.coverage).toEqual({
@@ -124,6 +126,8 @@ describe("the first gates on the Fixture Course", () => {
       "state-diagram",
       "drawing",
       "part-checks",
+      "kinematics",
+      "gear-interference",
       "tools",
       "rendered-page-scan",
       "pyodide",
@@ -136,9 +140,9 @@ describe("the first gates on the Fixture Course", () => {
       "licences-file",
     ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
-    // Home, twelve Modules, Master Rules, Lab, About, the complete sitting's Revision, its Exam room and
+    // Home, thirteen Modules, Master Rules, Lab, About, the complete sitting's Revision, its Exam room and
     // the three papers' pages, and the Tool gallery.
-    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(22);
+    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(23);
   });
 
   it("each ship a negative control that they catch, and pass their positive fixture", async () => {
@@ -297,8 +301,9 @@ describe("the content gates", () => {
 
   it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
-    // Every content gate: the sixteen, and the pneumatic-cycle, timing-key, state-table and state-diagram gates.
-    expect(report.gates.map((g) => g.status)).toEqual(Array(20).fill("failed"));
+    // Every content gate: the sixteen, the pneumatic-cycle, timing-key, state-table and state-diagram gates, and the
+    // kinematics and gear-interference gates.
+    expect(report.gates.map((g) => g.status)).toEqual(Array(22).fill("failed"));
   });
 });
 
