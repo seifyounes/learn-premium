@@ -22,6 +22,7 @@ import {
   supersede,
   verifyIntegrity,
 } from "./ledger.ts";
+import { recordProven } from "./assignments.ts";
 import { markDone, recordGateGap } from "./gate-gaps.ts";
 import {
   commitSha,
@@ -103,6 +104,8 @@ function dispatch(args: Args): Output {
       return { ...diff(project) };
     case "status":
       return status(project);
+    case "proven":
+      return recordProven(project, args.required("--holder"), args.required("--discipline"), args.required("--answer"));
     default:
       throw new LedgerError("invalid", `unknown command: ${command}`);
   }

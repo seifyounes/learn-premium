@@ -3,10 +3,11 @@
 // rounds, the merge gate's check of the content against the assignment and the build report. Run on
 // the Fixture Course's Module 03 (gradient descent): its live sim, its step-through sim and its
 // Pyodide tool, with no git, no template and no Materials.
-import { readFileSync, rmSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { afterEach, describe, expect, test } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { CATALOGUE } from "../scripts/intake/pads.ts";
+import { unprovenDisciplines } from "../scripts/ledger/disciplines.ts";
 import { requireLedger } from "../scripts/ledger/ledger.ts";
 import { toolProblems, type ToolInventory } from "../scripts/wave/assign.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
@@ -20,7 +21,7 @@ import {
   TOOLKITS,
 } from "../scripts/wave/toolkits.ts";
 import { addedCourse } from "./discipline-fixtures.ts";
-import { EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-courses.ts";
+import { COMMIT, EMPTY_INVENTORY, fixtureCourse, materialsOf } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { jsonInput, ledger, writeFiles, type Result } from "./helpers.ts";
 
@@ -388,28 +389,27 @@ describe("a tool in a Discipline the Course didn't list", () => {
   });
 });
 
-describe("a tool in a Discipline added at intake", () => {
-  /** The Course whose intake added Electric machines, with Module 03's wave running. */
-  function electric() {
-    const project = addedCourse();
-    const { wave: waveId } = must(
-      ledger("wave", "start", ...holder(project), "--kind", "module", "--target", "03", "--branch", "module/03"),
-    );
-    return { project, waveId: waveId as string };
-  }
-  const motor = (name: string, interaction: string, tool: string) => ({
-    name,
-    worked: null,
-    discipline: "Electric machines",
-    interaction,
-    tool,
+/** The Course whose intake added Electric machines, with Module `target`'s wave running (`project` is given to reuse a Course). */
+function electric(target = "03", project = addedCourse()) {
+  const { wave: waveId } = must(
+    ledger("wave", "start", ...holder(project), "--kind", "module", "--target", target, "--branch", `module/${target}`),
+  );
+  return { project, waveId: waveId as string };
+}
+const motor = (name: string, interaction: string, tool: string) => ({
+  name,
+  worked: null,
+  discipline: "Electric machines",
+  interaction,
+  tool,
+});
+/** Module 03's assignment with Lab-only tools of Electric machines added. */
+const withMotor = (...tools: ReturnType<typeof motor>[]) =>
+  assignment((a) => {
+    a.tools.push(...(tools as unknown as typeof a.tools));
   });
-  /** Module 03's assignment with Lab-only tools of Electric machines added. */
-  const withMotor = (...tools: ReturnType<typeof motor>[]) =>
-    assignment((a) => {
-      a.tools.push(...(tools as unknown as typeof a.tools));
-    });
 
+describe("a tool in a Discipline added at intake", () => {
   test("is assigned without asking: the Course's own Toolkit lists it", () => {
     const { project, waveId } = electric();
 
@@ -1401,5 +1401,144 @@ describe("what a builder's counts and an STL replay mean to the merge gate", () 
     expect(text).toMatch(
       /\| descent \| .* \| gradient-descent \| step-through \(fell back from gradient-descent\) \| sim-descent \|/,
     );
+  });
+});
+
+describe("a Discipline added at intake is unproven until the Owner says it met the bar", () => {
+  const checkpointOf = (project: string, module = "03") =>
+    wave(["checkpoint", "--project", project, "--module", module]);
+  const unprovenItems = (project: string, module = "03") =>
+    (checkpointOf(project, module).out.open as { kind: string; key: string; question: string }[]).filter(
+      (i) => i.kind === "unproven",
+    );
+  const proven = (project: string, discipline: string, answer = "Yes: it read as the Materials do.") =>
+    ledger("proven", ...holder(project), "--discipline", discipline, "--answer", answer);
+  const report = (project: string) => readFileSync(`${project}/build-records/build-report.md`, "utf8");
+  /** Electric machines' wave with Module 03's tools and a Lab-only starter of Electric machines assigned. */
+  function assignedElectric() {
+    const course = electric();
+    must(assignWave(course.project, course.waveId, withMotor(motor("starter", "motor starting sequence", "ladder"))));
+    return course;
+  }
+
+  test("each tool of an unproven Discipline is a Checkpoint item for the Owner's review", () => {
+    const { project, waveId } = assignedElectric();
+
+    const items = unprovenItems(project);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.question).toContain("Lab: tool starter is built for Electric machines");
+    expect(items[0]?.question).toContain("hasn't proven yet");
+    expect(items.some((i) => i.question.includes("descent"))).toBe(false);
+    // Answered under its key, it is no longer open.
+    must(
+      ledger(
+        ...["record", "checkpoint", ...holder(project), "--wave", waveId],
+        ...["--key", items[0]?.key ?? "", "--question", items[0]?.question ?? "", "--answer", "Reads fine."],
+      ),
+    );
+    expect(unprovenItems(project)).toEqual([]);
+  });
+
+  test("a tool the Course's registry Disciplines build raises no such item (negative control)", () => {
+    const { project, waveId } = electric();
+    must(assignWave(project, waveId, ASSIGNMENT));
+
+    expect(unprovenItems(project)).toEqual([]);
+  });
+
+  test("a changed tool asks again: what a tool ships is part of its key", () => {
+    const { project, waveId } = assignedElectric();
+    const [first] = unprovenItems(project);
+    must(
+      assignWave(
+        project,
+        waveId,
+        withMotor(motor("starter", "motor starting sequence", "ladder"), motor("eq", "motor equations", "pyodide")),
+      ),
+    );
+    blockThrice(project, waveId, "tool-eq");
+    must(fallBack(project, waveId, "tool-eq"));
+
+    const keys = unprovenItems(project).map((i) => i.key);
+
+    expect(keys).toHaveLength(2);
+    expect(keys).toContain(first?.key);
+  });
+
+  test("the build report flags an added Discipline unproven until the Owner's word that it met the bar", () => {
+    const { project, waveId } = assignedElectric();
+
+    const before = report(project);
+    const tooSoon = proven(project, "Electric machines");
+    must(ledger("wave", "end", ...holder(project), "--wave", waveId, "--result", "merged", "--commit", COMMIT));
+    const unwitnessed = unprovenDisciplines(requireLedger(project));
+    const said = proven(project, "Electric machines", "Yes: the ladder sim and its starting sequence are right.");
+    const after = report(project);
+
+    expect(before).toContain("## Disciplines added at intake");
+    expect(before).toContain("Electric machines: unproven");
+    expect(before).toContain("Nearest listed Discipline: Electric circuits.");
+    expect(before).toContain("| Electric machines (unproven) |");
+    expect(before).toContain("Motor Lab (passes all five); Desmos (fails: embeddable)");
+    expect(before).toContain("Motor Lab: the template doesn't ship it yet, so ladder is built meanwhile");
+    expect(tooSoon.code).toBe(3);
+    expect(tooSoon.out.error).toContain("has no merged Module with its tools yet");
+    expect(unwitnessed).toEqual(["Electric machines"]);
+    expect(said).toMatchObject({ code: 0, out: { discipline: "Electric machines" } });
+    expect(after).toMatch(/Electric machines: proven \d{4}-\d\d-\d\dT[^ ]* \(the Owner's word\)\./);
+    expect(after).not.toContain("(unproven)");
+    expect(after).not.toContain("unproven:");
+    // The Owner's words and the candidates' evidence stay in the ledger, never in the report.
+    expect(after).not.toContain("ladder sim and its starting sequence are right");
+    expect(after).not.toContain("paid Commercial Tier");
+  });
+
+  test("a ledger made before Disciplines could be added still reads: none added, none proven", () => {
+    const project = addedCourse();
+    const file = `${project}/build-ledger.json`;
+    const old = JSON.parse(readFileSync(file, "utf8"));
+    delete old.proven;
+    delete old.intake.added;
+    writeFileSync(file, JSON.stringify(old));
+
+    const ledgerNow = requireLedger(project);
+
+    expect(ledgerNow.proven).toEqual([]);
+    expect(ledgerNow.intake.added).toEqual([]);
+    expect(ledger("status", "--project", project).code).toBe(0);
+  });
+
+  test("his word again supersedes the earlier one", () => {
+    const { project, waveId } = assignedElectric();
+    must(ledger("wave", "end", ...holder(project), "--wave", waveId, "--result", "merged", "--commit", COMMIT));
+    must(proven(project, "electric machines", "first word"));
+    must(proven(project, "Electric machines", "second word"));
+
+    const rows = requireLedger(project).proven;
+
+    expect(rows.map((r) => [r.answer, r.superseded === null])).toEqual([
+      ["first word", false],
+      ["second word", true],
+    ]);
+  });
+
+  test("a later Module's tools of a proven Discipline raise no item, and a registry or unknown Discipline can't be proven (exit 2)", () => {
+    const { project, waveId } = assignedElectric();
+    must(ledger("wave", "end", ...holder(project), "--wave", waveId, "--result", "merged", "--commit", COMMIT));
+    must(proven(project, "Electric machines"));
+    const next = electric("04", project);
+    must(
+      assignWave(project, next.waveId, {
+        module: "04",
+        worked: [],
+        tools: [motor("starter", "motor starting sequence", "ladder")],
+      }),
+    );
+
+    expect(unprovenItems(project, "04")).toEqual([]);
+    expect(proven(project, "Machine learning").code).toBe(2);
+    expect(proven(project, "Power systems").code).toBe(2);
+    expect(proven(project, "Machine learning").out.error).toContain("only an added Discipline is flagged unproven");
   });
 });

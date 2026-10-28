@@ -11,13 +11,15 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { HOOKS_PATH, privateFolderOf } from "../intake/create.ts";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
+import { assignmentOf } from "../ledger/assignments.ts";
+import { sameDiscipline, unprovenDisciplines } from "../ledger/disciplines.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
 import { requireLedger, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
 import { staleProblems } from "./fresh.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
-import { toolInventorySchema, toolProblems, type ToolInventory } from "./assign.ts";
+import { toolInventorySchema, toolProblems, workedLabel, type ToolInventory } from "./assign.ts";
 import { relaunchProblems } from "./relaunch.ts";
 import { sittingReadyProblems, type SittingDumper } from "./sitting.ts";
 import { REVIEW_JOB, reviewReadyProblems } from "./review.ts";
@@ -159,7 +161,7 @@ export const STYLE_SHEET_FILE = "style-sheet.yaml";
 
 export interface CheckpointItem {
   key: string;
-  kind: "gate" | "unreadable" | "conflict" | "job";
+  kind: "gate" | "unreadable" | "conflict" | "job" | "unproven";
   question: string;
   /** For a gate's item: the gate, and whether it is a sheet-vs-recompute item needing a ruling. */
   gate?: string;
@@ -260,6 +262,24 @@ export function raisedItems(project: string, id: string, preview?: string) {
       question: `The ${job.job} job needs the Owner: ${job.detail ?? "(it recorded no detail; ask the job what it needs)"}`,
       sheet: false,
     });
+  }
+  // Each tool of a Discipline this Course added at intake and hasn't proven yet is the Owner's to review.
+  const unproven = unprovenDisciplines(ledger);
+  for (const w of running) {
+    for (const tool of assignmentOf(ledger, w.id)?.tools ?? []) {
+      const canonical = unproven.find((name) => sameDiscipline(name, tool.discipline));
+      if (canonical === undefined) continue;
+      const where = tool.worked === null ? "Lab" : workedLabel(id, tool.worked);
+      const prefix = tool.tool === "pyodide" ? "python" : tool.tool === "part" ? "part" : "sim";
+      const key = itemKey(id, "unproven", tool.name, [canonical, tool.tool, tool.ships]);
+      items.set(key, {
+        key,
+        kind: "unproven",
+        question: `${where}: tool ${tool.name} is built for ${canonical}, a Discipline this Course added at intake and hasn't proven yet: check on the preview that it works and reads as the Materials do, then answer`,
+        sheet: false,
+        ...(base !== null ? { link: `${base}/lab/#${prefix}-${folder}-${tool.name}` } : {}),
+      });
+    }
   }
   return { ledger, folder, preview: base, items: [...items.values()] };
 }

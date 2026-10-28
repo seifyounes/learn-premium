@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MEDIA_PAGE } from "../media/model.ts";
+import { CHECK_LABELS, eligibilityOf, sameDiscipline, unprovenDisciplines } from "./disciplines.ts";
 import {
   BUILD_RECORDS_DIR,
   current,
@@ -140,6 +141,7 @@ function buildReport(ledger: Ledger, project: string): string {
     "",
     ...sections,
     ...disciplinesConfirmed(ledger),
+    ...disciplinesAdded(ledger),
     ...padFixes(project),
   ].join("\n");
 }
@@ -172,6 +174,7 @@ function tools(ledger: Ledger, wave: string): string[] {
   const row: Assignment | undefined = current(ledger.assignments).find((a) => a.wave === wave);
   if (row === undefined) return [];
   const jobs = current(ledger.jobs).filter((j) => j.wave === wave);
+  const unproven = unprovenDisciplines(ledger);
   const label = (n: string) => `W${row.module}.${n}`;
   const worked = row.worked.map(
     (w) => `${label(w.n)} ${w.model}${w.model === "illustration" && w.figure !== null ? ` (${w.figure})` : ""}`,
@@ -202,7 +205,7 @@ function tools(ledger: Ledger, wave: string): string[] {
         return [
           t.worked === null ? "Lab" : label(t.worked),
           t.name,
-          t.discipline,
+          unproven.some((name) => sameDiscipline(name, t.discipline)) ? `${t.discipline} (unproven)` : t.discipline,
           t.interaction,
           t.tool,
           `${ships}${fell}`,
@@ -236,6 +239,52 @@ function disciplinesConfirmed(ledger: Ledger): string[] {
       ["Discipline", "Wave", "Answer", "Answered"],
       answers.map((d) => [d.name, d.wave, d.confirmed ? "confirmed" : "declined", d.answeredAt]),
     ),
+  ];
+}
+
+/**
+ * The Disciplines the Course added at intake: unproven until the Owner says each met the bar, its
+ * nearest listed Discipline, and each interaction's tools, the ready-made tools considered (with the
+ * checks a failing one failed) and the one chosen on feel. The Owner's words and the candidates'
+ * evidence stay in the ledger.
+ */
+function disciplinesAdded(ledger: Ledger): string[] {
+  if (ledger.intake.added.length === 0) return [];
+  const proven = current(ledger.proven);
+  return [
+    "",
+    "## Disciplines added at intake",
+    ...ledger.intake.added.flatMap((d) => {
+      const word = proven.find((p) => sameDiscipline(p.name, d.name));
+      return [
+        "",
+        word === undefined
+          ? `${d.name}: unproven: its first real build; every Checkpoint of a Module with its tools asks the Owner to review each one.`
+          : `${d.name}: proven ${word.at} (the Owner's word).`,
+        d.nearest === null ? "No nearest listed Discipline." : `Nearest listed Discipline: ${d.nearest}.`,
+        "",
+        table(
+          ["Interaction", "Tools (default first)", "Ready-made considered", "Chosen on feel"],
+          d.interactions.map((i) => {
+            const pick = d.chosen.find((c) => sameDiscipline(c.interaction, i.interaction));
+            const meanwhile = i.tools[0] === undefined ? "so the Owner decides" : `so ${i.tools[0]} is built meanwhile`;
+            return [
+              i.interaction,
+              i.tools.length === 0 ? "none built yet" : i.tools.join(", "),
+              i.readyMade
+                .map((c) => {
+                  const { failed } = eligibilityOf(c);
+                  return failed.length === 0
+                    ? `${c.name} (passes all five)`
+                    : `${c.name} (fails: ${failed.map((k) => CHECK_LABELS[k]).join(", ")})`;
+                })
+                .join("; "),
+              pick === undefined ? "" : `${pick.readyMade}: the template doesn't ship it yet, ${meanwhile}`,
+            ];
+          }),
+        ),
+      ];
+    }),
   ];
 }
 

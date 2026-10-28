@@ -269,6 +269,12 @@ const discipline = obj({
   superseded,
 });
 
+/**
+ * The Owner's word that a Discipline added at intake met the bar: its first real build is flagged
+ * unproven until then. A later word supersedes the earlier one.
+ */
+const provenRow = obj({ name: nonEmpty, answer: nonEmpty, at: isoTime, superseded });
+
 /** The Owner-confirmed Module map, or an addition to it: Modules with their Materials, and the files left out. */
 export const moduleMapSchema = obj({
   modules: arr(obj({ id: moduleId, slug: nonEmpty, title: nonEmpty, materials: arr(nonEmpty) })),
@@ -396,6 +402,7 @@ const ledgerShape = obj({
   disciplines: arr(discipline),
   /** The Owner's word that a sitting is complete, each time he said it. */
   sittingsComplete: arr(sittingComplete),
+  proven: arr(provenRow),
 });
 
 /**
@@ -413,6 +420,7 @@ export const ledgerSchema: Schema<Infer<typeof ledgerShape>> = (v, p) =>
           assignments: [],
           disciplines: [],
           sittingsComplete: [],
+          proven: [],
           ...v,
         }
       : v,
@@ -447,6 +455,7 @@ export type RelaunchOutcome = (typeof RELAUNCH_OUTCOMES)[number];
 export type Assignment = Infer<typeof assignment>;
 export type AssignedTool = Assignment["tools"][number];
 export type DisciplineAnswer = Infer<typeof discipline>;
+export type ProvenRow = Infer<typeof provenRow>;
 export type ReadyMadeCandidate = Infer<typeof readyMadeCandidate>;
 export type ToolkitProposal = Infer<typeof toolkitProposal>;
 export type AddedDiscipline = Infer<typeof addedDiscipline>;

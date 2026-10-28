@@ -1,7 +1,7 @@
 // A Discipline added at intake, in the Build ledger. Pure: the five eligibility checks a ready-made
 // tool is held to, and the rule that PhET and Falstad are only ever credited links.
 import { normalise } from "../intake/pads.ts";
-import type { ReadyMadeCandidate } from "./model.ts";
+import { current, type Ledger, type ReadyMadeCandidate } from "./model.ts";
 
 /** The checks a ready-made tool must all pass: the template's `tools` gate holds every sim to the same five. */
 export const ELIGIBILITY_CHECKS = ["embeddable", "padFrame", "touch", "writable", "headless"] as const;
@@ -49,4 +49,10 @@ export function isLinkOnly(name: string, source?: string): boolean {
 /** Whether two Discipline names are the same one: compared as `intake/pads.ts` compares names. */
 export function sameDiscipline(a: string, b: string): boolean {
   return normalise(a) === normalise(b);
+}
+
+/** The Disciplines this Course added at intake that the Owner hasn't yet said met the bar. */
+export function unprovenDisciplines(ledger: Pick<Ledger, "intake" | "proven">): string[] {
+  const proven = current(ledger.proven);
+  return ledger.intake.added.map((a) => a.name).filter((name) => !proven.some((p) => sameDiscipline(p.name, name)));
 }

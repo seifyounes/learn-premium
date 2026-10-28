@@ -189,6 +189,7 @@ export function init(project: string, holder: string, release: string, intake: I
       assignments: [],
       disciplines: [],
       sittingsComplete: [],
+      proven: [],
     };
     return { ledger, result: undefined };
   });
