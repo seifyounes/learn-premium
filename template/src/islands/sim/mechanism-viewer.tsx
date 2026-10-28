@@ -163,6 +163,12 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
             const at = made.project(marker.getWorldPosition(new made.three.Vector3()));
             return at.inside ? [{ id, y: at.y, x: at.x }] : [];
           });
+          // Where the driving pin is on the stage, in CSS px: what a tester presses to turn the driver.
+          const driving = mechanism.pins.get(DRIVING[model.type]);
+          if (driving) {
+            const at = made.project(driving.getWorldPosition(new made.three.Vector3()));
+            host.setAttribute("data-pin-screen", `${at.x.toFixed(1)} ${at.y.toFixed(1)}`);
+          }
           const placed = placeLabels(seen, height, LABEL_LINE);
           const edge = rtl ? 0 : width;
           made.setLeaders(

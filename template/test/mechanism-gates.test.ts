@@ -85,9 +85,10 @@ describe("the kinematics gate", () => {
   it("names the worst link and pin it finds off, and how many steps", async () => {
     const off = editJson(`${LOGS}/linkage.json`, (log) => {
       const t = (log as unknown as MechanismLog).trace;
-      for (const k of [137, 138, 300])
-        (t.angles["rocker"] as number[])[k] = (t.angles["rocker"] as number[])[k]! + 0.2 + k / 1000;
-      (t.points["P"] as [number, number][])[211]![0] += 0.2;
+      const rocker = t.angles["rocker"] as number[];
+      for (const k of [137, 138, 300]) rocker[k] = (rocker[k] as number) + 0.2 + k / 1000;
+      const at = (t.points["P"] as [number, number][])[211] as [number, number];
+      at[0] += 0.2;
     });
     const found = messages(await check(off));
     expect(found).toEqual([
