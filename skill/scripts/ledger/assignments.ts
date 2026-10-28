@@ -1,5 +1,6 @@
 // A Module wave's tool assignment and the Owner's Discipline answers, in the Build ledger. `wave.ts
 // assign`, `fallback`, `handback` and `discipline` write these rows; nothing else does.
+import { sameDiscipline } from "./disciplines.ts";
 import { LedgerError } from "./file.ts";
 import { mutate } from "./ledger.ts";
 import { current, type AssignedTool, type Assignment, type DisciplineAnswer, type Ledger } from "./model.ts";
@@ -88,6 +89,38 @@ export function recordDiscipline(
       answeredAt: at,
       superseded: null,
     });
+  });
+}
+
+/**
+ * Records the Owner's word that a Discipline added at intake met the bar, superseding his earlier
+ * word. Refused (exit 2) for a Discipline this Course didn't add at intake, and (exit 3) until a
+ * Module wave has merged with a tool of it: its first real build is what proves it.
+ */
+export function recordProven(project: string, holder: string, name: string, answer: string) {
+  return mutate(project, holder, (ledger) => {
+    const added = ledger.intake.added.find((a) => sameDiscipline(a.name, name));
+    if (added === undefined)
+      throw new LedgerError(
+        "invalid",
+        `${name} isn't a Discipline this Course added at intake: only an added Discipline is flagged unproven`,
+      );
+    const built = current(ledger.waves).some(
+      (w) =>
+        w.kind === "module" &&
+        w.state === "merged" &&
+        assignmentOf(ledger, w.id)?.tools.some((t) => sameDiscipline(t.discipline, added.name)),
+    );
+    if (!built)
+      throw new LedgerError(
+        "refused",
+        `${added.name} has no merged Module with its tools yet: its first real build proves it`,
+      );
+    const at = new Date().toISOString();
+    for (const earlier of current(ledger.proven))
+      if (sameDiscipline(earlier.name, added.name)) earlier.superseded = { at, reason: "said again" };
+    ledger.proven.push({ name: added.name, answer, at, superseded: null });
+    return { discipline: added.name, provenAt: at };
   });
 }
 
