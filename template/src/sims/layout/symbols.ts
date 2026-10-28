@@ -7,6 +7,7 @@
 // screen by 0, 90, 180 or 270. So a resistor at turn 90 is vertical with pin 1 on top, and a gate
 // at turn 0 has its inputs on the left and its output on the right.
 import { BLOCK_DIAGRAM_SYMBOLS } from "./block-diagram.ts";
+import { PNEUMATIC_SYMBOLS } from "./pneumatic.ts";
 
 export type Point = readonly [number, number];
 export type Turn = 0 | 90 | 180 | 270;
@@ -393,6 +394,7 @@ export const SYMBOLS = {
   "fbd-assign": fbdBox("=", 1),
   "fbd-s": fbdBox("S", 1),
   "fbd-r": fbdBox("R", 1),
+  ...PNEUMATIC_SYMBOLS,
 } as const satisfies Record<string, SymbolDef>;
 
 export type SymbolKind = keyof typeof SYMBOLS;
