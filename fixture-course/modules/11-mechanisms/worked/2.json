@@ -1,0 +1,74 @@
+{
+  "code": "W11.2",
+  "title": "A crank-rocker four-bar",
+  "statement": "A four-bar linkage has the ground link $O_2O_4 = 100\\ \\text{mm}$, the crank $O_2A = 40\\ \\text{mm}$, the coupler $AB = 120\\ \\text{mm}$ and the rocker $O_4B = 80\\ \\text{mm}$, assembled open. With the crank at $\\theta_2 = 60°$ from the ground line, find the angles $\\theta_3$ of the coupler and $\\theta_4$ of the rocker, the transmission angle $\\mu$, the joint $B$ and the coupler point $P$, $60\\ \\text{mm}$ along $AB$ from $A$ and $30\\ \\text{mm}$ off it.",
+  "given": [
+    "ground link $O_2O_4 = 100\\ \\text{mm}$",
+    "crank $O_2A = 40\\ \\text{mm}$",
+    "coupler $AB = 120\\ \\text{mm}$",
+    "rocker $O_4B = 80\\ \\text{mm}$",
+    "the crank at $\\theta_2 = 60°$"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "The linkage at $\\theta_2 = 60°$: the angles, the transmission angle and the joints",
+    "columns": [
+      { "label": "Quantity", "given": true },
+      { "label": "Value" }
+    ],
+    "rows": [
+      ["$\\theta_3$ (°)", "18.38"],
+      ["$\\theta_4$ (°)", "64.94"],
+      ["$\\mu$ (°)", "46.57"],
+      ["$B_x$ (mm)", "133.88"],
+      ["$B_y$ (mm)", "72.47"],
+      ["$P_x$ (mm)", "67.48"],
+      ["$P_y$ (mm)", "82.03"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "The rocker's angle",
+      "note": "Closing the loop $a\\,e^{j\\theta_2} + b\\,e^{j\\theta_3} = d + c\\,e^{j\\theta_4}$ and eliminating $\\theta_3$ gives Freudenstein's equation $K_1\\cos\\theta_4 - K_2\\cos\\theta_2 + K_3 = \\cos(\\theta_2 - \\theta_4)$, with $K_1 = \\frac{d}{a} = 2.5$, $K_2 = \\frac{d}{c} = 1.25$ and $K_3 = \\frac{a^2 - b^2 + c^2 + d^2}{2ac} = 0.5625$. At $\\theta_2 = 60°$ its root on the open assembly is $\\theta_4 = 64.94°$.",
+      "fill": ["B2"]
+    },
+    {
+      "title": "The joint B and the coupler's angle",
+      "note": "B lies on the rocker's circle about $O_4$: $B_x = d + c\\cos\\theta_4 = 133.88\\ \\text{mm}$ and $B_y = c\\sin\\theta_4 = 72.47\\ \\text{mm}$. The crank pin is $A = (a\\cos\\theta_2,\\ a\\sin\\theta_2) = (20,\\ 34.64)\\ \\text{mm}$, so the coupler turns through $\\theta_3 = \\tan^{-1}\\frac{B_y - A_y}{B_x - A_x} = 18.38°$.",
+      "fill": ["B1", "B4", "B5"],
+      "marks": ["B1"]
+    },
+    {
+      "title": "The transmission angle",
+      "note": "The transmission angle is the acute angle between the coupler and the rocker: $\\mu = |\\theta_3 - \\theta_4| = 46.57°$, well clear of the $40°$ rule of thumb below which the rocker is hard to drive.",
+      "fill": ["B3"]
+    },
+    {
+      "title": "The coupler point",
+      "note": "$P$ sits $60\\ \\text{mm}$ along $AB$ from $A$ and $30\\ \\text{mm}$ to its left: $P = A + 60\\,e^{j\\theta_3} + 30\\,j\\,e^{j\\theta_3}$, so $P_x = 20 + 60\\cos\\theta_3 - 30\\sin\\theta_3 = 67.48\\ \\text{mm}$ and $P_y = 34.64 + 60\\sin\\theta_3 + 30\\cos\\theta_3 = 82.03\\ \\text{mm}$.",
+      "fill": ["B6", "B7"]
+    }
+  ],
+  "answer": "$\\theta_3 = 18.38°$, $\\theta_4 = 64.94°$, $\\mu = 46.57°$, $B = (133.88,\\ 72.47)\\ \\text{mm}$ and $P = (67.48,\\ 82.03)\\ \\text{mm}$",
+  "provenance": {
+    "stated": [
+      "ground link $O_2O_4 = 100\\ \\text{mm}$",
+      "crank $O_2A = 40\\ \\text{mm}$",
+      "coupler $AB = 120\\ \\text{mm}$",
+      "rocker $O_4B = 80\\ \\text{mm}$",
+      "the crank at $\\theta_2 = 60°$",
+      "the coupler point $P$, $60\\ \\text{mm}$ along $AB$ and $30\\ \\text{mm}$ off it",
+      "$\\theta_3 = 18.38°$ and $\\theta_4 = 64.94°$",
+      "$\\mu = 46.57°$",
+      "$B = (133.88,\\ 72.47)\\ \\text{mm}$",
+      "$P = (67.48,\\ 82.03)\\ \\text{mm}$"
+    ],
+    "derived": [
+      "$K_1 = 2.5$, $K_2 = 1.25$ and $K_3 = \\frac{a^2 - b^2 + c^2 + d^2}{2ac} = 0.5625$",
+      "$A = (20,\\ 34.64)\\ \\text{mm}$",
+      "$P_x = 20 + 60\\cos\\theta_3 - 30\\sin\\theta_3$ and $P_y = 34.64 + 60\\sin\\theta_3 + 30\\cos\\theta_3$"
+    ],
+    "assumed": ["the $40°$ rule of thumb for the transmission angle"]
+  }
+}
