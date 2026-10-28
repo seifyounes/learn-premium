@@ -134,6 +134,9 @@ function readDoNotUse(privateFolder: string): DoNotUse {
 
 /** Lists `id`, unless it is listed already. The list only ever grows. */
 function listNever(privateFolder: string, id: string, reason: string): void {
+  // Checked before anything is written: the shared list must never hold an entry its schema rejects.
+  youtubeId(id, "id");
+  nonEmpty(reason, "reason");
   const list = readDoNotUse(privateFolder);
   if (list.videos.some((v) => v.id === id)) return;
   list.videos.push({ id, reason, at: new Date().toISOString() });
@@ -144,6 +147,7 @@ function listNever(privateFolder: string, id: string, reason: string): void {
 /** Records a video the main agent ruled off the Professor's method: it is never a card, here or in a later wave. */
 export function neverUse(privateFolder: string, id: string, reason: string) {
   youtubeId(id, "--id");
+  nonEmpty(reason, "--reason");
   listNever(privateFolder, id, reason);
   return { id, reason, listed: readDoNotUse(privateFolder).videos.length };
 }

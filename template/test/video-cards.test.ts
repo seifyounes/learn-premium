@@ -2,7 +2,8 @@
 // synthetic id `abcdefghijk` is planted in a copy of the Fixture Course; the committed Fixture has
 // no card.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseDocument } from "yaml";
@@ -72,20 +73,30 @@ describe("the live-videos gate", () => {
   it("passes the committed Fixture Course, which has no card, without a probe", async () => {
     const report = await runLive({ contentDir: FIXTURE_COURSE });
     expect(report.gates[0]?.status).toBe("pass");
-    expect(report.gates[0]?.coverage).toEqual({ modules: 10, cards: 0, probed: 0 });
+    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 10, cards: 0, probed: 0 });
+  });
+
+  it("passes a newly scaffolded Course with no Module yet: nothing to check is not a gate that saw nothing", async () => {
+    const contentDir = mkdtempSync(join(tmpdir(), "lp-empty-course-"));
+    mkdirSync(join(contentDir, "modules"));
+    writeFileSync(join(contentDir, "course.yaml"), "name: Empty\nsittings: []\n");
+    const report = await runLive({ contentDir });
+    rmSync(contentDir, { recursive: true, force: true });
+    expect(report.gates[0]?.status).toBe("pass");
+    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 0, cards: 0, probed: 0 });
   });
 
   it("never asks YouTube without a live URL or a probe, whatever the Course holds", async () => {
     const report = await runLive(coursePlanted());
     expect(report.gates[0]?.status).toBe("pass");
-    expect(report.gates[0]?.coverage).toEqual({ modules: 10, cards: 1, probed: 0 });
+    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 10, cards: 1, probed: 0 });
   });
 
   it("passes a card whose video answers 200, and counts it as probed", async () => {
     const { probe, asked } = fakeProbe({ status: 200, title: "T", author: "A" });
     const report = await runLive({ ...coursePlanted(), videoProbe: probe });
     expect(report.gates[0]?.status).toBe("pass");
-    expect(report.gates[0]?.coverage).toEqual({ modules: 10, cards: 1, probed: 1 });
+    expect(report.gates[0]?.coverage).toEqual({ courses: 1, modules: 10, cards: 1, probed: 1 });
     expect(asked).toEqual(["abcdefghijk"]);
   });
 
