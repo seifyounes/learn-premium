@@ -3,7 +3,8 @@ import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 import { ELIGIBILITY_CHECKS } from "../scripts/ledger/disciplines.ts";
 import type { ReadyMadeCandidate, ToolkitProposal } from "../scripts/ledger/model.ts";
-import { interactionOf, PROPOSAL } from "./discipline-fixtures.ts";
+import { courseConfig } from "../scripts/intake/scaffold.ts";
+import { AUTOMATION_ANSWERS, interactionOf, PROPOSAL } from "./discipline-fixtures.ts";
 import { must } from "./fake-notebooklm.ts";
 import { fixtureCourse, registered } from "./fixture-courses.ts";
 import { intake, jsonInput, ledger, media, tempDir, writeFiles } from "./helpers.ts";
@@ -407,6 +408,14 @@ describe("budget", () => {
     expect(out.window).toBeNull();
     expect(out.verdict).toBe("unknown");
     expect(out.reason).toMatch(/dated Exam sitting/);
+  });
+});
+
+describe("the course config's Disciplines", () => {
+  test("lists the confirmed Disciplines, an added one with its Toolkit", () => {
+    const fixture = readFileSync(join(import.meta.dirname, "fixtures/course-config/automation.yaml"), "utf8");
+
+    expect(courseConfig(AUTOMATION_ANSWERS).replaceAll("\r\n", "\n")).toBe(fixture.replaceAll("\r\n", "\n"));
   });
 });
 

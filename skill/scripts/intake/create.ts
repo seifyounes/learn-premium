@@ -18,6 +18,7 @@ import { ledgerIntake, type Answers } from "./answers.ts";
 import { findCourse, samePath } from "./find.ts";
 import { requireFolder } from "./propose.ts";
 import { templateAt } from "./release.ts";
+import { addedProblems } from "./toolkit.ts";
 import { claudeMd, CONTENT_DIR, courseConfig, GITIGNORE, OVERRIDES_DIR, readme, type Paths } from "./scaffold.ts";
 import { MEMORY_FILE, readCatalog, withCatalogRow } from "./workspace.ts";
 
@@ -117,6 +118,9 @@ export function createProject(options: CreateOptions) {
   const privateFolder = privateFolderOf(materials);
 
   // Everything is checked before anything is made.
+  // A Discipline off the Toolkit's list is recorded only with the Toolkit the Owner confirmed.
+  const problems = addedProblems(answers);
+  if (problems.length > 0) throw new LedgerError("invalid", problems.join("; "));
   if (within(project, materials)) {
     throw new LedgerError("refused", `the Course project ${project} would be inside the Materials folder ${materials}`);
   }

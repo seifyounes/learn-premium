@@ -501,6 +501,12 @@ A tool with its own meaning colours (a simulator's voltage reds, CPK oxygen) sit
 marked `data-framed-tool`; the Red Hue Rule doesn't look inside it. Everything else on the sheet
 keeps at least 60° of OKLCH hue from the red pen, or is a grey (chroma under 0.035).
 
+`course.yaml` also lists the Course's Disciplines (`disciplines:`, the main one first). One the
+Toolkit lists is only its name. One the Owner added at intake carries the Toolkit he confirmed
+(each interaction's tools, the default first, and `[]` where no engine is built yet) and, where he
+chose one, the ready-made tool for an interaction (`readyMade`): a record only, since the template
+ships no ready-made tool. A Toolkit names only tools the template ships, never PhET or Falstad.
+
 ## Gates
 
 `gates/` is the gate runner: one entry (`npm run gates -- <command>`) for every gate point.

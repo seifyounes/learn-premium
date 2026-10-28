@@ -51,6 +51,18 @@ describe("the tools gate: the five eligibility checks", () => {
     ]);
   });
 
+  it("blocks Falstad as a tool too", async () => {
+    const result = await run(withSim({ ...plantedSim(), kind: "falstad" }));
+    expect(result.findings).toEqual([
+      {
+        outcome: "block",
+        at: at("sims/900.json"),
+        message:
+          '"falstad" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl, control, ladder); PhET and Falstad appear only as credited links, never as a tool',
+      },
+    ]);
+  });
+
   it("blocks a model the Materials don't give: the builder writes it from them", async () => {
     const sim = {
       ...plantedSim(),

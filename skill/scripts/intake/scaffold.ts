@@ -1,5 +1,7 @@
 // The files a new Course project starts with besides the template layer: the /newproject skeleton
 // (README.md, CLAUDE.md, .gitignore) and the course config the Site template builds from.
+import { sameDiscipline } from "../ledger/disciplines.ts";
+import { disciplineOf } from "../wave/toolkits.ts";
 import type { Answers } from "./answers.ts";
 
 /** Where the Course's content sits; the Vercel project's CONTENT_DIR points the template's build at it. */
@@ -16,6 +18,29 @@ export interface Paths {
 /** A YAML scalar: a JSON string is a valid YAML double-quoted one. */
 const q = (value: string) => JSON.stringify(value);
 
+/**
+ * One Discipline's entry in the course config, as a JSON flow map (valid YAML): a listed one by the
+ * Toolkit's own name; one added at intake with its nearest listed Discipline, the Toolkit the Owner
+ * confirmed and the ready-made tool he chose on feel, each under its interaction.
+ */
+function disciplineEntry(a: Answers, name: string) {
+  const listed = disciplineOf(name);
+  if (listed !== null) return { name: listed };
+  const added = a.added.find((d) => sameDiscipline(d.name, name));
+  if (added === undefined) return { name };
+  const chosen = added.chosen.flatMap(({ interaction, readyMade }) => {
+    const entry = added.interactions.find((i) => sameDiscipline(i.interaction, interaction));
+    const candidate = entry?.readyMade.find((c) => sameDiscipline(c.name, readyMade));
+    return entry === undefined || candidate === undefined ? [] : [[entry.interaction, candidate.name] as const];
+  });
+  return {
+    name,
+    ...(added.nearest === null ? {} : { nearest: added.nearest }),
+    toolkit: Object.fromEntries(added.interactions.map((i) => [i.interaction, i.tools])),
+    ...(chosen.length === 0 ? {} : { readyMade: Object.fromEntries(chosen) }),
+  };
+}
+
 export function courseConfig(a: Answers): string {
   return [
     "# The course config: one value per setting, read by the Site template at every build. The pad is a",
@@ -30,6 +55,10 @@ export function courseConfig(a: Answers): string {
     `owner: ${q(a.owner)}`,
     "# The Arabic-notes toggle: on, the content's Arabic notes show beside the English. Media stays English.",
     `arabicNotes: ${a.arabicNotes}`,
+    "# The Owner-confirmed Disciplines, the main one first. One added at intake carries the Toolkit he",
+    "# confirmed (each interaction's tools, the default first) and the ready-made tool he chose on feel.",
+    "disciplines:",
+    ...a.disciplines.map((name) => `  - ${JSON.stringify(disciplineEntry(a, name))}`),
     "# The Exam sittings are in the Build ledger. The template lists a sitting with the Modules it covers,",
     "# so each joins here once Modules are mapped to it.",
     "sittings: []",
