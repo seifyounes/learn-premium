@@ -55,6 +55,7 @@ and `done` (who marked the Course build done and when, or null).
 | `record override --holder H --path P --gate-gap N` | A Course override of template file `P` (a path under `template/`), with its gate-gap issue on learn-premium. `overrides/P` must exist, and `P` must be site code or styles under `src/` (`.astro`, `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.css`, `.json`), never a gate, script or config. Use it for a gate gap already filed (by another Course, say); filing this Course's own gate gap records its overrides. |
 | `record gate-gap --holder H --id ID --title T --defect D [--override P]…` | A defect class no gate caught, recorded unfiled the moment it's found. `ID` is lower-case words and dashes; the synthetic minimal broken fixture must already be in `build-records/gate-gaps/ID/`, and each `--override P` (repeatable) in `overrides/P`, under the rule above. Recording an unfiled one again replaces it; a filed one is refused (3): a new defect gets a new id. Clears `done`. Filing is the gate-gap step's (`../gate-gap/README.md`). |
 | `done --holder H` | Marks the Course build done. Refused (3) while a gate gap is unfiled or a wave runs. A new wave or gate gap clears it. |
+| `proven --holder H --discipline D --answer TEXT` | The Owner's word that a Discipline this Course added at intake (`intake.added`, with the Toolkit he confirmed) met the bar, kept as a `proven` row; his later word supersedes. Until it is recorded the Discipline is unproven: the build report says so and every Checkpoint of a Module with its tools asks him to review each tool. Exit 2 for a Discipline the Course didn't add at intake (a listed one is never flagged), 3 until a Module wave has merged with a tool of it. Returns `{discipline, provenAt}`. |
 | `supersede --holder H --row material\|module\|wave\|job\|checkpoint\|override\|gate-gap --id ID --reason R` | Marks a row superseded; it stays as history. A superseded Module's Materials come back as new. A running wave, or a Module with one, is refused: end the wave first. Supersede an unfiled gate gap only when it was recorded in error (a gate did catch it), never to get past `done`. |
 
 Relaunches are written by `../wave/README.md`'s `relaunch open` and `relaunch close`, which re-gate
@@ -74,6 +75,13 @@ Owner confirmed during the build, and the pad's contrast auto-fixes from the dep
 (`content/build-records/gate-reports/deploy.json`), reported only. `status` returns the current
 `assignments` and `disciplines`. They are written by `../wave/README.md`'s `assign`, `discipline`,
 `handback` and `fallback`.
+
+For a Course whose intake added a Discipline, the report has a `## Disciplines added at intake`
+section: each one `unproven` (or `proven` with when, the Owner's word) and its nearest listed
+Discipline, then a table of each interaction's tools (the default first), the ready-made tools
+considered (`passes all five`, or the checks it fails) and the one chosen on feel. The Owner's words
+and the candidates' evidence stay in the ledger. An unproven Discipline's tools show `(unproven)` in
+the tool assignment. A ledger made before Disciplines could be added reads as adding none.
 
 ## Layout it assumes in a Course project
 
