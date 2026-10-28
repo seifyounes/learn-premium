@@ -45,6 +45,8 @@ const CONTENT_GATES = [
   "state-diagram",
   "drawing",
   "part-checks",
+  "kinematics",
+  "gear-interference",
   "tools",
 ];
 

@@ -48,7 +48,9 @@ describe("the colour gates on the Fixture Course", () => {
   it("the pad gate passes a catalogue pad that every page wears, with nothing to fix", async () => {
     const pad = await runOne(padGate, input);
     expect(pad.status).toBe("pass");
-    expect(pad.coverage).toEqual({ pads: 1, requirements: 18, pages: 22 });
+    // Twenty-three pages: Module 11 (Mechanisms), Module 12 (the pneumatic cascade) and Module 14 (state machines)
+    // are the three more.
+    expect(pad.coverage).toEqual({ pads: 1, requirements: 18, pages: 23 });
     expect(pad.fixes).toEqual([]);
   });
 
@@ -71,9 +73,11 @@ describe("the colour gates on the Fixture Course", () => {
   it("the Red Hue Rule passes the Fixture Course, reporting what it looked at", async () => {
     const hue = await runOne(redHueRule, input);
     expect(hue.status).toBe("pass");
-    // Module 14's page is the twenty-second, and its islands the two Worked sheets and the two sims (on its
-    // page, in the Lab and in the Tool gallery): eight more.
-    expect(hue.coverage).toMatchObject({ pages: 22, islands: 61, stylesheets: 1 });
+    // Module 12's page is the twenty-first and Module 14's the twenty-second: Module 12 adds four islands (its
+    // Worked sheet and the cascade on its page, in the Lab and in the Tool gallery), Module 14 eight (its two
+    // Worked sheets and its two sims). Module 11's is the twenty-third, and adds eight (its two Worked sheets, and
+    // its two mechanisms on its page, in the Lab and in the Tool gallery).
+    expect(hue.coverage).toMatchObject({ pages: 23, islands: 69, stylesheets: 1 });
     expect(hue.coverage.svgs).toBeGreaterThan(8);
     // The stylesheet's inks: the red pen, graphite and pencil, and the black a hover mixes in.
     expect(hue.coverage.colours).toBeGreaterThan(0);

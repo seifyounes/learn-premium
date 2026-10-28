@@ -130,6 +130,7 @@ describe("the Study site shell", () => {
         "08-root-locus",
         "09-silo-blender",
         "10-two-conveyors",
+        "11-mechanisms",
         "12-cascade",
         "14-state-machines",
       ]);
@@ -219,8 +220,8 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/05-derivatives/"');
     expect(lab).toContain('href="/07-flanged-hub/"');
     expect(lab).toContain('href="/08-root-locus/"');
-    // The twelve sims (the cascade is the tenth, the detector and the drill the eleventh and twelfth) and the Pyodide tool, then the machine part.
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(13);
+    // The fourteen sims (the cascade is the tenth, the detector and the drill the eleventh and twelfth, the four-bar and the gear pair the others) and the Pyodide tool, then the machine part.
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(15);
     expect(lab.match(/class="sim-card part-card"/g)).toHaveLength(1);
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
@@ -370,6 +371,7 @@ describe("a Course with no tools yet", () => {
       "08-root-locus/sims",
       "09-silo-blender/sims",
       "10-two-conveyors/sims",
+      "11-mechanisms/sims",
       "12-cascade/sims",
       "14-state-machines/sims",
     ])
