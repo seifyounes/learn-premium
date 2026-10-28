@@ -8,6 +8,7 @@ import GradientDescentSim from "../islands/GradientDescentSim";
 import LadderSim from "../islands/LadderSim";
 import LogicSim from "../islands/LogicSim";
 import PlaneWallSim from "../islands/PlaneWallSim";
+import PneumaticSim from "../islands/PneumaticSim";
 import SclSim from "../islands/SclSim";
 import StepThrough from "../islands/StepThrough";
 import StlSim from "../islands/StlSim";
@@ -18,7 +19,7 @@ import { provenanceNotes } from "../provenance/notes";
 import { definitionsFor, isLive, schematicModelOf } from "../sims/kinds";
 import { inkNets } from "../sims/layout/geometry";
 import { layOut } from "../sims/layout/layout";
-import { printedDecimals } from "../sims/precision";
+import { printedDecimals, readPrinted } from "../sims/precision";
 import { toStepThrough } from "../sims/step-through";
 import { unsupportedStatements } from "../sims/stl/engine";
 import { oracleLog } from "../sims/stl/oracle";
@@ -63,6 +64,16 @@ const logic = live?.kind === "logic" ? live : undefined;
 const drawing = logic && layOut(logic.model, logic.layout);
 const ladder = live?.kind === "ladder" ? live : undefined;
 const ladderDrawing = ladder && layOut(schematicModelOf(ladder), ladder.layout);
+// A pneumatic circuit is laid out here at build, exactly as the Drawing gate checked it, and its timing
+// diagram is drawn over the key: the Worked example's cells as printed, by the quantity each maps.
+const pneumatic = live?.kind === "pneumatic" ? live : undefined;
+const pneumaticDrawing = pneumatic && layOut(schematicModelOf(pneumatic), pneumatic.layout);
+const timingKey = Object.fromEntries(
+  Object.values(s.sheet).flatMap((quantity, i) => {
+    const printed = readPrinted(sheetCells[i] ?? "");
+    return typeof printed === "string" ? [] : [[quantity, printed.value]];
+  }),
+);
 // An STL listing with an instruction the interpreter lacks plays awlsim's own trace of the example's
 // values, from its oracle log in the build records (the stl gate checked the log is current).
 const stl = s.kind === "stl" ? s : undefined;
@@ -140,6 +151,16 @@ const controlDefinitions = control && definitionsFor(control, pinnedIn(buildCont
       start={ladder.start}
       scenario={ladder.scenario}
       cycle={ladder.cycle}
+      label={label}
+    />
+  ) : pneumatic && pneumaticDrawing ? (
+    <PneumaticSim
+      client:visible
+      model={pneumatic.model}
+      drawing={pneumaticDrawing}
+      nets={inkNets(pneumaticDrawing, pneumatic.model.nets)}
+      start={pneumatic.start}
+      keyLevels={timingKey}
       label={label}
     />
   ) : logic && drawing ? (
