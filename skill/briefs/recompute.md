@@ -29,6 +29,12 @@ roller or button made. `values` holds the timing diagram as `row[k]`: each cylin
 each signal line during each movement. Work it by walking each line back to the supply or an exhaust,
 never by the template's engine.
 
+A live state machine's log (`kind: fsm` or `grafcet`) is `recompute/<NN>-<slug>/<name>.json`, a recompute log plus a
+`table`: every situation the machine can reach from its start, under every combination of its inputs, with where
+the clock takes it and its outputs there. `values` holds the timing strip as `row[k]`: each input, state variable
+(an FSM's code bits, a GRAFCET's `X0`…) and output in each clock period of the example. Work it from the figure
+by hand (a lookup table for an FSM, IEC 60848's firing rules for a GRAFCET), never by the template's engine.
+
 **A sitting's papers and mocks.** For a Sitting wave you recompute every numeric question of each past
 paper and each mock instead, from the question text alone (the settled reading's text for a past paper,
 the question as the mock states it), without the Professor's key, the vault writer's, mock writer's or

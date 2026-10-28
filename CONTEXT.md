@@ -97,14 +97,17 @@ The checks every Agent-built sim's drawing must pass: drawing ↔ model (parts, 
 from the drawing's geometry alone, labels, conventions, legibility, tidiness), model ↔ figure (the
 model's nets equal an independent Blind reader's), and drawing ↔ figure (arrangement, turn, label
 side, symbols, junction dots). All checks block, and a negative control of deliberately broken
-drawings must be caught on every build.
+drawings must be caught on every build. A state diagram (an FSM, a GRAFCET) is checked the same
+three ways by its own half, the state-diagram gate, its edges read from the drawn curves alone.
 _Avoid_: layout check, visual QA
 
 **Figure reading**:
 A Blind reader's account of one Professor's figure for a schematic sim, written without seeing any
 builder file: each labelled part's kind, place, turn and label side, the unlabelled symbols, and
 every net with whether the figure dots its joints. The Drawing gate checks the model and the
-drawing against it. Kept in the Course's build records beside the recompute logs.
+drawing against it. Kept in the Course's build records beside the recompute logs. For a state
+diagram it gives each state's kind, place, printed output and self-loop side, the start arrow, and
+every edge with its printed label and the side the figure bows it to.
 _Avoid_: facts file, netlist (alone)
 
 **Timing diagram**:
