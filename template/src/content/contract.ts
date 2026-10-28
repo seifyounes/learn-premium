@@ -42,6 +42,46 @@ const sitting = z.strictObject({
   complete: z.boolean().default(false),
 });
 
+/**
+ * A Discipline the Course lists, set at intake. One the template's Toolkit lists is just its name; one
+ * added at intake carries the Toolkit the Owner confirmed (each interaction's tools, the default
+ * first; none when no engine is built yet) and the ready-made tool he chose on feel for an
+ * interaction. A ready-made tool is a record only: the template ships none, so the Agent-built tool
+ * is what builds. PhET and Falstad are never a tool, only credited links.
+ */
+const courseDiscipline = z
+  .strictObject({
+    name: z.string().min(1),
+    /** The nearest listed Discipline the Toolkit was proposed from. */
+    nearest: z.string().min(1).optional(),
+    toolkit: z.record(z.string().min(1), z.array(z.string())).optional(),
+    /** Interaction → the ready-made tool chosen for it; each key is one of the Toolkit's interactions. */
+    readyMade: z.record(z.string().min(1), z.string().min(1)).optional(),
+  })
+  .superRefine((d, ctx) => {
+    const linksOnly = "PhET and Falstad appear only as credited links, never as a tool";
+    const ships = [...SIM_KINDS, "pyodide", "part"] as readonly string[];
+    for (const [interaction, tools] of Object.entries(d.toolkit ?? {}))
+      tools.forEach((tool, i) => {
+        if (!ships.includes(tool))
+          ctx.addIssue({
+            code: "custom",
+            path: ["toolkit", interaction, i],
+            message: `"${tool}" isn't a tool this template ships (it ships: ${ships.join(", ")}); ${linksOnly}`,
+          });
+      });
+    for (const [interaction, name] of Object.entries(d.readyMade ?? {})) {
+      if (/\b(phet|falstad)\b/i.test(name))
+        ctx.addIssue({ code: "custom", path: ["readyMade", interaction], message: `"${name}": ${linksOnly}` });
+      if (!Object.hasOwn(d.toolkit ?? {}, interaction))
+        ctx.addIssue({
+          code: "custom",
+          path: ["readyMade", interaction],
+          message: `"${interaction}" isn't an interaction of ${d.name}'s Toolkit`,
+        });
+    }
+  });
+
 export const course = z
   .strictObject({
     name: z.string().min(1),
@@ -61,6 +101,8 @@ export const course = z
      * the English; off, none is. Media stays English either way.
      */
     arabicNotes: z.boolean().default(false),
+    /** The Owner-confirmed Disciplines, the main one first, set at intake. */
+    disciplines: z.array(courseDiscipline).default([]),
     sittings: z.array(sitting).default([]),
   })
   .superRefine((c, ctx) => {

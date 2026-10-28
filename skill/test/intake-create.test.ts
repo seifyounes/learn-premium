@@ -7,6 +7,8 @@ import { tmpdir } from "node:os";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { run as goPublic } from "../scripts/go-public/cli.ts";
 import { HostingError } from "../scripts/intake/hosting.ts";
+import { readLedger } from "../scripts/ledger/store.ts";
+import { ADDED, interactionOf, motorLabOf } from "./discipline-fixtures.ts";
 import { FakeHosting } from "./fake-hosting.ts";
 import { must } from "./fake-notebooklm.ts";
 import { intake, jsonInput, ledger, tempDir, writeFiles, type Result } from "./helpers.ts";
@@ -756,5 +758,120 @@ describe("the Course project's pre-commit gate", { timeout: 60_000 }, () => {
     expect(commit.status).not.toBe(0);
     expect(commit.stderr).toMatch(/figure\.png: is the Materials file Lectures\/L01 Conduction\.pdf/);
     expect(git(s.project, "rev-parse", "HEAD")).toBe(head);
+  });
+});
+
+describe("a Discipline added at intake", { timeout: 30_000 }, () => {
+  const disciplines = ["Heat transfer", "Electric machines"];
+
+  /** `create` with an added Discipline: `added` is the Owner's confirmed Toolkit for it. */
+  const createAdding = (s: Setup, added: unknown[] = [ADDED], overrides: Record<string, unknown> = {}) =>
+    create(s, { disciplines, added, ...overrides });
+
+  test("an added Discipline's confirmed Toolkit goes into the course config and the ledger", async () => {
+    const s = setup();
+
+    must(await createAdding(s));
+
+    const config = readFileSync(join(s.project, "content/course.yaml"), "utf8").replaceAll("\r\n", "\n");
+    expect(config).toContain("arabicNotes: true\n# The Owner-confirmed Disciplines, the main one first.");
+    expect(config).toContain(
+      'disciplines:\n  - {"name":"Heat transfer"}\n  - {"name":"Electric machines","nearest":"Electric circuits","toolkit":{"motor starting sequence":["ladder"],"torque-speed curve":[],"motor equations":["pyodide","part"]},"readyMade":{"motor starting sequence":"Motor Lab"}}\n',
+    );
+    expect(readLedger(s.project)?.intake.added).toEqual([ADDED]);
+  });
+
+  test("a Course that adds nothing lists only its listed Disciplines, and its ledger has no added one", async () => {
+    const s = setup();
+
+    must(await create(s));
+
+    expect(readFileSync(join(s.project, "content/course.yaml"), "utf8")).toContain(
+      'disciplines:\n  - {"name":"Heat transfer"}\n',
+    );
+    expect(readLedger(s.project)?.intake.added).toEqual([]);
+  });
+
+  test("an off-list Discipline without the Owner's confirmed Toolkit is refused, and nothing is made", async () => {
+    const s = setup();
+    const memory = readFileSync(join(s.work, "MEMORY.md"), "utf8");
+
+    const { code, out } = await createAdding(s, []);
+
+    expect(code).toBe(2);
+    expect(out.error).toContain("intake.ts toolkit");
+    expect(existsSync(s.project)).toBe(false);
+    expect((await intake("find", "--materials", s.materials, "--state", s.state)).out.project).toBeNull();
+    expect(readFileSync(join(s.work, "MEMORY.md"), "utf8")).toBe(memory);
+  });
+
+  test.each([
+    ["an entry with no words from the Owner", () => [{ ...ADDED, answer: "" }], /answer/],
+    [
+      "an entry for a Discipline the Course doesn't list",
+      () => [ADDED, { ...ADDED, name: "Power systems" }],
+      /Power systems/,
+    ],
+    [
+      "an entry for a Discipline the Toolkit lists",
+      () => [ADDED, { ...ADDED, name: "Heat transfer" }],
+      /is the Toolkit's Heat transfer/,
+    ],
+    ["two entries for one Discipline", () => [ADDED, ADDED], /more than one entry/],
+    [
+      "a Toolkit tool the template doesn't ship",
+      () => [{ ...ADDED, interactions: [{ ...interactionOf(ADDED, 0), tools: ["circuitjs"] }] }],
+      /isn't a tool the template ships/,
+    ],
+  ])("%s is refused, and nothing is made", async (_name, added, message) => {
+    const s = setup();
+
+    const { code, out } = await createAdding(s, added());
+
+    expect(code).toBe(2);
+    expect(out.error).toMatch(message);
+    expect(existsSync(s.project)).toBe(false);
+  });
+
+  test("a ready-made tool chosen on feel must pass all five checks", async () => {
+    const s = setup();
+    const desmos = { ...ADDED, chosen: [{ interaction: "motor starting sequence", readyMade: "Desmos" }] };
+
+    const { code, out } = await createAdding(s, [desmos]);
+
+    expect(code).toBe(2);
+    expect(out.error).toContain("Desmos fails embeddable");
+    expect(out.error).toContain("keeps its Agent-built tool");
+    expect(existsSync(s.project)).toBe(false);
+  });
+
+  test("a ready-made pick that isn't a candidate, or two picks for one interaction, are refused", async () => {
+    const s = setup();
+    const unknown = { ...ADDED, chosen: [{ interaction: "motor starting sequence", readyMade: "Ghost" }] };
+    const twice = { ...ADDED, chosen: [...ADDED.chosen, ...ADDED.chosen] };
+
+    expect((await createAdding(s, [unknown])).out.error).toContain("isn't a ready-made candidate");
+    expect((await createAdding(s, [twice])).out.error).toContain("more than one ready-made tool is chosen");
+    expect(existsSync(s.project)).toBe(false);
+  });
+
+  test("a PhET or Falstad candidate is refused, so it can't be chosen either", async () => {
+    const s = setup();
+    const phet = {
+      ...ADDED,
+      interactions: [
+        {
+          ...interactionOf(ADDED, 0),
+          readyMade: [{ ...motorLabOf(ADDED), name: "PhET Circuit Construction Kit" }],
+        },
+      ],
+      chosen: [{ interaction: "motor starting sequence", readyMade: "PhET Circuit Construction Kit" }],
+    };
+
+    const { code, out } = await createAdding(s, [phet]);
+
+    expect(code).toBe(2);
+    expect(out.error).toContain("PhET and Falstad appear only as credited links");
+    expect(existsSync(s.project)).toBe(false);
   });
 });

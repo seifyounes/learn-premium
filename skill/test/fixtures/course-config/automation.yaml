@@ -1,0 +1,20 @@
+# The course config: one value per setting, read by the Site template at every build. The pad is a
+# catalogue key or a colour; changing it rebuilds the whole site.
+name: "Machines and Automation"
+code: "EEE 410"
+pad: "bluegrey"
+credit:
+  professor: "A. Professor"
+  course: "Machines and Automation (EEE 410)"
+  university: "Example University"
+owner: "A. N. Owner"
+# The Arabic-notes toggle: on, the content's Arabic notes show beside the English. Media stays English.
+arabicNotes: false
+# The Owner-confirmed Disciplines, the main one first. One added at intake carries the Toolkit he
+# confirmed (each interaction's tools, the default first) and the ready-made tool he chose on feel.
+disciplines:
+  - {"name":"Automation and control"}
+  - {"name":"Electric machines","nearest":"Electric circuits","toolkit":{"motor starting sequence":["ladder"],"torque-speed curve":[],"motor equations":["pyodide","part"]},"readyMade":{"motor starting sequence":"Motor Lab"}}
+# The Exam sittings are in the Build ledger. The template lists a sitting with the Modules it covers,
+# so each joins here once Modules are mapped to it.
+sittings: []

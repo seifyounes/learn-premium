@@ -4,3 +4,5 @@ node_modules/
 package-lock.json
 # Prose is wrapped by hand.
 *.md
+# The course config byte for byte as intake writes it.
+test/fixtures/course-config/
