@@ -1474,6 +1474,25 @@ describe("a Discipline added at intake is unproven until the Owner says it met t
     expect(links()).toEqual({ "sim-03-gradient-descent-starter": true, "part-03-gradient-descent-eq": true });
   });
 
+  test("a Module rebuilt after a failed wave asks again: an earlier build's answer doesn't approve it", () => {
+    const { project, waveId } = assignedElectric();
+    const [first] = unprovenItems(project);
+    must(
+      ledger(
+        ...["record", "checkpoint", ...holder(project), "--wave", waveId, "--key", first?.key ?? ""],
+        ...["--question", first?.question ?? "", "--answer", "Reads fine."],
+      ),
+    );
+    must(ledger("wave", "end", ...holder(project), "--wave", waveId, "--result", "failed"));
+    const rebuilt = electric("03", project);
+    must(assignWave(project, rebuilt.waveId, withMotor(motor("starter", "motor starting sequence", "ladder"))));
+
+    const [again] = unprovenItems(project);
+
+    expect(again?.key).toBeDefined();
+    expect(again?.key).not.toBe(first?.key);
+  });
+
   test("a changed tool asks again: what a tool ships is part of its key", () => {
     const { project, waveId } = assignedElectric();
     const [first] = unprovenItems(project);
