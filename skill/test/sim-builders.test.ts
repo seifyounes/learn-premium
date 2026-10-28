@@ -1447,6 +1447,33 @@ describe("a Discipline added at intake is unproven until the Owner says it met t
     expect(unprovenItems(project)).toEqual([]);
   });
 
+  test("its link goes to the tool as shipped on the Lab: a sim, a Pyodide tool, or the part a Pyodide tool fell back to", () => {
+    const { project, waveId } = electric();
+    must(
+      assignWave(
+        project,
+        waveId,
+        withMotor(motor("starter", "motor starting sequence", "ladder"), motor("eq", "motor equations", "pyodide")),
+      ),
+    );
+    const links = () =>
+      Object.fromEntries(
+        (
+          wave(["checkpoint", "--project", project, "--module", "03", "--preview", "https://preview.example.org"]).out
+            .open as { kind: string; link: string }[]
+        )
+          .filter((i) => i.kind === "unproven")
+          .map((i) => [i.link.split("#")[1], true]),
+      );
+
+    expect(links()).toEqual({ "sim-03-gradient-descent-starter": true, "python-03-gradient-descent-eq": true });
+
+    blockThrice(project, waveId, "tool-eq");
+    must(fallBack(project, waveId, "tool-eq"));
+
+    expect(links()).toEqual({ "sim-03-gradient-descent-starter": true, "part-03-gradient-descent-eq": true });
+  });
+
   test("a changed tool asks again: what a tool ships is part of its key", () => {
     const { project, waveId } = assignedElectric();
     const [first] = unprovenItems(project);
