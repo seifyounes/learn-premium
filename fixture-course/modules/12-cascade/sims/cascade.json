@@ -1,0 +1,90 @@
+{
+  "kind": "pneumatic",
+  "title": "The two-group cascade, running",
+  "caption": "Press S and the cascade runs A+ B+ B− A−: pressurised lines ink in, spools shift and pistons travel, and the displacement-step diagram inks itself over the key. Hold S and it cycles; Step moves one stroke at a time.",
+  "recompute": "independent",
+  "worked": "1",
+  "sheet": {
+    "B1": "A[1]",
+    "C1": "A[2]",
+    "D1": "A[3]",
+    "E1": "A[4]",
+    "F1": "A[5]",
+    "B2": "B[1]",
+    "C2": "B[2]",
+    "D2": "B[3]",
+    "E2": "B[4]",
+    "F2": "B[5]",
+    "B3": "I[1]",
+    "C3": "I[2]",
+    "D3": "I[3]",
+    "E3": "I[4]",
+    "B4": "II[1]",
+    "C4": "II[2]",
+    "D4": "II[3]",
+    "E4": "II[4]"
+  },
+  "model": {
+    "parts": [
+      { "id": "A", "kind": "cylinder", "label": "A", "notes": { "retracted": "a0", "extended": "a1" }, "rest": "retracted" },
+      { "id": "B", "kind": "cylinder", "label": "B", "notes": { "retracted": "b0", "extended": "b1" }, "rest": "retracted" },
+      { "id": "VA", "kind": "valve-52", "label": "VA", "rest": "12" },
+      { "id": "VB", "kind": "valve-52", "label": "VB", "rest": "12" },
+      { "id": "CV", "kind": "valve-52", "label": "CV", "rest": "12" },
+      { "id": "a0", "kind": "valve-32-roller", "label": "a0" },
+      { "id": "a1", "kind": "valve-32-roller", "label": "a1" },
+      { "id": "b0", "kind": "valve-32-roller", "label": "b0" },
+      { "id": "b1", "kind": "valve-32-roller", "label": "b1" },
+      { "id": "S", "kind": "valve-32-button", "label": "S" },
+      { "id": "P1", "kind": "air-source" },
+      { "id": "P2", "kind": "air-source" },
+      { "id": "P3", "kind": "air-source" }
+    ],
+    "nets": [
+      { "id": "P", "pins": ["P1.t", "P2.t", "P3.t", "VA.1", "VB.1", "CV.1"] },
+      { "id": "Acap", "pins": ["VA.4", "A.cap"] },
+      { "id": "Arod", "pins": ["VA.2", "A.rod"] },
+      { "id": "Bcap", "pins": ["VB.4", "B.cap"] },
+      { "id": "Brod", "pins": ["VB.2", "B.rod"] },
+      { "id": "I", "pins": ["CV.4", "VA.14", "a1.1", "b1.1"] },
+      { "id": "II", "pins": ["CV.2", "VB.12", "b0.1", "a0.1"] },
+      { "id": "a1out", "pins": ["a1.2", "VB.14"] },
+      { "id": "b1out", "pins": ["b1.2", "CV.12"] },
+      { "id": "b0out", "pins": ["b0.2", "VA.12"] },
+      { "id": "a0out", "pins": ["a0.2", "S.1"] },
+      { "id": "Sout", "pins": ["S.2", "CV.14"] }
+    ],
+    "sequence": ["A+", "B+", "B-", "A-"],
+    "press": ["S"],
+    "signals": ["I", "II"]
+  },
+  "layout": {
+    "parts": {
+      "A": { "at": [1.4, 0], "label": "left" },
+      "B": { "at": [5.4, 0], "label": "left" },
+      "VA": { "at": [1.4, 1.6], "label": "above" },
+      "VB": { "at": [5.4, 1.6], "label": "above" },
+      "P1": { "at": [1.4, 2.6] },
+      "P2": { "at": [5.4, 2.6] },
+      "S": { "at": [-1, 2.4], "label": "left" },
+      "a0": { "at": [-1, 3.4], "label": "left" },
+      "b0": { "at": [2.6, 3.4], "label": "left" },
+      "a1": { "at": [4.6, 3.4], "label": "left" },
+      "b1": { "at": [6.8, 3.4], "label": "left" },
+      "CV": { "at": [1.4, 5.6], "label": "above" },
+      "P3": { "at": [1.4, 6.2] }
+    },
+    "dots": ["I", "II"]
+  },
+  "start": { "S": 0 },
+  "tune": { "S": { "min": 0, "max": 1, "step": 1 } },
+  "provenance": {
+    "stated": [
+      "cylinders $A$ and $B$ with roller valves a0, a1, b0, b1",
+      "the 5/2 valves VA, VB and the cascade valve CV",
+      "the group lines I and II",
+      "the start button S, held ($1$) or let go ($0$)",
+      "the sequence A+ B+ B− A−"
+    ]
+  }
+}

@@ -11,7 +11,9 @@ import { moduleOf } from "../src/content/layout.ts";
 import { readStructured } from "../src/content/loaders.ts";
 import { numbersIn } from "../src/provenance/values.ts";
 import { engineQuantities, isLive, KINDS, type LiveSim, type Sim, type SimKind } from "../src/sims/kinds.ts";
+import { pneumaticLog } from "../src/sims/pneumatic/log.ts";
 import { printAt, readPrinted } from "../src/sims/precision.ts";
+import { keyRows, rowOf } from "../src/sims/timing/diagram.ts";
 import { recomputeLog, threeWay } from "../src/sims/three-way.ts";
 import { snap } from "../src/sims/tuning.ts";
 import { parseCell } from "../src/worked/cells.ts";
@@ -68,10 +70,26 @@ const writeStructured = (path: string, data: unknown) =>
 type ThreeWayGate = (typeof KINDS)[SimKind]["checkedBy"];
 
 /**
+ * A kind whose recompute logs more than its values (a run's trace) has its log read by its own
+ * schema. It lives here, not in `KINDS`: the engine must never import the log, which imports
+ * `three-way.ts`, which imports the kinds.
+ */
+const RECOMPUTE_LOGS: Partial<
+  Record<SimKind, { safeParse(value: unknown): ReturnType<typeof recomputeLog.safeParse> }>
+> = {
+  pneumatic: pneumaticLog,
+};
+
+/**
  * The three-way check over the sims `gate` checks: each live one's engine against its recompute
  * log and its Worked example's sheet. A sim no recompute can check ships as its step-through.
+ * `onLive` sees each live sim whose log was read and compared, with the way to block on it.
  */
-async function threeWayRun(input: GateInput, gate: ThreeWayGate) {
+async function threeWayRun(
+  input: GateInput,
+  gate: ThreeWayGate,
+  onLive?: (s: LiveSim, block: (message: string) => void) => void,
+) {
   const { files, sims: all, modules } = simsInScope(input);
   // Each file is read once. One whose kind can't be read is the number gate's to report, once.
   const sims = all
@@ -107,7 +125,7 @@ async function threeWayRun(input: GateInput, gate: ThreeWayGate) {
     }
     let log;
     try {
-      log = recomputeLog.safeParse(JSON.parse(readFileSync(logPath, "utf8")));
+      log = (RECOMPUTE_LOGS[s.kind] ?? recomputeLog).safeParse(JSON.parse(readFileSync(logPath, "utf8")));
     } catch (error) {
       block(`can't read the recompute log ${logEntry}: ${(error as Error).message}`);
       continue;
@@ -126,8 +144,9 @@ async function threeWayRun(input: GateInput, gate: ThreeWayGate) {
       continue;
     }
     const result = threeWay(s, log.data, example?.sheet, {
-      exact: gate === "truth-table",
+      exact: gate === "truth-table" || gate === "timing-key",
       pinned: "pinned" in style ? style.pinned : undefined,
+      ...(gate === "timing-key" ? { every: "a timing diagram's recompute works out every step of it" } : {}),
     });
     coverage.sheetValues += result.sheetValues;
     coverage.recomputedValues += result.recomputedValues;
@@ -138,6 +157,7 @@ async function threeWayRun(input: GateInput, gate: ThreeWayGate) {
         message: p.message,
       });
     }
+    onLive?.(s, block);
   }
   return { coverage, findings };
 }
@@ -279,6 +299,109 @@ export const truthTableGate: Gate = {
       defect: "a live logic sim with no recompute log",
       plant: (good, scratch) =>
         plantInLiveSim(good, scratch, ({ contentDir, logEntry }) => rmSync(join(contentDir, logEntry)), "truth-table"),
+    },
+  ],
+};
+
+export const timingKeyGate: Gate = {
+  id: "timing-key",
+  checks:
+    "every timing diagram a sim draws (a pneumatic circuit's displacement-step diagram and its signal lines) agrees with the key, the Worked example's diagram, bit for bit at every step three ways (engine, independent recompute, the key), and the key checks each row it maps whole",
+  points: ["job", "deploy"],
+  async run(input) {
+    let rows = 0;
+    const { coverage, findings } = await threeWayRun(input, "timing-key", (s, block) => {
+      let engine: Record<string, number>;
+      try {
+        engine = engineQuantities(s);
+      } catch {
+        return; // the three-way check has already blocked on it
+      }
+      const found = keyRows(s.sheet, engine);
+      rows += found.rows;
+      found.problems.forEach(block);
+    });
+    return { coverage: { ...coverage, rows }, findings };
+  },
+  controls: [
+    {
+      defect: "a recompute log that disagrees with the engine on one step of the diagram",
+      plant: (good, scratch) =>
+        plantInLiveSim(
+          good,
+          scratch,
+          ({ contentDir, logEntry, sim }) => {
+            const path = join(contentDir, logEntry);
+            const log = JSON.parse(readFileSync(path, "utf8")) as { values: Record<string, number> };
+            const quantity = firstSheetQuantity(sim);
+            log.values[quantity] = 1 - (log.values[quantity] ?? 0);
+            writeFileSync(path, JSON.stringify(log));
+          },
+          "timing-key",
+        ),
+    },
+    {
+      defect: "a key cell the engine and the recompute agree against, which only the Owner can rule",
+      expect: "checkpoint",
+      plant: (good, scratch) =>
+        plantInLiveSim(
+          good,
+          scratch,
+          ({ contentDir, workedEntry, sim }) => {
+            if (!workedEntry) throw new Error("the live sim names no Worked example to plant a key cell in");
+            const path = join(contentDir, workedEntry);
+            const example = readStructured(readFileSync(path, "utf8"), workedEntry, ignoreMath) as {
+              artefact: { rows: string[][] };
+            };
+            const [cell] = Object.keys(sim.sheet);
+            if (!cell) throw new Error("the live sim maps no sheet cell");
+            const { row, col } = parseCell(cell);
+            const rowCells = example.artefact.rows[row] as string[];
+            rowCells[col] = String(1 - bitIn(rowCells[col] ?? ""));
+            writeStructured(path, example);
+          },
+          "timing-key",
+        ),
+    },
+    {
+      defect: "a key that maps only some steps of a row",
+      plant: (good, scratch) =>
+        plantInLiveSim(
+          good,
+          scratch,
+          ({ contentDir, simEntry, sim }) => {
+            // The last step of the first row the key maps: the engine and the recompute still give it.
+            const first = rowOf(firstSheetQuantity(sim));
+            const mapped = Object.entries(sim.sheet).filter(([, q]) => rowOf(q)?.row === first?.row);
+            const [cell] = mapped.at(-1) ?? [];
+            if (!cell || mapped.length < 2) throw new Error("the live sim's key maps no row of more than one step");
+            const sheet = Object.fromEntries(Object.entries(sim.sheet).filter(([c]) => c !== cell));
+            writeStructured(join(contentDir, simEntry), { ...sim, sheet });
+          },
+          "timing-key",
+        ),
+    },
+    {
+      defect: "a recompute log that leaves out a step of the diagram",
+      plant: (good, scratch) =>
+        plantInLiveSim(
+          good,
+          scratch,
+          ({ contentDir, logEntry }) => {
+            const path = join(contentDir, logEntry);
+            const log = JSON.parse(readFileSync(path, "utf8")) as { values: Record<string, number> };
+            const last = Object.keys(log.values).at(-1);
+            if (last === undefined) throw new Error("the recompute log gives no value");
+            const values = Object.fromEntries(Object.entries(log.values).filter(([q]) => q !== last));
+            writeFileSync(path, JSON.stringify({ ...log, values }));
+          },
+          "timing-key",
+        ),
+    },
+    {
+      defect: "a live timing sim with no recompute log",
+      plant: (good, scratch) =>
+        plantInLiveSim(good, scratch, ({ contentDir, logEntry }) => rmSync(join(contentDir, logEntry)), "timing-key"),
     },
   ],
 };

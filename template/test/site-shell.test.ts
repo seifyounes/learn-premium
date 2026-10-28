@@ -130,6 +130,7 @@ describe("the Study site shell", () => {
         "08-root-locus",
         "09-silo-blender",
         "10-two-conveyors",
+        "12-cascade",
       ]);
       expect(contentsLine(home(), "02-convection")).toContain('href="/02-convection/"');
     });
@@ -217,8 +218,8 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/05-derivatives/"');
     expect(lab).toContain('href="/07-flanged-hub/"');
     expect(lab).toContain('href="/08-root-locus/"');
-    // The nine sims and the Pyodide tool, then the machine part.
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(10);
+    // The ten sims (the cascade is the tenth) and the Pyodide tool, then the machine part.
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(11);
     expect(lab.match(/class="sim-card part-card"/g)).toHaveLength(1);
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
@@ -368,6 +369,7 @@ describe("a Course with no tools yet", () => {
       "08-root-locus/sims",
       "09-silo-blender/sims",
       "10-two-conveyors/sims",
+      "12-cascade/sims",
     ])
       rmSync(join(course, "modules", sims), { recursive: true });
     const build = buildCourse(course);

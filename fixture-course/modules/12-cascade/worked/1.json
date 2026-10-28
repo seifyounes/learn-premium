@@ -1,0 +1,74 @@
+{
+  "code": "W12.1",
+  "title": "The cascade's displacement-step diagram",
+  "statement": "The figure's circuit runs cylinders $A$ and $B$ through A+ B+ B− A− by the cascade method: group I is A+ B+, group II is B− A−, and the cascade valve CV switches the air between line I and line II. With both cylinders back, S is pressed once. Draw the displacement-step diagram: where each cylinder is at every step line, and which group line is on during each movement.",
+  "given": [
+    "cylinders $A$ and $B$, double-acting, both back at rest",
+    "roller valves a0, a1 at $A$'s ends and b0, b1 at $B$'s",
+    "the sequence A+ B+ B− A−, in two groups"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "Each cylinder at every step line (1 out, 0 back); each group line during the movement after it (1 on, 0 off)",
+    "columns": [
+      { "label": "Step", "given": true },
+      { "label": "$1$" },
+      { "label": "$2$" },
+      { "label": "$3$" },
+      { "label": "$4$" },
+      { "label": "$5$" }
+    ],
+    "rows": [
+      ["$A$", "0", "1", "1", "1", "0"],
+      ["$B$", "0", "0", "1", "0", "0"],
+      ["line I", "1", "1", "0", "0", ""],
+      ["line II", "0", "0", "1", "1", ""]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "Read the circuit",
+      "note": "Group I is A+ B+ and group II is B− A−. At rest line II is on, and a0, with $A$ back, arms S."
+    },
+    {
+      "title": "Step 1: S pressed",
+      "note": "S passes line II through a0 to CV's pilot at port 14, so CV shifts: line I comes on and line II goes off. Line I pilots VA straight to its 14 side, so $A$ extends.",
+      "fill": ["B1", "B2", "B3", "B4"]
+    },
+    {
+      "title": "Step 2: a1 made",
+      "note": "$A$ out makes a1, which is fed from line I, so VB goes to its 14 side and $B$ extends.",
+      "fill": ["C1", "C2", "C3", "C4"]
+    },
+    {
+      "title": "Step 3: the group change",
+      "note": "$B$ out makes b1, so CV switches to line II. Line II pilots VB to its 12 side, so $B$ retracts.",
+      "fill": ["D1", "D2", "D3", "D4"],
+      "marks": ["D4"]
+    },
+    {
+      "title": "Step 4: b0 made",
+      "note": "$B$ back makes b0, which is fed from line II, so VA goes to its 12 side and $A$ retracts.",
+      "fill": ["E1", "E2", "E3", "E4"]
+    },
+    {
+      "title": "Step 5: back at rest",
+      "note": "$A$ back makes a0 again, with S let go: nothing pilots CV, and the cycle stops at rest.",
+      "fill": ["F1", "F2"]
+    }
+  ],
+  "answer": "Group I is A+ B+ and group II is B− A−: $A$ is out from step $2$ to step $4$ and $B$ only at step $3$; line I is on for the first two movements, line II for the last two.",
+  "provenance": {
+    "stated": [
+      "cylinders $A$ and $B$, roller valves a0, a1, b0, b1",
+      "the sequence A+ B+ B− A−",
+      "S pressed once"
+    ],
+    "derived": [
+      "the step lines $1$, $2$, $3$, $4$ and $5$",
+      "$0$ (back, off) and $1$ (out, on)",
+      "the ports 12 and 14"
+    ]
+  }
+}

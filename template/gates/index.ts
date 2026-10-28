@@ -12,10 +12,11 @@ import { masterRules } from "./master-rules.ts";
 import { notationGate } from "./notation.ts";
 import { renderedPageScan } from "./pages.ts";
 import { partChecks } from "./parts.ts";
+import { pneumaticCycleGate } from "./pneumatic.ts";
 import { noBuildEvidence, noindexGate, noMaterials } from "./private-files.ts";
 import { provenanceGate } from "./provenance.ts";
 import { pyodideGate } from "./pyodide.ts";
-import { simNumbers, toolsGate, truthTableGate } from "./sims.ts";
+import { simNumbers, timingKeyGate, toolsGate, truthTableGate } from "./sims.ts";
 import { sclGate } from "./scl.ts";
 import { SITTING_GATES } from "./sittings.ts";
 import { stlGate } from "./stl.ts";
@@ -38,6 +39,8 @@ export const GATES: readonly Gate[] = [
   sclGate,
   pinnedDefinitionsGate,
   ladderGate,
+  pneumaticCycleGate,
+  timingKeyGate,
   drawingGate,
   partChecks,
   toolsGate,
