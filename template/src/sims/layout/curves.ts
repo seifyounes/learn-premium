@@ -128,20 +128,36 @@ export function selfLoop(state: Placement, side: Side): DrawnEdge {
 const down: Point = [0, 1];
 const half = (part: Placement) => reachOf(part);
 
-/** A GRAFCET link from one step to another, with its transition bar. A target level or above runs round by `returnX`. */
-export function link(from: Placement, to: Placement, returnX?: number): DrawnEdge {
+/**
+ * A GRAFCET link from one step to another, with its transition bar. A target level or above runs round by
+ * `returnX`. A link that leaves a step with other links (an alternative branch) runs out along a line
+ * just under the step and carries its own bar on its last vertical, so each branch's transition and
+ * label sit on that branch.
+ */
+export function link(from: Placement, to: Placement, returnX?: number, branches = false): DrawnEdge {
   const h = half(from);
   const ht = half(to);
   const [cx, cy] = centreOf(from);
   const [tx, ty] = centreOf(to);
   let points: Point[];
   let barY: number;
+  let barX = cx;
   if (ty > cy && Math.abs(tx - cx) < 1) {
     points = [
       [cx, cy + h],
       [cx, ty - ht],
     ];
     barY = Math.round((cy + ty) / 2 / GRID) * GRID;
+  } else if (ty > cy && branches) {
+    const bus = cy + h + LINK_JOG;
+    points = [
+      [cx, cy + h],
+      [cx, bus],
+      [tx, bus],
+      [tx, ty - ht],
+    ];
+    barX = tx;
+    barY = Math.round((bus + ty - ht) / 2 / GRID) * GRID;
   } else if (ty > cy) {
     points = [
       [cx, cy + h],
@@ -167,8 +183,8 @@ export function link(from: Placement, to: Placement, returnX?: number): DrawnEdg
     curve: { kind: "polyline", points },
     arrow: { tip, dir: down },
     bar: [
-      [cx - 10, barY],
-      [cx + 10, barY],
+      [barX - 10, barY],
+      [barX + 10, barY],
     ],
   };
 }
