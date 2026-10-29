@@ -7,7 +7,7 @@
 // preference is off; the slider and the pin still turn it, instantly. three.js loads only when the
 // 3D view is on screen.
 import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
-import { drive, inkBuckets, startDrive, total } from "../sims/mechanism/drive.ts";
+import { drive, fromSlider, inkBuckets, onSlider, startDrive, total } from "../sims/mechanism/drive.ts";
 import { pose as poseAt, quantities, type Model } from "../sims/mechanism/engine.ts";
 import { printAt } from "../sims/print.ts";
 import { snap, type Range } from "../sims/tuning.ts";
@@ -110,10 +110,10 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
     lastInk.current = inkAt;
   }, [inkAt]);
 
-  const set = (angle: number) => dispatch({ type: "set", angle });
+  const set = (angle: number) => dispatch({ type: "set", angle: fromSlider(d, tune.theta, angle) });
   const drag = (angle: number) => dispatch({ type: "drag", angle });
   // The slider shows where it was put: the far end stays at its end (360°), where the angle alone would read 0°.
-  const onSlider = total(d) >= tune.theta.min && total(d) <= tune.theta.max ? total(d) : d.angle;
+  const sliderAt = onSlider(d, tune.theta);
   const onStatus = (status: ViewerStatus) => {
     if (status === "no-webgl" || status === "no-part") {
       setNoThree(true);
@@ -233,7 +233,7 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
           <Slider
             name={mathHtml.theta}
             range={tune.theta}
-            value={snap(onSlider, tune.theta)}
+            value={snap(sliderAt, tune.theta)}
             ready={ready}
             onChange={set}
           />

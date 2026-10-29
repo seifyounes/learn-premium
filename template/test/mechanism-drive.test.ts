@@ -2,9 +2,23 @@
 // (a background tab coming back) moves it no further than a tenth of a second's worth, the slider and
 // the pin drag pause it, and reduced motion stops it at the angle it has.
 import { describe, expect, it } from "vitest";
-import { drive, inkBuckets, MAX_TICK_MS, startDrive, total, TURN_SECONDS } from "../src/sims/mechanism/drive.ts";
+import {
+  drive,
+  fromSlider,
+  inkBuckets,
+  MAX_TICK_MS,
+  onSlider,
+  startDrive,
+  total,
+  TURN_SECONDS,
+} from "../src/sims/mechanism/drive.ts";
+import { pose, type GearPair } from "../src/sims/mechanism/engine.ts";
 
 const playing = (angle: number) => drive(startDrive(angle, false), { type: "play" });
+const FULL_TURN = { min: 0, max: 360 };
+/** The Fixture's pair: 18 teeth driving 36 leave the driven gear half a turn on after one driver turn. */
+const PAIR: GearPair = { type: "gear-pair", module: 2, teeth: [18, 36], pressureAngle: 20, faceWidth: 12 };
+const drivenAt = (d: ReturnType<typeof startDrive>) => pose(PAIR, total(d)).links.driven?.angle ?? NaN;
 
 describe("the mechanism's play clock", () => {
   it("reduced motion stops a playing mechanism where it is", () => {
@@ -78,6 +92,35 @@ describe("the mechanism's play clock", () => {
     expect(drive(played, { type: "drag", angle: 10 }).playing).toBe(false);
     // A set (the slider) is absolute, and a drag is not.
     expect(total(drive(played, { type: "set", angle: 10 }))).toBe(10);
+  });
+
+  it("a slider nudged after Play's turn moves the driven gear a half degree, not half a turn (final review F14)", () => {
+    // Played through one driver turn and a little more: the slider shows the wrapped angle, 5, with the turn behind it.
+    const played = drive(playing(359), { type: "tick", ms: 100 });
+    expect(total(played)).toBeCloseTo(365, 9);
+    expect(onSlider(played, FULL_TURN)).toBeCloseTo(5, 9);
+    const nudged = drive(played, { type: "set", angle: fromSlider(played, FULL_TURN, 6) });
+    expect(total(nudged)).toBeCloseTo(366, 9);
+    expect(drivenAt(nudged)).toBeCloseTo(drivenAt(played) - 0.5, 9);
+    // Negative control: the slider's raw value as an absolute angle is the old half-turn jump.
+    const jumped = drive(played, { type: "set", angle: 6 });
+    expect(total(jumped)).toBe(6);
+    expect(Math.abs(drivenAt(jumped) - drivenAt(played))).toBeGreaterThan(170);
+  });
+
+  it("a slider that shows the whole angle is absolute, and the far end stays at its end", () => {
+    // Within the range the slider reads total(d): a set is the angle it was put at, and the turns start again.
+    const mid = startDrive(100, false);
+    expect(onSlider(mid, FULL_TURN)).toBe(100);
+    expect(fromSlider(mid, FULL_TURN, 140)).toBe(140);
+    // 360° is one turn on, 0°: the slider reads 360 there and a set from it is still absolute.
+    const end = drive(mid, { type: "set", angle: 360 });
+    expect(onSlider(end, FULL_TURN)).toBe(360);
+    expect(total(drive(end, { type: "set", angle: fromSlider(end, FULL_TURN, 359) }))).toBe(359);
+    // A mechanism opened below 0 reads its wrapped angle and keeps the turn it is on.
+    const below = startDrive(-90, false);
+    expect(onSlider(below, FULL_TURN)).toBe(270);
+    expect(total(drive(below, { type: "set", angle: fromSlider(below, FULL_TURN, 271) }))).toBe(-89);
   });
 
   it("a long frame moves it at most 100 ms' worth", () => {

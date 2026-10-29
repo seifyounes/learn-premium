@@ -47,6 +47,23 @@ export const startDrive = (angle: number, reduced: boolean): Drive => ({
 /** The angle the engine is asked for: the displayed angle and the whole turns Play has added to it. */
 export const total = (d: Drive): number => d.angle + 360 * d.turns;
 
+const within = (d: Drive, range: { min: number; max: number }) => total(d) >= range.min && total(d) <= range.max;
+
+/**
+ * Where the slider sits: at the whole angle while that lies in its range (so the far end stays at its end, 360°,
+ * where the angle alone would read 0°), else at the displayed angle, once Play has carried it past a turn.
+ */
+export const onSlider = (d: Drive, range: { min: number; max: number }): number =>
+  within(d, range) ? total(d) : d.angle;
+
+/**
+ * The absolute angle a slider put at `value` asks for. While the slider shows the whole angle that is `value`
+ * itself. While it shows the displayed angle only, `value` is a place on the turn the driver is on, so the
+ * turns behind it carry on: a gear pair's driven gear moves a step with the slider, not half a turn.
+ */
+export const fromSlider = (d: Drive, range: { min: number; max: number }, value: number): number =>
+  within(d, range) ? value : value + 360 * d.turns;
+
 export function drive(d: Drive, a: DriveAction): Drive {
   switch (a.type) {
     case "play":
