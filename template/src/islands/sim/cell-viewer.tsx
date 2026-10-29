@@ -37,6 +37,8 @@ interface Props {
 const LABEL_LINE = 34;
 /** How far one wheel notch zooms, when the viewer has the page's wheel. */
 const WHEEL_ZOOM = 0.0015;
+/** How long a viewer stays near the screen before it starts drawing in 3D. */
+const DWELL_MS = 600;
 /** The electrons travel the wire this many times a second. */
 const LAPS_PER_SECOND = 0.25;
 
@@ -102,66 +104,71 @@ export function CellViewer({ model, state, decimals, label, ready, reduced }: Pr
     return () => watch.disconnect();
   }, []);
 
-  // three.js, after first paint, while the viewer is near the screen.
+  // three.js, after first paint, while the viewer is near the screen and has stayed there a moment: a page scrolled
+  // quickly past its viewers starts no WebGL, and one that has come to rest on one does it with the page idle.
   useEffect(() => {
     if (!near) return;
     let disposed = false;
-    const stop = afterFirstPaint(() => {
-      void (async () => {
-        const host = objectEl.current;
-        if (!host) return;
-        let modules;
-        try {
-          modules = await Promise.all([import("../three/stage.ts"), import("../three/cell-scene.ts")]);
-        } catch {
-          // A chunk that didn't download: the sim keeps its values and its plot.
-          if (!disposed) setStatus("no-part");
-          return;
-        }
-        const [{ createStage, readViewerInks }, scene] = modules;
-        if (disposed) return;
-        let made: Stage;
-        try {
-          made = createStage(host, readViewerInks(host));
-        } catch {
-          setStatus("no-webgl");
-          return;
-        }
-        stage.current = made;
-        place.current = scene.placeCell;
-        const cell = scene.showCell(made, model);
-        built.current = cell;
-        scene.placeCell(cell, stateRef.current, { reduced: reducedRef.current, phase: phase.current });
-        made.beforeDraw(() => {
-          cell.root.updateMatrixWorld(true);
-          const { width, height } = made.size();
-          const middle = width / 2;
-          const seen = (Object.keys(cell.anchors) as CellAnchor[]).flatMap((id) => {
-            const at = made.project(cell.anchors[id].getWorldPosition(new made.three.Vector3()));
-            return at.inside ? [{ id, ...at, side: (at.x < middle ? "start" : "end") as Side }] : [];
-          });
-          const next: Placed = { height: 0, at: [] };
-          const leaders: { from: [number, number]; to: [number, number]; strong: boolean }[] = [];
-          for (const side of ["start", "end"] as const) {
-            const own = seen.filter((s) => s.side === side);
-            const laid = placeLabels(own, height, LABEL_LINE);
-            next.height = Math.max(next.height, laid.height);
-            for (const l of laid.at) {
-              next.at.push({ id: l.id as CellAnchor, y: l.y, side });
-              const a = own.find((s) => s.id === l.id);
-              if (a) leaders.push({ from: [a.x, a.y], to: [side === "start" ? 0 : width, l.y], strong: false });
-            }
+    let stop = () => {};
+    const dwell = window.setTimeout(() => {
+      stop = afterFirstPaint(() => {
+        void (async () => {
+          const host = objectEl.current;
+          if (!host) return;
+          let modules;
+          try {
+            modules = await Promise.all([import("../three/stage.ts"), import("../three/cell-scene.ts")]);
+          } catch {
+            // A chunk that didn't download: the sim keeps its values and its plot.
+            if (!disposed) setStatus("no-part");
+            return;
           }
-          made.setLeaders(leaders);
-          // Re-rendering on every frame of the electrons would cost the page: only when a label moved.
-          setPlaced((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next));
-          setHome(made.atHome());
-        });
-        setStatus("drawn");
-      })();
-    });
+          const [{ createStage, readViewerInks }, scene] = modules;
+          if (disposed) return;
+          let made: Stage;
+          try {
+            made = createStage(host, readViewerInks(host));
+          } catch {
+            setStatus("no-webgl");
+            return;
+          }
+          stage.current = made;
+          place.current = scene.placeCell;
+          const cell = scene.showCell(made, model);
+          built.current = cell;
+          scene.placeCell(cell, stateRef.current, { reduced: reducedRef.current, phase: phase.current });
+          made.beforeDraw(() => {
+            cell.root.updateMatrixWorld(true);
+            const { width, height } = made.size();
+            const middle = width / 2;
+            const seen = (Object.keys(cell.anchors) as CellAnchor[]).flatMap((id) => {
+              const at = made.project(cell.anchors[id].getWorldPosition(new made.three.Vector3()));
+              return at.inside ? [{ id, ...at, side: (at.x < middle ? "start" : "end") as Side }] : [];
+            });
+            const next: Placed = { height: 0, at: [] };
+            const leaders: { from: [number, number]; to: [number, number]; strong: boolean }[] = [];
+            for (const side of ["start", "end"] as const) {
+              const own = seen.filter((s) => s.side === side);
+              const laid = placeLabels(own, height, LABEL_LINE);
+              next.height = Math.max(next.height, laid.height);
+              for (const l of laid.at) {
+                next.at.push({ id: l.id as CellAnchor, y: l.y, side });
+                const a = own.find((s) => s.id === l.id);
+                if (a) leaders.push({ from: [a.x, a.y], to: [side === "start" ? 0 : width, l.y], strong: false });
+              }
+            }
+            made.setLeaders(leaders);
+            // Re-rendering on every frame of the electrons would cost the page: only when a label moved.
+            setPlaced((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next));
+            setHome(made.atHome());
+          });
+          setStatus("drawn");
+        })();
+      });
+    }, DWELL_MS);
     return () => {
       disposed = true;
+      window.clearTimeout(dwell);
       stop();
       stage.current?.dispose();
       stage.current = undefined;
@@ -214,24 +221,31 @@ export function CellViewer({ model, state, decimals, label, ready, reduced }: Pr
     const move = (e: PointerEvent) => gestures.move(e.pointerId, e.clientX, e.clientY);
     const up = (e: PointerEvent) => gestures.up(e.pointerId, e.timeStamp);
     const cancel = (e: PointerEvent) => gestures.cancel(e.pointerId);
-    const wheel = (e: WheelEvent) => {
-      if (!activeRef.current) return; // the page scrolls
-      e.preventDefault();
-      stage.current?.zoom(Math.exp(-e.deltaY * WHEEL_ZOOM));
-    };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", cancel);
-    el.addEventListener("wheel", wheel, { passive: false });
     return () => {
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", cancel);
-      el.removeEventListener("wheel", wheel);
     };
   }, []);
+
+  // The wheel zooms only once the cell is tapped. Until then it has no wheel listener at all: a listener
+  // that may cancel the wheel makes the browser wait on this page's main thread before it scrolls, and a main
+  // thread busy drawing WebGL would hold up the scroll the page is owed over the viewer.
+  useEffect(() => {
+    const el = objectEl.current;
+    if (!el || !active) return;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      stage.current?.zoom(Math.exp(-e.deltaY * WHEEL_ZOOM));
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+  }, [active]);
 
   // Handing the page back: a tap outside the frame, Escape, or the viewer scrolled out of view.
   useEffect(() => {
