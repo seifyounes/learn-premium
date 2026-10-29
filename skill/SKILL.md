@@ -208,7 +208,7 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
       teaching order. `ready` refuses a card it didn't pass or one that differs from it.
    4. A video that yields the Professor's answer by another method: `node "$W" videos never --project
       <P> --id <id> --reason "<why>"` puts it on the do-not-use list for the whole Course.
-6. **Per-job gates**, from `<P>/template` (after `npm ci`), always on the Course's content:
+6. **Per-job gates**, from `<P>/template` (after `npm ci`), always on the Course's content. First build the Module's molecules, if it has any: `npm run molecules -- --module NN-<slug>` in the machine venv, then `npm run pubchem -- --module NN-<slug>` online (offline it leaves a Checkpoint item). Then:
    `npm run gates -- run --point job --module NN-<slug> --content ../content`. A block goes back to
    the job that made it. Re-verify every finding before blocking on it.
 7. **Your consistency pass:** read the Module through against the style sheet and the settled

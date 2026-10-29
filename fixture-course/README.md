@@ -103,6 +103,21 @@ Layout (content contract v0):
   recompute's: the sheet's `values` at the example's angle and a `trace` of one driver turn at 1°
   (each moving link's angle, every pin off the ground), which the `kinematics` gate holds the
   viewer's motion to at 360 steps; the `gear-interference` gate checks a pair's teeth at 0.5°.
+- A Nernst sim (`kind: nernst`, Module 13) holds a galvanic cell as `model.first` and `model.second`:
+  each half-cell a `metal`, its `ion` as mhchem writes it (`Cu^2+`), its `charge` z and its
+  standard reduction potential `e0`. The cell is written first | second, the first electrode
+  oxidised as written. Students tune `c1`, `c2` (mol/L) and `T` (K); `plot.isotherms` lists the
+  temperatures of the E against log Q plot's lines, and past four it says `many: toggle`. Its
+  log in `build-records/recompute/` carries a `sweep` of the whole slider grid (729 states) with
+  each state's E and anode, which the `nernst` gate checks the engine's against.
+- `modules/<NN>-<slug>/molecules/<name>.json` (JSON only): one molecule each, its `name` as the
+  Materials print it, its `smiles` and printed `formula`. `<name>.svg` (its 2D structure, in
+  graphite) and `<name>.sdf` (its 3D conformer), `build-records/molecules/<NN>-<slug>/<name>.json`
+  (RDKit's record) are written by `npm run molecules` in the template, with the machine venv's
+  RDKit, and committed; `build-records/pubchem/<NN>-<slug>/<name>.json` is PubChem's answer for
+  the name, from `npm run pubchem` (online, once). Never edit any of them by hand.
+- `further` in `module.yaml`: credited links to other sites' pages (a title, an https `url`, the
+  `credit` its makers ask for and a `licence`), shown at the end of the Module as "Go further".
 - `modules/<NN>-<slug>/parts/<name>.json` (JSON only) and `<name>.py`: one machine part each, its
   build123d script and the dimensions its drawing gives (each between two points on the part, with
   its Provenance tag; `confirmed` once the Owner has ruled on a scaled or assumed one). `<name>.glb`
@@ -201,6 +216,17 @@ Professor's figure. The recompute logs are written by `tools/recompute-gear-pair
 path-of-contact formulas and rolling) and `tools/recompute-four-bar.py` (Freudenstein's equation in
 half-angle form), never by hand: run `python fixture-course/tools/recompute-four-bar.py` (or
 `recompute-gear-pair.py`) from the repo root, and the sheets' values are read off their output.
+
+Module 13 (cell potential) carries the Nernst sim and a molecule. The cell is a copper concentration
+cell, Cu | Cu²⁺ ‖ Cu²⁺ | Cu at 298.15 K with c₁ = 0.010 mol/L and c₂ = 1.0 mol/L and E° = +0.34 V
+for both electrodes, so E° of the cell is 0 and the sliders can take E below 0 and turn the cell
+round. W13.1 works Q, E and ΔG at the example's values, the sheet the `nernst` gate checks three
+ways; `tools/recompute-nernst.py` works each half-cell's own Nernst potential, apart from the
+engine, and walks all 729 slider states. The plot has five isotherms, four shown. Glycine
+(`molecules/glycine.json`, SMILES `NCC(=O)O`) is drawn by RDKit as a 2D structure and a 3D
+conformer, checked against PubChem's recorded answer for "glycine" (CID 750); the recorded
+response was captured live once with `npm run pubchem -- --save`. The module's `further` link
+is PhET's Concentration, credited as PhET asks, CC BY-NC 4.0, opening in a new tab.
 
 Module 14 (state machines) carries the FSM and GRAFCET sims. The detector is a Moore machine that
 watches its input x for 1, 0, 1 with overlaps. Its synthetic figure has S0 at the left middle, its

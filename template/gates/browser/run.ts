@@ -94,6 +94,8 @@ const HEAVY_LIBRARIES = [
     body: /\bWebGLRenderer\b/,
     afterFirstPaint: true,
   },
+  // A molecule viewer loads 3Dmol.js the same way, after first paint and near the screen.
+  { name: "3Dmol.js", url: /3dmol/i, body: /\$3Dmol\b/, afterFirstPaint: true },
   { name: "Pyodide", url: /pyodide/i, body: /\bloadPyodide\b/, afterFirstPaint: false },
   {
     name: "Plotly",

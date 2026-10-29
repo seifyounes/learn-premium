@@ -66,6 +66,7 @@ const CAUGHT_BY: Record<string, RegExp> = {
     /Plotly loads with the page \(http:\/\/[^)]*\/_astro\/plotly.after-load.planted.js\)/,
   "three.js asked for from a CDN with the page":
     /three\.js loads with the page \(https:\/\/cdn\.jsdelivr\.net\/npm\/three@0\.170\.0\/build\/three\.module\.js\)/,
+  "3Dmol.js loaded with the page": /3Dmol\.js loads with the page/,
   "a 3D viewer that takes the wheel before it is tapped":
     /a wheel over the 3D viewer 1 of 1 doesn't scroll the page before it is tapped or clicked/,
   "a 3D viewer that takes every touch before it is tapped":

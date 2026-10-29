@@ -20,6 +20,7 @@ any Checkpoint items already ruled (`ledger.ts checkpoint --key …`).
 - Summaries: at most five beats of at most 90 words, each around one figure. No first person as the
   Professor, no slang. Don't quote long passages.
 - Never read the recompute's logs (`content/build-records/recompute/`) or a sim engine.
+- A molecule the Materials draw is `modules/<NN>-<slug>/molecules/<name>.json`: the `name` as the Materials print it, its `smiles`, the `formula` the Materials print, and the Worked example it sits in. Never write its SVG, SDF or records: the main agent runs `npm run molecules` and `npm run pubchem`. Credit a PhET or Falstad page only as a `further` link in `module.yaml` (a title, an https `url`, their credit and licence), never as a tool or a figure.
 
 Return a short report: the files written, the Worked examples and their artefacts, anything you
 couldn't place, and the assumptions you tagged. The main agent measures your time; don't report it.

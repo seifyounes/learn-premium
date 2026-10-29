@@ -35,6 +35,8 @@ the clock takes it and its outputs there. `values` holds the timing strip as `ro
 (an FSM's code bits, a GRAFCET's `X0`…) and output in each clock period of the example. Work it from the figure
 by hand (a lookup table for an FSM, IEC 60848's firing rules for a GRAFCET), never by the template's engine.
 
+A live Nernst sim's log (`kind: nernst`) is `recompute/<NN>-<slug>/<name>.json`, a recompute log plus a `sweep`. `values` holds every quantity at `start`: `E0cell`, `n`, `Q`, `E`, `deltaG` (kJ/mol) and `K`. `sweep` holds each tuned input at 9 points, minimum to maximum inclusive, in `tune`'s order (the first slowest), every combination: `{"inputs": {"c1": …, "c2": …, "T": …}, "E": …, "anode": "first" | "second" | null}`, with `E` and the anode by your own reasoning: the electrode with the lower reduction potential is the anode, and `null` where the two are equal. Work it from each half-cell's own Nernst potential, E = E° + (RT / zF) ln c, never by the template's engine.
+
 **A sitting's papers and mocks.** For a Sitting wave you recompute every numeric question of each past
 paper and each mock instead, from the question text alone (the settled reading's text for a past paper,
 the question as the mock states it), without the Professor's key, the vault writer's, mock writer's or
