@@ -141,7 +141,14 @@ export const templateVideos: VideoTemplate = {
 export const isSheetItem = (item: { gate: string; message: string }) =>
   SHEET_GATES.has(item.gate) && !(item.gate === "past-papers" && item.message.startsWith("no Professor key;"));
 
-export const SHEET_GATES = new Set(["sim-numbers", "truth-table", "worked-numbers", "stl", "past-papers"]);
+export const SHEET_GATES = new Set([
+  "sim-numbers",
+  "truth-table",
+  "worked-numbers",
+  "stl",
+  "past-papers",
+  "kinematics",
+]);
 
 /** The jobs every Module wave records before it merges; the first Module's wave also writes the style sheet. */
 export const WAVE_JOBS = [
