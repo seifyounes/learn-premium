@@ -291,7 +291,8 @@ export function MechanismSheet({ model, pose, inked, label, onAngle, ready }: Pr
               r={HIT_PX}
               style={{ touchAction: "none" }}
               onPointerDown={(event) => {
-                if (!ready) return;
+                // The first finger keeps the pin; a second one on it does nothing.
+                if (!ready || dragging.current !== undefined) return;
                 dragging.current = event.pointerId;
                 event.currentTarget.setPointerCapture(event.pointerId);
               }}
