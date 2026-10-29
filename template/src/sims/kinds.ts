@@ -16,6 +16,7 @@ import * as ladder from "./ladder/engine.ts";
 import { schematicOf } from "./ladder/model.ts";
 import * as logic from "./logic/engine.ts";
 import * as mechanism from "./mechanism/engine.ts";
+import * as nernst from "./nernst/engine.ts";
 import * as planeWall from "./plane-wall/engine.ts";
 import * as pneumatic from "./pneumatic/engine.ts";
 import * as scl from "./scl/engine.ts";
@@ -45,9 +46,10 @@ interface Kind<K extends SimKind> {
    * interpreter on every scan; a ladder or FBD sim by `ladder`, bit for bit against awlsim after
    * every scan; a pneumatic circuit by `timing-key`, its displacement-step diagram bit for bit at
    * every step, three ways, against the key; an FSM or a GRAFCET by timing-key too, its strip bit for bit;
-   * a mechanism by `kinematics`, its motion at 360 steps against an independent solve.
+   * a mechanism by `kinematics`, its motion at 360 steps against an independent solve;
+   * a Nernst cell by `nernst`: the sheet three ways, the whole slider grid and the cell's polarity.
    */
-  checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl" | "ladder" | "timing-key" | "kinematics";
+  checkedBy: "sim-numbers" | "truth-table" | "stl" | "scl" | "ladder" | "timing-key" | "kinematics" | "nernst";
   /** The Professor's definitions its engine works to, pinned in the Course style sheet. */
   definitions?: readonly DefinitionName[];
 }
@@ -83,6 +85,8 @@ export const KINDS: { [K in SimKind]: Kind<K> } = {
   grafcet: { quantities: (model) => stateMachine.quantities("grafcet", model), checkedBy: "timing-key" },
   // The sheet's values at the example's driver angle; the gate also holds its motion at 360 steps.
   mechanism: { quantities: mechanism.quantities, checkedBy: "kinematics" },
+  // A galvanic cell: E°, n, Q, E, ΔG and K at the inputs; the gate also sweeps the whole slider grid.
+  nernst: { quantities: nernst.quantities, checkedBy: "nernst" },
 };
 
 /**
@@ -145,6 +149,8 @@ export function engineQuantities(
     case "grafcet":
       return stateMachine.quantities(s.kind, s.model);
     case "mechanism":
+      return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
+    case "nernst":
       return KINDS[s.kind].quantities(s.model, { ...s.start, ...inputs });
   }
 }

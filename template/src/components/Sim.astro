@@ -8,6 +8,7 @@ import GradientDescentSim from "../islands/GradientDescentSim";
 import LadderSim from "../islands/LadderSim";
 import LogicSim from "../islands/LogicSim";
 import MechanismSim from "../islands/MechanismSim";
+import NernstSim from "../islands/NernstSim";
 import PlaneWallSim from "../islands/PlaneWallSim";
 import PneumaticSim from "../islands/PneumaticSim";
 import SclSim from "../islands/SclSim";
@@ -309,6 +310,31 @@ const controlDefinitions = control && definitionsFor(control, pinnedIn(buildCont
         x: `x (${live.units.length})`,
         t: "t (s)",
         T: `T (${live.units.temperature})`,
+      }}
+    />
+  ) : live?.kind === "nernst" ? (
+    <NernstSim
+      client:visible
+      model={live.model}
+      start={live.start}
+      tune={live.tune}
+      plot={live.plot}
+      decimals={decimals}
+      label={label}
+      mathHtml={{
+        c1: withUnit("c_1", "mol/L"),
+        c2: withUnit("c_2", "mol/L"),
+        T: withUnit("T", "K"),
+        E0: withUnit("E^\\circ", "V"),
+        n: math("n"),
+        Q: math("Q"),
+        E: withUnit("E", "V"),
+        deltaG: withUnit("\\Delta G", "kJ/mol"),
+        K: math("K"),
+        logQ: math("\\log_{10} Q"),
+        notation: math(
+          `\\ce{${live.model.first.metal} | ${live.model.first.ion} || ${live.model.second.ion} | ${live.model.second.metal}}`,
+        ),
       }}
     />
   ) : (

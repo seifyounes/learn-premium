@@ -11,6 +11,7 @@ import { licencesFileGate, licencesGate } from "./licences.ts";
 import { liveHeaders, livePrivatePaths, liveRoutes } from "./live.ts";
 import { masterRules } from "./master-rules.ts";
 import { gearInterferenceGate, kinematicsGate } from "./mechanisms.ts";
+import { nernstGate } from "./nernst.ts";
 import { notationGate } from "./notation.ts";
 import { renderedPageScan } from "./pages.ts";
 import { partChecks } from "./parts.ts";
@@ -20,6 +21,7 @@ import { provenanceGate } from "./provenance.ts";
 import { pyodideGate } from "./pyodide.ts";
 import { simNumbers, timingKeyGate, toolsGate, truthTableGate } from "./sims.ts";
 import { sclGate } from "./scl.ts";
+import { seriesLimitGate } from "./series.ts";
 import { SITTING_GATES } from "./sittings.ts";
 import { stateDiagramGate } from "./state-diagram.ts";
 import { stateTableGate } from "./state-table.ts";
@@ -51,6 +53,8 @@ export const GATES: readonly Gate[] = [
   partChecks,
   kinematicsGate,
   gearInterferenceGate,
+  nernstGate,
+  seriesLimitGate,
   toolsGate,
   renderedPageScan,
   pyodideGate,

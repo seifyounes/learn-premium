@@ -136,7 +136,7 @@ export interface ValueFound extends NumberFound {
 }
 
 /** The kinds of entry that show values. */
-export type ValueCollection = "worked" | "practice" | "beats" | "rules" | "sims" | "python" | "parts";
+export type ValueCollection = "worked" | "practice" | "beats" | "rules" | "sims" | "python" | "parts" | "molecules";
 
 type Raw = Record<string, unknown>;
 export const asObject = (value: unknown): Raw => (value && typeof value === "object" ? (value as Raw) : {});
@@ -241,6 +241,8 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
         const r = asObject(range);
         for (const end of ["min", "max", "step"]) quantity(r[end], `tune.${key}`);
       }
+      // A chemistry plot's isotherms: the temperatures its lines are drawn at.
+      asArray(asObject(entry.plot).isotherms).forEach((T, i) => quantity(T, `plot.isotherms.${i}`));
       // An SCL listing's build steps and Divergence rulings are prose the page prints.
       asArray(entry.walkthrough).forEach((step, i) => {
         prose(asObject(step).title, `walkthrough.${i}.title`);
@@ -260,6 +262,12 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
       prose(entry.title, "title");
       prose(entry.caption, "caption");
       asArray(entry.dimensions).forEach((d, i) => prose(asObject(d).label, `dimensions.${i}.label`));
+      break;
+    }
+    case "molecules": {
+      // A molecule's prose; its structure is RDKit's, drawn from the SMILES, and carries no value of its own.
+      prose(entry.title, "title");
+      prose(entry.caption, "caption");
       break;
     }
     case "python": {

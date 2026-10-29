@@ -1,0 +1,40 @@
+{
+  "kind": "nernst",
+  "title": "A copper concentration cell",
+  "caption": "Slide $c_1$ past $c_2$, and the electrons, the anode and the voltmeter's sign turn round.",
+  "recompute": "independent",
+  "worked": "1",
+  "sheet": {
+    "B1": "Q",
+    "B2": "E",
+    "B3": "deltaG"
+  },
+  "model": {
+    "first": { "metal": "Cu", "ion": "Cu^2+", "charge": 2, "e0": 0.34 },
+    "second": { "metal": "Cu", "ion": "Cu^2+", "charge": 2, "e0": 0.34 }
+  },
+  "start": { "c1": 0.01, "c2": 1, "T": 298.15 },
+  "tune": {
+    "c1": { "min": 0.001, "max": 2, "step": 0.001 },
+    "c2": { "min": 0.001, "max": 2, "step": 0.001 },
+    "T": { "min": 273.15, "max": 373.15, "step": 1 }
+  },
+  "plot": {
+    "isotherms": [273.15, 298.15, 323.15, 348.15, 373.15],
+    "many": "toggle",
+    "shown": [273.15, 298.15, 323.15, 373.15]
+  },
+  "provenance": {
+    "stated": [
+      "$c_1 = 0.010\\ \\text{mol/L}$ and $c_2 = 1.0\\ \\text{mol/L}$",
+      "$T = 298.15\\ \\text{K}$",
+      "$E^\\circ = +0.34\\ \\text{V}$ for $\\ce{Cu^2+}/\\ce{Cu}$",
+      "$z = 2$"
+    ],
+    "assumed": [
+      "$c_1$ and $c_2$ tuned from $0.001$ to $2\\ \\text{mol/L}$ in steps of $0.001$",
+      "$T$ tuned from $273.15$ to $373.15\\ \\text{K}$ in steps of $1$",
+      "the five isotherms $273.15$, $298.15$, $323.15$, $348.15$ and $373.15\\ \\text{K}$"
+    ]
+  }
+}

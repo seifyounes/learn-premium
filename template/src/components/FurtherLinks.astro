@@ -1,0 +1,37 @@
+---
+import { prose } from "../content/course";
+
+/**
+ * A Module's credited "go further" links (PhET, Falstad…): plain links to other sites' pages, each
+ * opening in a new tab with its makers' credit beside it. Never framed, embedded or copied here:
+ * the `links-only` gate holds every built page to it.
+ */
+interface Props {
+  links: { title: string; url: string; credit: string; licence?: string | undefined }[];
+}
+
+const { links } = Astro.props;
+---
+
+{links.length > 0 && (
+  <aside class="further mbs-8" aria-labelledby="further-heading">
+    <h2 id="further-heading" class="group-heading mbe-4">
+      Go further
+    </h2>
+    <p class="text-body-small text-muted">Outside this site; each opens in a new tab.</p>
+    <ul class="further-list">
+      {links.map((link) => (
+        <li data-further>
+          <a
+            class="further-link"
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            set:html={prose(link.title)}
+          />
+          <span class="further-credit">{link.licence ? `${link.credit}, ${link.licence}` : link.credit}</span>
+        </li>
+      ))}
+    </ul>
+  </aside>
+)}

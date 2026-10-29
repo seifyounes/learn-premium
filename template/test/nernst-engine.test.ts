@@ -110,7 +110,14 @@ describe("the apparatus state", () => {
 
   it("cellLabels swap anode and cathode when E < 0", () => {
     const start = { c1: 0.01, c2: 1, T: 298.15 };
-    const read = (inputs: typeof start) => cellLabels(concentration, cellState(concentration, inputs), { E: 4, c: 3 });
+    // A label keeps a value with its unit by a no-break space; compared here as the words they read.
+    const read = (inputs: typeof start) =>
+      Object.fromEntries(
+        Object.entries(cellLabels(concentration, cellState(concentration, inputs), { E: 4, c: 3 })).map(([k, v]) => [
+          k,
+          v.replaceAll(" ", " "),
+        ]),
+      ) as ReturnType<typeof cellLabels>;
     const before = read(start);
     expect(before["first-electrode"]).toBe("Cu, anode (−)");
     expect(before["second-electrode"]).toBe("Cu, cathode (+)");

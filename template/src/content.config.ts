@@ -18,6 +18,7 @@ export const collections = {
   sims: defineCollection({ loader: loader(COLLECTIONS.sims), schema: COLLECTIONS.sims.schema }),
   python: defineCollection({ loader: loader(COLLECTIONS.python), schema: COLLECTIONS.python.schema }),
   parts: defineCollection({ loader: loader(COLLECTIONS.parts), schema: COLLECTIONS.parts.schema }),
+  molecules: defineCollection({ loader: loader(COLLECTIONS.molecules), schema: COLLECTIONS.molecules.schema }),
   papers: defineCollection({ loader: loader(COLLECTIONS.papers), schema: COLLECTIONS.papers.schema }),
   mocks: defineCollection({ loader: loader(COLLECTIONS.mocks), schema: COLLECTIONS.mocks.schema }),
   formats: defineCollection({ loader: loader(COLLECTIONS.formats), schema: COLLECTIONS.formats.schema }),

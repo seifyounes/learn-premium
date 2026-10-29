@@ -11,7 +11,16 @@ import { plantedSim } from "./sims.ts";
 import type { Finding, Gate } from "./runner.ts";
 
 const ignoreMath = () => {};
-const TAGGED: readonly ValueCollection[] = ["worked", "practice", "beats", "rules", "sims", "python", "parts"];
+const TAGGED: readonly ValueCollection[] = [
+  "worked",
+  "practice",
+  "beats",
+  "rules",
+  "sims",
+  "python",
+  "parts",
+  "molecules",
+];
 const isTagged = (collection: string): collection is ValueCollection =>
   (TAGGED as readonly string[]).includes(collection);
 

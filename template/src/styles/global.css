@@ -2899,3 +2899,162 @@
     }
   }
 }
+
+/* Chemistry (ticket #62): the galvanic cell's 3D view with a gutter at each side, the molecule's
+   structure and its element key, the isotherm toggles, and the credited "go further" links. All in
+   the pad's inks and logical properties; the meaning colours (a metal, a solution, CPK) live only
+   inside the framed 3D viewers, and the key's dots, which props colour. */
+@layer components {
+  .cell-viewer .viewer-stage {
+    grid-template-columns: minmax(88px, 21%) minmax(0, 1fr) minmax(88px, 21%);
+  }
+  /* Wide enough, the frame is 4:3 whatever the sheet's width: the gutters take the rest. */
+  @container sim (width >= 480px) {
+    .cell-viewer .viewer-object {
+      aspect-ratio: 4 / 3;
+    }
+  }
+  /* On a phone the labels are 12px, the floor, so a role and its bracket fit the narrow gutter. */
+  @container sim (width < 480px) {
+    .cell-viewer .viewer-stage {
+      grid-template-columns: minmax(92px, 28%) minmax(0, 1fr) minmax(92px, 28%);
+    }
+    .cell-viewer .viewer-label {
+      font-size: 12px;
+      line-height: 14px;
+    }
+  }
+  .cell-viewer[data-active="true"] .viewer-object {
+    touch-action: none;
+    cursor: grab;
+  }
+  /* A gutter's labels hang beside the cell, at its own side, wrapping inside it. */
+  .cell-viewer .viewer-label {
+    inline-size: calc(100% - 12px);
+    display: flex;
+    align-items: center;
+    line-height: 15px;
+    white-space: normal;
+  }
+  .cell-viewer .viewer-gutter[data-side="start"] .viewer-label {
+    inset-inline-start: auto;
+    inset-inline-end: 6px;
+    text-align: end;
+  }
+  .nernst-notation {
+    margin-block: 0 8px;
+  }
+  .nernst-values th {
+    min-inline-size: 7em;
+  }
+
+  /* The isotherm toggles: printed buttons with a drawn tick box and a swatch of the line's style. */
+  .series-toggles-wrap {
+    margin-block-start: 12px;
+  }
+  .series-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .series-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding-inline: 10px;
+    font-size: 14px;
+    color: var(--color-graphite);
+  }
+  .series-toggle[aria-pressed="false"] {
+    color: var(--color-pencil);
+    border-color: var(--color-pencil);
+  }
+  .series-toggle svg {
+    flex: none;
+  }
+  .series-note {
+    margin-block-start: 8px;
+  }
+
+  /* A molecule: its formula, its 2D structure drawn at its own size (it scrolls in its box, never scaled
+     down), and below the 3D viewer its element key. */
+  .molecule-formula {
+    margin-block-start: 4px;
+    font-size: var(--text-body-small);
+    color: var(--color-graphite);
+  }
+  .structure {
+    margin: 0 0 12px;
+  }
+  .structure-box {
+    overflow-x: auto;
+    padding: 12px;
+    border: 1.2px solid var(--color-pencil);
+    background: var(--color-sheet);
+  }
+  .structure-svg {
+    display: block;
+    max-inline-size: none;
+    margin-inline: auto;
+  }
+  .structure-caption {
+    margin-block-start: 4px;
+    font-size: var(--text-body-small);
+    color: var(--color-muted);
+  }
+  .molecule-viewer .viewer-gutter {
+    display: grid;
+    place-items: start center;
+    padding-block-start: 8px;
+  }
+  .molecule-atom {
+    position: static;
+    min-block-size: 22px;
+    color: var(--color-graphite);
+    font-weight: 700;
+  }
+  .element-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin: 0;
+    padding: 8px 12px;
+    list-style: none;
+    border-block-start: 1px solid var(--color-pencil);
+    font-family: var(--font-quantity);
+    font-size: 14px;
+    color: var(--color-graphite);
+  }
+  .element-key li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  /* A CPK dot, outlined in pencil so a white hydrogen shows. */
+  .element-dot {
+    display: inline-block;
+    inline-size: 14px;
+    block-size: 14px;
+    border: 1px solid var(--color-pencil);
+    border-radius: 50%;
+  }
+
+  /* "Go further": credited links to other sites, each opening in a new tab. */
+  .further-list {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .further-link {
+    color: var(--color-graphite);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .further-credit {
+    display: block;
+    font-size: var(--text-body-small);
+    color: var(--color-muted);
+  }
+}

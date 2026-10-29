@@ -1,0 +1,54 @@
+{
+  "code": "W13.1",
+  "title": "A copper concentration cell",
+  "statement": "Two copper electrodes dip in solutions of $\\ce{Cu^2+}$ of different strength, joined by a salt bridge and a wire: $c_1 = 0.010\\ \\text{mol/L}$ at the first electrode and $c_2 = 1.0\\ \\text{mol/L}$ at the second, at $T = 298.15\\ \\text{K}$. Find the reaction quotient $Q$, the cell potential $E$ and the free energy change $\\Delta G$, and say which way the cell runs.",
+  "given": [
+    "$c_1 = 0.010\\ \\text{mol/L}$ and $c_2 = 1.0\\ \\text{mol/L}$",
+    "$T = 298.15\\ \\text{K}$",
+    "$E^\\circ = +0.34\\ \\text{V}$ for $\\ce{Cu^2+}/\\ce{Cu}$, at both electrodes"
+  ],
+  "artefact": {
+    "kind": "table",
+    "caption": "The copper concentration cell at $c_1 = 0.010\\ \\text{mol/L}$: its reaction quotient, potential and free energy change",
+    "columns": [
+      { "label": "Quantity", "given": true },
+      { "label": "Value" }
+    ],
+    "rows": [
+      ["$Q = \\frac{c_1}{c_2}$", "0.010"],
+      ["$E$ (V)", "0.0592"],
+      ["$\\Delta G$ (kJ/mol)", "-11.42"]
+    ]
+  },
+  "fillOrder": "columns",
+  "steps": [
+    {
+      "title": "The cell reaction",
+      "note": "Both electrodes are copper, so the cell has one reaction, the more dilute side dissolving: $\\ce{Cu -> Cu^2+ + 2e-}$ at the first electrode and $\\ce{Cu^2+ + 2e- -> Cu}$ at the second. It moves $n = 2$ electrons, and the reaction quotient is products over reactants, $Q = \\frac{c_1}{c_2} = \\frac{0.010}{1.0} = 0.010$.",
+      "fill": ["B1"]
+    },
+    {
+      "title": "The Nernst equation",
+      "note": "$E = E^\\circ - \\frac{RT}{nF}\\ln Q$, and $E^\\circ = 0$ for a cell whose two electrodes are the same couple, so $E = -\\frac{RT}{nF}\\ln 0.010 = 0.0592\\ \\text{V}$.",
+      "fill": ["B2"],
+      "marks": ["B2"]
+    },
+    {
+      "title": "The free energy change",
+      "note": "$\\Delta G = -nFE$, which is $-11.42\\ \\text{kJ/mol}$ for $E = 0.0592\\ \\text{V}$.",
+      "fill": ["B3"]
+    }
+  ],
+  "answer": "$E = 0.0592\\ \\text{V}$ and $\\Delta G = -11.42\\ \\text{kJ/mol}$: $\\Delta G < 0$, so the cell runs as written, the dilute side's electrode dissolving",
+  "provenance": {
+    "stated": [
+      "$c_1 = 0.010\\ \\text{mol/L}$ and $c_2 = 1.0\\ \\text{mol/L}$",
+      "$T = 298.15\\ \\text{K}$",
+      "$E^\\circ = +0.34\\ \\text{V}$ for $\\ce{Cu^2+}/\\ce{Cu}$",
+      "$n = 2$, $E^\\circ = 0$",
+      "$Q = \\frac{c_1}{c_2} = 0.010$",
+      "$E = 0.0592\\ \\text{V}$",
+      "$\\Delta G = -11.42\\ \\text{kJ/mol}$"
+    ]
+  }
+}
