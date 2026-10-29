@@ -1,2 +1,7 @@
 title: Cell potential
 summary: A copper concentration cell worked by the Nernst equation, live, with the cell drawn in 3D; glycine drawn as a 2D structure and as a 3D molecule.
+further:
+  - title: Concentration
+    url: https://phet.colorado.edu/en/simulations/concentration
+    credit: PhET Interactive Simulations, University of Colorado Boulder
+    licence: CC BY-NC 4.0
