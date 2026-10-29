@@ -53,7 +53,9 @@ describe("the mechanism sim contract", () => {
     const parsed = sim.parse(linkage());
     expect(parsed.kind).toBe("mechanism");
     expect(isLive(parsed)).toBe(true);
-    expect((SIM_KINDS as readonly string[]).at(-1)).toBe("mechanism");
+    // Kinds are appended as they ship: the mechanism comes right after the state machines, and the Nernst cell after it.
+    const kinds = SIM_KINDS as readonly string[];
+    expect(kinds.slice(kinds.indexOf("grafcet") + 1, kinds.indexOf("grafcet") + 3)).toEqual(["mechanism", "nernst"]);
   });
 
   it("refuses a crank that can't be driven a full turn, at the change point and when it isn't the shortest", () => {
