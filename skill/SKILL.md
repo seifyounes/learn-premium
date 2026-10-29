@@ -204,6 +204,8 @@ ends, merged or failed (`git -C <P> worktree remove <T>`).
    2. Run `node "$W" videos verify --project <P> --module NN` until it exits 0 (1 means a transcript is
       still to save). It asks YouTube's oEmbed, takes the title, channel and length from YouTube, and
       keeps a moment only where its quote is heard within 20 s of the time. It writes `verified.json`.
+      A re-run wave hunts again if the Module's Materials changed: `verify` refuses a hunt file
+      older than them, and `ready` a `verified.json` older than them.
    3. Copy only `verified.json`'s `cards` into `media.yaml`'s `youtube` block, in the Professor's
       teaching order. `ready` refuses a card it didn't pass or one that differs from it.
    4. A video that yields the Professor's answer by another method: `node "$W" videos never --project

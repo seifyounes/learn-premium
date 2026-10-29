@@ -1145,12 +1145,12 @@ describe("video cards at ready", () => {
   ].join("\n");
 
   /** What `verify` wrote: the card, and the moments it kept. */
-  const verified = (privateFolder: string, card: typeof CARD | null = CARD) =>
+  const verified = (privateFolder: string, card: typeof CARD | null = CARD, at = new Date().toISOString()) =>
     writeFiles(privateFolder, {
       "waves/01/youtube/verified.json": JSON.stringify({
         verified: "learn-premium video check v1",
         module: "01",
-        at: "2026-10-16T00:00:00.000Z",
+        at,
         cards: card === null ? [] : [{ ...card, module: undefined, at: undefined }],
         rejected: [],
         dropped: [],
@@ -1199,6 +1199,22 @@ describe("video cards at ready", () => {
 
     expect(ready(project, waveId, deps).out.problems).toEqual([]);
     expect(cardsOf).toHaveBeenCalledTimes(1);
+  });
+
+  test("ready refuses cards verified before the Module's Materials last changed", () => {
+    const { project, privateFolder, waveId } = waveWithCard();
+    verified(privateFolder, CARD, "2020-01-01T00:00:00.000Z");
+
+    expect(ready(project, waveId, listing([CARD]).deps).out.problems).toEqual([
+      expect.stringMatching(/verified\.json .*older than Module 01's Materials/),
+    ]);
+  });
+
+  test("a verified.json with no card to check against is no problem, however old", () => {
+    const { project, privateFolder, waveId } = waveWithCard(null);
+    verified(privateFolder, CARD, "2020-01-01T00:00:00.000Z");
+
+    expect(ready(project, waveId, listing([]).deps).out.problems).toEqual([]);
   });
 
   test("ready refuses a video card verify didn't pass (negative control)", () => {

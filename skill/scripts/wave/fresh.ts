@@ -12,17 +12,25 @@ export const CLOCK_SLACK_MS = 2_000;
 const FILES = ["reading-a.json", "reading-b.json", "review/review.json"];
 
 /**
- * Why the Module's readings or review are older than its Materials: the newest Material row of the Module
- * was taken in, or superseded (a changed or deleted file), after the file was written. Superseded rows
- * count: a rebuild forced only by deleted Materials adds no new row, and a Module whose every file was
- * deleted has no current row left. A file that isn't there is reported elsewhere.
+ * When the Module's Materials last changed: the newest Material row of the Module was taken in, or
+ * superseded (a changed or deleted file). Superseded rows count: a rebuild forced only by deleted
+ * Materials adds no new row, and a Module whose every file was deleted has no current row left.
+ * Undefined when the Module has no Materials row.
  */
-export function staleProblems(ledger: Ledger, privateFolder: string, module: string): string[] {
-  const taken = ledger.materials
+export function materialsTaken(ledger: Ledger, module: string): string | undefined {
+  return ledger.materials
     .filter((m) => m.module === module)
     .flatMap((m) => (m.superseded === null ? [m.recordedAt] : [m.recordedAt, m.superseded.at]))
     .sort()
     .at(-1);
+}
+
+/**
+ * Why the Module's readings or review are older than its Materials: the newest Material row of the Module
+ * was taken in, or superseded, after the file was written. A file that isn't there is reported elsewhere.
+ */
+export function staleProblems(ledger: Ledger, privateFolder: string, module: string): string[] {
+  const taken = materialsTaken(ledger, module);
   if (taken === undefined) return [];
   const root = waveFolder(privateFolder, module);
   return FILES.filter((file) => {
