@@ -41,6 +41,13 @@ const WHEEL_ZOOM = 0.0015;
 const DWELL_MS = 600;
 /** The electrons travel the wire this many times a second. */
 const LAPS_PER_SECOND = 0.25;
+/** The least time between two draws of the electrons: 30 a second. */
+const FRAME_MS = 30;
+/** A page whose frames come further apart than this is given room, up to this long between draws. */
+const SLOW_FRAME_MS = 50;
+const MOST_WAIT_MS = 600;
+/** The electrons rest this long after the page last scrolled. */
+const SCROLL_REST_MS = 250;
 
 type Side = "start" | "end";
 interface Placed {
@@ -185,20 +192,44 @@ export function CellViewer({ model, state, decimals, label, ready, reduced }: Pr
     stage.current?.draw();
   }, [state, reduced, status]);
 
-  // The electrons run the wire: one frame loop, only while drawn, near the screen, moving and with current.
+  // The electrons run the wire: one frame loop, only while drawn, on the screen, moving and with current. It
+  // draws at most 30 a second, waits several frames when the page's come slowly (software WebGL on a phone or a
+  // held-back CPU), and rests while the page is being scrolled, so the page still answers a wheel or a tap.
+  const [onScreen, setOnScreen] = useState(false);
   useEffect(() => {
-    if (status !== "drawn" || !near || reduced || state.flow === "none") return;
+    const frame = frameEl.current;
+    if (!frame) return;
+    const watch = new IntersectionObserver(([entry]) => entry && setOnScreen(entry.isIntersecting));
+    watch.observe(frame);
+    return () => watch.disconnect();
+  }, []);
+  useEffect(() => {
+    if (status !== "drawn" || !onScreen || reduced || state.flow === "none") return;
     let last = performance.now();
+    let previous = last;
+    let wait = FRAME_MS;
+    let scrolledAt = -Infinity;
+    const scrolled = () => {
+      scrolledAt = performance.now();
+    };
+    window.addEventListener("scroll", scrolled, { passive: true });
     let frame = requestAnimationFrame(function step(now) {
       frame = requestAnimationFrame(step);
+      const between = now - previous;
+      previous = now;
+      wait = between > SLOW_FRAME_MS ? Math.min(MOST_WAIT_MS, between * 3) : FRAME_MS;
+      if (now - last < wait || now - scrolledAt < SCROLL_REST_MS) return;
       phase.current = (phase.current + ((now - last) / 1000) * LAPS_PER_SECOND) % 1;
       last = now;
       if (built.current && place.current)
         place.current(built.current, stateRef.current, { reduced: false, phase: phase.current });
       stage.current?.draw();
     });
-    return () => cancelAnimationFrame(frame);
-  }, [status, near, reduced, state.flow]);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", scrolled);
+    };
+  }, [status, onScreen, reduced, state.flow]);
 
   // A viewer that can't draw hands every gesture back to the page.
   useEffect(() => {
