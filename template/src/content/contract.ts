@@ -953,6 +953,18 @@ const gearPairModel = z.strictObject({
 });
 
 /**
+ * The driver's angle is tuned over one turn at most. The sim wraps its angle to [0, 360), so a range reaching
+ * below 0 or past 360 would pin the slider at its end for half of each turn (final review F15).
+ */
+const driverRange = tuneRange.superRefine((r, ctx) => {
+  if (r.min < 0 || r.max > 360)
+    ctx.addIssue({
+      code: "custom",
+      message: `the driver's angle is tuned over one turn, 0 ≤ min < max ≤ 360 (here ${r.min} to ${r.max})`,
+    });
+});
+
+/**
  * A mechanism (`src/sims/mechanism/engine.ts`): the Professor's linkage or gear pair, solved live by
  * the kinematics engine and drawn in 3D or as the sheet drawing. Students turn the driver (θ), never
  * the links.
@@ -963,7 +975,7 @@ const mechanismSim = z.strictObject({
   model: z.discriminatedUnion("type", [fourBarModel, gearPairModel]),
   /** The driver's angle the example works at: the crank's from O2→O4, counterclockwise; the driver gear's from home. */
   start: z.strictObject({ theta: z.number() }).optional(),
-  tune: z.strictObject({ theta: tuneRange }).optional(),
+  tune: z.strictObject({ theta: driverRange }).optional(),
 });
 
 /** What a mechanism's model gets wrong beyond its shape: a crank that can't turn fully, labels for pins it lacks. */
