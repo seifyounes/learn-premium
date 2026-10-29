@@ -2,7 +2,7 @@
 // synthetic Course project and Private folder. The template's `videos probe` is faked: no test asks
 // YouTube anything, and every id here is synthetic.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -113,6 +113,31 @@ function oneCard(over: Record<string, unknown> = {}, text = `3:15 so we ${QUOTE}
   transcript(course.privateFolder, A, text);
   return course;
 }
+
+describe("videos verify, hunts older than the Module's Materials", () => {
+  const LONG_AGO = new Date("2020-01-01T00:00:00.000Z");
+
+  test("a hunt written before the Module's Materials last changed is refused: exit 2, nothing probed", () => {
+    const { project, privateFolder } = oneCard();
+    utimesSync(join(privateFolder, "waves/01/youtube/hunt-series-resistances.json"), LONG_AGO, LONG_AGO);
+    const { videos, asked } = fakeVideos();
+
+    const { code, out } = verify(project, videos);
+
+    expect(code).toBe(2);
+    expect(out.error).toMatch(/hunt-series-resistances\.json .*older than Module 01's Materials/);
+    expect(asked).toEqual([]);
+    expect(existsSync(join(privateFolder, "waves/01/youtube/verified.json"))).toBe(false);
+  });
+
+  test("a hunt written after the Materials is still read (negative control)", () => {
+    const { project } = oneCard();
+    const fresh = fakeVideos();
+
+    expect(verify(project, fresh.videos).code).toBe(0);
+    expect(fresh.asked).toEqual([[A]]);
+  });
+});
 
 describe("videos verify, one candidate at a time", () => {
   test("a candidate on the do-not-use list is rejected, and so is one `never` rules off the method", () => {

@@ -10,11 +10,13 @@
 // transcripts and verified.json, and `youtube/do-not-use.json` for the whole Course. A transcript is
 // evidence-shaped, so the pre-commit gate blocks one that slips into a commit.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONTENT_DIR } from "../intake/scaffold.ts";
 import { LedgerError, withMutex } from "../ledger/file.ts";
 import { arr, fail, isoTime, nonEmpty, obj, type Infer } from "../ledger/schema.ts";
+import { requireLedger } from "../ledger/ledger.ts";
+import { CLOCK_SLACK_MS, materialsTaken } from "./fresh.ts";
 import { readJsonFile, waveFolder } from "./reading.ts";
 
 export const HUNT = "learn-premium youtube hunt v1";
@@ -204,8 +206,12 @@ function heardNear(cues: Cue[], at: number, quote: string): boolean {
 
 const wordsIn = (quote: string) => normalised(quote).split(" ").filter(Boolean).length;
 
-/** Every candidate the Module's hunts proposed, once each (the first hunt to name an id wins). */
-function candidatesOf(privateFolder: string, module: string): Candidate[] {
+/**
+ * Every candidate the Module's hunts proposed, once each (the first hunt to name an id wins). A hunt
+ * written before the Module's Materials last changed (`taken`) is refused: its scores were earned against
+ * the old Materials, and a hunt under a renamed topic would otherwise keep the old file's higher score.
+ */
+function candidatesOf(privateFolder: string, module: string, taken: string | undefined): Candidate[] {
   const folder = videosFolder(privateFolder, module);
   const files = existsSync(folder)
     ? readdirSync(folder)
@@ -217,6 +223,14 @@ function candidatesOf(privateFolder: string, module: string): Candidate[] {
       "invalid",
       `no hunt-<topic>.json in ${folder}: the YouTube hunters write one each (briefs/youtube-hunter.md)`,
     );
+  if (taken !== undefined) {
+    const old = files.filter((f) => statSync(join(folder, f)).mtimeMs + CLOCK_SLACK_MS < Date.parse(taken));
+    if (old.length > 0)
+      throw new LedgerError(
+        "invalid",
+        `${old.join(", ")} in ${folder} ${old.length === 1 ? "is" : "are"} older than Module ${module}'s Materials (taken in ${taken}): hunt again, or delete ${old.length === 1 ? "it" : "them"}`,
+      );
+  }
   const seen = new Map<string, Candidate>();
   for (const file of files) {
     const hunt = readJsonFile(join(folder, file), huntSchema, file);
@@ -242,7 +256,7 @@ function candidatesOf(privateFolder: string, module: string): Candidate[] {
  * yet, or that YouTube couldn't be asked about, is `waiting` (exit 1): save it and run verify again.
  */
 export function verifyVideos(project: string, privateFolder: string, module: string, videos: VideoTemplate) {
-  const candidates = candidatesOf(privateFolder, module);
+  const candidates = candidatesOf(privateFolder, module, materialsTaken(requireLedger(project), module));
   const list = readDoNotUse(privateFolder);
   const rejected: Verified["rejected"] = [];
   const reject = (id: string, ...reasons: string[]) => rejected.push({ id, reasons });
@@ -362,7 +376,8 @@ function committedMedia(dir: string, folder: string): string | null {
  * Why the Module's YouTube cards don't let the wave merge: a card that isn't in `verified.json`, one
  * whose title, channel, duration or match differs from the verified one (its `why` and moment labels
  * may be reworded), a moment the check didn't keep, or a video on the do-not-use list. `dir` is the
- * wave's checkout; nothing is read when its committed `media.yaml` names no YouTube card.
+ * wave's checkout; nothing is read when its committed `media.yaml` names no YouTube card. `taken` is when
+ * the Module's Materials last changed (`materialsTaken`): a `verified.json` older than that is refused.
  */
 export function videoReadyProblems(
   dir: string,
@@ -370,6 +385,7 @@ export function videoReadyProblems(
   module: string,
   folder: string,
   videos: VideoTemplate,
+  taken: string | undefined,
 ): string[] {
   const media = committedMedia(dir, folder);
   if (media === null || !media.includes("youtube")) return [];
@@ -387,6 +403,11 @@ export function videoReadyProblems(
   }
   const never = new Map(readDoNotUse(privateFolder).videos.map((v) => [v.id, v.reason]));
   const problems: string[] = [];
+  // Cards scored against Materials that have since changed earned their match on the old method.
+  if (verified !== null && taken !== undefined && Date.parse(verified.at) < Date.parse(taken))
+    problems.push(
+      `verified.json (verified ${verified.at}) is older than Module ${module}'s Materials (taken in ${taken}): hunt again if the method changed, then run \`wave.ts videos verify\` again in this wave`,
+    );
   for (const card of cards) {
     const said = verified?.cards.find((c) => c.id === card.id);
     if (said === undefined)

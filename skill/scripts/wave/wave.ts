@@ -17,7 +17,7 @@ import { LedgerError } from "../ledger/file.ts";
 import { hashTree } from "../ledger/hash.ts";
 import { requireLedger, verifyIntegrity } from "../ledger/ledger.ts";
 import { current, TEMPLATE_DIR, type Ledger, type ModuleRow } from "../ledger/model.ts";
-import { staleProblems } from "./fresh.ts";
+import { materialsTaken, staleProblems } from "./fresh.ts";
 import { itemKey, readingCheckpointItems, settledReadingProblem, waveFolder } from "./reading.ts";
 import { toolInventorySchema, toolProblems, workedLabel, type ToolInventory } from "./assign.ts";
 import { relaunchProblems } from "./relaunch.ts";
@@ -519,7 +519,7 @@ export function readyProblems(
   // The tools the content ships are the tool assignment's, built by timed builders that handed back.
   problems.push(...toolProblems(ledger, waveId, folder, verifier.inventory(dir, folder)));
   // The YouTube cards the Module ships, each re-verified by the main agent.
-  problems.push(...videoReadyProblems(dir, privateFolder, id, folder, videos));
+  problems.push(...videoReadyProblems(dir, privateFolder, id, folder, videos, materialsTaken(ledger, id)));
 
   // The template layer's own gates verify the branch: an edited layer could verify anything.
   const integrity = verifyIntegrity(project, dir);
