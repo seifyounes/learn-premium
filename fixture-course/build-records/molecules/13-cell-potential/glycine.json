@@ -1,0 +1,19 @@
+{
+  "record": "learn-premium molecule record v1",
+  "by": "RDKit 2026.09.1",
+  "smiles": "NCC(=O)O",
+  "canonical": "NCC(=O)O",
+  "formula": "C2H5NO2",
+  "inchi": "InChI=1S/C2H5NO2/c3-1-2(4)5/h1,3H2,(H,4,5)",
+  "inchiKey": "DHMQDGOQFOQNFH-UHFFFAOYSA-N",
+  "atoms": [
+    "N",
+    "C",
+    "C",
+    "O",
+    "O"
+  ],
+  "svg": "506d4f5d3a5d55e8290f021faaf3006628e6900a1f5a76e35cf07c5f46fc0dba",
+  "sdf": "c76b032c7e35724b80c726dd266842fe3d35036a4836b9b72268d0cdf4050993",
+  "seed": 24301
+}

@@ -1,0 +1,13 @@
+{
+  "record": "learn-premium pubchem record v1",
+  "query": "glycine",
+  "url": "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/glycine/property/MolecularFormula,InChIKey,IUPACName,Title/JSON",
+  "fetched": "2026-10-29",
+  "found": true,
+  "cid": 750,
+  "formula": "C2H5NO2",
+  "inchiKey": "DHMQDGOQFOQNFH-UHFFFAOYSA-N",
+  "iupacName": "2-aminoacetic acid",
+  "title": "Glycine",
+  "matches": 1
+}

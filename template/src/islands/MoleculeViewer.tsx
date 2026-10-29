@@ -127,13 +127,13 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
     });
   };
 
-  /** Publishes where the atoms are on the stage (viewport px), for assistive tests and tools. */
+  /** Publishes where the atoms are on the page now (px), for assistive tests and tools: `[symbol, x, y]` each. */
   const publishAtoms = () => {
     const host = objectEl.current;
     if (!host) return;
     host.setAttribute(
       "data-atom-screen",
-      JSON.stringify(atomsOnScreen().map((a) => [a.element, Math.round(a.client[0]), Math.round(a.client[1])])),
+      JSON.stringify(atomsOnScreen().map((a) => [a.element, Math.round(a.x), Math.round(a.y)])),
     );
   };
   const publishRef = useRef(publishAtoms);
@@ -155,6 +155,7 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
     if (!near) return;
     let disposed = false;
     let observer: ResizeObserver | undefined;
+    let unlisten: (() => void) | undefined;
     const stop = afterFirstPaint(() => {
       void (async () => {
         const host = objectEl.current;
@@ -199,6 +200,19 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
           publishRef.current();
         });
         observer.observe(host);
+        // The atoms' places on the page move as the page scrolls or its layout settles: say where they are now.
+        let queued = 0;
+        const later = () => {
+          cancelAnimationFrame(queued);
+          queued = requestAnimationFrame(() => publishRef.current());
+        };
+        window.addEventListener("scroll", later, { passive: true });
+        window.addEventListener("resize", later);
+        unlisten = () => {
+          cancelAnimationFrame(queued);
+          window.removeEventListener("scroll", later);
+          window.removeEventListener("resize", later);
+        };
         setHome(true);
         publishRef.current();
         setStatus("drawn");
@@ -208,6 +222,7 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
       disposed = true;
       stop();
       observer?.disconnect();
+      unlisten?.();
       const v = viewer.current;
       viewer.current = undefined;
       if (v) {
