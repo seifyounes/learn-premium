@@ -167,4 +167,14 @@ describe("the sweep grid", () => {
     expect(grid[81]?.c1).toBeCloseTo(0.001 + (2 - 0.001) / 8, 12);
     expect(grid.at(-1)).toEqual({ c1: 2, c2: 2, T: 373.15 });
   });
+
+  it("sweepGrid is c1, c2, T whatever order tune is written in", () => {
+    const range = { min: 1, max: 9, step: 1 };
+    const grid = sweepGrid({ T: { ...range, min: 100, max: 108 }, c2: range, c1: range });
+    expect(grid[0]).toEqual({ c1: 1, c2: 1, T: 100 });
+    expect(grid[1]).toEqual({ c1: 1, c2: 1, T: 101 });
+    expect(grid[9]).toEqual({ c1: 1, c2: 2, T: 100 });
+    expect(grid[81]).toEqual({ c1: 2, c2: 1, T: 100 });
+    expect(Object.keys(grid[0] as object)).toEqual(["c1", "c2", "T"]);
+  });
 });

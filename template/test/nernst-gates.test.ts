@@ -126,6 +126,33 @@ describe("the nernst gate", () => {
     );
   });
 
+  // The grid's order is c1, c2, T (c1 slowest) whatever order `tune` is written in, so a recompute
+  // that follows the brief doesn't depend on how the sim file happens to list its sliders.
+  const tuneTFirst = (data: Record<string, unknown>) => {
+    const { T, c1, c2 } = data["tune"] as Record<string, unknown>;
+    data["tune"] = { T, c1, c2 };
+  };
+
+  it("nernst passes a cell whose tune lists T first", async () => {
+    const course = editJson(SIM, tuneTFirst);
+    expect(Object.keys(json<{ tune: object }>(SIM, course).tune)).toEqual(["T", "c1", "c2"]);
+    expect(await messages(nernstGate, course)).toEqual([]);
+  });
+
+  it("compareSweep reads a T-first tune in c1, c2, T order, and names a T-slowest sweep as off the grid", () => {
+    const { model, tune } = sim();
+    const { c1, c2, T } = tune as Record<string, never>;
+    const tFirst = { T, c1, c2 } as typeof tune;
+    expect(compareSweep(model, tFirst, log().sweep)).toEqual([]);
+    const tSlowest = [...log().sweep].sort(
+      (a, b) =>
+        (a.inputs["T"] as number) - (b.inputs["T"] as number) ||
+        (a.inputs["c1"] as number) - (b.inputs["c1"] as number) ||
+        (a.inputs["c2"] as number) - (b.inputs["c2"] as number),
+    );
+    expect(compareSweep(model, tFirst, tSlowest)[0]).toMatch(/^sweep state 1 isn't on the grid: /);
+  });
+
   it("catches its six controls", async () => {
     const result = await runControls({ input, gates: [nernstGate] });
     expect(result.gates[0]?.positive).toBe("pass");
