@@ -225,6 +225,37 @@ describe("the mutants", () => {
   });
 });
 
+describe("the mirror mutant", () => {
+  it("is skipped for a single-column GRAFCET with no return link, which a mirror reads the same", () => {
+    const two: DiagramModel = {
+      style: "links",
+      states: [
+        { id: "X0", kind: "step-initial", name: "0", label: "0" },
+        { id: "X1", kind: "step", name: "1", label: "1" },
+      ],
+      edges: [{ from: "X0", to: "X1", label: "a" }],
+    };
+    const hints: DiagramHints = { states: { X0: { at: [1, 0] }, X1: { at: [1, 1.2] } }, edges: {} };
+    const reading = diagramReading.parse({
+      reading: "learn-premium diagram reading v1",
+      by: "test",
+      states: { "0": { kind: "step-initial", at: [0.5, 0] }, "1": { kind: "step", at: [0.5, 1] } },
+      edges: [{ from: "0", to: "1", label: "a" }],
+    });
+    const d = layOutDiagram(two, hints);
+    expect(failing(d, two, reading)).toEqual([]);
+    const { mutants, skipped } = diagramMutantsOf(d);
+    expect(skipped.map((s) => s.id)).toContain("mirrored");
+    expect(mutants.map((m) => m.id)).not.toContain("mirrored");
+    // Every mutant that is planted fails a check it names, so the valid diagram passes the gate.
+    for (const mutant of mutants)
+      expect(
+        failing(mutant.drawing, two, reading).some((c) => mutant.expect.includes(c.id)),
+        mutant.id,
+      ).toBe(true);
+  });
+});
+
 describe("a label as near two edges is ambiguous", () => {
   it("names the label and both edges", () => {
     const d = layOutDiagram(detector, detectorHints);
