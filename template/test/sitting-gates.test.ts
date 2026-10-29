@@ -229,23 +229,23 @@ describe("past-papers on content planted with a defect", () => {
     const found = await messages(edited((s) => s.replace(", key: '0.1'", "")));
     expect(found).toEqual([
       expect.stringMatching(
-        /^checkpoint: question 2 has no printed Professor key; its answer is the build's solution, recomputed independently\. Confirm it \(answers [0-9a-f]{10}\)$/,
+        /^checkpoint: no Professor key; the answer to question 2 is the build's solution, recomputed independently\. Confirm it \(answers [0-9a-f]{10}\)$/,
       ),
     ]);
+    // The message opens "no Professor key;" as a key-less paper's does: the skill's Checkpoint classifier
+    // (wave.ts `isSheetItem`) reads that prefix to make it an ordinary item, not a Slip or Divergence ruling.
     // Question 1's key is still held three ways.
     const off = await messages(
       edited((s) => s.replace(", key: '0.1'", "").replace("value: 0.25, unit: K/W", "value: 0.3, unit: K/W")),
     );
     expect(off).toEqual([
       expect.stringMatching(/^block: question 1's answer 0.3 matches neither the key 0.25 nor/),
-      expect.stringMatching(/^checkpoint: question 2 has no printed/),
+      expect.stringMatching(/^checkpoint: no Professor key; the answer to question 2 /),
     ]);
     // Both answers unkeyed: one item for the paper, naming both.
     const both = await messages(edited((s) => s.replaceAll(/, key: '[^']*'/g, "")));
     expect(both).toEqual([
-      expect.stringMatching(
-        /^checkpoint: questions 1, 2 have no printed Professor key; their answers are the build's solution/,
-      ),
+      expect.stringMatching(/^checkpoint: no Professor key; the answers to questions 1, 2 are the build's solution/),
     ]);
     // A different answer for the unkeyed question is a different digest: the Owner confirms again.
     const changed = await messages(
