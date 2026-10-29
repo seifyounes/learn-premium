@@ -513,6 +513,29 @@ describe("the jobs", () => {
     expect(ready(c)).toEqual([expect.stringMatching(/job deploy-gates hasn't been recorded/)]);
   });
 
+  test("a Professor's paper with a numeric answer that has no key owes the solver for it too", () => {
+    // The key sheet gave question 1 but not question 2: the paper stays `professor`, question 2 is solved.
+    const partial = (d: SittingDump): SittingDump => ({
+      ...d,
+      papers: d.papers.map((p) => ({ ...p, questions: p.questions.map((q) => (q.n === 2 ? { ...q, key: null } : q)) })),
+    });
+    const c = sittingWave({ paper: partial });
+    // The reading is faithful (no q2/key item, none carried), so the solver is the only thing owed.
+    expect(ready(c)).toEqual([
+      expect.stringMatching(/job solver hasn't been recorded/),
+      expect.stringMatching(/numeric answer has no Professor key, so the solver must solve and recompute it/),
+    ]);
+    must(
+      ledger(
+        ...["record", "job", "--project", c.project, "--holder", "session-a", "--wave", c.waveId],
+        ...["--job", "solver", "--result", "passed"],
+      ),
+    );
+    expect(ready(c)).toEqual([]);
+    // Negative control: a fully keyed Professor's paper owes no solver.
+    expect(ready(sittingWave())).toEqual([]);
+  });
+
   test("a key-less past paper is solved, recomputed independently, and the Owner confirms it", () => {
     const solvedHead = (d: SittingDump): SittingDump => ({
       ...d,

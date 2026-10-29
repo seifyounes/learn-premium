@@ -369,7 +369,9 @@ describe("a past paper must match its settled reading", () => {
     const relabelled = settled().map((i) => ({ ...i, key: i.key.replace("/q3/", "/q4/") }));
     const problems = faithfulProblems(dump.papers, relabelled);
     expect(problems).toContainEqual(expect.stringMatching(/question label "4".*1\.\.3/));
-    expect(problems).toContainEqual(expect.stringMatching(/question 3: the settled reading has no text for question 3/));
+    expect(problems).toContainEqual(
+      expect.stringMatching(/question 3: the settled reading has no text for question 3/),
+    );
   });
 
   test("whitespace aside, the same reading holds; a key keeps its printed precision", () => {
@@ -442,6 +444,34 @@ describe("a past paper must match its settled reading", () => {
       expect.stringMatching(/question 1: the content carries a key \(0\.25\) that the Professor's paper doesn't print/),
       expect.stringMatching(/question 2: the content carries a key \(0\.1\) that the Professor's paper doesn't print/),
     ]);
+  });
+
+  test("a Professor's paper that prints a key for only some questions is faithful to a reading with only those keys", () => {
+    // The key sheet gives question 1 but not question 2 (both numeric): the reading has q1/key only.
+    const partial = withPaper((p) => ({
+      ...p,
+      questions: p.questions.map((q) => (q.n === 2 ? { ...q, key: null } : q)),
+    }));
+    const items = settled().filter((i) => i.key !== "2025/q2/key");
+    expect(faithfulProblems(partial, items)).toEqual([]);
+    // Negative control: a key the reading found but the content dropped is still named.
+    expect(faithfulProblems(partial, settled())).toEqual([
+      expect.stringMatching(/question 2: the Professor's paper prints a key, which the content doesn't carry/),
+    ]);
+    // And a key the content invents for question 2 is still named.
+    expect(faithfulProblems(dump.papers, items)).toEqual([
+      expect.stringMatching(/question 2: the content carries a key \(0\.1\) that the Professor's paper doesn't print/),
+    ]);
+  });
+
+  test("a time or total the paper doesn't print is a null item, which the content may not contradict", () => {
+    const unprinted = settled().map((i) =>
+      i.key === "2025/minutes" || i.key === "2025/total" ? { ...i, value: null } : i,
+    );
+    expect(faithfulProblems(dump.papers, unprinted)).toEqual([]);
+    // Negative control: an item left out altogether is still a reading that didn't look.
+    const left = settled().filter((i) => i.key !== "2025/minutes");
+    expect(faithfulProblems(dump.papers, left)).toEqual([expect.stringMatching(/the settled reading has no minutes/)]);
   });
 
   test("a value the readers couldn't read is the Owner's Checkpoint item, not a mismatch", () => {
