@@ -137,10 +137,7 @@ export function recipe(project: string, id: string): Recipe {
   const item = file.items.find((i) => i.id === id);
   if (item === undefined) throw new LedgerError("invalid", `no media item ${id} in ${file.course}`);
   if (item.kind === "sitting-audio" || item.module === null) {
-    throw new LedgerError(
-      "refused",
-      `${id} is a sitting audio, which isn't made yet`,
-    );
+    throw new LedgerError("refused", `${id} is a sitting audio, which isn't made yet`);
   }
   const module = current(ledger.modules).find((m) => m.id === item.module);
   if (module === undefined) throw new LedgerError("invalid", `Module ${item.module} isn't in the Module map`);
