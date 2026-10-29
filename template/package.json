@@ -17,6 +17,8 @@
     "gates": "node gates/cli.ts",
     "wheels": "node src/python/wheels.ts",
     "parts": "node src/parts/build.ts",
+    "molecules": "node src/molecules/build.ts",
+    "pubchem": "node src/molecules/pubchem-cli.ts",
     "deploy": "node deploy/cli.ts",
     "oracle": "node oracle/cli.ts",
     "migrations": "node migrations/cli.ts"

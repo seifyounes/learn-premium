@@ -1,0 +1,10 @@
+{
+  "title": "Glycine",
+  "caption": "The simplest amino acid; in solution it binds $\\ce{Cu^2+}$, lowering the free ion a cell sees.",
+  "name": "glycine",
+  "smiles": "NCC(=O)O",
+  "formula": "NH2CH2COOH",
+  "worked": "1",
+  "views": ["structure", "viewer"],
+  "provenance": {}
+}

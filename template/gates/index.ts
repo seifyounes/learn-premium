@@ -11,6 +11,7 @@ import { licencesFileGate, licencesGate } from "./licences.ts";
 import { liveHeaders, livePrivatePaths, liveRoutes } from "./live.ts";
 import { masterRules } from "./master-rules.ts";
 import { gearInterferenceGate, kinematicsGate } from "./mechanisms.ts";
+import { cpkPalette, moleculeChecks, pubchemCrossCheck, structureGraphite } from "./molecules.ts";
 import { nernstGate } from "./nernst.ts";
 import { notationGate } from "./notation.ts";
 import { renderedPageScan } from "./pages.ts";
@@ -55,11 +56,15 @@ export const GATES: readonly Gate[] = [
   gearInterferenceGate,
   nernstGate,
   seriesLimitGate,
+  moleculeChecks,
+  structureGraphite,
+  pubchemCrossCheck,
   toolsGate,
   renderedPageScan,
   pyodideGate,
   padGate,
   redHueRule,
+  cpkPalette,
   ...BROWSER_GATES,
   noMaterials,
   noBuildEvidence,

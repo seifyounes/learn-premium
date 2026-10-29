@@ -15,7 +15,7 @@ import { inMain, islandStrings, sitePages, siteWith, stylesheetWith } from "./pa
 import type { Finding, Gate } from "./runner.ts";
 
 /** Every `property: value` in a style attribute or a stylesheet's rules, in order. */
-function declarations(css: string): [property: string, value: string][] {
+export function declarations(css: string): [property: string, value: string][] {
   return [...css.matchAll(/([\w-]+)\s*:\s*([^;{}]+)/g)].map((m) => [(m[1] ?? "").toLowerCase(), (m[2] ?? "").trim()]);
 }
 
@@ -80,7 +80,7 @@ const COLOUR_TOKEN = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|
  * Every visible colour written in a paint value. `url(#red-arrow)` and `var(--color-red-pen)` name
  * no colour, and a fully transparent one (KaTeX's struts) draws nothing.
  */
-function coloursIn(value: string): string[] {
+export function coloursIn(value: string): string[] {
   const bare = value.replace(/url\([^)]*\)/gi, " ").replace(/--[\w-]+/g, " ");
   return [...bare.matchAll(COLOUR_TOKEN)]
     .map((m) => m[0])
