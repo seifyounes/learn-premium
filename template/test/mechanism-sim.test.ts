@@ -336,6 +336,37 @@ describe("the mechanisms in a browser", () => {
     await context.close();
   });
 
+  it("lets the wheel scroll the page over the 3D view until it is tapped, then zooms it, and hands the page back on Esc", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const { page } = await open(context);
+    const el = await sim(page, "four-bar");
+    await drawn(el).waitFor({ timeout: 60_000 });
+    const surface = el.locator("[data-viewer-object]");
+    const reset = el.getByRole("button", { name: "Reset view" });
+    const scrollY = () => page.evaluate(() => window.scrollY);
+    await surface.evaluate((n) => n.scrollIntoView({ block: "center" }));
+    const box = await surface.boundingBox();
+    if (!box) throw new Error("no viewer box");
+    const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    let before = await scrollY();
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.wheel(0, 200);
+    await expect.poll(scrollY).not.toBe(before);
+    expect(await reset.isDisabled()).toBe(true);
+    // Tapped: the wheel zooms the view and the page stays put.
+    await surface.evaluate((n) => n.scrollIntoView({ block: "center" }));
+    await surface.click({ position: { x: 20, y: 20 } });
+    await expect.poll(() => surface.getAttribute("aria-pressed")).toBe("true");
+    before = await scrollY();
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(() => reset.isEnabled()).toBe(true);
+    expect(await scrollY()).toBe(before);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => surface.getAttribute("aria-pressed")).toBe("false");
+    await context.close();
+  });
+
   it("the slider stays at its far end, and the arrow keys come back from it", async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const { page } = await open(context);
