@@ -125,8 +125,9 @@ describe("the browser gates on the Fixture Course", () => {
     expect(coverage("touch").taps).toBeGreaterThan(20);
     expect(coverage("initial-load").requests).toBeGreaterThan(0);
     // The flanged hub's viewer, and Module 11's four-bar and gear pair (3D by default), each on its Module
-    // page, in the Lab and in the Tool gallery, in both browsers.
-    expect(coverage("scroll-pass-through")).toMatchObject({ pages: BROWSERS * pages, viewers: BROWSERS * 9 });
+    // page, in the Lab and in the Tool gallery; Module 13's copper cell (3D view) and glycine's viewer, the same
+    // three pages each (six more); all in both browsers.
+    expect(coverage("scroll-pass-through")).toMatchObject({ pages: BROWSERS * pages, viewers: BROWSERS * 15 });
     // Every sweep of the Trap page, in either direction, found all four seeded defects.
     const trapSweeps = BROWSERS * WIDTHS.length * directions;
     expect(coverage("trap-page")).toEqual({ sweeps: trapSweeps, defects: trapSweeps * 4 });
