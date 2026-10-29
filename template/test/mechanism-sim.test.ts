@@ -380,6 +380,40 @@ describe("the mechanisms in a browser", () => {
     await context.close();
   });
 
+  it("after Play has taken the gear pair past one turn, a step of the slider moves the driven gear a fraction of a degree, not half a turn", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const { page, errors } = await open(context);
+    const el = await sim(page, "gear-pair");
+    await tab(el, "2D").click();
+    await play(el).click();
+    // Past the wrap: the displayed angle came round to the start of the next turn.
+    let high = false;
+    await expect
+      .poll(
+        async () => {
+          const now = await angle(el);
+          high ||= now > 340;
+          return high && now < 120;
+        },
+        { timeout: 60_000, intervals: [50] },
+      )
+      .toBe(true);
+    await play(el).click();
+    expect(await el.getAttribute("data-playing")).toBe("false");
+    const [driver0, driven0] = [await angle(el), await linkAngle(el, "driven")];
+    const slider = el.getByRole("slider");
+    await slider.press("ArrowRight");
+    await expect.poll(async () => await angle(el)).not.toBe(driver0);
+    const [driver1, driven1] = [await angle(el), await linkAngle(el, "driven")];
+    // The driver stays on its turn: its displayed angle moves a step (snapped to the slider) or less, and the driven gear half as far,
+    // the other way (the sheet's matrices are rounded to a thousandth of a degree).
+    expect(Math.abs(driver1 - driver0)).toBeLessThanOrEqual(1);
+    const moved = ((((driven1 - driven0) % 360) + 540) % 360) - 180;
+    expect(moved).toBeCloseTo(-(driver1 - driver0) / 2, 2);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   it("the slider turns the four-bar to a chosen angle", async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const { page } = await open(context);
