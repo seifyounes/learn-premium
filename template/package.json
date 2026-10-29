@@ -28,6 +28,7 @@
     "@fontsource/atkinson-hyperlegible-mono": "5.3.0",
     "@fontsource/atkinson-hyperlegible-next": "5.3.0",
     "@tailwindcss/vite": "4.3.3",
+    "3dmol": "2.5.5",
     "astro": "7.3.5",
     "culori": "4.0.2",
     "hast-util-from-html": "2.0.3",
