@@ -109,6 +109,29 @@ describe("the 3D scene", () => {
     expect(buildMechanism(THREE, pair, inks).dragPlane.position.z).toBe(pair.faceWidth / 2);
   });
 
+  it("joins the coupler point to the coupler bar wherever it lies: before A, past B, or off to a side", () => {
+    for (const couplerPoint of [
+      { along: -20, off: 10 },
+      { along: 140, off: -15 },
+      { along: 60, off: 30 },
+    ]) {
+      const model: FourBar = { ...crankRocker, couplerPoint };
+      const built = buildMechanism(THREE, model, inks);
+      const stem = built.links.get("coupler")?.getObjectByName("stem") as THREE.Mesh | undefined;
+      if (!stem) throw new Error("no stem");
+      stem.geometry.computeBoundingBox();
+      const box = stem.geometry.boundingBox as THREE.Box3;
+      // The stem runs from the bar's nearest point (the bar is A at 0 to B at 120) to P, ends rounded past both.
+      const nearest = Math.min(Math.max(couplerPoint.along, 0), 120);
+      const label = JSON.stringify(couplerPoint);
+      expect(box.min.x, label).toBeLessThanOrEqual(Math.min(nearest, couplerPoint.along) + 1e-4);
+      expect(box.max.x, label).toBeGreaterThanOrEqual(Math.max(nearest, couplerPoint.along) - 1e-4);
+      expect(box.min.y, label).toBeLessThanOrEqual(Math.min(couplerPoint.off, 0) + 1e-4);
+      expect(box.max.y, label).toBeGreaterThanOrEqual(Math.max(couplerPoint.off, 0) - 1e-4);
+      expect((built.pins.get("coupler.P") as THREE.Object3D).position.x).toBe(couplerPoint.along);
+    }
+  });
+
   it("layers the bars one above another, the crank first, and the ground behind them", () => {
     const built = buildMechanism(THREE, crankRocker, inks);
     placeLinks(built, pose(crankRocker, 60));

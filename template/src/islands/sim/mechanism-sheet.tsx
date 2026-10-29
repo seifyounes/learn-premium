@@ -87,6 +87,14 @@ const NAMED: Record<Model["type"], readonly (readonly [key: string, link: LinkId
  * crank turn, or the driven gear's tooth tip over its rim. The tip goes round the driven gear's whole circle,
  * which the driver takes several turns to cover, so it is drawn as that circle, a degree of the gear a point.
  */
+function stemOf(model: Model): { from: number; length: number; degrees: number } | undefined {
+  if (model.type !== "four-bar" || !model.couplerPoint) return undefined;
+  const { along, off } = model.couplerPoint;
+  const from = Math.min(Math.max(along, 0), model.coupler);
+  const length = Math.hypot(along - from, off);
+  return length > 1e-9 ? { from, length, degrees: (Math.atan2(off, along - from) * 180) / Math.PI } : undefined;
+}
+
 function tracedPath(model: Model): Point[] {
   if (model.type === "gear-pair") {
     const centre = model.centreDistance ?? (model.module * (model.teeth[0] + model.teeth[1])) / 2;
@@ -121,6 +129,8 @@ export function MechanismSheet({ model, pose, inked, label, onAngle, ready }: Pr
       // Sheet (x, y up) to drawing pixels: scaled, y flipped, the box's corner at the margin.
       origin: [(MARGIN - box.min[0]) * scale, (MARGIN + box.max[1]) * scale] as const,
       local,
+      // The coupler point hangs on a stem from the bar's nearest point, wherever P lies: before A, past B, or off to a side.
+      stem: stemOf(model),
       path: tracedPath(model),
       gears:
         model.type === "gear-pair"
@@ -226,11 +236,11 @@ export function MechanismSheet({ model, pose, inked, label, onAngle, ready }: Pr
             ? (["crank", "coupler", "rocker"] as const).map((id) => (
                 <g key={id} data-link={id} transform={link(id)}>
                   {bars(id)}
-                  {id === "coupler" && geometry.local.coupler?.["P"] && (
+                  {id === "coupler" && geometry.stem && (
                     <path
                       className="mechanism-bar"
-                      d={`${slot(Math.abs(geometry.local.coupler["P"][1]), geometry.width * 0.7)}`}
-                      transform={`translate(${geometry.local.coupler["P"][0]} 0) rotate(${geometry.local.coupler["P"][1] >= 0 ? 90 : -90})`}
+                      d={slot(geometry.stem.length, geometry.width * 0.7)}
+                      transform={`translate(${geometry.stem.from} 0) rotate(${geometry.stem.degrees})`}
                       vectorEffect="non-scaling-stroke"
                     />
                   )}

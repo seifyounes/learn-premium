@@ -141,10 +141,15 @@ export function buildMechanism(three: typeof THREE, model: Model, inks: ViewerIn
       // The coupler point hangs off the coupler on a stem, so the plate reads as one rigid body.
       const point = pinsOf["P"];
       if (link === "coupler" && point) {
-        const stem = slot(Math.abs(point[1]), width * 0.7);
-        stem.rotateZ(point[1] >= 0 ? Math.PI / 2 : -Math.PI / 2);
-        stem.translate(point[0], 0, 0);
-        solid(g, "stem", stem, inks.desk);
+        // From the bar's nearest point to P, wherever P lies: before A, past B, or off to either side.
+        const x0 = Math.min(Math.max(point[0], 0), model.type === "four-bar" ? model.coupler : 0);
+        const [run, rise] = [point[0] - x0, point[1]];
+        if (Math.hypot(run, rise) > 1e-9) {
+          const stem = slot(Math.hypot(run, rise), width * 0.7);
+          stem.rotateZ(Math.atan2(rise, run));
+          stem.translate(x0, 0, 0);
+          solid(g, "stem", stem, inks.desk);
+        }
       }
       for (const [name, at] of Object.entries(pinsOf))
         pin(g, link, name, at, thickness * (name === "P" ? 1.2 : 1.8), name === "P" ? pinRadius * 0.8 : pinRadius);
