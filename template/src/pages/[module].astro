@@ -4,6 +4,8 @@ import Cell from "../components/Cell.astro";
 import GivenBox from "../components/GivenBox.astro";
 import HonestyCell from "../components/HonestyCell.astro";
 import Infographic from "../components/Infographic.astro";
+import FurtherLinks from "../components/FurtherLinks.astro";
+import Molecule from "../components/Molecule.astro";
 import SectionRail from "../components/SectionRail.astro";
 import Part from "../components/Part.astro";
 import PythonTool from "../components/PythonTool.astro";
@@ -16,6 +18,7 @@ import {
   getCourse,
   getMedia,
   getModules,
+  getMolecules,
   getParts,
   getPythonTools,
   getSims,
@@ -63,6 +66,9 @@ for (const tool of pythonTools) {
 /** The machine parts each Worked example carries, last: each in its 3D viewer. */
 const parts = (await getParts()).filter((p) => p.module === module.id);
 const partsOf = (id: string) => parts.filter((p) => p.entry.data.worked === itemNumber(id));
+/** The molecules each Worked example carries, after its parts: formula, 2D structure and 3D viewer. */
+const molecules = (await getMolecules()).filter((m) => m.module === module.id);
+const moleculesOf = (id: string) => molecules.filter((m) => m.entry.data.worked === itemNumber(id));
 
 // Watch → Summary → Worked examples → Practice; a section with nothing in it isn't on the page.
 const has: Record<Section, boolean> = {
@@ -150,6 +156,9 @@ const notes = (p: Parameters<typeof provenanceNotes>[0]) => provenanceNotes(p, p
                 {partsOf(id).map((part) => (
                   <Part part={part} heading="h4" />
                 ))}
+                {moleculesOf(id).map((molecule) => (
+                  <Molecule molecule={molecule} heading="h4" />
+                ))}
               </article>
             );
           })}
@@ -187,6 +196,8 @@ const notes = (p: Parameters<typeof provenanceNotes>[0]) => provenanceNotes(p, p
           })}
         </section>
       )}
+
+      <FurtherLinks links={module.entry.data.further} />
     </div>
   </div>
 </Sheet>

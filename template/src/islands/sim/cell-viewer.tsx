@@ -33,8 +33,8 @@ interface Props {
   reduced: boolean;
 }
 
-/** A gutter label's line, in CSS pixels: 14px type with room to breathe. */
-const LABEL_LINE = 22;
+/** A gutter label's line, in CSS pixels: room for two lines of 14px type, as a narrow gutter wraps its labels. */
+const LABEL_LINE = 34;
 /** How far one wheel notch zooms, when the viewer has the page's wheel. */
 const WHEEL_ZOOM = 0.0015;
 /** The electrons travel the wire this many times a second. */
@@ -304,7 +304,7 @@ export function CellViewer({ model, state, decimals, label, ready, reduced }: Pr
             key={l.id}
             className="viewer-label"
             data-cell-label={l.id}
-            style={{ insetBlockStart: l.y - LABEL_LINE / 2 }}
+            style={{ insetBlockStart: l.y - LABEL_LINE / 2, blockSize: LABEL_LINE }}
           >
             {words[l.id]}
           </span>

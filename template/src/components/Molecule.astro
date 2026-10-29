@@ -1,0 +1,61 @@
+---
+import { prose, type MoleculeRef } from "../content/course";
+import MoleculeViewer from "../islands/MoleculeViewer";
+import { paletteFor } from "../molecules/cpk";
+import { elementCounts, hillOrder } from "../molecules/formula";
+import { moleculeId } from "../molecules/record";
+import { inlineSvg } from "../molecules/svg";
+import { provenanceNotes } from "../provenance/notes";
+
+/**
+ * A molecule where it is used: a Worked example, the Lab or the Tool gallery. Its formula (set by
+ * mhchem), its 2D structure as RDKit drew it at build (inlined, in graphite), and its 3D viewer
+ * (3Dmol.js, loaded after first paint) in standard CPK colours with an element key.
+ */
+interface Props {
+  molecule: MoleculeRef;
+  heading: "h3" | "h4";
+}
+
+const { molecule, heading: Heading } = Astro.props;
+const m = molecule.entry.data;
+const { inputsHtml, outputsHtml } = provenanceNotes(m.provenance, prose);
+const plainText = (html: string) => html.replace(/<[^>]*>/g, "");
+const id = moleculeId(molecule.module, molecule.name);
+const elements = hillOrder(Object.keys(elementCounts(molecule.record.formula)));
+const label = plainText(prose(m.title));
+---
+
+<article
+  class="sim-card molecule-card"
+  id={`molecule-${molecule.module}-${molecule.name}`}
+  data-molecule-card={molecule.name}
+>
+  <div class="sim-head">
+    <span class="field-label">Molecule</span>
+    <Heading
+      class="font-print text-sheet-title font-semibold text-graphite [font-variation-settings:'wdth'_87]"
+      set:html={prose(m.title)}
+    />
+    <p class="max-w-[68ch] text-body-small text-muted" set:html={prose(m.caption)} />
+    <p class="molecule-formula" data-formula set:html={prose(`$\\ce{${molecule.record.formula}}$`)} />
+  </div>
+  {inputsHtml && <div class="mbe-3" set:html={inputsHtml} />}
+  {molecule.svg !== undefined && (
+    <figure class="structure" data-structure={id}>
+      <div class="structure-box" dir="ltr" set:html={inlineSvg(molecule.svg, label)} />
+      <figcaption class="structure-caption">2D structure, drawn from its SMILES at build</figcaption>
+    </figure>
+  )}
+  {molecule.sdf !== undefined && (
+    <MoleculeViewer
+      client:visible
+      id={id}
+      sdf={molecule.sdf}
+      elements={elements}
+      palette={paletteFor(elements)}
+      label={label}
+    />
+  )}
+  {outputsHtml && <div class="mbs-3" set:html={outputsHtml} />}
+</article>

@@ -45,19 +45,26 @@ export function cellState(m: Model, i: Inputs): CellState {
 export type CellAnchor =
   "first-electrode" | "second-electrode" | "first-solution" | "second-solution" | "voltmeter" | "wire" | "bridge";
 
-/** The words at each part of the cell, as plain Unicode text. `d` is the decimals of E and of c. */
+/** A space a label never breaks at: a value and its unit, or a role in brackets, stay together. */
+const NB = " ";
+
+/**
+ * The words at each part of the cell, as plain Unicode text. `d` is the decimals of E and of c. A
+ * label may wrap at its ordinary spaces (it hangs in a narrow gutter), never inside a value or a role.
+ */
 export function cellLabels(m: Model, s: CellState, d: { E: number; c: number }): Record<CellAnchor, string> {
   const electrode = (which: Electrode) => {
-    const role = s.anode === which ? "anode (−)" : s.cathode === which ? "cathode (+)" : "no current";
+    const role = s.anode === which ? `anode${NB}(−)` : s.cathode === which ? `cathode${NB}(+)` : `no${NB}current`;
     return `${m[which].metal}, ${role}`;
   };
-  const solution = (which: Electrode) => `${ionText(s.solutions[which].ion)} ${printAt(s.solutions[which].c, d.c)} M`;
+  const solution = (which: Electrode) =>
+    `${ionText(s.solutions[which].ion)} ${printAt(s.solutions[which].c, d.c)}${NB}M`;
   return {
     "first-electrode": electrode("first"),
     "second-electrode": electrode("second"),
     "first-solution": solution("first"),
     "second-solution": solution("second"),
-    voltmeter: `E = ${printAt(s.E, d.E)} V`,
+    voltmeter: `E = ${printAt(s.E, d.E)}${NB}V`,
     wire: s.flow === "first-to-second" ? "e⁻ →" : s.flow === "second-to-first" ? "← e⁻" : "no current",
     bridge: "salt bridge",
   };

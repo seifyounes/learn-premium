@@ -72,6 +72,13 @@ export const COLLECTIONS = {
   },
   // JSON only: `npm run parts` reads them with Python's standard library, before Node is involved.
   parts: { pattern: "modules/*/parts/*.json", format: "structured", generateId: moduleEntryId, schema: contract.part },
+  // JSON only: `npm run molecules` reads them with Python's standard library, before Node is involved.
+  molecules: {
+    pattern: "modules/*/molecules/*.json",
+    format: "structured",
+    generateId: moduleEntryId,
+    schema: contract.molecule,
+  },
   // An Exam sitting's Exam room (`sittings/<id>/`): its past papers, its mocks, and the format the
   // Professor announced. An entry's id is `<sitting>/<name>`, or `<sitting>` for the format.
   papers: {

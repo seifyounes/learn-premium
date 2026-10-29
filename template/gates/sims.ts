@@ -462,6 +462,17 @@ export const TOOLKIT: Record<SimKind, readonly string[]> = {
     "src/viewer/gesture.ts",
     ...SHARED_VIEW,
   ],
+  // A galvanic cell is drawn in 3D on the part viewer's stage, beside its plot of E against log Q and its toggles.
+  nernst: [
+    "src/islands/NernstSim.tsx",
+    "src/islands/sim/nernst-board.ts",
+    "src/islands/sim/series-toggles.tsx",
+    "src/islands/sim/cell-viewer.tsx",
+    "src/islands/three/cell-scene.ts",
+    "src/islands/three/stage.ts",
+    "src/viewer/gesture.ts",
+    ...SHARED_VIEW,
+  ],
 };
 const STEP_THROUGH_VIEW = ["src/islands/StepThrough.tsx", "src/islands/worked/PlotFigure.tsx"];
 /** A Pyodide tool's view: its preview and live plot draw on the sheet's plotted figure. */
@@ -473,6 +484,8 @@ const PART_VIEW = [
   "src/islands/three/part-scene.ts",
   "src/viewer/gesture.ts",
 ];
+/** A molecule's 3D viewer: 3Dmol.js on the sheet, its colours handed in through props, and the gestures it takes. */
+const MOLECULE_VIEW = ["src/islands/MoleculeViewer.tsx", "src/molecules/pick.ts", "src/viewer/gesture.ts"];
 
 const COLOUR_LITERAL = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi;
 const MOUSE_ONLY =
@@ -524,11 +537,13 @@ export const toolsGate: Gate = {
     const { files, sims, modules } = simsInScope(input);
     const python = files.filter((f) => f.collection === "python");
     const parts = files.filter((f) => f.collection === "parts");
+    const molecules = files.filter((f) => f.collection === "molecules");
     const coverage = {
       modules,
       sims: sims.length,
       pythonTools: python.length,
       parts: parts.length,
+      molecules: molecules.length,
       kinds: 0,
       checks: 0,
       engineSamples: 0,
@@ -616,6 +631,15 @@ export const toolsGate: Gate = {
     if (parts.length > 0) {
       const problems = viewOf("part", PART_VIEW);
       for (const file of parts) {
+        coverage.checks += 3;
+        problems.forEach((message) => findings.push({ outcome: "block", at: file.entry, message }));
+      }
+    }
+    // A molecule's 3D viewer takes the pad frame and answers touch the same way: its CPK colours come in through
+    // props, never written into the view. Its structure is checked by the molecule gates, against RDKit's record.
+    if (molecules.length > 0) {
+      const problems = viewOf("molecule", MOLECULE_VIEW);
+      for (const file of molecules) {
         coverage.checks += 3;
         problems.forEach((message) => findings.push({ outcome: "block", at: file.entry, message }));
       }

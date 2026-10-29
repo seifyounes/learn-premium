@@ -13,6 +13,7 @@ import { schematicProblems } from "../sims/layout/validate.ts";
 import { LANGUAGES, PLC_KINDS, WATCH_TYPES } from "../sims/ladder/model.ts";
 import { ladderSimProblems } from "../sims/ladder/validate.ts";
 import { LOGIC_KINDS, logicProblems } from "../sims/logic/engine.ts";
+import { nernstProblems } from "../sims/nernst/engine.ts";
 import { pneumaticProblems } from "../sims/pneumatic/model.ts";
 import { fourBarProblems } from "../sims/mechanism/engine.ts";
 import { PROVENANCE_TAGS } from "../provenance/values.ts";
@@ -22,6 +23,7 @@ import { diagramOf } from "../sims/state-machine/engine.ts";
 import { machineProblems } from "../sims/state-machine/problems.ts";
 import { stlProblems } from "../sims/stl/validate.ts";
 import { CELL_REF, parseCell } from "../worked/cells.ts";
+import { linkOnlyHost } from "./links-only.ts";
 
 /** A Module's folder name is its route: a two-digit number and a slug, e.g. `01-thermal-resistance`. */
 export const MODULE_ID = /^(\d{2})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
@@ -151,11 +153,45 @@ const arabicNote = z
     "write numbers in an Arabic note with the digits 0–9, as the English content does",
   );
 
+/**
+ * A credited "go further" link (PhET, Falstad…): a plain link in a new tab to a page another site
+ * made, never framed, embedded or copied. A PhET or Falstad page is credited as its makers ask.
+ */
+const furtherLink = z
+  .strictObject({
+    title: z.string().min(1),
+    url: z
+      .string()
+      .url()
+      .refine((u) => u.startsWith("https://"), "an https:// address"),
+    /** As its makers ask to be credited. */
+    credit: z.string().min(1),
+    licence: z.string().min(1).optional(),
+  })
+  .superRefine((l, ctx) => {
+    const host = linkOnlyHost(l.url);
+    if (!host) return;
+    if (!l.credit.includes(host.credit))
+      ctx.addIssue({
+        code: "custom",
+        path: ["credit"],
+        message: `${host.site}'s pages are credited to ${host.credit}`,
+      });
+    if (l.licence === undefined)
+      ctx.addIssue({
+        code: "custom",
+        path: ["licence"],
+        message: `${host.site}'s pages carry a licence: name it, e.g. CC BY-NC 4.0`,
+      });
+  });
+
 export const module = z.strictObject({
   title: z.string().min(1),
   summary: z.string().min(1),
   /** Ringed in red pen on the contents sheet: where limited time is best spent. */
   highYield: z.boolean().default(false),
+  /** Credited links to other sites' pages (PhET, Falstad…), shown at the end of the Module as "Go further". */
+  further: z.array(furtherLink).default([]),
 });
 
 /**
@@ -948,6 +984,48 @@ function mechanismProblems(model: z.output<typeof mechanismSim>["model"]): { pat
     .map((key) => ({ path: ["model", "labels"], message: `a gear pair's pins are O1 and O2: no ${key}` }));
 }
 
+/** One half-cell of a galvanic cell: a metal in a solution of its own ion. */
+const halfCell = z.strictObject({
+  /** The electrode's metal, by its symbol: Cu. */
+  metal: z.string().regex(/^[A-Z][a-z]?$/, "a metal's symbol, e.g. Cu"),
+  /** Its ion in the solution, as mhchem writes it: Cu^2+, Ag^+. */
+  ion: z.string().regex(/^[A-Z][a-z]?\^\d?\+$/, "the metal's ion as mhchem writes it, e.g. Cu^2+ or Ag^+"),
+  /** z: the electrons one atom gives up. */
+  charge: z.number().int().min(1).max(4),
+  /** The couple's standard reduction potential E° (V), as the Materials' table gives it. */
+  e0: z.number(),
+});
+const positiveRange = (what: string) =>
+  tuneRange.refine((r) => r.min > 0, `${what} is above 0: start its range above 0`);
+/** The plot of E against log₁₀Q: one line per isotherm (K). Past four lines, students toggle them (series-limit). */
+const nernstPlot = z.strictObject({
+  isotherms: z.array(z.number().positive()).min(1),
+  many: z.enum(["toggle"]).optional(),
+  /** The isotherms drawn in ink when the sim opens; the first four when absent. */
+  shown: z.array(z.number().positive()).optional(),
+});
+
+/**
+ * A galvanic cell under the Nernst equation (`src/sims/nernst/engine.ts`), written first | second:
+ * the first electrode is oxidised as written. Students tune the two concentrations and the
+ * temperature, never the cell; the 3D cell turns round when E < 0. No default sits inside `model`:
+ * the recompute log's inputs are compared with it as written.
+ */
+const nernstSim = z.strictObject({
+  kind: z.literal("nernst"),
+  ...simCommon,
+  model: z.strictObject({ first: halfCell, second: halfCell }),
+  start: z.strictObject({ c1: z.number().positive(), c2: z.number().positive(), T: z.number().positive() }).optional(),
+  tune: z
+    .strictObject({
+      c1: positiveRange("a concentration"),
+      c2: positiveRange("a concentration"),
+      T: positiveRange("a temperature in K"),
+    })
+    .optional(),
+  plot: nernstPlot,
+});
+
 /**
  * An Agent-built sim (CONTEXT.md): a small model of the Professor's figure, which the engine runs
  * the same way in Node at build and in the page. Students tune it, never rewire it.
@@ -966,9 +1044,11 @@ export const sim = z
     fsmSim,
     grafcetSim,
     mechanismSim,
+    nernstSim,
   ])
   .superRefine((s, ctx) => {
     if (s.kind === "mechanism") for (const p of mechanismProblems(s.model)) ctx.addIssue({ code: "custom", ...p });
+    if (s.kind === "nernst") for (const p of nernstProblems(s.model)) ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "ladder") for (const p of ladderSimProblems(s)) ctx.addIssue({ code: "custom", ...p });
     if (s.kind === "stl")
       for (const p of stlProblems(s.model, s.start, s.tune, s.cases)) ctx.addIssue({ code: "custom", ...p });
@@ -1092,6 +1172,7 @@ export const SIM_KINDS = [
   "fsm",
   "grafcet",
   "mechanism",
+  "nernst",
 ] as const satisfies readonly z.infer<typeof sim>["kind"][];
 
 /**
@@ -1184,6 +1265,31 @@ export const part = z
         });
     });
   });
+
+/**
+ * A molecule (2D structure and 3D viewer): drawn by RDKit at build from its SMILES
+ * (`npm run molecules`), then checked against its stated formula and PubChem's record of its name.
+ */
+export const molecule = z.strictObject({
+  title: z.string().min(1),
+  caption: z.string().min(1),
+  /** As the Materials name it: PubChem is asked for this name. */
+  name: z.string().min(1),
+  /** The structure, written from the Materials' drawing or name. */
+  smiles: z.string().regex(/^[A-Za-z0-9@+\-[\]()=#$:/\\.%*]+$/, "a SMILES string, e.g. NCC(=O)O"),
+  /** The formula the Materials print, any order, condensed allowed (NH2CH2COOH). */
+  formula: z
+    .string()
+    .regex(/^[A-Za-z0-9()]+$/, "a formula of element symbols, digits and brackets")
+    .optional(),
+  /** The Worked example it sits in, by its file number in the Module's `worked/` folder. */
+  worked: z.string().regex(/^\d+$/, "a Worked example's file number, e.g. 1").optional(),
+  views: z
+    .array(z.enum(["structure", "viewer"]))
+    .min(1)
+    .default(["structure", "viewer"]),
+  ...tagged,
+});
 
 /** A Summary beat's frontmatter; its body is plain Markdown of at most 90 words. */
 export const beat = z.strictObject({

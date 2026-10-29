@@ -33,7 +33,7 @@ export function Slider({ name, range, value, ready, onChange }: SliderProps) {
       <label htmlFor={id} className="sim-slider-head">
         <span dangerouslySetInnerHTML={{ __html: name }} />
         <output htmlFor={id} className="font-quantity text-graphite tabular-nums">
-          {printAt(value, decimalsOf(range.step))}
+          {printAt(value, Math.max(decimalsOf(range.step), decimalsOf(range.min)))}
         </output>
       </label>
       <input

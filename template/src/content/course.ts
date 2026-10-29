@@ -3,6 +3,13 @@ import { getCollection, getEntry, type CollectionEntry } from "astro:content";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderProse } from "../math/katex";
+import {
+  moleculeRecord,
+  moleculeRecordEntry,
+  moleculeSdfEntry,
+  moleculeSvgEntry,
+  type MoleculeRecord,
+} from "../molecules/record";
 import { partGlbEntry, partGlbUrl } from "../parts/record";
 import { notInPythonFolder, pythonSource } from "../python/tools";
 import { mediaFolder, mediaUrl, missingMediaFiles, notInMediaFolder, pngSize, type Media } from "../media/media";
@@ -225,6 +232,52 @@ export async function getParts(): Promise<PartRef[]> {
       if (!existsSync(join(contentDir, glb)))
         throw new Error(`${entry.filePath ?? entry.id} has no GLB at ${glb}: build it with npm run parts`);
       return { module, name, entry, glbUrl: partGlbUrl(module, name) };
+    })
+    .sort((a, b) => a.module.localeCompare(b.module) || a.name.localeCompare(b.name));
+}
+
+export interface MoleculeRef {
+  /** The Module it belongs to (its folder name). */
+  module: string;
+  /** Its file name in the Module's `molecules/` folder, without the extension. */
+  name: string;
+  entry: CollectionEntry<"molecules">;
+  /** RDKit's record of it: the formula, the heavy atoms, the files' hashes. */
+  record: MoleculeRecord;
+  /** The 2D structure RDKit drew, when the molecule has that view. */
+  svg: string | undefined;
+  /** The 3D conformer RDKit embedded, when the molecule has that view. */
+  sdf: string | undefined;
+}
+
+/**
+ * Every molecule in the Course, Module by Module, by file name within each. A molecule whose
+ * record or files haven't been built (`npm run molecules`) fails the build, naming the missing one.
+ */
+export async function getMolecules(): Promise<MoleculeRef[]> {
+  const contentDir = buildContentDir();
+  const molecules = await getCollection("molecules");
+  return molecules
+    .map((entry) => {
+      const [module = "", , name = ""] = entry.id.split("/");
+      const where = entry.filePath ?? entry.id;
+      if (!existsSync(join(contentDir, "modules", module, "module.yaml")))
+        throw new Error(`${where} sits in modules/${module}/, which has no module.yaml`);
+      const need = (file: string) => {
+        if (!existsSync(join(contentDir, file)))
+          throw new Error(`${where} has no ${file}: build it with npm run molecules`);
+        return readFileSync(join(contentDir, file), "utf8");
+      };
+      const record = moleculeRecord.parse(JSON.parse(need(moleculeRecordEntry(module, name))));
+      const views = entry.data.views;
+      return {
+        module,
+        name,
+        entry,
+        record,
+        svg: views.includes("structure") ? need(moleculeSvgEntry(module, name)) : undefined,
+        sdf: views.includes("viewer") ? need(moleculeSdfEntry(module, name)) : undefined,
+      };
     })
     .sort((a, b) => a.module.localeCompare(b.module) || a.name.localeCompare(b.name));
 }

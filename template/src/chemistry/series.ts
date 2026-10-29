@@ -2,6 +2,7 @@
 // once, each with its own line style and marker and a label at the line. Past that, students toggle
 // the lines: hidden ones dim to pencil, and showing one more dims the one shown longest. Four is
 // the most an eye can follow on a sheet of graphite.
+import type { Sim } from "../sims/kinds.ts";
 import { asWritten } from "../sims/print.ts";
 
 export const MAX_SHOWN = 4;
@@ -34,6 +35,13 @@ export interface SeriesState {
 /** A Nernst plot's isotherms as series: one line per temperature. */
 export function nernstSeries(plot: { isotherms: readonly number[] }): SeriesDef[] {
   return plot.isotherms.map((T) => ({ id: `T=${T}`, label: `${asWritten(T)} K`, value: T }));
+}
+
+/** The multi-series plot a sim draws, if it draws one: its lines, and what its content says about them. */
+export function seriesOfSim(
+  s: Sim,
+): { defs: SeriesDef[]; plot: { many?: "toggle" | undefined; shown?: readonly number[] | undefined } } | undefined {
+  return s.kind === "nernst" ? { defs: nernstSeries(s.plot), plot: s.plot } : undefined;
 }
 
 /** The series shown when the plot opens: `shown` (clamped to MAX_SHOWN) or the first MAX_SHOWN. */
