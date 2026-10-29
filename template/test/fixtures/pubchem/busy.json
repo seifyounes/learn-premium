@@ -1,0 +1,10 @@
+{
+  "status": 503,
+  "body": {
+    "Fault": {
+      "Code": "PUGREST.ServerBusy",
+      "Message": "Too many requests or server too busy"
+    }
+  },
+  "recorded": "2026-10-29 (transcribed from PubChem's PUGREST.ServerBusy answer)"
+}
