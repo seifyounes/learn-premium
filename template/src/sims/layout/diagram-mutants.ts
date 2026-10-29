@@ -1,7 +1,7 @@
 // The state-diagram gate's negative control, run on every drawing at every build: each mutant breaks a
 // good drawing one known way, and the gate must fail it on the check named. A gate that passes a
 // mutant can't see what it claims to check.
-import { arc, pointAt, selfLoop, unit, onOutline, type DrawnEdge } from "./curves.ts";
+import { arc, bowOf, pointAt, selfLoop, unit, onOutline, type DrawnEdge } from "./curves.ts";
 import type { DiagramCheckId } from "./diagram-check.ts";
 import { readEdges, type DiagramDrawing } from "./diagram.ts";
 import { textBox, textWidth, type PlacedPart, type Text } from "./drawing.ts";
@@ -153,13 +153,27 @@ export function diagramMutantsOf(d: DiagramDrawing): { mutants: DiagramMutant[];
     });
   } else skip("moved-loop", "the diagram draws no self-loop");
 
-  // The whole drawing mirrored.
-  mutants.push({
-    id: "mirrored",
-    what: "the diagram mirrored, every edge intact",
-    expect: ["arrangement", "bends"],
-    drawing: mirrored(d),
+  // The whole drawing mirrored: planted only where mirroring can change what the figure fixes, the
+  // states' order along a row or a side an edge bows or loops to.
+  const columns = new Set(d.states.map((s) => Math.round(s.x)));
+  const leans = d.edges.some((e, i) => {
+    const r = read[i];
+    if (r?.from !== undefined && r.from === r.to) {
+      const state = part(r.from);
+      const apex = pointAt(e.curve, 0.5);
+      return state !== undefined && Math.abs(apex[0] - state.x) > Math.abs(apex[1] - state.y);
+    }
+    const bow = bowOf(e.curve);
+    return bow !== undefined && Math.abs(bow[0]) > 0;
   });
+  if (columns.size > 1 || leans)
+    mutants.push({
+      id: "mirrored",
+      what: "the diagram mirrored, every edge intact",
+      expect: ["arrangement", "bends"],
+      drawing: mirrored(d),
+    });
+  else skip("mirrored", "the states share one column and no edge bows or loops sideways: a mirror reads the same");
 
   // A state the model doesn't have.
   {

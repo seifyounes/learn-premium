@@ -39,7 +39,8 @@ function staticProblems(family: Family, model: MachineModel): string[] {
   const nameOfId = (id: string) => model.states.find((s) => s.id === id)?.label ?? id;
 
   // names
-  const variables = family === "fsm" ? (model.encoding?.variables ?? []) : [];
+  // A GRAFCET's step ids are its state variables (`X0`…) on the strip.
+  const variables = family === "fsm" ? (model.encoding?.variables ?? []) : model.states.map((s) => s.id);
   const groups: [string, readonly string[]][] = [
     ["an input", model.inputs],
     ["an output", model.outputs],

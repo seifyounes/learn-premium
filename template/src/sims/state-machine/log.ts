@@ -45,6 +45,13 @@ export function compareTable(
       .join(" and ");
   const when = (row: Pick<TableRow, "from" | "inputs">) =>
     `${names(row.from)} active and ${machine.model.inputs.map((i) => `${i} = ${row.inputs[i]}`).join(", ")}`;
+  // A situation under one combination is one row: a second, whatever it says, is a contradiction.
+  const seen = new Set<string>();
+  for (const row of logged) {
+    const key = keyOf(machine, row);
+    if (seen.has(key)) mismatches.push(`the recompute's table has two rows for ${when(row)}`);
+    seen.add(key);
+  }
   const theirs = new Map(logged.map((row) => [keyOf(machine, row), row]));
   const ours = new Set(engine.map((row) => keyOf(machine, row)));
   for (const row of engine) {
