@@ -80,6 +80,23 @@ describe("the sim-numbers gate", () => {
     expect((await run(course)).findings).toEqual([]);
   });
 
+  it("settles a negative sheet value only with a Divergence that carries its sign (final review F1)", async () => {
+    const minus = (value: string) =>
+      fixtureWith(WORKED, (s) =>
+        s.replace('"0.2667", "0.3667"', '"0.2667", "−0.3700"').replace(
+          '"stated": [',
+          `"divergences": [{ "value": "${value}", "note": "The engine and the recompute give $0.3667$." }],
+    "stated": [`,
+        ),
+      );
+    // The ruling names 0.3700; the cell prints −0.3700: a ruling on the other sign settles nothing.
+    expect(
+      (await run(minus("$\\\\theta_1^{(1)} = 0.3700$"))).findings.map((f) => [f.outcome, f.message.slice(0, 31)]),
+    ).toEqual([["checkpoint", "sheet cell C2 prints −0.3700, b"]]);
+    // Negative control: the same ruling with its minus settles the cell.
+    expect((await run(minus("$\\\\theta_1^{(1)} = -0.3700$"))).findings).toEqual([]);
+  });
+
   it("lets one Divergence settle one cell: a second cell printing the same value is asked again", async () => {
     const course = fixtureWith(WORKED, (s) =>
       s

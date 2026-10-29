@@ -138,6 +138,26 @@ describe("the stl gate", () => {
         message: "sheet cell B2 prints 13824, but awlsim gives 13330 (MW 2): rule it a Slip or a Divergence",
       },
     ]);
+    // A Divergence rules by sign (final review F1): one on 13824 doesn't settle a cell printing −13824.
+    const negative = (divergence: string) =>
+      fixtureWith(
+        `modules/${MODULE}/worked/1.json`,
+        (s) =>
+          s
+            .replace('"13624", "13824"', '"13624", "−13824"')
+            .replace(
+              '"provenance": {',
+              `"provenance": {\n    "divergences": [{ "value": "${divergence}", "note": "The exam prints it." }],`,
+            ),
+        planted(false, { worked: "1", sheet: { B2: "MW 2" } }),
+      );
+    // (The tank's own sim maps the same cell, so its three-way check asks too; this is the listing's.)
+    const unsigned = (await run(negative("13824"))).findings.map((f) => f.message);
+    expect(unsigned).toContain(
+      "sheet cell B2 prints −13824, but awlsim gives 13330 (MW 2): rule it a Slip or a Divergence",
+    );
+    // Negative control: the same Divergence with its minus settles the cell.
+    expect((await run(negative("−13824"))).findings).toEqual([]);
   });
 
   it("blocks a Gate gap named on a listing the interpreter runs in full", async () => {

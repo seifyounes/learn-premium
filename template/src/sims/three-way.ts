@@ -139,10 +139,10 @@ export function threeWay(
       block(
         `${quantity} (sheet cell ${cell}): the engine gives ${print(fromEngine, d)} but the independent recompute gives ${print(fromRecompute, d)}${atPrecision(d)}; fix whichever is wrong`,
       );
-    } else if (!agrees(fromEngine, printed) && !take(divergences, Math.abs(printed.value))) {
+    } else if (!agrees(fromEngine, printed) && !take(divergences, printed.value)) {
       const computed = `${print(fromEngine, d)} (${quantity})`;
       result.problems.push(
-        take(slips, Math.abs(printed.value))
+        take(slips, printed.value)
           ? {
               outcome: "block",
               on: "sheet",

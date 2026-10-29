@@ -122,6 +122,20 @@ describe("past-papers on content planted with a defect", () => {
     expect(await messages(course)).toEqual([]);
   });
 
+  it("rules a key by sign: a Slip on 0.30 doesn't settle a key printing −0.30, but a Slip on −0.30 does (final review F1)", async () => {
+    const slip = (sheet: string) =>
+      edited((s) =>
+        s
+          .replace("key: '0.25'", "key: '−0.30'")
+          .replace("questions:", `provenance:\n  slips:\n    - { value: '0.25', sheet: '${sheet}' }\nquestions:`),
+      );
+    expect(await messages(slip("0.30"))).toEqual([
+      "checkpoint: question 1's key prints −0.30, but the answer and the recompute give 0.25: rule it a Slip or a Divergence",
+    ]);
+    // Negative control: the same Slip with its minus settles the key, since the site ships the recompute's value.
+    expect(await messages(slip("−0.30"))).toEqual([]);
+  });
+
   it("blocks a key ruled a Divergence while the answer still ships the recompute's value", async () => {
     const course = edited((s) =>
       s

@@ -19,8 +19,7 @@ import { compareWithOracle, logShapeProblem, oracleLog, type OracleLog } from ".
 import { parseStl } from "../src/sims/stl/parse.ts";
 import { isLive, type LiveSim } from "../src/sims/kinds.ts";
 import { RECOMPUTE_LOG, threeWay } from "../src/sims/three-way.ts";
-import { agreesAtPrint, printAt, readPrinted } from "../src/sims/precision.ts";
-import { numbersIn } from "../src/provenance/values.ts";
+import { agreesAtPrint, printAt, readPrinted, rulingValues } from "../src/sims/precision.ts";
 import { parseCell } from "../src/worked/cells.ts";
 import { courseCopy, courseFiles } from "./course-files.ts";
 import type { Finding, Gate, GateInput } from "./runner.ts";
@@ -114,7 +113,7 @@ export const stlGate: Gate = {
             continue;
           }
           const values = awlsimWatch(listing, log);
-          const divergences = new Set(example.sheet.divergences.flatMap((d) => numbersIn(d).map((n) => n.value)));
+          const divergences = new Set(example.sheet.divergences.flatMap(rulingValues));
           for (const [cell, quantity] of Object.entries(s.sheet)) {
             const { row, col } = parseCell(cell);
             const printed = readPrinted(example.sheet.rows[row]?.[col] ?? "");
@@ -126,7 +125,7 @@ export const stlGate: Gate = {
               continue;
             }
             coverage.sheetValues += 1;
-            if (!agreesAtPrint(value, printed) && !divergences.has(Math.abs(printed.value)))
+            if (!agreesAtPrint(value, printed) && !divergences.has(printed.value))
               findings.push({
                 outcome: "checkpoint",
                 at: example.entry,

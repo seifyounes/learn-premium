@@ -159,6 +159,27 @@ describe("the worked-numbers gate", () => {
     ]);
   });
 
+  it("rules by sign: a Slip on 1.45 doesn't settle a cell printing −1.45, but a Slip on −1.45 does (final review F1)", async () => {
+    const minus = (sheet: string) =>
+      fixtureWith(WORKED, (s) =>
+        s
+          .replace('["Total", "", "", "1.54", "25.00"]', '["Total", "", "", "−1.45", "25.00"]')
+          .replace('"sheet": "$1.45', `"sheet": "$${sheet}`),
+      );
+    // The Slip rules on 1.45; the cell prints −1.45: it is asked again, as a Checkpoint item.
+    expect((await run(minus("1.45"))).findings.map((f) => [f.outcome, f.message.slice(0, 32)])).toEqual([
+      ["checkpoint", "sheet cell D4 prints −1.45, but "],
+    ]);
+    // Negative control: the same Slip with its minus settles the cell, which the Slip then blocks.
+    expect((await run(minus("−1.45"))).findings).toEqual([
+      {
+        outcome: "block",
+        at: WORKED,
+        message: "sheet cell D4 prints −1.45, which the Owner ruled a Slip: the site ships the corrected value, 1.54",
+      },
+    ]);
+  });
+
   it("blocks a recompute log that leaves a cell out or gives one the sheet doesn't work out", async () => {
     const course = fixtureWith(LOG, (s) => s.replace('"D1": 0.04,', '"B1": 0.02,'));
     const result = await run(course);
