@@ -272,7 +272,8 @@ async function runPapers(input: GateInput): Promise<GateRun> {
         findings.push({
           outcome: "checkpoint",
           at: entry,
-          message: `question${many ? "s" : ""} ${unkeyedQuestions.join(", ")} ${many ? "have" : "has"} no printed Professor key; ${many ? "their answers are" : "its answer is"} the build's solution, recomputed independently. Confirm ${many ? "them" : "it"} (answers ${answersDigest(paper)})`,
+          // Opens as a key-less paper's item does: the skill reads `no Professor key;` to make it an ordinary item.
+          message: `no Professor key; the ${many ? "answers to questions" : "answer to question"} ${unkeyedQuestions.join(", ")} ${many ? "are" : "is"} the build's solution, recomputed independently. Confirm ${many ? "them" : "it"} (answers ${answersDigest(paper)})`,
         });
       }
       if (paper.key === "solved") {

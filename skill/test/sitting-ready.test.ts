@@ -8,6 +8,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import { treeProblems } from "../scripts/wave/tree.ts";
+import { isSheetItem } from "../scripts/wave/wave.ts";
 import type { DumpPaper, SittingDump, SittingDumper } from "../scripts/wave/sitting.ts";
 import {
   EMPTY_INVENTORY,
@@ -532,6 +533,31 @@ describe("the jobs", () => {
       ),
     );
     expect(ready(c)).toEqual([]);
+    // The gate asks the Owner to confirm the unkeyed answer: an ordinary item, his plain answer is all it takes.
+    reportWith(c, "sitting", {
+      checkpointItems: [
+        {
+          gate: "past-papers",
+          outcome: "checkpoint",
+          at: "sittings/midterm/papers/2025.yaml",
+          message:
+            "no Professor key; the answer to question 2 is the build's solution, recomputed independently. Confirm it (answers 0123456789)",
+          spot: "/exam/midterm/2025/",
+        },
+      ],
+    });
+    const open = checkpoint(c).open;
+    expect(open).toHaveLength(1);
+    expect(open[0]?.sheet).toBe(false);
+    answer(c, firstOf(open).key, firstOf(open).question);
+    expect(ready(c)).toEqual([]);
+    // Negative control: worded any other way it would read as a Slip or Divergence to rule, which it isn't.
+    expect(isSheetItem({ gate: "past-papers", message: "question 2 has no printed Professor key; confirm it" })).toBe(
+      true,
+    );
+    expect(
+      isSheetItem({ gate: "past-papers", message: "no Professor key; the answer to question 2 is the build's" }),
+    ).toBe(false);
     // Negative control: a fully keyed Professor's paper owes no solver.
     expect(ready(sittingWave())).toEqual([]);
   });
