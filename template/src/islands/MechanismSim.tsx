@@ -33,6 +33,13 @@ interface Props {
 
 /** The least time between two steps of the play clock: 30 a second. */
 const FRAME_MS = 30;
+/**
+ * A page that can't keep up (software WebGL on a phone or a held-back CPU) is given room: when its frames
+ * come further apart than this, the clock waits several of them between steps, up to this long, so the page
+ * can still answer a tap while the mechanism runs.
+ */
+const SLOW_FRAME_MS = 50;
+const MOST_WAIT_MS = 600;
 
 const NO_WEBGL = "This browser can't draw the mechanism in 3D: it is shown as the sheet drawing.";
 
@@ -67,9 +74,14 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
   useEffect(() => {
     if (!d.playing || d.reduced || !onScreen) return;
     let last = performance.now();
+    let previous = last;
+    let wait = FRAME_MS;
     let frame = requestAnimationFrame(function step(now) {
       frame = requestAnimationFrame(step);
-      if (now - last < FRAME_MS) return;
+      const between = now - previous;
+      previous = now;
+      wait = between > SLOW_FRAME_MS ? Math.min(MOST_WAIT_MS, between * 3) : FRAME_MS;
+      if (now - last < wait) return;
       dispatch({ type: "tick", ms: now - last });
       last = now;
     });

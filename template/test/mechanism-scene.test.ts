@@ -4,7 +4,7 @@
 // faces the camera, unmirrored.
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { buildMechanism, MECHANISM_TURN_DEG, placeLinks } from "../src/islands/three/mechanism-scene.ts";
+import { buildMechanism, GEAR_SAMPLES, MECHANISM_TURN_DEG, placeLinks } from "../src/islands/three/mechanism-scene.ts";
 import type { ViewerInks } from "../src/islands/three/stage.ts";
 import {
   applyMatrix,
@@ -149,7 +149,7 @@ describe("the 3D scene", () => {
     for (const theta of [0, 37.5, 200]) {
       placeLinks(built, pose(pair, theta));
       built.root.updateMatrixWorld(true);
-      const outlines = outlinesAt(pair, theta);
+      const outlines = outlinesAt(pair, theta, GEAR_SAMPLES);
       for (const [index, link] of (["driver", "driven"] as const).entries()) {
         const group = built.links.get(link);
         const mesh = group?.getObjectByName("gear") as THREE.Mesh | undefined;
