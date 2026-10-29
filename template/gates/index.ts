@@ -2,6 +2,7 @@
 // template CI proves each one catches its defect before the release ships.
 import { BROWSER_GATES } from "./browser.ts";
 import { padGate, redHueRule } from "./colour.ts";
+import { mhchemCanary } from "./canary.ts";
 import { contentContract, katexGate } from "./content.ts";
 import { pinnedDefinitionsGate } from "./definitions.ts";
 import { drawingGate } from "./drawing.ts";
@@ -61,6 +62,7 @@ export const GATES: readonly Gate[] = [
   noindexGate,
   licencesGate,
   licencesFileGate,
+  mhchemCanary,
   liveRoutes,
   liveHeaders,
   livePrivatePaths,

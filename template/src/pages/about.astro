@@ -4,6 +4,7 @@ import Cell from "../components/Cell.astro";
 import HonestyCell from "../components/HonestyCell.astro";
 import TitleBlock from "../components/TitleBlock.astro";
 import { getCourse, prose } from "../content/course";
+import { canaryHtml } from "../math/canary";
 import Sheet from "../layouts/Sheet.astro";
 
 const course = await getCourse();
@@ -59,4 +60,6 @@ const fields = [
       accounts.
     </p>
   </div>
+  {/* The mhchem canary: the mhchem-canary deploy gate reads this rendered formula and blocks a build that lost mhchem. */}
+  <template data-ce-canary set:html={canaryHtml()} />
 </Sheet>
