@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { createContext, runInContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 import { JMOL_CPK, paletteFor } from "../src/molecules/cpk.ts";
 import { elementCounts, hill, hillOrder, sameCounts } from "../src/molecules/formula.ts";
@@ -155,6 +156,31 @@ describe("Jmol's colours", () => {
     for (const colour of Object.values(JMOL_CPK)) expect(colour).toMatch(/^#[0-9A-F]{6}$/);
     expect(paletteFor(["C", "H", "N", "O"])).toEqual({ C: "#909090", H: "#FFFFFF", N: "#3050F8", O: "#FF0D0D" });
     expect(() => paletteFor(["Xx"])).toThrow(/no colour for Xx/);
+  });
+
+  it("JMOL_CPK equals 3Dmol.js's own Jmol colours, for every element both list", () => {
+    // 3Dmol touches window at import, so its UMD build is run in a context with just enough of one.
+    const sandbox: Record<string, unknown> = { console, TextEncoder, TextDecoder };
+    sandbox.window = sandbox;
+    sandbox.self = sandbox;
+    sandbox.navigator = { userAgent: "" };
+    sandbox.document = {
+      createElement: () => ({ getContext: () => null, style: {} }),
+      addEventListener: () => {},
+      documentElement: { style: {} },
+    };
+    createContext(sandbox);
+    runInContext(readFileSync(join(TEMPLATE_DIR, "node_modules", "3dmol", "build", "3Dmol.js"), "utf8"), sandbox);
+    const theirs = (sandbox["$3Dmol"] as { elementColors: { Jmol: Record<string, number> } }).elementColors.Jmol;
+    const hex = (n: number) => `#${n.toString(16).toUpperCase().padStart(6, "0")}`;
+    let shared = 0;
+    for (const [element, colour] of Object.entries(JMOL_CPK)) {
+      if (!(element in theirs)) continue;
+      shared += 1;
+      expect(colour, element).toBe(hex(theirs[element] as number));
+    }
+    // 3Dmol lists every element Jmol colours.
+    expect(shared).toBe(Object.keys(JMOL_CPK).length);
   });
 });
 
