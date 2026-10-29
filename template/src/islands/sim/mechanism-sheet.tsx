@@ -36,8 +36,8 @@ interface Props {
 /** The drawing's most pixels per mm, and the width it is drawn to when the mechanism is small. */
 const MAX_SCALE = 3;
 const DRAWN_WIDTH = 480;
-/** Room round the swept box, each side, in mm: the letters hang beside their pins. */
-const MARGIN = 12;
+/** Room round the swept box, each side, in pixels whatever the scale: the 14px letters hang beside their pins. */
+const PAD_PX = 36;
 /** The drive handle: its ring and its hit circle, in px (a 24px hit circle). */
 const RING_PX = 8;
 const HIT_PX = 12;
@@ -115,7 +115,7 @@ export function MechanismSheet({ model, pose, inked, label, onAngle, ready }: Pr
   const geometry = useMemo(() => {
     const box = sweptBox(model);
     const [w, h] = [box.max[0] - box.min[0], box.max[1] - box.min[1]];
-    const scale = Math.min(MAX_SCALE, DRAWN_WIDTH / (Math.max(w, h) + 2 * MARGIN));
+    const scale = Math.min(MAX_SCALE, (DRAWN_WIDTH - 2 * PAD_PX) / Math.max(w, h));
     const local = linkPins(model);
     const lengths =
       model.type === "four-bar" ? [model.ground, model.crank, model.coupler, model.rocker] : [model.module * 4];
@@ -124,10 +124,10 @@ export function MechanismSheet({ model, pose, inked, label, onAngle, ready }: Pr
       scale,
       width,
       pinRadius: 0.32 * width,
-      pxWidth: (w + 2 * MARGIN) * scale,
-      pxHeight: (h + 2 * MARGIN) * scale,
+      pxWidth: w * scale + 2 * PAD_PX,
+      pxHeight: h * scale + 2 * PAD_PX,
       // Sheet (x, y up) to drawing pixels: scaled, y flipped, the box's corner at the margin.
-      origin: [(MARGIN - box.min[0]) * scale, (MARGIN + box.max[1]) * scale] as const,
+      origin: [PAD_PX - box.min[0] * scale, PAD_PX + box.max[1] * scale] as const,
       local,
       // The coupler point hangs on a stem from the bar's nearest point, wherever P lies: before A, past B, or off to a side.
       stem: stemOf(model),
