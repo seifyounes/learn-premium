@@ -22,6 +22,7 @@ export const SIM_TOOLS = [
   "fsm",
   "grafcet",
   "mechanism",
+  "nernst",
 ] as const;
 /** Every tool a Toolkit can list: a sim kind, a Pyodide tool or a machine-part viewer. */
 export const TOOL_NAMES = [...SIM_TOOLS, "pyodide", "part"] as const;
@@ -47,12 +48,12 @@ export type Toolkit = Record<string, readonly ToolName[]>;
 export const TOOLKITS: Record<StartingDiscipline, Toolkit> = {
   "Machine learning": { optimisation: ["gradient-descent"], "real Python": ["pyodide"] },
   Mathematics: { "function plot": ["tangent"] },
-  // No engine built for these two yet: a computable example in them goes to the Owner.
+  // No engine built for this one yet: a computable example in it goes to the Owner.
   "Electric circuits": {},
   "Logic circuits": { "combinational circuit": ["logic"], "sequential circuit": ["fsm"] },
   "Heat transfer": { "conduction field": ["plane-wall"] },
   Machinery: { part: ["part"], mechanism: ["mechanism"] },
-  "Engineering chemistry": {},
+  "Engineering chemistry": { "cell potential": ["nernst"] },
   "Automation and control": {
     "STL listing": ["stl"],
     "SCL listing": ["scl"],

@@ -188,20 +188,21 @@ pixels (ticks at 12px, names at 15px) so the 12px floor holds at 320px; a schema
 by the layout core (below). A swipe on a board scrolls the page; only a handle takes a drag. The
 kinds:
 
-| Kind               | Discipline    | Engine                                                             | Students tune                     | Independent check                         |
-| ------------------ | ------------- | ------------------------------------------------------------------ | --------------------------------- | ----------------------------------------- |
-| `gradient-descent` | ML            | batch gradient descent on the half mean squared error              | start (drags), α, steps           | exact fractions                           |
-| `tangent`          | maths         | a polynomial's tangent, and secants over runs h, h/10, h/100       | a (P drags), h (Q drags)          | direct evaluation, in exact fractions     |
-| `plane-wall`       | heat transfer | transient conduction, Crank–Nicolson on 80 intervals               | time, diffusivity                 | the Fourier series                        |
-| `logic`            | logic         | every net's level on every truth-table row                         | the input bits                    | each net walked back to its gate          |
-| `stl`              | automation    | the Professor's STL listing on the S7 core, statement by statement | the inputs (switches, raw values) | awlsim, bit for bit after every statement |
-| `scl`              | automation    | the Professor's SCL function block on the S7 core, a call a scan   | the block's inputs                | the blind interpreter, on every scan      |
-| `control`          | control       | K·G(s) under unity feedback: poles, exact step, Bode, margins      | K (a pole drags)                  | python-control (build-time oracle)        |
-| `ladder`           | automation    | the Professor's LAD or FBD networks on the S7 core, scan by scan   | the input bits, and time          | awlsim on the compiled STL, every scan    |
-| `pneumatic`        | automation    | an ISO 1219 circuit's lines, spools and pistons, stroke by stroke  | the push buttons, and time        | a walk-back recompute, every step         |
-| `fsm`              | logic         | the Moore state diagram, a clock at a time, a token on its edge    | the inputs, and the clock         | a hand-read lookup table, every state     |
-| `grafcet`          | automation    | the GRAFCET (SFC) by IEC 60848's firing rules, a clock at a time   | the inputs, and the clock         | the firing rules worked by hand           |
-| `mechanism`        | machinery     | a four-bar or a spur gear pair, solved live, in 3D or as the sheet | the driver's angle (a pin drags)  | an independent solve, at 360 steps        |
+| Kind               | Discipline    | Engine                                                             | Students tune                     | Independent check                          |
+| ------------------ | ------------- | ------------------------------------------------------------------ | --------------------------------- | ------------------------------------------ |
+| `gradient-descent` | ML            | batch gradient descent on the half mean squared error              | start (drags), α, steps           | exact fractions                            |
+| `tangent`          | maths         | a polynomial's tangent, and secants over runs h, h/10, h/100       | a (P drags), h (Q drags)          | direct evaluation, in exact fractions      |
+| `plane-wall`       | heat transfer | transient conduction, Crank–Nicolson on 80 intervals               | time, diffusivity                 | the Fourier series                         |
+| `logic`            | logic         | every net's level on every truth-table row                         | the input bits                    | each net walked back to its gate           |
+| `stl`              | automation    | the Professor's STL listing on the S7 core, statement by statement | the inputs (switches, raw values) | awlsim, bit for bit after every statement  |
+| `scl`              | automation    | the Professor's SCL function block on the S7 core, a call a scan   | the block's inputs                | the blind interpreter, on every scan       |
+| `control`          | control       | K·G(s) under unity feedback: poles, exact step, Bode, margins      | K (a pole drags)                  | python-control (build-time oracle)         |
+| `ladder`           | automation    | the Professor's LAD or FBD networks on the S7 core, scan by scan   | the input bits, and time          | awlsim on the compiled STL, every scan     |
+| `pneumatic`        | automation    | an ISO 1219 circuit's lines, spools and pistons, stroke by stroke  | the push buttons, and time        | a walk-back recompute, every step          |
+| `fsm`              | logic         | the Moore state diagram, a clock at a time, a token on its edge    | the inputs, and the clock         | a hand-read lookup table, every state      |
+| `grafcet`          | automation    | the GRAFCET (SFC) by IEC 60848's firing rules, a clock at a time   | the inputs, and the clock         | the firing rules worked by hand            |
+| `mechanism`        | machinery     | a four-bar or a spur gear pair, solved live, in 3D or as the sheet | the driver's angle (a pin drags)  | an independent solve, at 360 steps         |
+| `nernst`           | chemistry     | a galvanic cell by the Nernst equation: E, ΔG, K, the anode        | c₁, c₂ and T                      | each half-cell's own potential, 729 states |
 
 - **Gradient descent** (`src/islands/GradientDescentSim.tsx`): its table fills in hand order and
   the red pen rings each new θ. The path moves on the contours of J, and α can diverge.
@@ -635,6 +636,88 @@ Students turn the driver, never the links: `start.theta` is the crank's angle fr
   centre distance off m(N1 + N2)/2, and a pinion whose neighbour's tips reach below its base circle,
   both block, with the reason.
 
+## Chemistry
+
+The Engineering chemistry Toolkit (`"cell potential": ["nernst"]`): the Nernst sim, molecules drawn
+at build and shown in 3D, a plot that toggles past four lines, credited links, and a canary for
+the `\ce` the Materials need. No embeddable tool covers equilibrium, kinetics or cells, so the
+Agent-built sim is what builds; PhET stays a credited link.
+
+- **`\ce` and the canary.** KaTeX's `mhchem` comes from the same KaTeX the build renders with
+  (`src/math/katex.ts`). A second KaTeX (rehype-katex's own) doesn't know `\ce` and sets it as red
+  text without failing, so every build sets a fixed `\ce` formula (`src/math/canary.ts`) in a
+  `<template data-ce-canary>` on the About page, and the `mhchem-canary` deploy gate renders it
+  through the build's own KaTeX and reads the deployed copy: a missing `\ce`, an error span or a
+  plain-text arrow blocks. In the Course, a trailing `-` is a charge (write `-{}` for a bond), and
+  nothing mathematical goes inside `\ce{…}`.
+- **Molecules.** A molecule is `modules/<NN-slug>/molecules/<name>.json` (`molecule` in the content
+  contract): a title, a caption, the `name` the Materials print, a `smiles` and the `formula` the
+  Materials print (condensed allowed), the Worked example it sits in, and its `views`
+  (`structure`, `viewer`, both by default). JSON only: the build reads it with Python's standard
+  library.
+  - **Built.** `npm run molecules` (`molecules/build.py`, with the machine venv's Python, which has
+    RDKit; `LEARN_PREMIUM_PYTHON` names another) draws the 2D structure as `<name>.svg` (CoordGen
+    layout, element letters only, no atom colours, no background: RDKit's black becomes the pad's
+    graphite, and the script exits rather than write another colour), embeds the 3D conformer as
+    `<name>.sdf` (hydrogens added, ETKDGv3 with seed 24301, MMFF-optimised), and writes
+    `build-records/molecules/<module>/<name>.json`: RDKit's formula, InChI, InChIKey and heavy atoms
+    for the SMILES, bound to both files by SHA-256 (line endings as LF). Commit all three: Template
+    CI has no RDKit, so the record is RDKit's word.
+  - **PubChem.** `npm run pubchem` is the one place a molecule touches the network. Online and run
+    once, it asks PubChem for the `name`'s formula and InChIKey and commits the answer as
+    `build-records/pubchem/<module>/<name>.json`. A record whose `query` is the name is kept unless
+    `--refresh`; `--replay DIR` reads `DIR/<name>.json` (`{ status, body, recorded }`) and never
+    fetches; `--save DIR` keeps each live response in that shape. Offline it keeps what it has,
+    says so, and exits 0. The build, the gates and the tests read only the committed records and
+    never fetch.
+  - **Checked.** `molecule-checks` holds the files to the record (the SMILES unchanged, each view's
+    hash, the printed formula's atoms against RDKit's, the SDF's atoms against the formula, an SDF
+    that is 3D). `structure-graphite` blocks any colour but graphite in a 2D structure, naming its
+    atom (CPK oxygen sits within a few degrees of the red pen). `pubchem-cross-check` holds the
+    SMILES against PubChem's record of the name: a formula or an isomer's skeleton blocks, and a
+    name PubChem doesn't know, a stereo-only difference, or no record at all is a Checkpoint item.
+    `cpk-palette` holds every built 3D viewer to standard Jmol CPK and its element key to the
+    molecule's elements.
+  - **Shown.** A molecule sits below its Worked example, in the Lab and (the first one) in the Tool
+    gallery (`Molecule.astro`): its formula set by mhchem, the 2D structure inlined exactly as built
+    (drawn at its own size in a box that scrolls: never scaled down), and the 3D viewer
+    (`src/islands/MoleculeViewer.tsx`) with an element key beneath it, a dot and a symbol for each
+    element it has. 3Dmol.js loads only after first paint and only while the viewer is near the
+    screen, ball and stick in Jmol CPK on a transparent background, with its own mouse handlers off
+    (they would take the wheel): it uses the part viewer's activation, so the page scrolls over it
+    until it is tapped. A tap or a hover names the atom under it. Its stage gives the WebGL context
+    back off screen. CPK colours (and a metal's, a solution's) live in `src/molecules/cpk.ts` and
+    `src/chemistry/meaning.ts`, imported only by the viewers' scenes: they appear inside a framed
+    viewer and nowhere else on the sheet.
+- **The Nernst sim** (`kind: nernst`, `src/islands/NernstSim.tsx`, engine
+  `src/sims/nernst/engine.ts`): a galvanic cell of two metal | metal-ion half-cells, written
+  **first | second** (the first electrode is oxidised as written; never left and right: a cell
+  turns round). Students tune c₁, c₂ and T, never the cell. The Cell tab is the cell in 3D
+  (`src/islands/three/cell-scene.ts` on the part viewer's stage): two beakers, the electrodes, a
+  wire through a voltmeter and a salt bridge, with the electrons running the wire and an arrow
+  beside them. Slide c₁ past c₂ and E goes negative: the electrons and arrows, the anode and
+  cathode labels and the voltmeter's sign all turn round, and at equal concentrations (|E| < 1e-12 V)
+  nothing flows. Under reduced motion the electrons hide and the arrows stay. The Plot tab draws E
+  against log₁₀Q, one graphite line per isotherm, each with its own dash and marker and its label at
+  its end, and the regions named inside them. The engine takes any two metal | metal-ion half-cells
+  (n is the least common multiple of the charges, activities as concentrations, CODATA 2018 R and F,
+  T in K); the Fixture's is a copper concentration cell (E° = 0), so the sliders reach E < 0.
+- **A plot past four lines toggles.** At most 4 lines are drawn in ink; students toggle the rest
+  (printed buttons with a drawn tick box and a swatch of the line's style), and drawing another dims
+  the one drawn longest (`src/chemistry/series.ts`). The contract offers `plot.many: toggle` only.
+- **Go further.** A Module's `further` list (`module.yaml`) holds credited links to other sites'
+  pages: a title, an https `url`, the `credit` its makers ask for and a `licence`. PhET and Falstad
+  need theirs (`src/content/links-only.ts`). They are shown at the end of the Module as "Go further",
+  plain links that open in a new tab (`FurtherLinks.astro`); `links-only` blocks a PhET or Falstad
+  iframe, embed or script, a link without `target="_blank"` and `rel="noopener"`, a link without
+  its credit, and a self-hosted copy. PhET stays refused as a tool.
+
+The recompute for a Nernst sim is `fixture-course/tools/recompute-nernst.py`: each half-cell's own
+Nernst potential, the electrode with the lower reduction potential as the anode, and the cell
+walked over every slider at nine points (729 states). The `nernst` gate checks the sheet three ways,
+then those 729 states against the engine, and the polarity the 3D cell draws against the
+recompute's anode.
+
 ## Pyodide tools
 
 Real Python, only where real Python is the point (the Professor's own code, scikit-learn, SciPy).
@@ -774,6 +857,11 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `part-checks`         | job, deploy             | every machine part's GLB against its B-rep record (each tagged dimension and the bounding box within 0.01 mm), its volume against the independent sum of the drawing's primitives (0.5 %); a scaled or assumed dimension is a Checkpoint item linking to the viewer                                                                                                                                                                                                        |
 | `kinematics`          | job, deploy             | every live mechanism's motion, as the viewer draws it (the engine's poses), against the independent recompute at 360 steps of one driver turn: each moving link within 0.1°, each pin within 0.1 mm; the trace complete; the sheet three ways; eight broken logs, each caught                                                                                                                                                                                              |
 | `gear-interference`   | job, deploy             | every gear pair's teeth, on the true involutes, at 0.5° steps of the driver until each gear has turned once: never overlapping, always touching; a pair 0.5 mm too close or too far apart, and a 12-tooth pinion on a 48-tooth wheel, each caught                                                                                                                                                                                                                          |
+| `nernst`              | job, deploy             | every live Nernst sim three ways at the sheet, its whole slider grid (9 points each) against the independent recompute, and the cell's polarity (anode, electron flow) against the recompute's own                                                                                                                                                                                                                                                                         |
+| `series-limit`        | job, deploy             | every chemistry plot draws at most 4 lines in ink at once (past 4, students toggle them), each line with its own dash and marker and its own label                                                                                                                                                                                                                                                                                                                         |
+| `molecule-checks`     | job, deploy             | every molecule's SVG, SDF and record are what npm run molecules built from its SMILES; the formula the Materials print, the record's and the SDF's atoms agree; the SDF is 3D                                                                                                                                                                                                                                                                                              |
+| `structure-graphite`  | job, deploy             | every 2D structure SVG paints in graphite only: no atom colour, no background                                                                                                                                                                                                                                                                                                                                                                                              |
+| `pubchem-cross-check` | job, deploy             | every molecule's formula and InChIKey, from its SMILES, against PubChem's for its name, as recorded by npm run pubchem (never fetches)                                                                                                                                                                                                                                                                                                                                     |
 | `drawing`             | job, deploy             | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                                                                                                                                                                                                                                                                                          |
 | `tools`               | job, deploy             | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable                                                                                                                                                                                                                                                                          |
 | `past-papers`         | sitting                 | every past paper's numeric answers three ways (the content's answer, the Professor's printed key, the independent recompute) at the key's printed precision: answer ≠ recompute blocks; key ≠ both is a Checkpoint item unless ruled a Slip (the site ships the recompute) or a Divergence (it ships the key); marks sum per paper and written answers list one point per mark; a key-less paper (`key: solved`) is a Checkpoint item for the Owner to confirm its answers |
@@ -783,11 +871,13 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `rendered-page-scan`  | module, sitting, deploy | no `.katex-error`, raw TeX, prose set as a fraction or hollow copy (`0/0`, NaN) on a built page, islands' props included; the content's braces render literally                                                                                                                                                                                                                                                                                                            |
 | `pad`                 | module, deploy          | the pad meets every contrast requirement once auto-fixed; every page wears it                                                                                                                                                                                                                                                                                                                                                                                              |
 | `red-hue-rule`        | module, deploy          | no colour drawn on the sheet within 60° of the red pen's hue, framed tools aside: markup, islands and stylesheets (in `<head>` or linked)                                                                                                                                                                                                                                                                                                                                  |
+| `cpk-palette`         | module, deploy          | every 3D molecule viewer draws in standard Jmol CPK, and its element key shows exactly the molecule's elements in those colours                                                                                                                                                                                                                                                                                                                                            |
+| `links-only`          | module, deploy          | PhET and Falstad appear only as credited plain links in a new tab: never framed, embedded, loaded or self-hosted                                                                                                                                                                                                                                                                                                                                                           |
 | `layout-sweep`        | module, sitting         | browser: at 320/375/390/430/768/1024/1280/1440, left to right and right to left, every collapsible open, no sideways scroll, nothing over a figure, nothing above the page, no colliding text, no height-locked overflow, no text under 12px, Arabic notes right to left with their numbers and formulas left to right                                                                                                                                                     |
 | `live-page-scan`      | module, sitting         | browser: the live page has no KaTeX error, raw TeX, hollow copy, NaN or floating-point noise, and no uncaught error                                                                                                                                                                                                                                                                                                                                                        |
 | `hydration`           | module, sitting         | browser: island controls are disabled in the server's HTML, and on once the island hydrates                                                                                                                                                                                                                                                                                                                                                                                |
 | `touch`               | module, sitting         | browser: with phone touch at 375 and 390px (4× slower CPU on Chromium), every control answers a tap                                                                                                                                                                                                                                                                                                                                                                        |
-| `initial-load`        | module, sitting         | browser: three.js, Pyodide and Plotly are absent from every page's initial load (what it asks for before its load event)                                                                                                                                                                                                                                                                                                                                                   |
+| `initial-load`        | module, sitting         | browser: three.js, 3Dmol.js, Pyodide and Plotly are absent from every page's initial load (what it asks for before its load event)                                                                                                                                                                                                                                                                                                                                         |
 | `scroll-pass-through` | module, sitting         | browser: a wheel and a swipe over every 3D viewer scroll the page until it is tapped or clicked; once clicked it takes the wheel                                                                                                                                                                                                                                                                                                                                           |
 | `trap-page`           | module, sitting         | browser: every sweep found every seeded defect on the Trap page                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `no-materials`        | deploy                  | no file in the build output is a document, deck, sheet or camera original, or matches a Materials hash in the Build ledger                                                                                                                                                                                                                                                                                                                                                 |
@@ -795,6 +885,7 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `noindex`             | deploy                  | every built page has a robots noindex meta tag, and `vercel.json` sends `X-Robots-Tag: noindex` on every path                                                                                                                                                                                                                                                                                                                                                              |
 | `licences`            | deploy                  | every npm package the build ships is on the licence allow-list; anything else (GPL, NC, ND, unknown) is a Checkpoint item                                                                                                                                                                                                                                                                                                                                                  |
 | `licences-file`       | deploy                  | the Licences file carries every hand-written notice, no page links to it, and `public/licences.txt` is the build's                                                                                                                                                                                                                                                                                                                                                         |
+| `mhchem-canary`       | deploy                  | the build's KaTeX sets a `\ce` canary through mhchem, and the deployed About page carries it rendered                                                                                                                                                                                                                                                                                                                                                                      |
 | `live-routes`         | live                    | every route the build made answers 200 with the build's own page; the hubs and `/licences.txt` are there                                                                                                                                                                                                                                                                                                                                                                   |
 | `live-headers`        | live                    | every response carries `X-Robots-Tag: noindex`; pages, scripts and stylesheets of 1 KiB or more come Brotli-compressed                                                                                                                                                                                                                                                                                                                                                     |
 | `live-private-paths`  | live                    | the Course's content and build records (at their content and repo paths), the Build ledger's Materials, the evidence-shaped folders, config, `.env` and `.git` answer 404                                                                                                                                                                                                                                                                                                  |
@@ -977,6 +1068,8 @@ does. Its negative control is a planted GPL-3.0 package (`gates/planted/gpl-pack
 | `npm run gates -- …`   | The gate runner (see Gates)                                                                                 |
 | `npm run wheels`       | Fetches the Pyodide packages the Course's tools load into its `pyodide/` folder                             |
 | `npm run parts`        | Builds the Course's machine parts with build123d: each GLB and its part record                              |
+| `npm run molecules`    | Draws the Course's molecules with RDKit: each 2D structure (graphite), 3D conformer and molecule record     |
+| `npm run pubchem`      | Asks PubChem, online and once, what it calls each molecule: formula and InChIKey, as a build record         |
 | `npm run oracle -- …`  | The STL oracle: `write` and `check` awlsim's logs (`--corpus` adds the template's corpus), `setup` its venv |
 | `npm run deploy -- …`  | The deploy tooling: `licences`, `await-live`, `verdict`, `performance` (see Deploy)                         |
 

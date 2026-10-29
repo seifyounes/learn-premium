@@ -256,7 +256,7 @@ export const touchGate = browserGate(
 
 export const initialLoad = browserGate(
   "initial-load",
-  "three.js, Pyodide and Plotly are absent from every page's initial load",
+  "three.js, 3Dmol.js, Pyodide and Plotly are absent from every page's initial load",
   [
     {
       defect: "three.js loaded with the page",
@@ -287,6 +287,10 @@ export const initialLoad = browserGate(
     {
       defect: "three.js asked for from a CDN with the page",
       plant: plantScript("https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"),
+    },
+    {
+      defect: "3Dmol.js loaded with the page",
+      plant: plantScript("/_astro/3Dmol-min.planted.js", "globalThis.$3Dmol = { createViewer() {} };\n"),
     },
   ],
 );
