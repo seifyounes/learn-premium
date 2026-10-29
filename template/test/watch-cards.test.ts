@@ -15,7 +15,8 @@ const course = fixtureWith(`modules/${MODULE}/media.yaml`, (source) =>
     source.trimEnd(),
     "youtube:",
     `  - id: ${ID}`,
-    "    title: Thermal resistance, the Professor's way",
+    // `videos verify` writes a `$` in YouTube's title escaped (`\$`), so prose reads it literally.
+    "    title: A \\$5 price",
     "    channel: A channel",
     "    duration: '12:05'",
     "    match: 9",
@@ -29,6 +30,12 @@ const build = buildCourse(course);
 describe("a YouTube card on the built page", () => {
   it("builds", () => {
     expect(build.ok, build.output).toBe(true);
+  });
+
+  it("the screen-reader label reads the title's dollar sign, not its escape", () => {
+    const page = build.page(MODULE);
+    const label = /<span class="sr-only"[^>]*>(Play [^<]*)<\/span>/.exec(page);
+    expect(label?.[1]).toBe("Play “A $5 price”");
   });
 
   it("Watch runs video, audio, then the card", () => {
