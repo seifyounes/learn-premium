@@ -13,7 +13,10 @@ You are not given the recompute's logs.
   Don't use a method the Course hasn't taught.
 - A numeric question gets `answer: {kind: numeric, value, unit, tolerance}` and no `key`: the value at
   full precision, and a tolerance that accepts honest rounding of the Professor's own style. A written
-  question gets a `model` answer and one `earns` point per mark. Set the paper's `key: solved`.
+  question gets a `model` answer and one `earns` point per mark. Set the paper's `key: solved`. If the
+  Professor printed keys for some numeric answers (the vault writer left `key: professor` and those keys
+  on), solve only the numeric answers that carry no key, leave `key: professor` and every printed key
+  as written.
 - Where a question is ambiguous, or gives data that doesn't fix an answer, don't pick one: stop and name
   the question and what is missing. The main agent raises it in the Checkpoint.
 - Never change a question's text, marks or order: they are the Professor's and are held to the settled
