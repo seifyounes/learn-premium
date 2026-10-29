@@ -315,4 +315,47 @@ describe("the molecule's viewer in a browser", () => {
     expect(errors).toEqual([]);
     await context.close();
   });
+
+  it("leaves one live 3Dmol viewer after it scrolls far away and back three times", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const { page, errors } = await open(context, `/${MODULE}/`);
+    await drawn(page);
+    await page.evaluate(() => {
+      const gap = document.createElement("div");
+      gap.style.blockSize = "6000px";
+      document.querySelector(".molecule-card")?.before(gap);
+    });
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect.poll(() => state(page), { timeout: 15_000 }).toBe("waiting");
+      await page.evaluate(() => document.querySelector(".molecule-viewer")?.scrollIntoView({ block: "center" }));
+      await expect.poll(() => state(page), { timeout: 30_000 }).toBe("drawn");
+    }
+    // 3Dmol's constructor hangs a `resize` listener on the window that nothing can take off, and a viewer
+    // let go of still answers it by drawing: so the ones let go of must have nothing left to draw into.
+    // A window resize reaches `show()` on every viewer that still has a container with a size.
+    const shown = await page.evaluate(async () => {
+      const canvas = document.querySelector("[data-viewer-object] canvas") as
+        | (HTMLCanvasElement & {
+            _3dmol_viewer?: object;
+          })
+        | null;
+      const live = canvas?._3dmol_viewer;
+      if (!live) throw new Error("no live 3Dmol viewer on the page");
+      const proto = Object.getPrototypeOf(live) as { show: (...args: unknown[]) => unknown };
+      const original = proto.show;
+      const seen = new Set<unknown>();
+      proto.show = function (this: unknown, ...args: unknown[]) {
+        seen.add(this);
+        return original.apply(this, args);
+      };
+      window.dispatchEvent(new Event("resize"));
+      await new Promise((done) => setTimeout(done, 200));
+      proto.show = original;
+      return { viewers: seen.size, liveShown: seen.has(live) };
+    });
+    expect(shown).toEqual({ viewers: 1, liveShown: true });
+    expect(errors).toEqual([]);
+    await context.close();
+  });
 });
