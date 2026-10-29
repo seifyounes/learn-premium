@@ -59,6 +59,30 @@ function afterFirstPaint(then: () => void): () => void {
   };
 }
 
+/**
+ * Lets a drawn viewer go. 3Dmol's constructor hangs listeners on the page that nothing can take off: a `resize`
+ * on the window, and `mouseup`/`touchend` on the body, each bound to the viewer for good. It also starts a
+ * ResizeObserver and an IntersectionObserver on the container. A viewer only cleared would keep drawing into
+ * its container (the next viewer's, the same element) on every resize of the page, and a browser's URL bar or a
+ * rotation resizes it often. So its observers are disconnected and its container is pointed at a detached
+ * element, which has no size: the window's `resize` then finds nothing to draw into, and no context to remake.
+ */
+function release(v: GLViewer) {
+  const inner = v as unknown as {
+    container?: HTMLElement;
+    divwatcher?: ResizeObserver;
+    intwatcher?: IntersectionObserver;
+  };
+  v.clear();
+  inner.divwatcher?.disconnect();
+  inner.intwatcher?.disconnect();
+  // Give the context back now, not when the canvas is collected: the browser's limit is per page.
+  const canvas = v.getCanvas();
+  const gl = (canvas.getContext("webgl2") ?? canvas.getContext("webgl")) as WebGLRenderingContext | null;
+  gl?.getExtension("WEBGL_lose_context")?.loseContext();
+  inner.container = document.createElement("div");
+}
+
 const hex = (n: number) => `#${n.toString(16).toUpperCase().padStart(6, "0")}`;
 
 /** A quaternion turning a point `v` by `q` (x, y, z, w). */
@@ -231,13 +255,7 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
       unlisten?.();
       const v = viewer.current;
       viewer.current = undefined;
-      if (v) {
-        v.clear();
-        // Give the context back now, not when the canvas is collected: the browser's limit is per page.
-        const canvas = v.getCanvas();
-        const gl = (canvas.getContext("webgl2") ?? canvas.getContext("webgl")) as WebGLRenderingContext | null;
-        gl?.getExtension("WEBGL_lose_context")?.loseContext();
-      }
+      if (v) release(v);
       objectEl.current?.replaceChildren();
       objectEl.current?.removeAttribute("data-atom-screen");
       setPicked(undefined);
