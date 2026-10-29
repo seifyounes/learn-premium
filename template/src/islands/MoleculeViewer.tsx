@@ -32,6 +32,8 @@ type Status = "waiting" | "drawn" | "no-webgl" | "no-part";
 
 /** How far one wheel notch zooms, when the viewer has the page's wheel. */
 const WHEEL_ZOOM = 0.0015;
+/** How long a viewer stays near the screen before it starts drawing in 3D. */
+const DWELL_MS = 600;
 /** Degrees a drag of one pixel turns the molecule. */
 const TURN_PER_PX = 0.5;
 
@@ -140,75 +142,80 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
 
   const changed = () => publishRef.current();
 
-  // 3Dmol.js, after first paint, while the viewer is near the screen.
+  // 3Dmol.js, after first paint, while the viewer is near the screen and has stayed there a moment (as the three.js
+  // viewers do): a page scrolled quickly past its molecules starts no WebGL.
   useEffect(() => {
     if (!near) return;
     let disposed = false;
     let observer: ResizeObserver | undefined;
     let unlisten: (() => void) | undefined;
-    const stop = afterFirstPaint(() => {
-      void (async () => {
-        const host = objectEl.current;
-        if (!host) return;
-        let lib: typeof import("3dmol");
-        try {
-          lib = await import("3dmol");
-        } catch {
-          // A chunk that didn't download: the viewer says so, and keeps its element key.
-          if (!disposed) setStatus("no-part");
-          return;
-        }
-        if (disposed) return;
-        const colours = Object.fromEntries(
-          Object.entries(palette).map(([element, colour]) => [element, Number.parseInt(colour.slice(1), 16)]),
-        );
-        let made: GLViewer;
-        try {
-          // nomouse: 3Dmol's own handlers take the wheel and the touches; ours leave them to the page until a tap.
-          made = lib.createViewer(host, { backgroundAlpha: 0, nomouse: true, defaultcolors: colours });
-          if (!made.getCanvas()) throw new Error("no canvas");
-        } catch {
-          host.replaceChildren();
-          setStatus("no-webgl");
-          return;
-        }
-        // The colours each atom is drawn in are its own: the palette, handed to the viewer as its defaults.
-        made.addModel(sdf, "sdf");
-        made.setStyle({}, { stick: { radius: 0.14 }, sphere: { scale: 0.25 } });
-        made.zoomTo();
-        made.render();
-        viewer.current = made;
-        homeView.current = made.getView();
-        const drawn: Record<string, string> = {};
-        for (const atom of made.getModel().selectedAtoms({})) {
-          if (atom.elem !== undefined && typeof atom.color === "number") drawn[atom.elem] = hex(atom.color);
-        }
-        setDrawnPalette(drawn);
-        observer = new ResizeObserver(() => {
-          made.resize();
+    let stop = () => {};
+    const dwell = window.setTimeout(() => {
+      stop = afterFirstPaint(() => {
+        void (async () => {
+          const host = objectEl.current;
+          if (!host) return;
+          let lib: typeof import("3dmol");
+          try {
+            lib = await import("3dmol");
+          } catch {
+            // A chunk that didn't download: the viewer says so, and keeps its element key.
+            if (!disposed) setStatus("no-part");
+            return;
+          }
+          if (disposed) return;
+          const colours = Object.fromEntries(
+            Object.entries(palette).map(([element, colour]) => [element, Number.parseInt(colour.slice(1), 16)]),
+          );
+          let made: GLViewer;
+          try {
+            // nomouse: 3Dmol's own handlers take the wheel and the touches; ours leave them to the page until a tap.
+            made = lib.createViewer(host, { backgroundAlpha: 0, nomouse: true, defaultcolors: colours });
+            if (!made.getCanvas()) throw new Error("no canvas");
+          } catch {
+            host.replaceChildren();
+            setStatus("no-webgl");
+            return;
+          }
+          // The colours each atom is drawn in are its own: the palette, handed to the viewer as its defaults.
+          made.addModel(sdf, "sdf");
+          made.setStyle({}, { stick: { radius: 0.14 }, sphere: { scale: 0.25 } });
+          made.zoomTo();
           made.render();
+          viewer.current = made;
+          homeView.current = made.getView();
+          const drawn: Record<string, string> = {};
+          for (const atom of made.getModel().selectedAtoms({})) {
+            if (atom.elem !== undefined && typeof atom.color === "number") drawn[atom.elem] = hex(atom.color);
+          }
+          setDrawnPalette(drawn);
+          observer = new ResizeObserver(() => {
+            made.resize();
+            made.render();
+            publishRef.current();
+          });
+          observer.observe(host);
+          // The atoms' places on the page move as the page scrolls or its layout settles: say where they are now.
+          let queued = 0;
+          const later = () => {
+            cancelAnimationFrame(queued);
+            queued = requestAnimationFrame(() => publishRef.current());
+          };
+          window.addEventListener("scroll", later, { passive: true });
+          window.addEventListener("resize", later);
+          unlisten = () => {
+            cancelAnimationFrame(queued);
+            window.removeEventListener("scroll", later);
+            window.removeEventListener("resize", later);
+          };
           publishRef.current();
-        });
-        observer.observe(host);
-        // The atoms' places on the page move as the page scrolls or its layout settles: say where they are now.
-        let queued = 0;
-        const later = () => {
-          cancelAnimationFrame(queued);
-          queued = requestAnimationFrame(() => publishRef.current());
-        };
-        window.addEventListener("scroll", later, { passive: true });
-        window.addEventListener("resize", later);
-        unlisten = () => {
-          cancelAnimationFrame(queued);
-          window.removeEventListener("scroll", later);
-          window.removeEventListener("resize", later);
-        };
-        publishRef.current();
-        setStatus("drawn");
-      })();
-    });
+          setStatus("drawn");
+        })();
+      });
+    }, DWELL_MS);
     return () => {
       disposed = true;
+      window.clearTimeout(dwell);
       stop();
       observer?.disconnect();
       unlisten?.();
@@ -272,26 +279,33 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
       gestures.up(e.pointerId, e.timeStamp);
     };
     const cancel = (e: PointerEvent) => gestures.cancel(e.pointerId);
-    const wheel = (e: WheelEvent) => {
-      if (!activeRef.current) return; // the page scrolls
-      e.preventDefault();
-      viewer.current?.zoom(Math.exp(-e.deltaY * WHEEL_ZOOM));
-      changed();
-    };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", cancel);
-    el.addEventListener("wheel", wheel, { passive: false });
     return () => {
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", cancel);
-      el.removeEventListener("wheel", wheel);
     };
     // The handlers read the viewer through refs, so they are set once.
   }, []);
+
+  // The wheel zooms only once the molecule is tapped. Until then it has no wheel listener at all: a listener
+  // that may cancel the wheel makes the browser wait on this page's main thread before it scrolls, and a main
+  // thread busy drawing WebGL would hold up the scroll the page is owed over the viewer.
+  useEffect(() => {
+    const el = objectEl.current;
+    if (!el || !active) return;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      viewer.current?.zoom(Math.exp(-e.deltaY * WHEEL_ZOOM));
+      changed();
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+  }, [active]);
 
   // Handing the page back: a tap outside the frame, Escape, or the viewer scrolled out of view.
   useEffect(() => {

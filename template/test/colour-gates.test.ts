@@ -127,8 +127,8 @@ describe("the colour gates on the Fixture Course", () => {
     expect(hue.findings).toEqual([]);
     // The five planted colours, over what that page already paints with: the same page on its own, since the
     // planted site is one page (the whole site's pages paint more: a molecule's structure is drawn in graphite).
-    const baseline = (await runOne(redHueRule, { ...input, distDir: siteWith(build.outDir, (page) => page) })).coverage
-      .colours ?? 0;
+    const baseline =
+      (await runOne(redHueRule, { ...input, distDir: siteWith(build.outDir, (page) => page) })).coverage.colours ?? 0;
     expect((hue.coverage.colours ?? 0) - baseline).toBe(5);
   });
 
