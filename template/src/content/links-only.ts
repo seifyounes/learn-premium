@@ -12,11 +12,15 @@ export const LINK_ONLY_HOSTS = [
   { host: "falstad.com", site: "Falstad", credit: "Paul Falstad" },
 ] as const;
 
-/** The link-only site a URL is on (the host or any of its subdomains), or undefined. */
+/**
+ * The link-only site a URL is on (the host or any of its subdomains), or undefined. A protocol-relative
+ * URL (`//phet.colorado.edu/…`) resolves against a placeholder origin, and a trailing dot on the host
+ * (`phet.colorado.edu.`, the same DNS name) is dropped: a browser treats both as the site itself.
+ */
 export function linkOnlyHost(url: string): (typeof LINK_ONLY_HOSTS)[number] | undefined {
   let host: string;
   try {
-    host = new URL(url).hostname.toLowerCase();
+    host = new URL(url, "https://site.invalid/").hostname.toLowerCase().replace(/\.+$/, "");
   } catch {
     return undefined;
   }

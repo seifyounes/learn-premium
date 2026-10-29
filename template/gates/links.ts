@@ -29,9 +29,25 @@ const SELF_HOSTED_PATH = /phet|falstad/i;
 /** A link-only site's own code, by what it says of itself. */
 const SELF_HOSTED_BODY = /\bphet-io\b|phetsims/i;
 
+/**
+ * What a page's code says, without what its words say: every attribute, and the text of its scripts and
+ * styles. A page may name "PhET-iO" in a sentence; only a copy of PhET's own code carries the name in its markup.
+ */
+function markupOf(node: Nodes): string {
+  if (node.type === "text") return "";
+  if (node.type !== "element") return "children" in node ? node.children.map(markupOf).join("\n") : "";
+  const attributes = Object.entries(node.properties).map(([name, value]) => `${name}=${String(value)}`);
+  const code = node.tagName === "script" || node.tagName === "style" ? textOf(node) : "";
+  return [...attributes, code, ...node.children.map(markupOf)].join("\n");
+}
+
 const classesOf = (node: Element) => (node.properties.className as string[] | undefined) ?? [];
 const textOf = (node: Nodes): string =>
   node.type === "text" ? node.value : "children" in node ? node.children.map(textOf).join("") : "";
+
+/** The text of a built file that can carry PhET's code: a page's markup, a script's whole body. */
+const codeOf = (entry: string, path: string): string =>
+  entry.endsWith(".html") ? markupOf(fromHtml(readFileSync(path, "utf8"))) : readFileSync(path, "utf8");
 
 export const linksOnly: Gate = {
   id: "links-only",
@@ -99,7 +115,7 @@ export const linksOnly: Gate = {
         });
         continue;
       }
-      if (/\.(?:html|js|mjs)$/.test(file.entry) && SELF_HOSTED_BODY.test(readFileSync(file.path, "utf8")))
+      if (/\.(?:html|js|mjs)$/.test(file.entry) && SELF_HOSTED_BODY.test(codeOf(file.entry, file.path)))
         findings.push({
           outcome: "block",
           at: `/${file.entry}`,
@@ -151,6 +167,28 @@ export const linksOnly: Gate = {
       defect: "a Falstad applet loaded as a script",
       plant: (good, scratch) =>
         siteWith(good, scratch, inMain('<script src="https://www.falstad.com/circuit/circuitjs.js"></script>')),
+    },
+    {
+      defect: "a PhET sim framed by a protocol-relative src",
+      plant: (good, scratch) =>
+        siteWith(
+          good,
+          scratch,
+          inMain(
+            '<iframe src="//phet.colorado.edu/sims/html/concentration/latest/concentration_all.html"></iframe>',
+          ),
+        ),
+    },
+    {
+      defect: "a PhET link to phet.colorado.edu. (trailing dot)",
+      plant: (good, scratch) =>
+        siteWith(
+          good,
+          scratch,
+          inMain(
+            '<ul><li data-further><a href="https://phet.colorado.edu./en/simulations/concentration" target="_blank" rel="noopener noreferrer">Concentration</a></li></ul>',
+          ),
+        ),
     },
   ],
 };

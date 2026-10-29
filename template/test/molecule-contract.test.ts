@@ -124,4 +124,13 @@ describe("the go-further link", () => {
     expect(linkOnlyHost("https://example.org/falstad.com")).toBeUndefined();
     expect(linkOnlyHost("not a url")).toBeUndefined();
   });
+
+  it("linkOnlyHost sees a protocol-relative URL and a trailing-dot host as the same site", () => {
+    expect(linkOnlyHost("//phet.colorado.edu/sims/html/x.html")?.host).toBe("phet.colorado.edu");
+    expect(linkOnlyHost("https://phet.colorado.edu./en/simulations/concentration")?.host).toBe("phet.colorado.edu");
+    expect(linkOnlyHost("https://www.falstad.com./circuit/")?.host).toBe("falstad.com");
+    // A relative path or a lookalike is still no link-only site.
+    expect(linkOnlyHost("/sims/phet.colorado.edu/x.html")).toBeUndefined();
+    expect(linkOnlyHost("//notphet.colorado.edu.example.org/")).toBeUndefined();
+  });
 });

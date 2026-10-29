@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { fromHtml } from "hast-util-from-html";
 import type { Element, Nodes } from "hast";
 import { linksOnly } from "../gates/links.ts";
-import { pagesOf } from "../gates/pages.ts";
+import { inMain, pagesOf, siteWith } from "../gates/pages.ts";
 import { runControls } from "../gates/runner.ts";
 import { buildCourse, FIXTURE_COURSE } from "./build-course";
 
@@ -89,9 +89,29 @@ describe("the go-further link on the built page", () => {
     expect(await found(4)).toEqual([
       "<script> loads https://www.falstad.com/circuit/circuitjs.js: Falstad appears only as a credited plain link in a new tab, never framed, embedded or loaded",
     ]);
+    expect(await found(5)).toEqual([
+      "<iframe> loads //phet.colorado.edu/sims/html/concentration/latest/concentration_all.html: PhET appears only as a credited plain link in a new tab, never framed, embedded or loaded",
+    ]);
+    expect(await found(6)).toEqual([
+      `the link to https://phet.colorado.edu./en/simulations/concentration carries no credit: it sits in a "Go further" list beside PhET's credit, PhET Interactive Simulations, University of Colorado Boulder`,
+    ]);
   });
 
-  it("links-only catches its five controls", async () => {
+  it('links-only lets a page say "PhET-iO" in its words, and still blocks a copy of PhET\'s code', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), "lp-links-"));
+    try {
+      const prose = siteWith(
+        input,
+        scratch,
+        inMain("<p>PhET-iO is PhET's instrumentation layer, and phetsims hosts its code.</p>"),
+      );
+      expect((await linksOnly.run(prose)).findings).toEqual([]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  it("links-only catches its seven controls", async () => {
     const result = await runControls({ input, gates: [linksOnly] });
     expect(result.gates[0]?.positive).toBe("pass");
     expect(result.gates[0]?.controls.map((c) => `${c.caught ? "caught" : "MISSED"}: ${c.defect}`)).toEqual([
@@ -100,6 +120,8 @@ describe("the go-further link on the built page", () => {
       "caught: a PhET link with no credit",
       "caught: a self-hosted PhET copy",
       "caught: a Falstad applet loaded as a script",
+      "caught: a PhET sim framed by a protocol-relative src",
+      "caught: a PhET link to phet.colorado.edu. (trailing dot)",
     ]);
     expect(result.ok).toBe(true);
   });
