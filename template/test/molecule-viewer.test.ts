@@ -226,7 +226,10 @@ describe("the molecule's viewer in a browser", () => {
     let before = await scrollY(page);
     await page.mouse.wheel(0, 300);
     await expect.poll(() => scrollY(page)).toBeGreaterThan(before);
-    expect(await reset(page).isDisabled()).toBe(true);
+    // Reset view is on once the island has hydrated, drawn or not; the molecule's first view is where its atoms are now.
+    await expect.poll(() => reset(page).isEnabled()).toBe(true);
+    const atoms = () => object(page).getAttribute("data-atom-screen");
+    const first = await atoms();
 
     // A tap on the molecule takes it: the wheel zooms it now, and the page stays.
     const here = await centre(page);
@@ -237,9 +240,10 @@ describe("the molecule's viewer in a browser", () => {
     await page.mouse.wheel(0, -300);
     await page.waitForTimeout(300);
     expect(await scrollY(page)).toBe(before);
-    await expect.poll(() => reset(page).isEnabled()).toBe(true);
+    // The wheel zoomed it: its atoms are elsewhere on the page. Reset view brings them back.
+    await expect.poll(atoms).not.toBe(first);
     await reset(page).click();
-    await expect.poll(() => reset(page).isDisabled()).toBe(true);
+    await expect.poll(atoms).toBe(first);
 
     await page.keyboard.press("Escape");
     await expect.poll(() => object(page).getAttribute("aria-pressed")).toBe("false");

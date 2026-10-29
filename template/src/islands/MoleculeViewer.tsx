@@ -71,7 +71,6 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<Status>("waiting");
   const [active, setActive] = useState(false);
-  const [home, setHome] = useState(true);
   const [picked, setPicked] = useState<string>();
   const [drawnPalette, setDrawnPalette] = useState<Record<string, string>>();
   const frameEl = useRef<HTMLElement>(null);
@@ -139,16 +138,7 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
   const publishRef = useRef(publishAtoms);
   publishRef.current = publishAtoms;
 
-  const isHome = () => {
-    const now = viewer.current?.getView() ?? [];
-    return (
-      now.length === homeView.current.length && now.every((n, i) => Math.abs(n - (homeView.current[i] ?? 0)) < 1e-6)
-    );
-  };
-  const changed = () => {
-    setHome(isHome());
-    publishRef.current();
-  };
+  const changed = () => publishRef.current();
 
   // 3Dmol.js, after first paint, while the viewer is near the screen.
   useEffect(() => {
@@ -213,7 +203,6 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
           window.removeEventListener("scroll", later);
           window.removeEventListener("resize", later);
         };
-        setHome(true);
         publishRef.current();
         setStatus("drawn");
       })();
@@ -398,7 +387,7 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
           <button
             type="button"
             className="button-print"
-            disabled={!ready || status !== "drawn" || home}
+            disabled={!ready}
             onClick={() => {
               viewer.current?.setView(homeView.current);
               viewer.current?.render();

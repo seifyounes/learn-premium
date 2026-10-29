@@ -69,7 +69,17 @@ export default function NernstSim({ model, start, tune, plot, decimals, mathHtml
     void import("jsxgraph").then(({ default: JXG }) => {
       const el = boardEl.current;
       if (cancelled || !el) return;
-      made = { JXG, view: nernstBoard(JXG, el, { model, tune, defs, inks: readInks(el), regions: REGIONS }) };
+      made = {
+        JXG,
+        view: nernstBoard(JXG, el, {
+          model,
+          tune,
+          defs,
+          inks: readInks(el),
+          regions: REGIONS,
+          initial: standing.current,
+        }),
+      };
       setBoard(made);
     });
     return () => {
@@ -85,6 +95,9 @@ export default function NernstSim({ model, start, tune, plot, decimals, mathHtml
   }, [board]);
 
   const logQ = Math.log10(cell.Q);
+  /** What the board is drawn with when it is made: the cell and the lines as they stand then. */
+  const standing = useRef({ at: { logQ, E: cell.E }, shown: series.shown });
+  standing.current = { at: { logQ, E: cell.E }, shown: series.shown };
   useEffect(() => {
     board?.view.draw({ logQ, E: cell.E }, series.shown);
   }, [board, logQ, cell.E, series.shown, view]);

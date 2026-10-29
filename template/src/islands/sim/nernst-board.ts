@@ -9,7 +9,7 @@ import { SERIES_STYLES, type SeriesDef } from "../../chemistry/series.ts";
 import { F, R, electrons, type Model } from "../../sims/nernst/engine.ts";
 import type { Range } from "../../sims/tuning.ts";
 import { placeLabels } from "../../viewer/labels.ts";
-import { asBackdrop, makeBoard, screenOf, type Board, type Box, type Inks, type JXG } from "./board.ts";
+import { makeBoard, screenOf, type Board, type Box, type Inks, type JXG } from "./board.ts";
 
 type Curve = JXGModule.Curve;
 type Point = JXGModule.Point;
@@ -40,6 +40,7 @@ export function nernstBoard(
     defs,
     inks,
     regions,
+    initial,
   }: {
     model: Model;
     tune: { c1: Range; c2: Range };
@@ -47,6 +48,8 @@ export function nernstBoard(
     inks: Inks;
     /** The two regions' names, as plain words. */
     regions: { forward: string; reverse: string };
+    /** Where the cell is and which lines are drawn in ink, so the board is drawn as it is, never in a first state. */
+    initial: { at: { logQ: number; E: number }; shown: readonly string[] };
   },
 ): NernstBoard {
   const n = electrons(model);
@@ -131,8 +134,9 @@ export function nernstBoard(
   // The regions, named inside them, at the end of the board where the lines keep clear.
   const lowAtMin =
     defs.reduce((sum, d) => sum + line(d.value, xMin), 0) < defs.reduce((sum, d) => sum + line(d.value, xMax), 0);
+  // A name sits at its own edge of the board, in two short lines, so it never reaches the vertical axis or a line.
   const regionText = (html: string, atMin: boolean, y: number) => {
-    const text: Text = board.create("text", [atMin ? xMin : xMax, y, html], {
+    const text: Text = board.create("text", [atMin ? box[0] : box[2], y, html.replace(": ", ":<br>")], {
       display: "html",
       cssClass: "sim-board-label",
       highlightCssClass: "sim-board-label",
@@ -145,10 +149,9 @@ export function nernstBoard(
       highlight: false,
     });
     text.rendNode?.setAttribute("data-region", html === regions.forward ? "forward" : "reverse");
-    asBackdrop(text);
   };
-  if (high > 0) regionText(regions.forward, lowAtMin, high * 0.6);
-  if (low < 0) regionText(regions.reverse, !lowAtMin, low * 0.6);
+  if (high > 0) regionText(regions.forward, lowAtMin, high * 0.35);
+  if (low < 0) regionText(regions.reverse, !lowAtMin, low * 0.35);
 
   const operating: Point = board.create("point", [0, 0], {
     size: 4,
@@ -194,7 +197,7 @@ export function nernstBoard(
     board.unsuspendUpdate();
   };
 
-  return {
+  const api: NernstBoard = {
     board,
     draw(at, shown) {
       shownNow = shown;
@@ -216,4 +219,7 @@ export function nernstBoard(
     },
     relayout: place,
   };
+  // Drawn as it stands before anything shows: the lines' styles, the labels' places, the dot.
+  api.draw(initial.at, initial.shown);
+  return api;
 }

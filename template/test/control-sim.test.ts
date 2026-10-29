@@ -147,6 +147,7 @@ describe("python-control stays a build-time oracle", () => {
       sims: 1,
       pythonTools: 0,
       parts: 0,
+      molecules: 0,
       kinds: 1,
       checks: 5,
       engineSamples: 4,
