@@ -33,6 +33,8 @@ interface Props {
 const LABEL_LINE = 22;
 /** How far one wheel notch zooms, when the viewer has the page's wheel. */
 const WHEEL_ZOOM = 0.0015;
+/** How long a viewer stays near the screen before it starts drawing in 3D. */
+const DWELL_MS = 600;
 /** A press this close to the driving pin's mark (CSS px) takes the pin, not the view. */
 const PIN_REACH = 22;
 
@@ -121,73 +123,79 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
     return () => watch.disconnect();
   }, []);
 
-  // three.js, after first paint, while the viewer is near the screen.
+  // three.js, after first paint, while the viewer is near the screen and has stayed there a moment: a page
+  // scrolled quickly past its mechanisms starts no WebGL, and one that has come to rest on one does it with
+  // the page idle, not while the student's scroll is still being served.
   useEffect(() => {
     if (!near) return;
     let disposed = false;
-    const stop = afterFirstPaint(() => {
-      void (async () => {
-        const host = objectEl.current;
-        if (!host) return;
-        let modules;
-        try {
-          modules = await Promise.all([import("../three/stage.ts"), import("../three/mechanism-scene.ts")]);
-        } catch {
-          // A chunk that didn't download: the sim shows the sheet drawing instead.
-          if (!disposed) setStatus("no-part");
-          return;
-        }
-        const [{ createStage, readViewerInks }, { buildMechanism, placeLinks }] = modules;
-        if (disposed) return;
-        let made: Stage;
-        try {
-          made = createStage(host, readViewerInks(host));
-        } catch {
-          setStatus("no-webgl");
-          return;
-        }
-        stage.current = made;
-        place.current = placeLinks;
-        const mechanism = buildMechanism(made.three, model, made.inks);
-        built.current = mechanism;
-        made.scene.add(mechanism.root);
-        placeLinks(mechanism, poseRef.current);
-        mechanism.root.updateMatrixWorld(true);
-        // Framed once, over every pose: the camera never jumps as the mechanism moves.
-        made.frame(mechanism.box);
-        made.beforeDraw(() => {
-          mechanism.root.updateMatrixWorld(true);
-          const { width, height } = made.size();
-          const rtl = getComputedStyle(host).direction === "rtl";
-          const seen = NAMED[model.type].flatMap(([id, name]) => {
-            const marker = mechanism.pins.get(name);
-            if (!marker) return [];
-            const at = made.project(marker.getWorldPosition(new made.three.Vector3()));
-            return at.inside ? [{ id, y: at.y, x: at.x }] : [];
-          });
-          // Where the driving pin is on the stage, in CSS px: what a tester presses to turn the driver.
-          const driving = mechanism.pins.get(DRIVING[model.type]);
-          if (driving) {
-            const at = made.project(driving.getWorldPosition(new made.three.Vector3()));
-            host.setAttribute("data-pin-screen", `${at.x.toFixed(1)} ${at.y.toFixed(1)}`);
+    let stop = () => {};
+    const dwell = window.setTimeout(() => {
+      stop = afterFirstPaint(() => {
+        void (async () => {
+          const host = objectEl.current;
+          if (!host) return;
+          let modules;
+          try {
+            modules = await Promise.all([import("../three/stage.ts"), import("../three/mechanism-scene.ts")]);
+          } catch {
+            // A chunk that didn't download: the sim shows the sheet drawing instead.
+            if (!disposed) setStatus("no-part");
+            return;
           }
-          const placed = placeLabels(seen, height, LABEL_LINE);
-          const edge = rtl ? 0 : width;
-          made.setLeaders(
-            placed.at.flatMap((l) => {
-              const a = seen.find((s) => s.id === l.id);
-              // The ringed crank pin's leader is the strong one.
-              return a ? [{ from: [a.x, a.y], to: [edge, l.y], strong: l.id === "A" }] : [];
-            }),
-          );
-          setLabels(placed);
-          setHome(made.atHome());
-        });
-        setStatus("drawn");
-      })();
-    });
+          const [{ createStage, readViewerInks }, { buildMechanism, placeLinks }] = modules;
+          if (disposed) return;
+          let made: Stage;
+          try {
+            made = createStage(host, readViewerInks(host));
+          } catch {
+            setStatus("no-webgl");
+            return;
+          }
+          stage.current = made;
+          place.current = placeLinks;
+          const mechanism = buildMechanism(made.three, model, made.inks);
+          built.current = mechanism;
+          made.scene.add(mechanism.root);
+          placeLinks(mechanism, poseRef.current);
+          mechanism.root.updateMatrixWorld(true);
+          // Framed once, over every pose: the camera never jumps as the mechanism moves.
+          made.frame(mechanism.box);
+          made.beforeDraw(() => {
+            mechanism.root.updateMatrixWorld(true);
+            const { width, height } = made.size();
+            const rtl = getComputedStyle(host).direction === "rtl";
+            const seen = NAMED[model.type].flatMap(([id, name]) => {
+              const marker = mechanism.pins.get(name);
+              if (!marker) return [];
+              const at = made.project(marker.getWorldPosition(new made.three.Vector3()));
+              return at.inside ? [{ id, y: at.y, x: at.x }] : [];
+            });
+            // Where the driving pin is on the stage, in CSS px: what a tester presses to turn the driver.
+            const driving = mechanism.pins.get(DRIVING[model.type]);
+            if (driving) {
+              const at = made.project(driving.getWorldPosition(new made.three.Vector3()));
+              host.setAttribute("data-pin-screen", `${at.x.toFixed(1)} ${at.y.toFixed(1)}`);
+            }
+            const placed = placeLabels(seen, height, LABEL_LINE);
+            const edge = rtl ? 0 : width;
+            made.setLeaders(
+              placed.at.flatMap((l) => {
+                const a = seen.find((s) => s.id === l.id);
+                // The ringed crank pin's leader is the strong one.
+                return a ? [{ from: [a.x, a.y], to: [edge, l.y], strong: l.id === "A" }] : [];
+              }),
+            );
+            setLabels(placed);
+            setHome(made.atHome());
+          });
+          setStatus("drawn");
+        })();
+      });
+    }, DWELL_MS);
     return () => {
       disposed = true;
+      window.clearTimeout(dwell);
       stop();
       stage.current?.dispose();
       stage.current = undefined;
