@@ -32,8 +32,12 @@ type Status = "waiting" | "drawn" | "no-webgl" | "no-part";
 
 /** How far one wheel notch zooms, when the viewer has the page's wheel. */
 const WHEEL_ZOOM = 0.0015;
-/** How long a viewer stays near the screen before it starts drawing in 3D. */
-const DWELL_MS = 600;
+/**
+ * How long a viewer stays near the screen before it starts drawing in 3D. Longer than a mechanism's: loading
+ * 3Dmol.js and starting its WebGL can hold the page's main thread for a second or more on a slow machine, so it
+ * waits until the page has come to rest.
+ */
+const DWELL_MS = 1200;
 /** Degrees a drag of one pixel turns the molecule. */
 const TURN_PER_PX = 0.5;
 
@@ -170,7 +174,13 @@ export default function MoleculeViewer({ id, sdf, elements, palette, label }: Pr
           let made: GLViewer;
           try {
             // nomouse: 3Dmol's own handlers take the wheel and the touches; ours leave them to the page until a tap.
-            made = lib.createViewer(host, { backgroundAlpha: 0, nomouse: true, defaultcolors: colours });
+            // No antialiasing: 3Dmol renders at twice the size to smooth edges, four times the pixels to draw in software WebGL.
+            made = lib.createViewer(host, {
+              backgroundAlpha: 0,
+              nomouse: true,
+              antialias: false,
+              defaultcolors: colours,
+            });
             if (!made.getCanvas()) throw new Error("no canvas");
           } catch {
             host.replaceChildren();
