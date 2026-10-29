@@ -23,7 +23,7 @@ import {
 interface Props {
   model: Model;
   pose: Pose;
-  /** The whole degrees of the coupler point's path (or the gear tip's) the mechanism has turned through. */
+  /** The whole degrees of the traced path the mechanism has been through: the crank's, or the driven gear's. */
   inked: ReadonlySet<number>;
   /** What the drawing is, for assistive tech. */
   label: string;
@@ -82,8 +82,22 @@ const NAMED: Record<Model["type"], readonly (readonly [key: string, link: LinkId
   ],
 };
 
-/** The pin whose path the drawing traces: the coupler point, else B, else a gear's tooth tip. */
-const tracedPin = (model: Model) => (model.type === "gear-pair" ? "T" : model.couplerPoint !== undefined ? "P" : "B");
+/**
+ * The path the drawing traces, a point for each whole degree along it: the coupler point's (else B's) over a
+ * crank turn, or the driven gear's tooth tip over its rim. The tip goes round the driven gear's whole circle,
+ * which the driver takes several turns to cover, so it is drawn as that circle, a degree of the gear a point.
+ */
+function tracedPath(model: Model): Point[] {
+  if (model.type === "gear-pair") {
+    const centre = model.centreDistance ?? (model.module * (model.teeth[0] + model.teeth[1])) / 2;
+    const tip = (model.module * model.teeth[1]) / 2 + model.module;
+    return Array.from({ length: 360 }, (_, k) => [
+      centre + tip * Math.cos((k * Math.PI) / 180),
+      tip * Math.sin((k * Math.PI) / 180),
+    ]);
+  }
+  return trace(model).points[model.couplerPoint !== undefined ? "P" : "B"] ?? [];
+}
 
 export function MechanismSheet({ model, pose, inked, label, onAngle, ready }: Props) {
   const svg = useRef<SVGSVGElement>(null);
@@ -98,8 +112,6 @@ export function MechanismSheet({ model, pose, inked, label, onAngle, ready }: Pr
     const lengths =
       model.type === "four-bar" ? [model.ground, model.crank, model.coupler, model.rocker] : [model.module * 4];
     const width = BAR_WIDTH * Math.min(...lengths);
-    const path = trace(model);
-    const key = tracedPin(model);
     return {
       scale,
       width,
@@ -109,7 +121,7 @@ export function MechanismSheet({ model, pose, inked, label, onAngle, ready }: Pr
       // Sheet (x, y up) to drawing pixels: scaled, y flipped, the box's corner at the margin.
       origin: [(MARGIN - box.min[0]) * scale, (MARGIN + box.max[1]) * scale] as const,
       local,
-      path: path.points[key] ?? [],
+      path: tracedPath(model),
       gears:
         model.type === "gear-pair"
           ? ([0, 1] as const).map((g) => {

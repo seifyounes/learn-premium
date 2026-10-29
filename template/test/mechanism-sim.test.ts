@@ -223,6 +223,70 @@ describe("the mechanisms in a browser", () => {
     await context.close();
   });
 
+  it("in 3D, the gear pair's handle follows the pointer too, though it stands on the gear's face", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const { page, errors } = await open(context);
+    const el = await sim(page, "gear-pair");
+    const surface = el.locator("[data-viewer-object]");
+    await drawn(el).waitFor({ timeout: 60_000 });
+    await surface.click({ position: { x: 20, y: 20 } });
+    await expect.poll(() => surface.getAttribute("aria-pressed")).toBe("true");
+    const pinAt = async () => {
+      const [x = NaN, y = NaN] = ((await surface.getAttribute("data-pin-screen")) ?? "").split(" ").map(Number);
+      const box = await surface.boundingBox();
+      if (!box) throw new Error("no viewer box");
+      return { x: box.x + x, y: box.y + y };
+    };
+    // Pressing on the handle changes nothing by itself: the handle is where the pointer is.
+    const start = await pinAt();
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 1, start.y, { steps: 2 });
+    await page.mouse.up();
+    expect(Math.abs((await angle(el)) - 0), "a press on the handle").toBeLessThan(3);
+    // Dragged round the driver, it goes where the pointer goes.
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    const target = { x: start.x - 20, y: start.y - 40 };
+    await page.mouse.move(target.x, target.y, { steps: 8 });
+    await page.mouse.up();
+    expect(await angle(el)).toBeGreaterThan(10);
+    const after = await pinAt();
+    expect(Math.hypot(after.x - target.x, after.y - target.y)).toBeLessThan(
+      Math.hypot(start.x - target.x, start.y - target.y),
+    );
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("in 2D, the gear tip's path is the driven gear's whole rim, inking in as the driven gear turns", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const { page } = await open(context);
+    const el = await sim(page, "gear-pair");
+    await tab(el, "2D").click();
+    // A circle of the tip radius round the driven gear: 38 mm at most 3 px per mm, not a chord across the gear.
+    const path = await el.locator(".mechanism-path").evaluate((p) => {
+      const box = (p as SVGGraphicsElement).getBBox();
+      return [box.width, box.height];
+    });
+    expect(path[0]).toBeCloseTo(76, 0);
+    expect(path[1]).toBeCloseTo(76, 0);
+    // Two driver turns ink half the rim each: the ink at 40° of the driver lies on the rim's half, all along.
+    const slider = el.getByRole("slider");
+    await slider.fill("0");
+    const before = await el.locator('[data-trace="inked"]').count();
+    await slider.fill("180");
+    const inkMm = () =>
+      el
+        .locator('[data-trace="inked"]')
+        .evaluateAll((lines) => lines.reduce((sum, l) => sum + (l as SVGGeometryElement).getTotalLength(), 0));
+    expect(before).toBeGreaterThan(0);
+    // 180° of the driver is 90° of the 38 mm rim: about 60 mm of ink, not the 180° of a different path.
+    await expect.poll(inkMm).toBeGreaterThan(45);
+    expect(await inkMm()).toBeLessThan(75);
+    await context.close();
+  });
+
   it("in 3D, once tapped, dragging the ringed pin turns the driver and not the view, and any other drag turns the view", async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const { page, errors } = await open(context);

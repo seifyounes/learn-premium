@@ -33,9 +33,11 @@ const wrap = (angle: number) => {
   return wrapped >= 360 ? 0 : wrapped;
 };
 
+/** An angle as the engine is asked for it: its displayed part, and the whole turns it carries (360° is one turn on, 0°). */
+const split = (angle: number) => ({ angle: wrap(angle), turns: Math.round((angle - wrap(angle)) / 360) });
+
 export const startDrive = (angle: number, reduced: boolean): Drive => ({
-  angle: wrap(angle),
-  turns: 0,
+  ...split(angle),
   playing: false,
   reduced,
 });
@@ -56,7 +58,7 @@ export function drive(d: Drive, a: DriveAction): Drive {
         return next >= 360 ? { ...d, angle: wrap(next), turns: d.turns + 1 } : { ...d, angle: next };
       }
     case "set":
-      return { ...d, angle: wrap(a.angle), turns: 0, playing: false };
+      return { ...d, ...split(a.angle), playing: false };
     case "reduced":
       // Stopped where it is: the angle it had reached is the angle it keeps.
       return a.reduced ? { ...d, reduced: true, playing: false } : { ...d, reduced: false };

@@ -58,6 +58,12 @@ describe("the mechanism's play clock", () => {
     expect(d.turns).toBe(2);
     expect(total(d)).toBeCloseTo(720, 6);
     expect(drive(d, { type: "set", angle: 30 }).turns).toBe(0);
+    // The slider's far end is a whole turn on, not 0°: a gear pair's driven gear sits where 360° puts it.
+    const end = drive(d, { type: "set", angle: 360 });
+    expect(end.angle).toBe(0);
+    expect(total(end)).toBe(360);
+    expect(total(startDrive(365, false))).toBe(365);
+    expect(total(startDrive(-90, false))).toBe(-90);
   });
 
   it("a long frame moves it at most 100 ms' worth", () => {

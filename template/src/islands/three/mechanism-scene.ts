@@ -29,6 +29,8 @@ export interface BuiltMechanism {
   links: Map<LinkId, THREE.Group>;
   /** Each pin's marker, by `<link>.<pin>`, inside its link's group at the pin's local place. */
   pins: Map<string, THREE.Object3D>;
+  /** A plane at the driving pin's depth, in the root's frame: a drag casts the pointer onto it. */
+  dragPlane: THREE.Object3D;
   /** In the stage's frame (root turned): every pin and tip circle over a turn, through every layer. Frame it once. */
   box: THREE.Box3;
 }
@@ -200,7 +202,12 @@ export function buildMechanism(three: typeof THREE, model: Model, inks: ViewerIn
         i & 4 ? zTo : zFrom,
       ).applyMatrix4(root.matrixWorld),
     );
-  return { root, links, pins: markers, box };
+  const dragPlane = new three.Object3D();
+  dragPlane.name = "drag-plane";
+  // The crank pin sits on the crank's layer, z = 0; the driver gear's handle on its front face.
+  dragPlane.position.z = model.type === "gear-pair" ? model.faceWidth / 2 : 0;
+  root.add(dragPlane);
+  return { root, links, pins: markers, dragPlane, box };
 }
 
 /** Moves every link to its pose: its origin on the sheet, on its layer, turned about z. */

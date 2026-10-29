@@ -64,12 +64,20 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
   const named = useMemo(() => quantities(model, { theta: driver }), [model, driver]);
 
   // The trace inks in the degrees the driver passes, in either view; coming back to 2D, it is all still there.
-  const [inked, setInked] = useState<ReadonlySet<number>>(() => inkBuckets(new Set(), start.theta, start.theta));
-  const lastAngle = useRef(d.angle);
+  // The path is the coupler point's over the crank's turn, or the tip of the driven gear's tooth round its
+  // rim, so the ink follows the crank's angle, or the driven gear's.
+  const inkAt = model.type === "gear-pair" ? (pose.links.driven?.angle ?? 0) : d.angle;
+  const [inked, setInked] = useState<ReadonlySet<number>>(() => {
+    const first = model.type === "gear-pair" ? (poseAt(model, start.theta).links.driven?.angle ?? 0) : start.theta;
+    return inkBuckets(new Set(), first, first);
+  });
+  const lastInk = useRef(inkAt);
   useEffect(() => {
-    setInked((now) => inkBuckets(now, lastAngle.current, d.angle));
-    lastAngle.current = d.angle;
-  }, [d.angle]);
+    // Read now: the updater runs later, once the ref below already holds the new place.
+    const from = lastInk.current;
+    setInked((now) => inkBuckets(now, from, inkAt));
+    lastInk.current = inkAt;
+  }, [inkAt]);
 
   const set = (angle: number) => dispatch({ type: "set", angle });
   const onStatus = (status: ViewerStatus) => {

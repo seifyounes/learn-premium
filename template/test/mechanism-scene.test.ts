@@ -94,6 +94,21 @@ describe("the 3D scene", () => {
     expect(worst).toBeLessThanOrEqual(0.1);
   });
 
+  it("casts a drag onto a plane at the driving pin's own depth", () => {
+    for (const model of [crankRocker, pair]) {
+      const built = buildMechanism(THREE, model, inks);
+      placeLinks(built, pose(model, 90));
+      built.root.updateMatrixWorld(true);
+      const pin = built.pins.get(model.type === "four-bar" ? "crank.A" : "driver.H");
+      if (!pin) throw new Error("no driving pin");
+      const at = built.root.worldToLocal(pin.getWorldPosition(new THREE.Vector3()));
+      const plane = built.root.worldToLocal(built.dragPlane.getWorldPosition(new THREE.Vector3()));
+      expect(plane.z, model.type).toBeCloseTo(at.z, 9);
+    }
+    // The gear's handle sits on its front face, not on the sheet's z = 0.
+    expect(buildMechanism(THREE, pair, inks).dragPlane.position.z).toBe(pair.faceWidth / 2);
+  });
+
   it("layers the bars one above another, the crank first, and the ground behind them", () => {
     const built = buildMechanism(THREE, crankRocker, inks);
     placeLinks(built, pose(crankRocker, 60));
