@@ -232,27 +232,32 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
       const on = plane && stage.current?.pointOnPlane(e.clientX - rect.left, e.clientY - rect.top, plane);
       if (on) onAngleRef.current(dragAngle([0, 0], [on.x, on.y]));
     };
+    /** The pointers the view's gestures hold: a press on the pin is the pin's only when no other finger is down. */
+    const held = new Set<number>();
     const down = (e: PointerEvent) => {
+      // A finger on the pin has the pin; a second one neither turns nor pinches the view under it.
+      if (pinned !== undefined) return;
       const rect = el.getBoundingClientRect();
-      if (activeRef.current && onPin(e.clientX - rect.left, e.clientY - rect.top)) {
+      if (activeRef.current && held.size === 0 && onPin(e.clientX - rect.left, e.clientY - rect.top)) {
         pinned = e.pointerId;
         el.setPointerCapture(e.pointerId);
         return;
       }
+      held.add(e.pointerId);
       gestures.down(e.pointerId, e.clientX, e.clientY, e.timeStamp);
       if (activeRef.current) el.setPointerCapture(e.pointerId);
     };
     const move = (e: PointerEvent) => {
       if (pinned === e.pointerId) turnPin(e);
-      else gestures.move(e.pointerId, e.clientX, e.clientY);
+      else if (held.has(e.pointerId)) gestures.move(e.pointerId, e.clientX, e.clientY);
     };
     const up = (e: PointerEvent) => {
       if (pinned === e.pointerId) pinned = undefined;
-      else gestures.up(e.pointerId, e.timeStamp);
+      else if (held.delete(e.pointerId)) gestures.up(e.pointerId, e.timeStamp);
     };
     const cancel = (e: PointerEvent) => {
       if (pinned === e.pointerId) pinned = undefined;
-      else gestures.cancel(e.pointerId);
+      else if (held.delete(e.pointerId)) gestures.cancel(e.pointerId);
     };
     const wheel = (e: WheelEvent) => {
       if (!activeRef.current) return; // the page scrolls
