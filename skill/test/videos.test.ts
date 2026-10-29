@@ -9,8 +9,9 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave, type WaveDeps } from "../scripts/wave/cli.ts";
 import type { ProbeAnswer, VideoTemplate } from "../scripts/wave/videos.ts";
+import { templateVideos } from "../scripts/wave/wave.ts";
 import { fixtureCourse, materialsOf } from "./fixture-courses.ts";
-import { writeFiles, type Result } from "./helpers.ts";
+import { tempDir, writeFiles, type Result } from "./helpers.ts";
 
 // Each hide commits to a repo: the 30 s the other git-heavy suites have.
 vi.setConfig({ testTimeout: 30_000 });
@@ -372,6 +373,32 @@ describe("videos verify, the moments against the transcript", () => {
       "waves/01/youtube/hunt-x.json": JSON.stringify({ hunt: "learn-premium youtube hunt v1" }),
     });
     expect(verify(project, fakeVideos().videos).code).toBe(2);
+  });
+});
+
+describe("the template's probe, called through its command line", () => {
+  // A stub gate runner that parses argv with the real runner's strict options and echoes one probe per id.
+  const STUB = [
+    'import { parseArgs } from "node:util";',
+    "const { values } = parseArgs({",
+    "  args: process.argv.slice(2),",
+    "  allowPositionals: true,",
+    '  options: { ids: { type: "string" }, content: { type: "string" } },',
+    "});",
+    'const ids = (values.ids ?? "").split(",");',
+    "const probes = ids.map((id) => ({ id, oembed: { status: 200, title: id, author: id }, lengthSeconds: 60 }));",
+    "console.log(JSON.stringify({ probes }));",
+    "",
+  ].join("\n");
+
+  test.each(["-bcdefghijk", "abcdefghijk"])("an id of %s reaches the template as asked", (id) => {
+    const project = tempDir("probe-project");
+    writeFiles(project, { "template/gates/cli.ts": STUB });
+
+    const answered = templateVideos.probe(project, [id]);
+
+    expect(typeof answered).not.toBe("string");
+    expect((answered as ProbeAnswer[])[0]?.id).toBe(id);
   });
 });
 
