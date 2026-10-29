@@ -519,9 +519,10 @@ export const pubchemCrossCheck: Gate = {
       plant: (good, scratch) =>
         plantInMolecule(good, scratch, (site) =>
           editJson(join(site.contentDir, pubchemRecordEntry(site.module, site.name)), (pub) => {
-            for (const key of Object.keys(pub))
-              if (!["record", "query", "url", "fetched"].includes(key)) delete pub[key];
-            Object.assign(pub, { found: false, status: 404 });
+            const { record, query, url, fetched } = pub;
+            // The same record with PubChem's 404 in the place of its answer: replace its keys in place.
+            for (const key of Object.keys(pub)) Reflect.deleteProperty(pub, key);
+            Object.assign(pub, { record, query, url, fetched, found: false, status: 404 });
           }),
         ),
     },

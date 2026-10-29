@@ -8,6 +8,7 @@ import { pinnedDefinitionsGate } from "./definitions.ts";
 import { drawingGate } from "./drawing.ts";
 import { ladderGate } from "./ladder.ts";
 import { licencesFileGate, licencesGate } from "./licences.ts";
+import { linksOnly } from "./links.ts";
 import { liveHeaders, livePrivatePaths, liveRoutes } from "./live.ts";
 import { masterRules } from "./master-rules.ts";
 import { gearInterferenceGate, kinematicsGate } from "./mechanisms.ts";
@@ -65,6 +66,7 @@ export const GATES: readonly Gate[] = [
   padGate,
   redHueRule,
   cpkPalette,
+  linksOnly,
   ...BROWSER_GATES,
   noMaterials,
   noBuildEvidence,
