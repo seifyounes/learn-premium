@@ -99,7 +99,7 @@ function load<T>(
   return loaded;
 }
 
-/** How many rulings name each magnitude, and one used up at a time: each ruling covers one question. */
+/** How many rulings name each signed value, and one used up at a time: each ruling covers one question. */
 const countsOf = (written: readonly string[]) => {
   const counts = new Map<number, number>();
   for (const n of written.flatMap(rulingValues)) counts.set(n, (counts.get(n) ?? 0) + 1);
@@ -230,7 +230,7 @@ async function runPapers(input: GateInput): Promise<GateRun> {
           );
           return;
         }
-        const ruling = (counts: Map<number, number>) => take(counts, Math.abs(printed.value));
+        const ruling = (counts: Map<number, number>) => take(counts, printed.value);
         if (answerIsRecompute) {
           // The answer follows the recompute and the key prints something else: the Professor's call.
           if (ruling(slips)) return;

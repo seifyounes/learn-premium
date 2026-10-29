@@ -30,7 +30,7 @@ import { videoReadyProblems, type ListedCard, type ProbeAnswer, type VideoTempla
 export const MERGE_POINTS = ["job", "module", "deploy"] as const;
 export type MergePoint = (typeof MERGE_POINTS)[number];
 
-/** A Slip or Divergence the content ships, by the magnitudes of the sheet's value it rules on. */
+/** A Slip or Divergence the content ships, by the signed values of the sheet's value it rules on. */
 export interface ContentRuling {
   entry: string;
   /** A Worked example's Slip: the sheet cell it corrects. */
@@ -355,15 +355,16 @@ export function markdownOf(label: string, open: CheckpointItem[], preview: strin
 const SHEET_QUESTION =
   /^((?:modules|sittings)\/\S+?): .*?\bprints\s+(.+?)(?: and the answer matches it)?, (?:but|which)\b/;
 
-/** A printed value's magnitude: `1.45`, `−1,250.5` or `5.0 \times 10^{-2}`; null when it isn't one. */
-function magnitude(written: string): number | null {
+/** A printed value, sign included: `1.45`, `−1,250.5` or `5.0 \times 10^{-2}`; null when it isn't one. */
+function signedValue(written: string): number | null {
   const match =
-    /^[-−]?\s*(\d[\d,]*(?:\.\d+)?|\.\d+)(?:\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*\{?\s*([-−]?\d+)\s*\}?)?$/.exec(
+    /^([-−]?)\s*(\d[\d,]*(?:\.\d+)?|\.\d+)(?:\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*\{?\s*([-−]?\d+)\s*\}?)?$/.exec(
       written.trim(),
     );
   if (!match) return null;
-  const [, digits = "", power] = match;
-  return Number(`${digits.replace(/,/g, "")}e${(power ?? "0").replace("−", "-")}`);
+  const [, sign = "", digits = "", power] = match;
+  const magnitude = Number(`${digits.replace(/,/g, "")}e${(power ?? "0").replace("−", "-")}`);
+  return sign === "" ? magnitude : -magnitude;
 }
 
 /**
@@ -378,7 +379,7 @@ export function unruled(ledger: Ledger, id: string, rulings: ContentRuling[] | s
     // under `NN/ruling/<name>`: either way, its question names the content file and the sheet value.
     const [module, kind] = c.key.split("/");
     const [, entry, written] = SHEET_QUESTION.exec(c.question) ?? [];
-    const printed = written === undefined ? null : magnitude(written);
+    const printed = written === undefined ? null : signedValue(written);
     const ruledItem = kind !== undefined && (SHEET_GATES.has(kind) || kind === "ruling");
     if (module !== id || !ruledItem || c.ruling === null || printed === null) return [];
     const cell = /\bsheet cell ([A-Z][1-9]\d*)\b/.exec(c.question)?.[1];

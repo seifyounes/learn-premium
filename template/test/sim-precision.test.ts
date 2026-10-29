@@ -31,6 +31,23 @@ describe("a value as the sheet prints it", () => {
     expect(rulingValues("plaster: $0.02$, $0.5$")).toEqual([0.02, 0.5]);
   });
 
+  it("keeps the sign of each value a ruling names, by the rule readPrinted reads a cell's (final review F1)", () => {
+    expect(rulingValues("$-5.00$")).toEqual([-5]);
+    expect(rulingValues("$−5.00$")).toEqual([-5]);
+    expect(rulingValues("$R = -0.04$")).toEqual([-0.04]);
+    expect(rulingValues("$-\\,0.04$")).toEqual([-0.04]);
+    expect(rulingValues("$-(0.04)$")).toEqual([-0.04]);
+    expect(rulingValues("$-1.25 \\times 10^{3}$")).toEqual([-1250]);
+    expect(rulingValues("$-5.0 \\times 10^{-2}$")).toEqual([-0.05]);
+    // Each number in a list takes its own sign.
+    expect(rulingValues("$-0.02$, $0.5$ and $−0.04$")).toEqual([-0.02, 0.5, -0.04]);
+    expect(rulingValues("$0.5$, $-0.5$")).toEqual([0.5, -0.5]);
+    // A minus inside a subscript, or a subtraction, isn't a sign.
+    expect(rulingValues("$x_{-1} = 0.5$")).toEqual([0.5]);
+    expect(rulingValues("$3 - 5.00$")).toEqual([3, 5]);
+    expect(rulingValues("$5.00$")).toEqual([5]);
+  });
+
   it("reads scientific notation as one value, its precision from the mantissa and the power", () => {
     expect(readPrinted("$4.0 \\times 10^{-2}$")).toEqual({ value: 0.04, decimals: 3, written: "4.0 \\times 10^{-2}" });
     expect(readPrinted("$-1.25 \\times 10^{3}$")).toEqual({

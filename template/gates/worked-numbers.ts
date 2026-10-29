@@ -69,7 +69,7 @@ function simCells(files: CourseFile[], contentDir: string): Map<string, Map<stri
   return mapped;
 }
 
-/** How many rulings name each magnitude. */
+/** How many rulings name each signed value. */
 function countsOf(written: readonly string[]): Map<number, number> {
   const counts = new Map<number, number>();
   for (const n of written.flatMap(rulingValues)) counts.set(n, (counts.get(n) ?? 0) + 1);
@@ -194,10 +194,10 @@ async function run(input: GateInput): Promise<GateRun> {
         continue;
       }
       coverage.cells += 1;
-      if (agreesAtPrint(recomputed, printed) || take(divergences, Math.abs(printed.value))) continue;
+      if (agreesAtPrint(recomputed, printed) || take(divergences, printed.value)) continue;
       const computed = printAt(recomputed, printed.decimals);
       findings.push(
-        take(slips, Math.abs(printed.value))
+        take(slips, printed.value)
           ? {
               outcome: "block",
               at: file.entry,

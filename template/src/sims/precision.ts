@@ -25,14 +25,7 @@ export function readPrinted(cell: string): Printed | string {
   if (found.length > 1)
     return `the cell holds ${found.length} numbers (${found.map((n) => n.written).join(", ")}), not one`;
   const [number] = found as [(typeof found)[number]];
-  // The sign is the one just before the number, at the start or after a label's `=` (`R = -0.04`);
-  // a minus inside a subscript (`x_{-1}`) belongs to the label. TeX spacing (`-\,0.04`) may sit between.
-  // A minus before a grouped value (`-(0.04)`, `-\left(0.04\right)`, `-{0.04}`) applies to it.
-  const space = String.raw`(?:\s|\\[,;:! ]|~)*`;
-  const opens = String.raw`(?:(?:\\left)?\(|\{)?`;
-  const sign = new RegExp(
-    `(?:^|[=(:≈]|\\\\approx)${space}([-−])${space}${opens}${space}${escaped(number.written)}(?![\\d.])`,
-  ).exec(text)?.[1];
+  const sign = new RegExp(`${SIGN_BEFORE}${escaped(number.written)}(?![\\d.])`).exec(text)?.[1];
   return {
     value: sign === undefined ? number.value : -number.value,
     decimals: (number.written.split(".")[1] ?? "").length,
@@ -41,6 +34,35 @@ export function readPrinted(cell: string): Printed | string {
 }
 
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// The sign is the one just before the number, at the start or after a label's `=` (`R = -0.04`);
+// a minus inside a subscript (`x_{-1}`) belongs to the label. TeX spacing (`-\,0.04`) may sit between.
+// A minus before a grouped value (`-(0.04)`, `-\left(0.04\right)`, `-{0.04}`) applies to it.
+// Group 1 is the minus, when there is one; the number itself follows.
+const SPACE = String.raw`(?:\s|\\[,;:! ]|~)*`;
+const OPENS = String.raw`(?:(?:\\left)?\(|\{)?`;
+const signBefore = (starts: string) => `(?:^|[${starts}]|\\\\approx)${SPACE}([-−])${SPACE}${OPENS}${SPACE}`;
+const SIGN_BEFORE = signBefore("=(:≈");
+
+/**
+ * The value of each number `found` in a ruling's text, in reading order, with the sign `readPrinted`
+ * gives a cell's: a ruling on -5.00 is not a ruling on 5.00. Each number is looked for after the one
+ * before it, so a list ("$-0.02$, $0.5$") gives every number its own sign. A number the text can't
+ * be found in again (the parser reads math differently from the raw text) keeps its unsigned value.
+ */
+function signedValues(text: string, found: ReadonlyArray<{ written: string; value: number }>): number[] {
+  // Among several values, a minus also starts one after a math delimiter, a comma or a semicolon.
+  const before = new RegExp(`${signBefore("=(:≈$,;")}$`);
+  let from = 0;
+  return found.map((n) => {
+    const whole = new RegExp(`(?<![\\d.])${escaped(n.written)}(?![\\d.])`, "g");
+    whole.lastIndex = from;
+    const at = whole.exec(text);
+    if (at === null) return n.value;
+    from = at.index + n.written.length;
+    return before.test(text.slice(0, at.index)) ? -n.value : n.value;
+  });
+}
 
 /**
  * A value in scientific notation (`4.0 \times 10^{-2}`, `R = 2 \cdot 10^5`): one number, printed to
@@ -58,12 +80,13 @@ function readScientific(text: string): Printed | null {
 }
 
 /**
- * The magnitudes a ruling's value names (a Slip's `sheet`, a Divergence's `value`), matched against
- * sheet cells read by `readPrinted`: one value in scientific notation counts as one number.
+ * The signed values a ruling's text names (a Slip's `sheet`, a Divergence's `value`), matched against
+ * sheet cells read by `readPrinted`: one value in scientific notation counts as one number. A ruling
+ * on -5.00 settles a cell printing -5.00, never one printing 5.00.
  */
 export function rulingValues(written: string): number[] {
   const scientific = readScientific(written.replace(/\$/g, "").trim());
-  return scientific !== null ? [Math.abs(scientific.value)] : numbersIn(written).map((n) => n.value);
+  return scientific !== null ? [scientific.value] : signedValues(written, numbersIn(written));
 }
 
 /** Whether `value`, rounded as the sheet rounds, is within 1 of its printed number in the last digit. */

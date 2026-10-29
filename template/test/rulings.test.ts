@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rulingsIn } from "../gates/rulings.ts";
-import { FIXTURE_COURSE } from "./build-course";
+import { FIXTURE_COURSE, fixtureWith } from "./build-course";
 
 const MODULE = "01-thermal-resistance";
 
@@ -13,6 +13,16 @@ describe("the rulings a Course's content carries", () => {
       { entry: `modules/${MODULE}/practice/1.yaml`, kind: "divergence", printed: [9.6] },
     ]);
     expect(rulingsIn({ contentDir: FIXTURE_COURSE, module: "02-convection" })).toEqual([]);
+  });
+
+  it("lists a ruling on a negative value with its sign (final review F1)", () => {
+    const course = fixtureWith(`modules/${MODULE}/worked/1.json`, (s) =>
+      s.replace('"sheet": "$1.45', '"sheet": "$-1.45'),
+    );
+    expect(rulingsIn({ contentDir: course, module: MODULE })).toEqual([
+      { entry: `modules/${MODULE}/worked/1.json`, kind: "slip", printed: [-1.45], cell: "D4" },
+      { entry: `modules/${MODULE}/practice/1.yaml`, kind: "divergence", printed: [9.6] },
+    ]);
   });
 
   it("are printed as JSON by the gate CLI, for the Module wave's merge gate", () => {

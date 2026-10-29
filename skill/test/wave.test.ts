@@ -603,6 +603,44 @@ describe("ready, the Module wave's merge gate", () => {
     ]);
   });
 
+  test("an Owner answer on a negative sheet value authorizes a ruling on that sign only (final review F1)", () => {
+    const { project, waveId, holder } = waveAtCheckpoint();
+    for (const i of must(checkpointOf(project)).open as { key: string; question: string; sheet: boolean }[])
+      must(
+        ledger(
+          "record",
+          "checkpoint",
+          ...holder,
+          ...["--wave", waveId, "--key", i.key, "--question", i.question, "--answer", "a"],
+          ...(i.sheet ? ["--ruling", "slip"] : []),
+        ),
+      );
+    gateReports(project, []);
+    must(
+      ledger(
+        "record",
+        "checkpoint",
+        ...holder,
+        ...["--wave", waveId, "--key", "01/ruling/practice-2-answer"],
+        ...["--question", "modules/01-m01/practice/2.yaml: the key prints −5.00, but the recompute gives −4.20"],
+        ...["--answer", "The exam marks −5.00.", "--ruling", "divergence"],
+      ),
+    );
+    const shipped = (printed: number[]) => ({
+      verifier: {
+        verify: () => ({ green: true, problems: [] }),
+        inventory: () => EMPTY_INVENTORY,
+        rulings: () => [{ entry: "modules/01-m01/practice/2.yaml", kind: "divergence" as const, printed }],
+      },
+    });
+    // The writer ruled on +5.00; the Owner answered about −5.00.
+    expect(ready(project, waveId, shipped([5])).out.problems).toEqual([
+      expect.stringContaining("practice/2.yaml ships a divergence on 5 that no Owner answer rules"),
+    ]);
+    // Negative control: a ruling on −5.00 is the one he answered.
+    expect(ready(project, waveId, shipped([-5])).out.problems).toEqual([]);
+  });
+
   test("a job that escalated to the Owner is a Checkpoint item, and the wave waits for its answer", () => {
     const { project, waveId, holder } = waveAtCheckpoint();
     const answerAll = () => {

@@ -15,7 +15,7 @@ export interface ContentRuling {
   /** The content file, relative to the content folder. */
   entry: string;
   kind: "slip" | "divergence";
-  /** The magnitudes of the sheet's value it rules on: a Slip's `sheet`, a Divergence's `value`. */
+  /** The signed values of the sheet's value it rules on: a Slip's `sheet`, a Divergence's `value`. */
   printed: number[];
   /** A Worked example's Slip: the sheet cell it corrects. */
   cell?: string;
