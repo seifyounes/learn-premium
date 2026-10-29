@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { privateFolderOf } from "../scripts/intake/create.ts";
 import { run as runWave } from "../scripts/wave/cli.ts";
-import { settledSittingProblem, settledSittingReading, sittingCheckpointItems } from "../scripts/wave/reading.ts";
+import {
+  settledSittingProblem,
+  settledSittingReading,
+  sittingCheckpointItems,
+  type ReadItem,
+} from "../scripts/wave/reading.ts";
 import { faithfulProblems, type DumpPaper } from "../scripts/wave/sitting.ts";
 import { must } from "./fake-notebooklm.ts";
 import { fixtureCourse, materialsOf, ownerSaysComplete, sitting } from "./fixture-courses.ts";
@@ -331,6 +336,40 @@ describe("a past paper must match its settled reading", () => {
     expect(faithfulProblems(key, settled())).toEqual([
       expect.stringMatching(/question 1: the content's key 0\.26 isn't the Professor's printed 0\.25/),
     ]);
+  });
+
+  test("a reading listed out of order still holds the content to the printed numbers", () => {
+    // Reader A wrote q3 before q2: the reading's listing order is not the paper's.
+    const listed = (items: ReadItem[]) => {
+      const rank = (i: ReadItem) => (i.key.includes("/q2/") ? 3 : i.key.includes("/q3/") ? 2 : 0);
+      return [...items].sort((a, b) => rank(a) - rank(b));
+    };
+    const outOfOrder = listed(settled());
+    expect(outOfOrder.map((i) => i.key).indexOf("2025/q3/text")).toBeLessThan(
+      outOfOrder.map((i) => i.key).indexOf("2025/q2/text"),
+    );
+    // Content in the paper's own order is faithful.
+    expect(faithfulProblems(dump.papers, outOfOrder)).toEqual([]);
+    // Content with Q2 and Q3 swapped is not, and each swapped question says so.
+    const swapped = withPaper((p) => ({
+      ...p,
+      questions: p.questions.map((q) => {
+        const other = q.n === 2 ? 3 : q.n === 3 ? 2 : q.n;
+        const from = p.questions.find((x) => x.n === other) ?? q;
+        return { ...q, question: from.question };
+      }),
+    }));
+    expect(faithfulProblems(swapped, outOfOrder)).toEqual([
+      expect.stringMatching(/question 2: the content's question text isn't the paper's/),
+      expect.stringMatching(/question 3: the content's question text isn't the paper's/),
+    ]);
+  });
+
+  test("a reading label that isn't one of 1..N is named", () => {
+    const relabelled = settled().map((i) => ({ ...i, key: i.key.replace("/q3/", "/q4/") }));
+    const problems = faithfulProblems(dump.papers, relabelled);
+    expect(problems).toContainEqual(expect.stringMatching(/question label "4".*1\.\.3/));
+    expect(problems).toContainEqual(expect.stringMatching(/question 3: the settled reading has no text for question 3/));
   });
 
   test("whitespace aside, the same reading holds; a key keeps its printed precision", () => {
