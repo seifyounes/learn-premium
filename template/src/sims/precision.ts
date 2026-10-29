@@ -57,10 +57,16 @@ function signedValues(text: string, found: ReadonlyArray<{ written: string; valu
   return found.map((n) => {
     const whole = new RegExp(`(?<![\\d.])${escaped(n.written)}(?![\\d.])`, "g");
     whole.lastIndex = from;
-    const at = whole.exec(text);
-    if (at === null) return n.value;
-    from = at.index + n.written.length;
-    return before.test(text.slice(0, at.index)) ? -n.value : n.value;
+    // The occurrence that is the value, not a subscript or power the parser left out with the same
+    // digits (`x_1 = -1`): blanking a value takes one number away; blanking notation takes none.
+    for (let at = whole.exec(text); at !== null; at = whole.exec(text)) {
+      const end = at.index + n.written.length;
+      const blanked = text.slice(0, at.index) + "#".repeat(n.written.length) + text.slice(end);
+      if (numbersIn(blanked).length !== found.length - 1) continue;
+      from = end;
+      return before.test(text.slice(0, at.index)) ? -n.value : n.value;
+    }
+    return n.value;
   });
 }
 
