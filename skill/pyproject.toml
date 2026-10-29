@@ -15,4 +15,5 @@ dependencies = [
     "python-pptx",    # the .pptx Materials reader
     "pypdfium2",      # renders PDF Materials pages (Apache-2.0/BSD-3 PDFium; PyMuPDF is AGPL)
     "pillow",         # saves rendered pages as PNG
+    "rdkit",          # engineering chemistry: 2D structures and 3D conformers at build
 ]
