@@ -47,6 +47,11 @@ const CONTENT_GATES = [
   "part-checks",
   "kinematics",
   "gear-interference",
+  "nernst",
+  "series-limit",
+  "molecule-checks",
+  "structure-graphite",
+  "pubchem-cross-check",
   "tools",
 ];
 

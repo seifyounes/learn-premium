@@ -75,6 +75,11 @@ describe("the first gates on the Fixture Course", () => {
       "part-checks",
       "kinematics",
       "gear-interference",
+      "nernst",
+      "series-limit",
+      "molecule-checks",
+      "structure-graphite",
+      "pubchem-cross-check",
       "tools",
     ]);
     expect(gate(job, "content-contract")?.coverage).toEqual({
@@ -93,7 +98,7 @@ describe("the first gates on the Fixture Course", () => {
 
     const module = await run("module", { ...input, module: MODULE });
     expect(module.green, JSON.stringify(module.gates, null, 2)).toBe(true);
-    expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan", "pyodide", "pad", "red-hue-rule"]);
+    expect(module.gates.map((g) => g.id)).toEqual(["rendered-page-scan", "pyodide", "pad", "red-hue-rule", "cpk-palette", "links-only"]);
     expect(gate(module, "rendered-page-scan")?.coverage.pages).toBe(1);
     // The scan sees every formula the Module's content shows, the ones only inside islands' props
     // included (a Practice item's hidden model answer, a Worked example's later steps). An island's
@@ -128,11 +133,18 @@ describe("the first gates on the Fixture Course", () => {
       "part-checks",
       "kinematics",
       "gear-interference",
+      "nernst",
+      "series-limit",
+      "molecule-checks",
+      "structure-graphite",
+      "pubchem-cross-check",
       "tools",
       "rendered-page-scan",
       "pyodide",
       "pad",
       "red-hue-rule",
+      "cpk-palette",
+      "links-only",
       "no-materials",
       "no-build-evidence",
       "noindex",
@@ -141,9 +153,9 @@ describe("the first gates on the Fixture Course", () => {
       "mhchem-canary",
     ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
-    // Home, thirteen Modules, Master Rules, Lab, About, the complete sitting's Revision, its Exam room and
+    // Home, fourteen Modules, Master Rules, Lab, About, the complete sitting's Revision, its Exam room and
     // the three papers' pages, and the Tool gallery.
-    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(23);
+    expect(gate(deploy, "rendered-page-scan")?.coverage.pages).toBe(24);
   });
 
   // Every static gate runs its positive fixture and each planted control, each on its own copy of the
@@ -307,8 +319,9 @@ describe("the content gates", () => {
   it("cover nothing, and so fail, for a Module that doesn't exist", async () => {
     const report = await run("job", { contentDir: FIXTURE_COURSE, module: "09-missing" });
     // Every content gate: the sixteen, the pneumatic-cycle, timing-key, state-table and state-diagram gates, and the
-    // kinematics and gear-interference gates.
-    expect(report.gates.map((g) => g.status)).toEqual(Array(22).fill("failed"));
+    // kinematics and gear-interference gates, and the nernst, series-limit, molecule-checks, structure-graphite and
+    // pubchem-cross-check gates (Module 13).
+    expect(report.gates.map((g) => g.status)).toEqual(Array(27).fill("failed"));
   });
 });
 
