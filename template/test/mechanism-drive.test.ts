@@ -66,6 +66,20 @@ describe("the mechanism's play clock", () => {
     expect(total(startDrive(-90, false))).toBe(-90);
   });
 
+  it("a dragged pin carries on from where the driver is, across 359° and 1°, and after Play's turns", () => {
+    // The wrapped bearing a pointer gives is taken to the nearest angle to the driver's own.
+    const at359 = startDrive(359, false);
+    const over = drive(at359, { type: "drag", angle: 1 });
+    expect(total(over)).toBe(361);
+    expect(drive(over, { type: "drag", angle: 359 }).turns).toBe(0);
+    // After a turn of Play, a drag stays on the turns Play has taken.
+    const played = drive(playing(359), { type: "tick", ms: 100 });
+    expect(total(drive(played, { type: "drag", angle: 10 }))).toBe(370);
+    expect(drive(played, { type: "drag", angle: 10 }).playing).toBe(false);
+    // A set (the slider) is absolute, and a drag is not.
+    expect(total(drive(played, { type: "set", angle: 10 }))).toBe(10);
+  });
+
   it("a long frame moves it at most 100 ms' worth", () => {
     expect(MAX_TICK_MS).toBe(100);
     const long = drive(playing(0), { type: "tick", ms: 60_000 });

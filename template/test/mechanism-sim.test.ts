@@ -336,6 +336,19 @@ describe("the mechanisms in a browser", () => {
     await context.close();
   });
 
+  it("the slider stays at its far end, and the arrow keys come back from it", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const { page } = await open(context);
+    const el = await sim(page, "gear-pair");
+    const slider = el.getByRole("slider");
+    await slider.fill("360");
+    await page.waitForTimeout(100);
+    expect(await slider.inputValue()).toBe("360");
+    await slider.press("ArrowLeft");
+    await expect.poll(() => slider.inputValue()).toBe("359.5");
+    await context.close();
+  });
+
   it("the slider turns the four-bar to a chosen angle", async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const { page } = await open(context);

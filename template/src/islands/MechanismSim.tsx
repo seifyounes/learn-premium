@@ -80,6 +80,9 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
   }, [inkAt]);
 
   const set = (angle: number) => dispatch({ type: "set", angle });
+  const drag = (angle: number) => dispatch({ type: "drag", angle });
+  // The slider shows where it was put: the far end stays at its end (360°), where the angle alone would read 0°.
+  const onSlider = total(d) >= tune.theta.min && total(d) <= tune.theta.max ? total(d) : d.angle;
   const onStatus = (status: ViewerStatus) => {
     if (status === "no-webgl" || status === "no-part") {
       setNoThree(true);
@@ -163,12 +166,12 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
                 model={model}
                 pose={pose}
                 label={label}
-                onAngle={set}
+                onAngle={drag}
                 onStatus={onStatus}
                 ready={ready}
               />
             ) : (
-              <MechanismSheet model={model} pose={pose} inked={inked} label={label} onAngle={set} ready={ready} />
+              <MechanismSheet model={model} pose={pose} inked={inked} label={label} onAngle={drag} ready={ready} />
             )}
           </div>
           {noThree && (
@@ -198,7 +201,7 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
           <Slider
             name={mathHtml.theta}
             range={tune.theta}
-            value={snap(d.angle, tune.theta)}
+            value={snap(onSlider, tune.theta)}
             ready={ready}
             onChange={set}
           />

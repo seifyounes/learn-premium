@@ -26,6 +26,8 @@ export type DriveAction =
   | { type: "pause" }
   | { type: "tick"; ms: number }
   | { type: "set"; angle: number }
+  /** A pin dragged to a bearing: the nearest angle to where the driver is, so the turns it has taken carry on. */
+  | { type: "drag"; angle: number }
   | { type: "reduced"; reduced: boolean };
 
 const wrap = (angle: number) => {
@@ -59,6 +61,11 @@ export function drive(d: Drive, a: DriveAction): Drive {
       }
     case "set":
       return { ...d, ...split(a.angle), playing: false };
+    case "drag": {
+      const here = total(d);
+      const bearing = wrap(a.angle);
+      return { ...d, ...split(bearing + 360 * Math.round((here - bearing) / 360)), playing: false };
+    }
     case "reduced":
       // Stopped where it is: the angle it had reached is the angle it keeps.
       return a.reduced ? { ...d, reduced: true, playing: false } : { ...d, reduced: false };
