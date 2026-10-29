@@ -139,7 +139,7 @@ export function recipe(project: string, id: string): Recipe {
   if (item.kind === "sitting-audio" || item.module === null) {
     throw new LedgerError(
       "refused",
-      `${id} is a sitting audio: the Build ledger doesn't record which Modules a sitting covers yet`,
+      `${id} is a sitting audio, which isn't made yet`,
     );
   }
   const module = current(ledger.modules).find((m) => m.id === item.module);

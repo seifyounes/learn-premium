@@ -157,7 +157,7 @@ export function moduleItem(project: string, id: string): { item: ModuleItem; mod
   if (item.kind === "sitting-audio" || item.module === null) {
     throw new LedgerError(
       "refused",
-      `${id} is a sitting audio: the Build ledger doesn't record which Modules a sitting covers yet, so there is no Module content to check it against`,
+      `${id} is a sitting audio, which isn't made yet: there is no Module content to check it against`,
     );
   }
   return { item: item as ModuleItem, module: item.module };

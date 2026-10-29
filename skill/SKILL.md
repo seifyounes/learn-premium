@@ -529,7 +529,7 @@ it `downloaded`, its master in `<D>/media/masters/`) through the rest of the pas
    `build-media.json` and `build-records/` on `main`. Remove `<T>`. Placed media never blocks a
    Module: it was live already, and an item that can't be placed is dropped, not waited on.
 
-A sitting audio isn't checked or placed yet: the ledger doesn't record which Modules a sitting covers.
+A sitting audio isn't made yet: it stays in the queue (and in `demand`), and `next` never proposes it.
 A Module rebuilt after its media was placed keeps that media; it isn't checked again.
 
 ## Reading Materials

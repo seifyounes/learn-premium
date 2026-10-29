@@ -178,8 +178,12 @@ export function survey(stateDir: string, persist: boolean): Report {
   }
   const queue = ranked.sort(byRank).map(({ entry }) => entry);
   const queued = queue.filter((e) => e.state === "queued");
-  const stopped = queued[0] === undefined ? null : stopFor(usage, queued[0].kind, at);
-  const head = queue[0] ?? null;
+  // A sitting's Deep Dive audio is wanted and counted but not made yet (nothing checks or places it), so
+  // it never heads the pass: it would block every other item, in every Course, behind it.
+  const workable = queue.filter((e) => e.kind !== "sitting-audio");
+  const firstQueued = workable.find((e) => e.state === "queued");
+  const stopped = firstQueued === undefined ? null : stopFor(usage, firstQueued.kind, at);
+  const head = workable[0] ?? null;
   const items = Object.fromEntries(MEDIA_KINDS.map((k) => [k, queued.filter((e) => e.kind === k).length]));
   return {
     queue,

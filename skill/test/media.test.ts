@@ -80,6 +80,50 @@ describe("gathering the Media queue", () => {
     expect(next).toEqual(queue[0]);
   });
 
+  test("a live sitting's audio stays queued but is never the next item: the pass can't make it yet", () => {
+    const state = tempDir("state");
+    const statics = fixtureCourse("Statics", {
+      sittings: [sitting("midterm", "2026-10-05")],
+      live: ["01"],
+      liveSittings: ["midterm"],
+    });
+    const heat = fixtureCourse("Heat Transfer", { sittings: [sitting("final", "2026-12-20")], live: ["01"] });
+    registered(state, statics, heat);
+    must(media("gather", "--state", state));
+    for (const item of ["module-01-video", "module-01-audio", "module-01-infographic"]) {
+      const at = ["--state", state, "--project", statics, "--item", item];
+      must(media("start", ...at));
+      must(media("fail", ...at, "--reason", "dropped for the test", "--final"));
+    }
+
+    const { queue, next, demand } = must(media("gather", "--state", state));
+
+    expect(queue[0]).toMatchObject({ course: "Statics", item: "sitting-midterm-audio", state: "queued" });
+    expect(next).toMatchObject({ course: "Heat Transfer", item: "module-01-video" });
+    expect(demand.items["sitting-audio"]).toBe(1);
+  });
+
+  test("with only a sitting audio left, there is nothing to move next", () => {
+    const state = tempDir("state");
+    const statics = fixtureCourse("Statics", {
+      sittings: [sitting("midterm", "2026-10-05")],
+      live: ["01"],
+      liveSittings: ["midterm"],
+    });
+    registered(state, statics);
+    must(media("gather", "--state", state));
+    for (const item of ["module-01-video", "module-01-audio", "module-01-infographic"]) {
+      const at = ["--state", state, "--project", statics, "--item", item];
+      must(media("start", ...at));
+      must(media("fail", ...at, "--reason", "dropped for the test", "--final"));
+    }
+
+    const { queue, next } = must(media("status", "--state", state));
+
+    expect(queue.map((e: Entry) => [e.item, e.state])).toEqual([["sitting-midterm-audio", "queued"]]);
+    expect(next).toBeNull();
+  });
+
   test("is gathered afresh: a Module that goes live later joins, and an item under way keeps its state and goes first", () => {
     const state = tempDir("state");
     const heat = fixtureCourse("Heat Transfer", {
