@@ -46,6 +46,11 @@ describe("a value as the sheet prints it", () => {
     expect(rulingValues("$x_{-1} = 0.5$")).toEqual([0.5]);
     expect(rulingValues("$3 - 5.00$")).toEqual([3, 5]);
     expect(rulingValues("$5.00$")).toEqual([5]);
+    // A subscript or power the parser leaves out is not the value, even when it has the value's digits.
+    expect(rulingValues("$x_1 = -1$")).toEqual([-1]);
+    expect(rulingValues("$R_{0.5} = -0.5$")).toEqual([-0.5]);
+    expect(rulingValues("$T_1 = 5$, $T_2 = -5$")).toEqual([5, -5]);
+    expect(rulingValues("$x_1 = 1$")).toEqual([1]);
   });
 
   it("reads scientific notation as one value, its precision from the mantissa and the power", () => {
