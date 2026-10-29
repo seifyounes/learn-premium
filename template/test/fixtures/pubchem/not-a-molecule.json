@@ -1,0 +1,11 @@
+{
+  "status": 404,
+  "body": {
+    "Fault": {
+      "Code": "PUGREST.NotFound",
+      "Message": "No CID found",
+      "Details": ["No CID found that matches the given name"]
+    }
+  },
+  "recorded": "2026-10-29 (transcribed from PubChem's PUGREST.NotFound answer)"
+}

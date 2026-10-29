@@ -1,0 +1,17 @@
+{
+  "status": 200,
+  "body": {
+    "PropertyTable": {
+      "Properties": [
+        {
+          "CID": 750,
+          "MolecularFormula": "C2H5NO2",
+          "InChIKey": "DHMQDGOQFOQNFH-UHFFFAOYSA-N",
+          "IUPACName": "2-aminoacetic acid",
+          "Title": "Glycine"
+        }
+      ]
+    }
+  },
+  "recorded": "2026-10-29"
+}
