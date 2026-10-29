@@ -19,6 +19,7 @@ describe("the tools gate: the five eligibility checks", () => {
       sims: 2,
       pythonTools: 1,
       parts: 0,
+      molecules: 0,
       kinds: 1,
       checks: 13,
       engineSamples: 13,
@@ -33,9 +34,26 @@ describe("the tools gate: the five eligibility checks", () => {
       sims: 0,
       pythonTools: 0,
       parts: 1,
+      molecules: 0,
       kinds: 0,
       checks: 3,
       engineSamples: 0,
+    });
+  });
+
+  it("holds a Nernst sim and a molecule's 3D viewer to the pad frame and touch, and samples the cell at every slider's min, mid and max", async () => {
+    const result = await toolsGate.run({ contentDir: FIXTURE_COURSE, module: "13-cell-potential" });
+    expect(result.findings).toEqual([]);
+    // The cell's example values, then 3 sliders x min, mid and max; the sim's five checks and the molecule's three.
+    expect(result.coverage).toEqual({
+      modules: 1,
+      sims: 1,
+      pythonTools: 0,
+      parts: 0,
+      molecules: 1,
+      kinds: 1,
+      checks: 8,
+      engineSamples: 10,
     });
   });
 
@@ -46,7 +64,7 @@ describe("the tools gate: the five eligibility checks", () => {
         outcome: "block",
         at: at("sims/900.json"),
         message:
-          '"phet" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl, control, ladder, pneumatic, fsm, grafcet, mechanism); PhET and Falstad appear only as credited links, never as a tool',
+          '"phet" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl, control, ladder, pneumatic, fsm, grafcet, mechanism, nernst); PhET and Falstad appear only as credited links, never as a tool',
       },
     ]);
   });
@@ -58,7 +76,7 @@ describe("the tools gate: the five eligibility checks", () => {
         outcome: "block",
         at: at("sims/900.json"),
         message:
-          '"falstad" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl, control, ladder, pneumatic, fsm, grafcet, mechanism); PhET and Falstad appear only as credited links, never as a tool',
+          '"falstad" isn\'t a tool this template ships (it ships: gradient-descent, logic, tangent, plane-wall, stl, scl, control, ladder, pneumatic, fsm, grafcet, mechanism, nernst); PhET and Falstad appear only as credited links, never as a tool',
       },
     ]);
   });

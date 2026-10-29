@@ -70,8 +70,8 @@ describe("the sim on the built pages", () => {
 
   it("is in the Lab with every other tool, and in the Tool gallery once per kind beside a step-through", () => {
     const lab = build.page("lab");
-    // Fourteen sims now: the pneumatic cascade (Module 12) joins the nine, then the detector and the drill (Module 14), and Module 11's four-bar and gear pair.
-    expect(lab.match(/class="sim-card"[^>]*data-sim-kind/g)).toHaveLength(14);
+    // Fourteen sims now: the pneumatic cascade (Module 12) joins the nine, then the detector and the drill (Module 14), and Module 11's four-bar and gear pair, and Module 13's copper cell.
+    expect(lab.match(/class="sim-card"[^>]*data-sim-kind/g)).toHaveLength(15);
     const gallery = build.page("tool-gallery");
     expect(
       [...gallery.matchAll(/data-sim-kind="([^"]+)" data-recompute="([^"]+)"/g)].map((m) => `${m[1]}:${m[2]}`),
@@ -90,6 +90,7 @@ describe("the sim on the built pages", () => {
       // A mechanism is one kind with two model types: the gallery shows the first of each.
       "mechanism:independent",
       "mechanism:independent",
+      "nernst:independent",
       "gradient-descent:none",
     ]);
   });

@@ -48,9 +48,9 @@ describe("the colour gates on the Fixture Course", () => {
   it("the pad gate passes a catalogue pad that every page wears, with nothing to fix", async () => {
     const pad = await runOne(padGate, input);
     expect(pad.status).toBe("pass");
-    // Twenty-three pages: Module 11 (Mechanisms), Module 12 (the pneumatic cascade) and Module 14 (state machines)
-    // are the three more.
-    expect(pad.coverage).toEqual({ pads: 1, requirements: 18, pages: 23 });
+    // Twenty-four pages: Module 11 (Mechanisms), Module 12 (the pneumatic cascade), Module 13 (cell potential) and
+    // Module 14 (state machines) are the four more.
+    expect(pad.coverage).toEqual({ pads: 1, requirements: 18, pages: 24 });
     expect(pad.fixes).toEqual([]);
   });
 
@@ -76,8 +76,10 @@ describe("the colour gates on the Fixture Course", () => {
     // Module 12's page is the twenty-first and Module 14's the twenty-second: Module 12 adds four islands (its
     // Worked sheet and the cascade on its page, in the Lab and in the Tool gallery), Module 14 eight (its two
     // Worked sheets and its two sims). Module 11's is the twenty-third, and adds eight (its two Worked sheets, and
-    // its two mechanisms on its page, in the Lab and in the Tool gallery).
-    expect(hue.coverage).toMatchObject({ pages: 23, islands: 69, stylesheets: 1 });
+    // its two mechanisms on its page, in the Lab and in the Tool gallery). Module 13's is the twenty-fourth, with its
+    // Worked sheet, the Nernst sim and the molecule's viewer; the Lab and the gallery add the sim and the viewer again:
+    // seven more.
+    expect(hue.coverage).toMatchObject({ pages: 24, islands: 76, stylesheets: 1 });
     expect(hue.coverage.svgs).toBeGreaterThan(8);
     // The stylesheet's inks: the red pen, graphite and pencil, and the black a hover mixes in.
     expect(hue.coverage.colours).toBeGreaterThan(0);
@@ -123,8 +125,10 @@ describe("the colour gates on the Fixture Course", () => {
     const site = siteWith(build.outDir, inMain(allowed.join("")));
     const hue = await runOne(redHueRule, { ...input, distDir: site });
     expect(hue.findings).toEqual([]);
-    // The five planted colours, over what the page already paints with.
-    const baseline = (await runOne(redHueRule, input)).coverage.colours ?? 0;
+    // The five planted colours, over what that page already paints with: the same page on its own, since the
+    // planted site is one page (the whole site's pages paint more: a molecule's structure is drawn in graphite).
+    const baseline = (await runOne(redHueRule, { ...input, distDir: siteWith(build.outDir, (page) => page) })).coverage
+      .colours ?? 0;
     expect((hue.coverage.colours ?? 0) - baseline).toBe(5);
   });
 

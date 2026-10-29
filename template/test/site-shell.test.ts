@@ -132,6 +132,7 @@ describe("the Study site shell", () => {
         "10-two-conveyors",
         "11-mechanisms",
         "12-cascade",
+        "13-cell-potential",
         "14-state-machines",
       ]);
       expect(contentsLine(home(), "02-convection")).toContain('href="/02-convection/"');
@@ -221,8 +222,11 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/07-flanged-hub/"');
     expect(lab).toContain('href="/08-root-locus/"');
     // The fourteen sims (the cascade is the tenth, the detector and the drill the eleventh and twelfth, the four-bar and the gear pair the others) and the Pyodide tool, then the machine part.
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(15);
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(16);
     expect(lab.match(/class="sim-card part-card"/g)).toHaveLength(1);
+    // And Module 13's molecule, after the machine part.
+    expect(lab.match(/class="sim-card molecule-card"/g)).toHaveLength(1);
+    expect(lab).toContain('href="/13-cell-potential/"');
     expect(lab).not.toContain("No interactive tools are built for this Course yet.");
   });
 
@@ -373,6 +377,8 @@ describe("a Course with no tools yet", () => {
       "10-two-conveyors/sims",
       "11-mechanisms/sims",
       "12-cascade/sims",
+      "13-cell-potential/sims",
+      "13-cell-potential/molecules",
       "14-state-machines/sims",
     ])
       rmSync(join(course, "modules", sims), { recursive: true });

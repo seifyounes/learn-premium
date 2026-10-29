@@ -26,7 +26,7 @@ describe("the deploy and live gates on the Fixture Course's production build", (
 
   it("builds, with the Licences file at /licences.txt", () => {
     expect(build.ok, build.output).toBe(true);
-    expect(build.output).toMatch(/Licences file: 32 shipped packages and 7 hand-written notices/);
+    expect(build.output).toMatch(/Licences file: 33 shipped packages and 7 hand-written notices/);
   });
 
   it("lists exactly the packages the bundle ships, never the ones that only build the site", () => {
@@ -38,6 +38,8 @@ describe("the deploy and live gates on the Fixture Course's production build", (
       "@fontsource/atkinson-hyperlegible-next",
       // Plotly, built from its sources for the heatmap, with the packages they bundle.
       "@plotly/d3",
+      // 3Dmol.js, the molecule viewer's library, loaded after first paint.
+      "3dmol",
       "astro",
       "base64-arraybuffer",
       "culori",
@@ -104,7 +106,7 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     const coverage = Object.fromEntries(report.gates.map((g) => [g.id, g.coverage]));
     expect(pageCount()).toBeGreaterThanOrEqual(9);
     expect(coverage["noindex"]).toEqual({ pages: pageCount(), configs: 1 });
-    expect(coverage["licences"]).toEqual({ packages: 32 });
+    expect(coverage["licences"]).toEqual({ packages: 33 });
     expect(coverage["no-build-evidence"]?.["buildRecords"]).toBeGreaterThan(0);
   });
 
@@ -117,8 +119,8 @@ describe("the deploy and live gates on the Fixture Course's production build", (
     expect(coverage["live-routes"]).toEqual({ routes: pageCount() + 1, hubs: 6 });
     expect(coverage["live-private-paths"]?.["probes"]).toBeGreaterThan(40);
     // The committed Fixture has no card, and with no live URL nothing is asked of YouTube.
-    // Thirteen Modules: the mechanisms (Module 11) and the pneumatic cascade (Module 12) join the ten, then the state machines (Module 14).
-    expect(coverage["live-videos"]).toEqual({ courses: 1, modules: 13, cards: 0, probed: 0 });
+    // Fourteen Modules: the mechanisms (Module 11) and the pneumatic cascade (Module 12) join the ten, then the copper cell (Module 13) and the state machines (Module 14).
+    expect(coverage["live-videos"]).toEqual({ courses: 1, modules: 14, cards: 0, probed: 0 });
   });
 
   it("run at their own points only", () => {
