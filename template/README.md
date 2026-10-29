@@ -437,8 +437,9 @@ enter, so a step both left and entered stays active (IEC 60848's rule) and a sel
 the one-token case. Outputs belong to states and are read in the present situation (Moore), and an
 action is on while its step is active (IEC's continuous N action). One clock is one evolution, as a
 PLC scan runs an SFC; there is no search for a stable situation, so the strip's axis is clock periods,
-never seconds. There are no timers, edges (`↑m`), step variables in receptivities, macro-steps or
-parallel (AND) branches yet: alternative branches must have exclusive receptivities, and the contract
+never seconds. There are no timers, edges (`↑m`), step variables in receptivities, macro-steps,
+parallel (AND) branches or steps looping to themselves yet (an alternative branch draws each link's
+bar on its own branch): alternative branches must have exclusive receptivities, and the contract
 blocks two that can hold at once, as it blocks an FSM state that doesn't say where an input takes it.
 Equations, when given, must reproduce the diagram on every reachable situation. The engine's
 quantities are the timing strip's bits, named `row[k]`: each input, each state variable (an FSM's

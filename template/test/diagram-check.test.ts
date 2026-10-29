@@ -225,6 +225,53 @@ describe("the mutants", () => {
   });
 });
 
+describe("alternative GRAFCET branches", () => {
+  const branching: DiagramModel = {
+    style: "links",
+    states: [
+      { id: "X0", kind: "step-initial", name: "0", label: "0" },
+      { id: "X1", kind: "step", name: "1", label: "1" },
+      { id: "X2", kind: "step", name: "2", label: "2" },
+    ],
+    edges: [
+      { from: "X0", to: "X1", label: "a" },
+      { from: "X0", to: "X2", label: "!a" },
+    ],
+  };
+  const hints: DiagramHints = {
+    states: { X0: { at: [2, 0] }, X1: { at: [0, 2] }, X2: { at: [4, 2] } },
+    edges: {},
+  };
+
+  it("each branch carries its own bar and label, and the diagram passes every check", () => {
+    const d = layOutDiagram(branching, hints);
+    const bars = d.edges.map((e) => e.bar?.[0]);
+    expect(bars[0]).not.toEqual(bars[1]);
+    const reading = diagramReading.parse({
+      reading: "learn-premium diagram reading v1",
+      by: "test",
+      states: {
+        "0": { kind: "step-initial", at: [0.5, 0] },
+        "1": { kind: "step", at: [0, 1] },
+        "2": { kind: "step", at: [1, 1] },
+      },
+      edges: [
+        { from: "0", to: "1", label: "a" },
+        { from: "0", to: "2", label: "!a" },
+      ],
+    });
+    expect(failing(d, branching, reading)).toEqual([]);
+    expect(modelEdgesOf(d, branching)).toEqual([0, 1]);
+  });
+
+  it("a GRAFCET step that loops to itself is named, since a link joins one step to another", () => {
+    const loop: DiagramModel = { ...branching, edges: [...branching.edges, { from: "X1", to: "X1", label: "b" }] };
+    expect(diagramProblems(loop, hints)).toEqual([
+      "X1 → X1 is a self-loop: a GRAFCET link joins one step to another, so a step doesn't loop to itself",
+    ]);
+  });
+});
+
 describe("the mirror mutant", () => {
   it("is skipped for a single-column GRAFCET with no return link, which a mirror reads the same", () => {
     const two: DiagramModel = {

@@ -165,7 +165,8 @@ export function layOutDiagram(model: DiagramModel, hints: DiagramHints): Diagram
       n = sideVector(side);
     } else if (model.style === "links") {
       const bow = hint?.bow === "right" ? "right" : "left";
-      drawn = link(from, to, to.y <= from.y ? outer(bow) : undefined);
+      const branches = model.edges.filter((q) => q.from === e.from && q.to !== e.from).length > 1;
+      drawn = link(from, to, to.y <= from.y ? outer(bow) : undefined, branches);
       // The label sits beside the bar: 16px along from its centre on the right (default), or the same
       // clear of it on the left; its baseline 5px below the bar.
       const [barA, barB] =
@@ -389,8 +390,12 @@ export function diagramProblems(model: DiagramModel, hints: DiagramHints): strin
     if (pairs.has(edgeKey(e)))
       once(`${e.from} → ${e.to} is listed twice: write one edge per pair, its labels joined by commas`);
     pairs.add(edgeKey(e));
+    if (model.style === "links" && e.from === e.to)
+      once(
+        `${e.from} → ${e.to} is a self-loop: a GRAFCET link joins one step to another, so a step doesn't loop to itself`,
+      );
   }
-  const loops = new Set(model.edges.filter((e) => e.from === e.to).map((e) => e.from));
+  const loops = new Set(model.style === "links" ? [] : model.edges.filter((e) => e.from === e.to).map((e) => e.from));
   for (const s of model.states) {
     const hint = hints.states[s.id];
     if (!hint) once(`state ${s.id} has no layout hint`);
