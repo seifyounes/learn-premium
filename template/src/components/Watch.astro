@@ -12,6 +12,9 @@ interface Props {
 const { media } = Astro.props;
 const { video, audio, youtube } = media;
 
+/** A title as plain text for a screen reader: `videos verify` stores a `$` escaped (`\$`) for the prose renderer. */
+const plainTitle = (title: string) => title.replace(/\\\$/g, "$");
+
 /** `m:ss` or `h:mm:ss` → seconds, for a card's jump into its video. */
 const seconds = (at: string) => at.split(":").reduce((total, part) => total * 60 + Number(part), 0);
 const watchUrl = (id: string, at?: string) =>
@@ -62,7 +65,7 @@ const watchUrl = (id: string, at?: string) =>
             <path d="M5 3.5v9l7.5-4.5z" fill="currentColor" />
           </svg>
         </span>
-        <span class="sr-only">Play “{card.title}”</span>
+        <span class="sr-only">Play “{plainTitle(card.title)}”</span>
       </a>
       <div class="video-card-body">
         <h3 class="video-card-title" set:html={prose(card.title)} />
