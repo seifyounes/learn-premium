@@ -102,6 +102,27 @@ describe("the mechanism sim contract", () => {
     ]);
   });
 
+  it("tunes the driver's angle over one turn, from 0 to 360 at most", () => {
+    // The sim wraps its angle to [0, 360): a range reaching below 0 or past 360 would pin the slider at its end
+    // for half of each turn, so the contract refuses it (final review F15).
+    const ranged = (theta: { min: number; max: number; step: number }, raw = linkage()) => ({
+      ...raw,
+      tune: { theta },
+    });
+    const refused = "tune.theta: the driver's angle is tuned over one turn, 0 ≤ min < max ≤ 360 (here -180 to 180)";
+    expect(issues(ranged({ min: -180, max: 180, step: 1 }))).toEqual([refused]);
+    expect(issues({ ...ranged({ min: -180, max: 180, step: 1 }), start: { theta: -30 } })).toEqual([refused]);
+    expect(issues(ranged({ min: 0, max: 540, step: 1 }))).toEqual([
+      "tune.theta: the driver's angle is tuned over one turn, 0 ≤ min < max ≤ 360 (here 0 to 540)",
+    ]);
+    // Negative control: a range inside one turn, and the full one, are kept, for the linkage and the gears.
+    expect(issues(ranged({ min: 0, max: 360, step: 1 }))).toBeUndefined();
+    expect(issues(ranged({ min: 30, max: 330, step: 1 }))).toBeUndefined();
+    expect(
+      issues(ranged({ min: 0, max: 360, step: 0.5 }, gears() as unknown as ReturnType<typeof linkage>)),
+    ).toBeUndefined();
+  });
+
   it("lets students tune the angle, never rewire the linkage", () => {
     const rewired = linkage();
     (rewired.tune as Record<string, unknown>).ground = { min: 0, max: 1, step: 1 };
