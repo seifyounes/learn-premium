@@ -194,7 +194,7 @@ describe("the Notebook recipe", () => {
     expect(skipped).toEqual([{ material: "demo.mp4", reason: expect.stringMatching(/NotebookLM/) }]);
   });
 
-  test("a sitting audio has no recipe until the ledger says which Modules a sitting covers", () => {
+  test("a sitting audio has no recipe: it isn't made yet", () => {
     const project = fixtureCourse("Heat Transfer", {
       sittings: [sitting("midterm", "2026-11-10")],
       live: ["01"],
