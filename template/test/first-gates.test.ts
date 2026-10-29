@@ -138,6 +138,7 @@ describe("the first gates on the Fixture Course", () => {
       "noindex",
       "licences",
       "licences-file",
+      "mhchem-canary",
     ]);
     expect(gate(deploy, "content-contract")?.coverage.course).toBe(1);
     // Home, thirteen Modules, Master Rules, Lab, About, the complete sitting's Revision, its Exam room and
