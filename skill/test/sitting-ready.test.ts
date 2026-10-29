@@ -370,6 +370,33 @@ describe("what the Owner named", () => {
     expect(ready(c).join("\n")).toMatch(/midterm-2025\.pdf changed since the Owner named it/);
   });
 
+  test("a word re-recorded mid-wave doesn't vouch for readings of the old file", () => {
+    const c = sittingWave();
+    const words = { modules: ["01"], papers: [{ slug: "2025", path: PAPER_FILE }], announced: null };
+    const sameFile = ownerSaysComplete(c.project, "midterm", {
+      ...words,
+      announced: "A written paper of two questions.",
+    });
+    // The same file again (new words about the format, say) is still accepted while the wave runs.
+    expect(sameFile.code).toBe(0);
+
+    // The readers read the file at its hash when the Owner named it; now the file is replaced.
+    writeFileSync(join(materialsOf(c.project), PAPER_FILE), "the 2025 midterm, edited");
+    expect(ready(c)).toEqual([expect.stringMatching(/midterm-2025\.pdf changed since the Owner named it/)]);
+
+    // Saying "complete" again would re-bind the paper to the new file, whose readings don't exist.
+    const again = ownerSaysComplete(c.project, "midterm", words);
+    expect(again.code).toBe(3);
+    expect(again.out.error).toMatch(/end the running wave failed first/);
+    expect(ready(c)).toEqual([expect.stringMatching(/midterm-2025\.pdf changed since the Owner named it/)]);
+
+    // Negative control: with the wave ended failed, the Owner's word on the new file is accepted.
+    must(
+      ledger("wave", "end", "--project", c.project, "--holder", "session-a", "--wave", c.waveId, "--result", "failed"),
+    );
+    expect(ownerSaysComplete(c.project, "midterm", words).code).toBe(0);
+  });
+
   test("in the project's own checkout, course.yaml is judged against the base the branch left, not against itself", () => {
     const c = sittingWave({ head: (d) => ({ ...d, course: { ...d.course, name: "Renamed" } }) });
     gitIn(c.project, "worktree", "remove", "--force", c.tree);

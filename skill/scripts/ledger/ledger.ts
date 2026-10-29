@@ -352,6 +352,21 @@ export function completeSitting(project: string, holder: string, input: SittingC
         throw new LedgerError("invalid", `${path} isn't a Materials file in the Module map`);
       return { slug, path, hash };
     });
+    // The readers of a running Sitting wave read each paper at the hash his word bound it to. Saying it
+    // again over a file that has changed since would bind the paper to the new file and let readings of
+    // the old one stand for it, so the wave ends failed first (the same file, new words, is still fine).
+    const earlier = completeRow(ledger, input.sitting);
+    const running = current(ledger.waves).some(
+      (w) => w.kind === "sitting" && w.target === input.sitting && w.state === "running",
+    );
+    if (running && earlier !== null) {
+      const moved = papers.filter((p) => earlier.papers.some((e) => e.path === p.path && e.hash !== p.hash));
+      if (moved.length > 0)
+        throw new LedgerError(
+          "refused",
+          `${moved.map((p) => p.path).join(", ")} changed since the Owner named it, and a Sitting wave is reading sitting ${input.sitting}'s past papers: end the running wave failed first, then say it's complete again`,
+        );
+    }
     const at = now();
     for (const row of current(ledger.sittingsComplete)) {
       if (row.sitting === input.sitting) row.superseded = { at, reason: "the Owner said it again" };
