@@ -9,7 +9,7 @@ import { readStructured } from "../src/content/loaders.ts";
 import { isLive, type LiveSim } from "../src/sims/kinds.ts";
 import { cellState, type CellState } from "../src/sims/nernst/apparatus.ts";
 import { cellPotential, type Cell, type Inputs, type Model } from "../src/sims/nernst/engine.ts";
-import { nernstLog, SWEEP_POINTS, sweepGrid, type NernstLog } from "../src/sims/nernst/log.ts";
+import { nernstLog, SWEEP_POINTS, sweepGrid, sweepOrder, type NernstLog } from "../src/sims/nernst/log.ts";
 import { printAt, readPrinted } from "../src/sims/precision.ts";
 import { threeWay } from "../src/sims/three-way.ts";
 import type { Range } from "../src/sims/tuning.ts";
@@ -46,7 +46,7 @@ export function compareSweep(
   rules: Partial<SweepRules> = {},
 ): string[] {
   const use: SweepRules = { potential: cellPotential, state: cellState, ...rules };
-  const names = Object.keys(tune);
+  const names = sweepOrder(tune);
   const grid = sweepGrid(tune);
   if (sweep.length !== grid.length)
     return [

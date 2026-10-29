@@ -174,9 +174,7 @@ export const linksOnly: Gate = {
         siteWith(
           good,
           scratch,
-          inMain(
-            '<iframe src="//phet.colorado.edu/sims/html/concentration/latest/concentration_all.html"></iframe>',
-          ),
+          inMain('<iframe src="//phet.colorado.edu/sims/html/concentration/latest/concentration_all.html"></iframe>'),
         ),
     },
     {

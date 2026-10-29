@@ -18,9 +18,9 @@ the first metal dissolves, n/z1 atoms of it, and n/z2 ions of the second are pla
 with E0cell = E0_second - E0_first. R and F are CODATA 2018's, written out below.
 
 It reads the sim (`modules/13-cell-potential/sims/cell.json`), copies its model and start values
-into the log as the inputs it worked from, and walks the sim's tuned inputs in the file's order at
-nine points each, minimum to maximum, the first one slowest: 729 states, each with its E and its
-anode.
+into the log as the inputs it worked from, and walks the sim's tuned inputs in the order c1, c2, T
+(whatever order the file lists them in) at nine points each, minimum to maximum, c1 slowest: 729
+states, each with its E and its anode.
 
 Run from the repo root (standard library only):
 
@@ -75,9 +75,10 @@ def work(model: dict, c1: float, c2: float, T: float) -> dict:
 
 
 def grid(tune: dict) -> list[dict]:
-    """Every combination of nine points on each tuned input, the first one slowest."""
+    """Every combination of nine points on each tuned input, c1 slowest then c2 then T."""
     states: list[dict] = [{}]
-    for name, rng in tune.items():
+    for name in ("c1", "c2", "T"):
+        rng = tune[name]
         points = [rng["min"] + k * (rng["max"] - rng["min"]) / (POINTS - 1) for k in range(POINTS)]
         states = [{**state, name: value} for state in states for value in points]
     return states
