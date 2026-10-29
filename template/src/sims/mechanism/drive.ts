@@ -9,8 +9,14 @@ export const TURN_SECONDS = 6;
 export const MAX_TICK_MS = 100;
 
 export interface Drive {
-  /** The driver's angle in degrees, [0, 360). */
+  /** The driver's angle in degrees, [0, 360): what the slider and the readouts show. */
   angle: number;
+  /**
+   * The whole turns Play has taken it through since it was last set. A gear pair's driven gear isn't back
+   * where it began after one driver turn (18 teeth driving 36 leave it half a turn on), so the pose is
+   * asked for at `total(d)`, never at the wrapped angle: the driven gear keeps turning across the wrap.
+   */
+  turns: number;
   playing: boolean;
   reduced: boolean;
 }
@@ -27,7 +33,15 @@ const wrap = (angle: number) => {
   return wrapped >= 360 ? 0 : wrapped;
 };
 
-export const startDrive = (angle: number, reduced: boolean): Drive => ({ angle: wrap(angle), playing: false, reduced });
+export const startDrive = (angle: number, reduced: boolean): Drive => ({
+  angle: wrap(angle),
+  turns: 0,
+  playing: false,
+  reduced,
+});
+
+/** The angle the engine is asked for: the displayed angle and the whole turns Play has added to it. */
+export const total = (d: Drive): number => d.angle + 360 * d.turns;
 
 export function drive(d: Drive, a: DriveAction): Drive {
   switch (a.type) {
@@ -37,9 +51,12 @@ export function drive(d: Drive, a: DriveAction): Drive {
       return d.playing ? { ...d, playing: false } : d;
     case "tick":
       if (!d.playing || d.reduced) return d;
-      return { ...d, angle: wrap(d.angle + (360 * Math.min(Math.max(a.ms, 0), MAX_TICK_MS)) / (TURN_SECONDS * 1000)) };
+      {
+        const next = d.angle + (360 * Math.min(Math.max(a.ms, 0), MAX_TICK_MS)) / (TURN_SECONDS * 1000);
+        return next >= 360 ? { ...d, angle: wrap(next), turns: d.turns + 1 } : { ...d, angle: next };
+      }
     case "set":
-      return { ...d, angle: wrap(a.angle), playing: false };
+      return { ...d, angle: wrap(a.angle), turns: 0, playing: false };
     case "reduced":
       // Stopped where it is: the angle it had reached is the angle it keeps.
       return a.reduced ? { ...d, reduced: true, playing: false } : { ...d, reduced: false };

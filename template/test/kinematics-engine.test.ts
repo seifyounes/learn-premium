@@ -16,6 +16,7 @@ import {
   pins,
   pose,
   quantities,
+  sweptBox,
   trace,
   type FourBar,
   type GearPair,
@@ -340,6 +341,32 @@ describe("the gear pair", () => {
     };
     expect(overlapOf(pair, [first, second], [driver, driven]).overlap).toBeLessThanOrEqual(1e-6);
     expect(overlapOf(pair, [first, second.map(rotate)], [driver, turned]).overlap).toBeGreaterThan(0.5);
+  });
+
+  it("the swept box holds both gears' tip circles, and a four-bar's every pin", () => {
+    // The pins alone sit on the pitch circle and the driven tip's one path, and leave the gears clipped.
+    const box = sweptBox(pair);
+    expect(box.min).toEqual([-20, -38]);
+    expect(box.max).toEqual([54 + 38, 38]);
+    const linkage = sweptBox(crankRocker);
+    for (let k = 0; k < 360; k++) {
+      const placed = pins(crankRocker, pose(crankRocker, k));
+      for (const local of Object.values(placed))
+        for (const [x, y] of Object.values(local)) {
+          expect(x).toBeGreaterThanOrEqual(linkage.min[0]);
+          expect(x).toBeLessThanOrEqual(linkage.max[0]);
+          expect(y).toBeGreaterThanOrEqual(linkage.min[1]);
+          expect(y).toBeLessThanOrEqual(linkage.max[1]);
+        }
+    }
+  });
+
+  it("the driven gear carries on across a driver turn: a pose at 365° is the pose at 5° plus the half turn", () => {
+    // 18 teeth driving 36: after one driver turn the wheel is half a turn on, not back where it began.
+    const before = pose(pair, 5).links.driven?.angle ?? NaN;
+    const after = pose(pair, 365).links.driven?.angle ?? NaN;
+    expect(turnBetween(after, before)).toBeCloseTo(-180, 9);
+    expect(pose(pair, 365).links.driver?.angle).toBeCloseTo(5, 9);
   });
 
   it("the overlap is measured, not just flagged", () => {

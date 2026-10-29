@@ -2,7 +2,7 @@
 // (a background tab coming back) moves it no further than a tenth of a second's worth, the slider and
 // the pin drag pause it, and reduced motion stops it at the angle it has.
 import { describe, expect, it } from "vitest";
-import { drive, inkBuckets, MAX_TICK_MS, startDrive, TURN_SECONDS } from "../src/sims/mechanism/drive.ts";
+import { drive, inkBuckets, MAX_TICK_MS, startDrive, total, TURN_SECONDS } from "../src/sims/mechanism/drive.ts";
 
 const playing = (angle: number) => drive(startDrive(angle, false), { type: "play" });
 
@@ -12,15 +12,20 @@ describe("the mechanism's play clock", () => {
     expect(running.playing).toBe(true);
     const at = running.angle;
     const stopped = drive(drive(playing(37.5), { type: "tick", ms: 0 }), { type: "reduced", reduced: true });
-    expect(stopped).toEqual({ angle: 37.5, playing: false, reduced: true });
+    expect(stopped).toEqual({ angle: 37.5, turns: 0, playing: false, reduced: true });
     // Time passing moves nothing, and Play is refused while the motion is reduced.
     expect(drive(stopped, { type: "tick", ms: 1000 }).angle).toBe(37.5);
     expect(drive(stopped, { type: "play" }).playing).toBe(false);
     // Reduced mid-run keeps the angle it had reached, not the one it began on.
-    expect(drive(running, { type: "reduced", reduced: true })).toEqual({ angle: at, playing: false, reduced: true });
+    expect(drive(running, { type: "reduced", reduced: true })).toEqual({
+      angle: at,
+      turns: 0,
+      playing: false,
+      reduced: true,
+    });
     // Un-reduced, Play resumes from where it stopped.
     const back = drive(drive(stopped, { type: "reduced", reduced: false }), { type: "play" });
-    expect(back).toEqual({ angle: 37.5, playing: true, reduced: false });
+    expect(back).toEqual({ angle: 37.5, turns: 0, playing: true, reduced: false });
     expect(drive(back, { type: "tick", ms: 50 }).angle).toBeGreaterThan(37.5);
   });
 
@@ -28,7 +33,7 @@ describe("the mechanism's play clock", () => {
     const held = startDrive(60, true);
     expect(drive(held, { type: "play" })).toEqual(held);
     expect(drive(held, { type: "tick", ms: 100 })).toEqual(held);
-    expect(drive(held, { type: "set", angle: 90 })).toEqual({ angle: 90, playing: false, reduced: true });
+    expect(drive(held, { type: "set", angle: 90 })).toEqual({ angle: 90, turns: 0, playing: false, reduced: true });
   });
 
   it("play runs one turn in 6 s", () => {
@@ -42,6 +47,19 @@ describe("the mechanism's play clock", () => {
     expect(drive(playing(355), { type: "tick", ms: 100 }).angle).toBeCloseTo(1, 9);
   });
 
+  it("keeps the turns Play has taken, so a gear pair's driven gear carries on across the wrap", () => {
+    const across = drive(playing(359), { type: "tick", ms: 100 });
+    expect(across.angle).toBeCloseTo(5, 9);
+    expect(across.turns).toBe(1);
+    expect(total(across)).toBeCloseTo(365, 9);
+    // Two whole turns of play are two on the count; setting the angle starts the count again.
+    let d = playing(0);
+    for (let i = 0; i < (2 * TURN_SECONDS * 1000) / 50; i++) d = drive(d, { type: "tick", ms: 50 });
+    expect(d.turns).toBe(2);
+    expect(total(d)).toBeCloseTo(720, 6);
+    expect(drive(d, { type: "set", angle: 30 }).turns).toBe(0);
+  });
+
   it("a long frame moves it at most 100 ms' worth", () => {
     expect(MAX_TICK_MS).toBe(100);
     const long = drive(playing(0), { type: "tick", ms: 60_000 });
@@ -49,7 +67,12 @@ describe("the mechanism's play clock", () => {
   });
 
   it("set pauses", () => {
-    expect(drive(playing(10), { type: "set", angle: 200 })).toEqual({ angle: 200, playing: false, reduced: false });
+    expect(drive(playing(10), { type: "set", angle: 200 })).toEqual({
+      angle: 200,
+      turns: 0,
+      playing: false,
+      reduced: false,
+    });
     expect(drive(startDrive(0, false), { type: "set", angle: 360 }).angle).toBe(0);
     expect(drive(startDrive(0, false), { type: "set", angle: -90 }).angle).toBe(270);
   });
