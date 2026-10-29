@@ -336,7 +336,13 @@ export function sittingReadyProblems(
   }
 
   // 6. Every job of the wave ran, and none is left blocked.
-  const solved = content?.papers.some((p) => p.key === "solved") ?? false;
+  // The solver owes a key-less paper, and the numeric answers a Professor's paper prints no key for.
+  const keyless = content?.papers.some((p) => p.key === "solved") ?? false;
+  const unkeyed =
+    content?.papers.some(
+      (p) => p.key === "professor" && p.questions.some((q) => q.kind === "numeric" && q.key === null),
+    ) ?? false;
+  const solved = keyless || unkeyed;
   const needed: readonly string[] = withPapers
     ? [...SITTING_JOBS_WITH_PAPERS, ...(solved ? [SOLVER_JOB] : [])]
     : SITTING_JOBS_WITHOUT_PAPERS;
@@ -354,7 +360,11 @@ export function sittingReadyProblems(
     if (!needed.includes(job.job) && job.result === "blocked")
       problems.push(`job ${job.job} is blocked: its job fixes it, or it falls back`);
   if (solved && !jobs.has(SOLVER_JOB))
-    problems.push(`a past paper has no Professor key, so the solver must solve and recompute it (job ${SOLVER_JOB})`);
+    problems.push(
+      keyless
+        ? `a past paper has no Professor key, so the solver must solve and recompute it (job ${SOLVER_JOB})`
+        : `a past paper's numeric answer has no Professor key, so the solver must solve and recompute it (job ${SOLVER_JOB})`,
+    );
 
   // 7. The template layer's own gates verify HEAD: the sitting point on its preview, and the deploy point.
   if (integrity.intact) {
