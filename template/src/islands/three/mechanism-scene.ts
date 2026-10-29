@@ -45,6 +45,9 @@ const BORE = 0.25;
 /** The driving pin's ring, in pin radii. */
 const RING = 1.9;
 
+/** Points up each gear flank in 3D: 12 follow the involute to a few thousandths of a mm, and the extrusion triangulates half the vertices. */
+export const GEAR_SAMPLES = 12;
+
 const RAD = Math.PI / 180;
 
 /** The pin that students drag: the crank pin A, or the driver gear's handle H. */
@@ -163,7 +166,7 @@ export function buildMechanism(three: typeof THREE, model: Model, inks: ViewerIn
     }
     for (const [index, link] of (["driver", "driven"] as const).entries()) {
       const g = group(link, 0);
-      const outline = gearOutline(model, index as 0 | 1);
+      const outline = gearOutline(model, index as 0 | 1, GEAR_SAMPLES);
       const shape = new three.Shape(outline.map(([x, y]) => new three.Vector2(x, y)));
       const bore = new three.Path();
       bore.absarc(0, 0, BORE * ((model.module * model.teeth[index as 0 | 1]) / 2), 0, 2 * Math.PI, true);
