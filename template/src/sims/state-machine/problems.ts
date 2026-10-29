@@ -55,6 +55,11 @@ function staticProblems(family: Family, model: MachineModel): string[] {
     names.forEach((name, i) => {
       if (names.indexOf(name) !== i) out.push(`${name} is listed twice among the ${what.replace(/^an? /, "")}s`);
     });
+  // The figure names each state once: a figure reading and the captions find a state by its name.
+  model.states.forEach((s, i) => {
+    if (model.states.findIndex((q) => q.label === s.label) !== i)
+      out.push(`two states are both named "${s.label}": the figure gives each state its own name`);
+  });
   if (family === "grafcet")
     for (const s of model.states)
       if (s.id !== `X${s.label}`) out.push(`step ${s.id}'s id isn't X followed by its number (${s.label})`);

@@ -172,6 +172,13 @@ describe("machineProblems", () => {
     );
   });
 
+  it("names two states with the same name", () => {
+    const states = detector.states.map((s) => (s.id === "S2" ? { ...s, label: "S1" } : s));
+    expect(say("fsm", edit(detector, { states }))).toContain(
+      'two states are both named "S1": the figure gives each state its own name',
+    );
+  });
+
   it("names a step id that isn't X and its number", () => {
     const states = drill.states.map((s) => (s.id === "X1" ? { ...s, id: "Y1" } : s));
     expect(say("grafcet", edit(drill, { states, edges: [] }))).toContain(
