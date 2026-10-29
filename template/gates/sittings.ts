@@ -188,12 +188,17 @@ async function runPapers(input: GateInput): Promise<GateRun> {
       const answers = recomputeOf(input, sitting.id, name, numeric, block);
       const divergences = countsOf(paper.provenance.divergences.map((d) => d.value));
       const slips = countsOf(paper.provenance.slips.map((s) => s.sheet));
+      const unkeyedQuestions: number[] = [];
       paper.questions.forEach((q, i) => {
         const n = i + 1;
         if (q.answer.kind !== "numeric") return;
         const recomputed = answers?.[String(n)];
         const { value: answer, tolerance, key } = q.answer;
-        if (paper.key === "solved") {
+        // A solved paper's answers, and a Professor's numeric answer his key sheet leaves out (the
+        // build's solution, story 49 applied per question): held to the recompute, then the Owner confirms.
+        const unkeyed = paper.key === "professor" && key === undefined;
+        if (unkeyed) unkeyedQuestions.push(n);
+        if (paper.key === "solved" || unkeyed) {
           if (recomputed === undefined) return;
           coverage.values += 1;
           if (Math.abs(answer - recomputed) > tolerance + 1e-9 * Math.max(1, Math.abs(recomputed)))
@@ -202,12 +207,7 @@ async function runPapers(input: GateInput): Promise<GateRun> {
             );
           return;
         }
-        if (key === undefined) {
-          block(
-            `question ${n}'s numeric answer carries no key: a Professor's paper prints a key for every numeric answer`,
-          );
-          return;
-        }
+        if (key === undefined) return;
         const printed = readPrinted(key);
         if (typeof printed === "string") {
           block(`question ${n}'s key can't be compared with the recompute: ${printed}`);
@@ -267,6 +267,14 @@ async function runPapers(input: GateInput): Promise<GateRun> {
           `question ${n}'s answer ${answer} matches neither the key ${printed.written} nor the independent recompute ${computed}`,
         );
       });
+      if (paper.key === "professor" && unkeyedQuestions.length > 0) {
+        const many = unkeyedQuestions.length > 1;
+        findings.push({
+          outcome: "checkpoint",
+          at: entry,
+          message: `question${many ? "s" : ""} ${unkeyedQuestions.join(", ")} ${many ? "have" : "has"} no printed Professor key; ${many ? "their answers are" : "its answer is"} the build's solution, recomputed independently. Confirm ${many ? "them" : "it"} (answers ${answersDigest(paper)})`,
+        });
+      }
       if (paper.key === "solved") {
         findings.push({
           outcome: "checkpoint",
@@ -524,6 +532,21 @@ export const pastPapers: Gate = {
     {
       defect: "a recompute log that leaves out a numeric question",
       plant: (good, scratch) => editFiles(good, scratch, logEdit("2025", without("2"))),
+    },
+    {
+      defect: "a Professor's numeric answer his key sheet leaves out, whose solution only the Owner can confirm",
+      expect: "checkpoint",
+      plant: (good, scratch) => editFiles(good, scratch, swap(paperFile("2025"), ", key: '0.1'", "")),
+    },
+    {
+      defect: "a Professor's numeric answer with no key, whose answer the independent recompute disagrees with",
+      plant: (good, scratch) =>
+        editFiles(
+          good,
+          scratch,
+          swap(paperFile("2025"), ", key: '0.1'", ""),
+          swap(paperFile("2025"), "value: 0.1, unit: m", "value: 0.2, unit: m"),
+        ),
     },
   ],
 };

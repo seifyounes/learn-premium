@@ -21,13 +21,15 @@ ruled (`ledger.ts checkpoint --key …`).
 - The answer: `numeric` (`value`, `unit`, `tolerance` tight enough that the key's printed digits pass, and
   `key`, the Professor's printed key exactly as printed, on a past paper) or `prose` (a `model` answer and
   one `earns` point per mark, as many as the question has marks). Where the Professor printed no key for
-  a numeric answer, don't make one up: the paper says `key: solved` and the solver supplies the answers.
+  any numeric answer, don't make one up: the paper says `key: solved` and the solver supplies the answers.
+  Where he printed keys for some numeric answers and not others, the paper stays `key: professor`: carry
+  each printed key, leave `key` off the rest, and the solver supplies those answers (the Owner confirms them).
   Never read the recompute's logs (`content/build-records/recompute/`).
 - A value the Owner ruled on the Professor's key ships as he ruled: a Slip ships the corrected value
   with `provenance.slips` (`value`, `sheet`), a Divergence ships the Professor's with
   `provenance.divergences` (`value`, `note`). Never rule one yourself.
-- A value the readers couldn't read (`null` in the settled reading) waits for the Owner's answer; don't
-  guess it.
+- A value the readers couldn't read (`null` in the settled reading), or a total or time the paper doesn't
+  print, waits for the Owner's answer; don't guess it.
 
 Return a short report: the files written, each paper's questions, marks and kind of key, anything you
 couldn't place. The main agent measures your time; don't report it.

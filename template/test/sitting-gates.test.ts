@@ -224,9 +224,46 @@ describe("past-papers on content planted with a defect", () => {
     ]);
   });
 
-  it("blocks a Professor's numeric answer with no key", async () => {
-    const found = await messages(edited((s) => s.replace(", key: '0.25'", "")));
-    expect(found).toEqual([expect.stringMatching(/question 1's numeric answer carries no key/)]);
+  it("asks the Owner to confirm a numeric answer the Professor's key sheet leaves out, not blocking the paper", async () => {
+    // The key sheet gives question 1 but not question 2: question 2 is treated as a solved paper's answer is.
+    const found = await messages(edited((s) => s.replace(", key: '0.1'", "")));
+    expect(found).toEqual([
+      expect.stringMatching(
+        /^checkpoint: question 2 has no printed Professor key; its answer is the build's solution, recomputed independently\. Confirm it \(answers [0-9a-f]{10}\)$/,
+      ),
+    ]);
+    // Question 1's key is still held three ways.
+    const off = await messages(
+      edited((s) => s.replace(", key: '0.1'", "").replace("value: 0.25, unit: K/W", "value: 0.3, unit: K/W")),
+    );
+    expect(off).toEqual([
+      expect.stringMatching(/^block: question 1's answer 0.3 matches neither the key 0.25 nor/),
+      expect.stringMatching(/^checkpoint: question 2 has no printed/),
+    ]);
+    // Both answers unkeyed: one item for the paper, naming both.
+    const both = await messages(edited((s) => s.replaceAll(/, key: '[^']*'/g, "")));
+    expect(both).toEqual([
+      expect.stringMatching(
+        /^checkpoint: questions 1, 2 have no printed Professor key; their answers are the build's solution/,
+      ),
+    ]);
+    // A different answer for the unkeyed question is a different digest: the Owner confirms again.
+    const changed = await messages(
+      edited((s) => s.replace(", key: '0.1'", "").replace("value: 0.1,", "value: 0.101,")),
+    );
+    expect(changed).toHaveLength(1);
+    expect(changed[0]).not.toBe(found[0]);
+  });
+
+  it("blocks an unkeyed numeric answer that differs from the independent recompute by more than its tolerance", async () => {
+    const found = await messages(
+      edited((s) => s.replace(", key: '0.1'", "").replace("value: 0.1, unit: m", "value: 0.2, unit: m")),
+    );
+    expect(found.filter((m) => m.startsWith("block:"))).toEqual([
+      expect.stringMatching(
+        /question 2's answer 0.2 and the independent recompute 0.1 differ by more than its tolerance/,
+      ),
+    ]);
   });
 
   it("blocks marks that don't add up, and a written answer with too few points", async () => {

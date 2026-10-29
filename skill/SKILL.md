@@ -383,7 +383,7 @@ item). The template's side (the pages, the `sitting` gate point) is in `template
 5. **The writers and the recompute**, as parallel subagents. The vault writer
    (`briefs/vault-writer.md`) puts each past paper in the content verbatim from the settled reading,
    in `content/sittings/<ID>/papers/<name>.yaml`. For a paper the Professor printed no key for, the
-   solver (`briefs/solver.md`) solves it and the paper says `key: solved`. The mock writer
+   solver (`briefs/solver.md`) solves it and the paper says `key: solved`; where he printed keys for only some numeric answers, the paper stays `key: professor` and the solver answers the rest. The mock writer
    (`briefs/mock-writer.md`) writes the pattern-matched mocks (two by default) and, when a format was
    announced, `format.yaml` and the announced-format mock, in `content/sittings/<ID>/mocks/` and
    `format.yaml`. The independent recompute (`briefs/recompute.md`, its past-paper section) writes

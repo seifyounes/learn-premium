@@ -1372,7 +1372,7 @@ export const paper = z.strictObject({
   /** The printed total. */
   marks: z.number().int().positive(),
   minutes: z.number().int().positive(),
-  /** `professor`: every numeric answer carries the Professor's printed key. `solved`: the build solved it, and the Owner confirms. */
+  /** `professor`: each numeric answer carries the Professor's printed key, or, where his key sheet leaves one out, is the build's solution (recomputed, and the Owner confirms it). `solved`: the build solved it, and the Owner confirms. */
   key: z.enum(["professor", "solved"]),
   questions: z.array(examQuestion).min(1),
   ...tagged,

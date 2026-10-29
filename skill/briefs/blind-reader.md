@@ -35,5 +35,11 @@ place of `"module"`. Key each paper by the short name the Owner gave it (`2025`)
 paper numbers it, `<name>/q<n>/text` (the question exactly as printed, formulas as TeX, `kind: text`),
 `<name>/q<n>/marks` (its marks, a digit string) and, only where the Professor printed one beside the
 question or on a key sheet, `<name>/q<n>/key` (the key as printed, trailing zeros kept); then
-`<name>/total` (the printed total marks) and `<name>/minutes` (the printed time). List the questions in the
-order the paper prints them. A key the paper doesn't print has no item: never work one out; and only a numeric answer has a key item (a written answer's model is the content's to write). Every item's `file` is the Materials file the Owner named for that paper, and a key keeps its printed digits (`0.250`, not `0.25`): `ready` holds both to the content.
+`<name>/total` (the printed total marks) and `<name>/minutes` (the printed time). `<n>` is the number the
+paper prints for the question (`1`, `2`, `3`…, with none skipped or repeated): `ready` matches the
+content's question n to `q<n>`, wherever your file lists it. A key the paper doesn't print has no item:
+never work one out; and only a numeric answer has a key item (a written answer's model is the content's to write).
+A key sheet may give some questions' keys and not others: write a key item for each one it gives, none for
+the rest. If the paper prints no total or no time, still write `<name>/total` or `<name>/minutes`, with
+`value: null`, `quantity: "not printed"` and `page` set to the paper's first page: it reconciles into the
+Owner's Checkpoint item (he gives the figure), never an item you leave out and never a guess. Every item's `file` is the Materials file the Owner named for that paper, and a key keeps its printed digits (`0.250`, not `0.25`): `ready` holds both to the content.

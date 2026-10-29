@@ -95,8 +95,8 @@ marked; past-paper attempts are kept but never counted.
   written one is marked by the student against the model answer and what earns the marks, so a
   paper of written answers says "Sat, mark it yourself", never `0 / 0`. A fully marked result is
   kept in this browser (`progress.papers`). A complete sitting with no past paper has Revision only.
-  A paper's `key` is `professor` (every numeric answer carries the printed key) or `solved` (the build
-  solved it and the Owner confirms); a question's `type` is the Course's own kind, and a mock follows
+  A paper's `key` is `professor` (each numeric answer carries the printed key; one his key sheet leaves out is the
+  build's solution, which the Owner confirms) or `solved` (the build solved it and the Owner confirms); a question's `type` is the Course's own kind, and a mock follows
   the papers' mix within one of each type's mean and at least their rate of `reverse` questions.
 - **About** (`/about/`): the Course, the Professor, the University, who built the site and how.
 
