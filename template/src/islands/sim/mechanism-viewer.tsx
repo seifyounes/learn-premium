@@ -261,24 +261,31 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
       if (pinned === e.pointerId) pinned = undefined;
       else if (held.delete(e.pointerId)) gestures.cancel(e.pointerId);
     };
-    const wheel = (e: WheelEvent) => {
-      if (!activeRef.current) return; // the page scrolls
-      e.preventDefault();
-      stage.current?.zoom(Math.exp(-e.deltaY * WHEEL_ZOOM));
-    };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", cancel);
-    el.addEventListener("wheel", wheel, { passive: false });
     return () => {
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", cancel);
-      el.removeEventListener("wheel", wheel);
     };
   }, [model.type]);
+
+  // The wheel zooms only once the mechanism is tapped. Until then it has no wheel listener at all: a listener
+  // that may cancel the wheel makes the browser wait on this page's main thread before it scrolls, and a main
+  // thread busy drawing WebGL would hold up the scroll the page is owed over the viewer.
+  useEffect(() => {
+    const el = objectEl.current;
+    if (!el || !active) return;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      stage.current?.zoom(Math.exp(-e.deltaY * WHEEL_ZOOM));
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+  }, [active]);
 
   // Handing the page back: a tap outside the frame, Escape, or the viewer scrolled out of view.
   useEffect(() => {
