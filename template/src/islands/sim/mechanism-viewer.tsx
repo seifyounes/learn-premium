@@ -228,8 +228,8 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
     };
     const turnPin = (e: PointerEvent) => {
       const rect = el.getBoundingClientRect();
-      const root = built.current?.root;
-      const on = root && stage.current?.pointOnPlane(e.clientX - rect.left, e.clientY - rect.top, root);
+      const plane = built.current?.dragPlane;
+      const on = plane && stage.current?.pointOnPlane(e.clientX - rect.left, e.clientY - rect.top, plane);
       if (on) onAngleRef.current(dragAngle([0, 0], [on.x, on.y]));
     };
     const down = (e: PointerEvent) => {

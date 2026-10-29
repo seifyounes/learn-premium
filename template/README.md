@@ -615,9 +615,10 @@ Students turn the driver, never the links: `start.theta` is the crank's angle fr
   starts on the ringed pin turns the driver (the pointer is cast onto the sheet's plane by
   `Stage.pointOnPlane`) and any other drag turns the view. The 2D drawing is SVG at its own size (at
   most 3 px/mm), never scaled to its box, its letters 14px and digits 12px, `dir="ltr"` on a page
-  set in Arabic too: hatched ground pins, pencil bars or gear outlines, the coupler point's (or the
-  gear tip's) whole path faint and the part the mechanism has turned through inked over it, the
-  ringed pin draggable. A browser with no WebGL opens on 2D and says why.
+  set in Arabic too: hatched ground pins, pencil bars or gear outlines, the coupler point's whole path
+  (or the driven gear's tooth tip round its rim, which the driver takes several turns to cover) faint
+  and the part the mechanism has turned through inked over it, the ringed pin draggable. A gear pair
+  keeps its turns while Play runs, so the driven gear carries on across a driver turn. A browser with no WebGL opens on 2D and says why.
 - **Motion.** Play turns the driver once in six seconds (one frame loop, running only while
   playing). Under reduced motion a running mechanism stops at the angle it has, Play is disabled, and
   the slider and the pin still turn it, instantly (`src/islands/sim/reduced-motion.ts` follows the
