@@ -151,5 +151,14 @@ export function sweptBox(model: Model): { min: Point; max: Point } {
     for (const local of Object.values(pins(model, pose(model, k))))
       for (const [x, y] of Object.values(local)) add(x, y);
   }
+  // A gear pair's pins don't bound its gears: each gear's whole tip circle does.
+  if (model.type === "gear-pair") {
+    const centres = [0, centreOf(model)] as const;
+    for (const which of [0, 1] as const) {
+      const { ra } = gearOf(model, which);
+      add(centres[which] - ra, -ra);
+      add(centres[which] + ra, ra);
+    }
+  }
   return box;
 }

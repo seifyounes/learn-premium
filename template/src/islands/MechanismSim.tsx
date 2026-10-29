@@ -7,7 +7,7 @@
 // preference is off; the slider and the pin still turn it, instantly. three.js loads only when the
 // 3D view is on screen.
 import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
-import { drive, inkBuckets, startDrive } from "../sims/mechanism/drive.ts";
+import { drive, inkBuckets, startDrive, total } from "../sims/mechanism/drive.ts";
 import { pose as poseAt, quantities, type Model } from "../sims/mechanism/engine.ts";
 import { printAt } from "../sims/print.ts";
 import { snap, type Range } from "../sims/tuning.ts";
@@ -58,8 +58,10 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
   }, [d.playing, d.reduced]);
 
   // The pose, the engine's, drawn by whichever view is open.
-  const pose = useMemo(() => poseAt(model, d.angle), [model, d.angle]);
-  const named = useMemo(() => quantities(model, { theta: d.angle }), [model, d.angle]);
+  // Asked for at the angle and the turns Play has taken, so a gear pair's driven gear carries on across a wrap.
+  const driver = total(d);
+  const pose = useMemo(() => poseAt(model, driver), [model, driver]);
+  const named = useMemo(() => quantities(model, { theta: driver }), [model, driver]);
 
   // The trace inks in the degrees the driver passes, in either view; coming back to 2D, it is all still there.
   const [inked, setInked] = useState<ReadonlySet<number>>(() => inkBuckets(new Set(), start.theta, start.theta));
