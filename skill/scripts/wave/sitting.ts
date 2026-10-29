@@ -141,8 +141,8 @@ const sameKey = (a: string, b: string) => a.trim().replace(/\s+/g, " ") === b.tr
  * reading or the content lacks, a question count, order, text (whitespace aside), marks, key (a key
  * item exists exactly when the Professor's paper prints one, and then reads the same), a paper's total
  * and its minutes. A value the readers couldn't read (null) is the Owner's Checkpoint item, not a
- * mismatch. Question n of the content is the n-th question the reading names, in the order it first
- * names them, which is the paper's own order.
+ * mismatch. Question n of the content is the reading's question labelled "n", the paper's own printed
+ * number, wherever the reading lists it; a label that isn't one of 1..N is named.
  */
 export function faithfulProblems(
   papers: readonly DumpPaper[],
@@ -179,9 +179,15 @@ export function faithfulProblems(
       problems.push(
         `past paper "${paper.name}" has ${labels.length} question${labels.length === 1 ? "" : "s"} in the settled reading and ${paper.questions.length} in the content`,
       );
-    paper.questions.forEach((q, i) => {
-      const label = labels[i];
-      if (label === undefined) return;
+    // The printed numbers hold the order, not the reading's listing order: question n is label "n".
+    const wanted = new Set(labels.map((_, i) => String(i + 1)));
+    for (const label of labels)
+      if (!wanted.has(label))
+        problems.push(
+          `past paper "${paper.name}": the settled reading has a question label "${label}" that isn't one of 1..${labels.length}`,
+        );
+    paper.questions.forEach((q) => {
+      const label = String(q.n);
       const at = `past paper "${paper.name}" question ${q.n}`;
       const words = find(`q${label}/text`);
       if (words === undefined) problems.push(`${at}: the settled reading has no text for question ${label}`);
