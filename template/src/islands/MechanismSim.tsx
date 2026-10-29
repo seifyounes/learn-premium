@@ -31,6 +31,9 @@ interface Props {
   label: string;
 }
 
+/** The least time between two steps of the play clock: 30 a second. */
+const FRAME_MS = 30;
+
 const NO_WEBGL = "This browser can't draw the mechanism in 3D: it is shown as the sheet drawing.";
 
 export default function MechanismSim({ model, start, tune, decimals, mathHtml, label }: Props) {
@@ -45,17 +48,33 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
   // Reduced motion, followed live: a running mechanism stops where it is the moment the setting turns on.
   useEffect(() => dispatch({ type: "reduced", reduced }), [reduced]);
 
-  // One frame loop, only while playing: nothing runs when idle (and none under reduced motion).
+  // Whether the sim is near the screen: a running mechanism scrolled far away draws nothing and costs the page nothing.
+  const rootEl = useRef<HTMLDivElement>(null);
+  const [onScreen, setOnScreen] = useState(true);
   useEffect(() => {
-    if (!d.playing || d.reduced) return;
+    const el = rootEl.current;
+    if (!el) return;
+    const watch = new IntersectionObserver(([entry]) => entry && setOnScreen(entry.isIntersecting), {
+      rootMargin: "25% 0px",
+    });
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+
+  // One frame loop, only while playing and in view: nothing runs when idle (and none under reduced motion).
+  // It turns the driver every other frame at most (30 a second): a phone, or a page held back to a quarter of
+  // its speed, gets the same motion for half the drawing.
+  useEffect(() => {
+    if (!d.playing || d.reduced || !onScreen) return;
     let last = performance.now();
     let frame = requestAnimationFrame(function step(now) {
+      frame = requestAnimationFrame(step);
+      if (now - last < FRAME_MS) return;
       dispatch({ type: "tick", ms: now - last });
       last = now;
-      frame = requestAnimationFrame(step);
     });
     return () => cancelAnimationFrame(frame);
-  }, [d.playing, d.reduced]);
+  }, [d.playing, d.reduced, onScreen]);
 
   // The pose, the engine's, drawn by whichever view is open.
   // Asked for at the angle and the turns Play has taken, so a gear pair's driven gear carries on across a wrap.
@@ -145,6 +164,7 @@ export default function MechanismSim({ model, start, tune, decimals, mathHtml, l
 
   return (
     <div
+      ref={rootEl}
       className="sim mechanism"
       role="group"
       aria-label={label}

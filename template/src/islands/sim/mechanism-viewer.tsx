@@ -107,13 +107,15 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
 
   useEffect(() => onStatusRef.current(status), [status]);
 
-  // Near the screen or not: the stage, and its WebGL context, exist only while it is.
+  // Near the screen or not: the stage, and its WebGL context, exist only while it is. Near is a tenth of a
+  // screen either side: a page with two mechanisms (the Module page, the Lab, the gallery) draws the one in
+  // view, not both, and software WebGL on a slow phone or runner isn't asked to draw a second one unseen.
   const [near, setNear] = useState(false);
   useEffect(() => {
     const frame = frameEl.current;
     if (!frame) return;
     const watch = new IntersectionObserver(([entry]) => entry && setNear(entry.isIntersecting), {
-      rootMargin: "50% 0px",
+      rootMargin: "10% 0px",
     });
     watch.observe(frame);
     return () => watch.disconnect();
