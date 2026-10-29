@@ -114,7 +114,7 @@ export const templateVideos: VideoTemplate = {
     }
   },
   probe(project, ids) {
-    const run = gateCli(project, ["videos", "probe", "--ids", ids.join(",")]);
+    const run = gateCli(project, ["videos", "probe", `--ids=${ids.join(",")}`]);
     if (!run.ok) return run.said.join("; ");
     try {
       return (JSON.parse(run.out) as { probes: ProbeAnswer[] }).probes;
