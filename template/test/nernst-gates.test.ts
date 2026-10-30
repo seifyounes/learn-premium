@@ -9,6 +9,7 @@ import { runControls, type Gate } from "../gates/runner.ts";
 import { seriesLimitGate } from "../gates/series.ts";
 import { cellState } from "../src/sims/nernst/apparatus.ts";
 import { sweepGrid, type NernstLog } from "../src/sims/nernst/log.ts";
+import type { Range } from "../src/sims/tuning.ts";
 import { FIXTURE_COURSE, fixtureWith } from "./build-course";
 
 const MODULE = "13-cell-potential";
@@ -141,8 +142,8 @@ describe("the nernst gate", () => {
 
   it("compareSweep reads a T-first tune in c1, c2, T order, and names a T-slowest sweep as off the grid", () => {
     const { model, tune } = sim();
-    const { c1, c2, T } = tune as Record<string, never>;
-    const tFirst = { T, c1, c2 } as typeof tune;
+    const { c1, c2, T } = tune as { c1: Range; c2: Range; T: Range };
+    const tFirst: typeof tune = { T, c1, c2 };
     expect(compareSweep(model, tFirst, log().sweep)).toEqual([]);
     const tSlowest = [...log().sweep].sort(
       (a, b) =>
