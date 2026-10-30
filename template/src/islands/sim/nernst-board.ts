@@ -69,6 +69,11 @@ export function nernstBoard(
   const room = (xMax - xMin) * LABEL_ROOM;
   const box: Box = [xMin - (xMax - xMin) * 0.04, high + margin, xMax + room, low - margin];
   const board = makeBoard(JXG, el, box, inks);
+  // Sized by the sim alone (`fitOnResize`, then `relayout`), never by JSXGraph's own observer: that one keeps the
+  // size it saw when the stage changed and applies it 10 ms later, dropping a second change that arrives meanwhile.
+  // On a slow runner it set the board back to a size the stage no longer had, and the labels placed for the right
+  // size sat on the wrong board (the layout sweep found the region name on a marker at 390px).
+  board.stopResizeObserver();
 
   board.suspendUpdate();
   const curves = new Map<string, Curve>();

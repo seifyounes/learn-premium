@@ -211,6 +211,92 @@ describe("the Nernst sim in a browser", () => {
     await context.close();
   });
 
+  /** The plot's board: its stage and its svg, with the widths they have now. */
+  const boardWidths = (page: Page) =>
+    sim(page).evaluate((root) => {
+      const stage = root.querySelector('.sim-stage[data-board="nernst"]') as HTMLElement;
+      const svg = stage.querySelector("svg") as SVGSVGElement;
+      return { stage: stage.clientWidth, svg: svg.getBoundingClientRect().width };
+    });
+  /** The region names that lie on a drawn ellipse of the plot's svg (a point's marker). */
+  const labelsOnMarkers = (page: Page) =>
+    sim(page).evaluate((root) => {
+      const svg = root.querySelector('.sim-stage[data-board="nernst"] svg') as SVGSVGElement;
+      const hits: string[] = [];
+      for (const label of root.querySelectorAll("[data-region]")) {
+        const r = label.getBoundingClientRect();
+        for (const e of svg.querySelectorAll("ellipse")) {
+          const b = e.getBoundingClientRect();
+          if (b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom)
+            hits.push(`${(label.textContent ?? "").trim()} on a marker at ${Math.round(b.left)},${Math.round(b.top)}`);
+        }
+      }
+      return hits;
+    });
+
+  it("keeps the plot's board the size of its stage when the stage changes twice in one frame", async () => {
+    // JSXGraph watches the stage itself and applies the size it saw 10 ms later, dropping a second change
+    // that arrives while it waits: so it set the board back to the first size after the island had set the last,
+    // and on a slow runner the board sat at the wrong size when the layout sweep looked. Its 10 ms timer is held
+    // here until the island has answered both changes, then let go: a board that answers only the island stays put.
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const { page, errors } = await open(context);
+    await sim(page).scrollIntoViewIfNeeded();
+    await sim(page).getByRole("tab", { name: "Plot" }).click();
+    await sim(page).locator('path[data-series][data-shown="true"]').first().waitFor();
+    // Let JSXGraph answer the board's first size before the second change comes.
+    await page.waitForTimeout(500);
+    const before = await boardWidths(page);
+    expect(before.svg).toBe(before.stage);
+    await sim(page).evaluate(async (root) => {
+      const stage = root.querySelector('.sim-stage[data-board="nernst"]') as HTMLElement;
+      const held: (() => void)[] = [];
+      const real = window.setTimeout.bind(window);
+      (window as unknown as { setTimeout: unknown }).setTimeout = (fn: () => void, ms?: number) =>
+        ms === 10 ? held.push(fn) : real(fn, ms);
+      let first = true;
+      const second = new ResizeObserver(() => {
+        if (!first) return;
+        first = false;
+        stage.style.width = "250px";
+      });
+      second.observe(stage);
+      stage.style.width = "340px";
+      await new Promise((done) => real(done, 400));
+      second.disconnect();
+      (window as unknown as { setTimeout: unknown }).setTimeout = real;
+      for (const fn of held) fn();
+      await new Promise((done) => real(done, 100));
+    });
+    const after = await boardWidths(page);
+    expect(after.stage).toBe(250);
+    expect(after.svg).toBe(250);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
+  it("keeps the region names clear of the plot's markers at 390px, after the plot was opened and left at other widths", async () => {
+    const context = await browser.newContext({ viewport: { width: 320, height: 844 } });
+    const { page, errors } = await open(context);
+    await sim(page).scrollIntoViewIfNeeded();
+    await sim(page).getByRole("tab", { name: "Plot" }).waitFor();
+    // As the layout sweep goes: open the plot, leave it at once, change width, open it again.
+    for (const width of [320, 375, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await sim(page).getByRole("tab", { name: "Plot" }).click();
+      await sim(page).getByRole("tab", { name: "Cell" }).click();
+    }
+    await sim(page).getByRole("tab", { name: "Plot" }).click();
+    await sim(page).locator('path[data-series][data-shown="true"]').first().waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    expect(await boardWidths(page)).toEqual({ stage: 356, svg: 356 });
+    expect(await sim(page).locator("[data-region]").count()).toBe(2);
+    expect(await labelsOnMarkers(page)).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+
   it("on a phone keeps the page from scrolling sideways, on both tabs, every label 12px or more", async () => {
     const context = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
     const { page, errors } = await open(context);
