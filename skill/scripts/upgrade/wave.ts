@@ -16,7 +16,7 @@ import { mutate, requireLedger, runningUpgrade, templateHashes, verifyIntegrity 
 import { current, TEMPLATE_DIR, type Ledger, type Upgrade } from "../ledger/model.ts";
 import { OVERRIDABLE } from "../ledger/overrides.ts";
 import type { Tracker } from "../gate-gap/tracker.ts";
-import { checkpoint, moduleFolder, type Verifier } from "../wave/wave.ts";
+import { checkpoint, moduleFolder, unruled, type Verifier } from "../wave/wave.ts";
 import { heldReason, planUpgrade } from "./plan.ts";
 
 const BRANCH = "main";
@@ -465,6 +465,9 @@ export function upgradeProblems(project: string, verifier: Verifier): string[] {
       problems.push(
         `Checkpoint item ${item.key} was ruled a ${item.ruling}, but the content doesn't carry the ruling yet`,
       );
+    // The gates stay quiet on a Slip or Divergence the content carries, so a migration that rewrote the
+    // provenance blocks could ship one no Owner answer covers: hold the content to his answers, as the Module wave does.
+    problems.push(...unruled(ledger, id, verifier.rulings(project, folder)));
   }
   const deploy = verifier.verify(project, "deploy", undefined);
   if (!deploy.green) problems.push(`the deploy gates aren't green for HEAD: ${deploy.problems.join("; ") || "red"}`);

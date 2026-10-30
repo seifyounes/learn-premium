@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { run as runGateGap } from "../scripts/gate-gap/cli.ts";
 import { hashTree } from "../scripts/ledger/hash.ts";
-import { checkpoint, type MergePoint, type Verifier } from "../scripts/wave/wave.ts";
+import { checkpoint, type ContentRuling, type MergePoint, type Verifier } from "../scripts/wave/wave.ts";
 import { run as runUpgrade, type Deps } from "../scripts/upgrade/cli.ts";
 import { EMPTY_INVENTORY } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
@@ -554,6 +554,8 @@ describe("migrate", { timeout: 120_000 }, () => {
 class FakeVerifier implements Verifier {
   readonly calls: string[] = [];
   readonly red = new Set<string>();
+  /** The Slips and Divergences the Course's content ships, as the template's `rulings` would list them. */
+  shipped: ContentRuling[] = [];
 
   verify(_project: string, point: MergePoint, module: string | undefined) {
     const key = module === undefined ? point : `${point}:${module}`;
@@ -563,7 +565,7 @@ class FakeVerifier implements Verifier {
   }
 
   rulings() {
-    return [];
+    return this.shipped;
   }
 
   inventory() {
@@ -721,6 +723,42 @@ describe("ready", { timeout: 120_000 }, () => {
     git(c.project, "commit", "-q", "-m", "chore: the Owner's answer");
     const answered = await ready(c);
     expect(answered.out, JSON.stringify(answered.out)).toMatchObject({ ready: true, problems: [] });
+  });
+
+  test("holds a Slip or Divergence no Owner answer rules, then accepts it once he has (final review F3)", async () => {
+    const c = upgradeCourse(releaseRepo(), { content: "minimal" });
+    await readyWave(c);
+    const verifier = new FakeVerifier();
+    // A migration left the content shipping a Divergence on the sheet's 1.45; no Checkpoint row covers it.
+    verifier.shipped = [{ entry: "modules/01-thermal-resistance/worked/1.json", kind: "divergence", printed: [1.45] }];
+    const unruled = await ready(c, verifier);
+    expect(unruled.code).toBe(1);
+    expect(unruled.out.problems).toEqual([
+      expect.stringContaining(
+        "modules/01-thermal-resistance/worked/1.json ships a divergence on 1.45 that no Owner answer rules",
+      ),
+    ]);
+    // An answer ruling it a slip doesn't stand for a divergence.
+    const record = (ruling: string) => {
+      must(
+        ledger(
+          ...["record", "checkpoint", "--project", c.project, "--holder", HOLDER, "--wave", "upgrade-v2.0.0-1"],
+          ...["--key", "01/worked-numbers/ruled", "--answer", "his word", "--ruling", ruling],
+          ...[
+            "--question",
+            "modules/01-thermal-resistance/worked/1.json: sheet cell D4 prints 1.45, but the recompute gives 1.5",
+          ],
+        ),
+      );
+      git(c.project, "add", "-A");
+      git(c.project, "commit", "-q", "-m", "chore: the Owner's answer");
+    };
+    record("slip");
+    expect((await ready(c, verifier)).out.problems).toEqual([expect.stringContaining("ships a divergence on 1.45")]);
+    // Negative control: the matching ruling clears it.
+    record("divergence");
+    const ruled = await ready(c, verifier);
+    expect(ruled.out, JSON.stringify(ruled.out)).toMatchObject({ ready: true, problems: [] });
   });
 
   test("is refused when no wave runs", async () => {
