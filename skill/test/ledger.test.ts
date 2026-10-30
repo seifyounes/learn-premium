@@ -585,6 +585,33 @@ describe("the fix loop: two fix rounds, then the fallback, else a Checkpoint ite
     expect(answered.code).toBe(0);
   });
 
+  test("a Checkpoint row superseded by hand no longer blocks the job; fix rounds still count it (final review F20)", () => {
+    const { project, record } = runningWave();
+    const holder = ["--project", project, "--holder", "session-a"];
+    const wave = ledger("status", "--project", project).out.waves[0].id as string;
+    [1, 2, 3].forEach(() => record("writer", "blocked", "red"));
+    record("writer", "checkpoint", "sheet 2 needs the Owner's reading");
+    // Negative control: left standing, the row blocks every later result.
+    expect(record("writer", "passed").code).toBe(3);
+
+    const voided = ledger("supersede", ...holder, "--row", "job", "--id", `${wave}/writer`, "--reason", "asked wrongly");
+    const passed = record("writer", "passed");
+
+    expect(voided.code).toBe(0);
+    expect(passed.code, JSON.stringify(passed.out)).toBe(0);
+  });
+
+  test("superseding a blocked row by hand does not give the job fresh fix rounds (final review F20)", () => {
+    const { project, record } = runningWave();
+    const holder = ["--project", project, "--holder", "session-a"];
+    const wave = ledger("status", "--project", project).out.waves[0].id as string;
+    [1, 2, 3].forEach(() => record("tool-pendulum", "blocked", "red"));
+
+    ledger("supersede", ...holder, "--row", "job", "--id", `${wave}/tool-pendulum`, "--reason", "hoped to reset it");
+
+    expect(record("tool-pendulum", "blocked", "red").code).toBe(3);
+  });
+
   test("a job falls back only once its two fix rounds are spent, never in place of them (negative control)", () => {
     const { record } = runningWave();
 

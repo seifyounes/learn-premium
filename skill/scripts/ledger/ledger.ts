@@ -415,7 +415,9 @@ export function recordJob(
     if (wave === undefined || wave.state !== "running") throw new LedgerError("invalid", `no running wave ${job.wave}`);
     const history = ledger.jobs.filter((row) => row.wave === job.wave && row.job === job.job);
     // A job that escalated waits for the Owner: its item (keyed as the batched Checkpoint keys it) answered since.
-    const last = history.at(-1);
+    // A row voided by hand (`supersede --row job`) no longer counts, or its item could never be answered: the
+    // batched Checkpoint lists current rows only. The fix rounds below still count the whole history.
+    const last = history.filter((row) => row.superseded === null || row.superseded.reason === "re-run").at(-1);
     const itemKeyOf = last?.result === "checkpoint" ? itemKey(wave.target, "job", job.job, [last.detail ?? ""]) : null;
     const answered =
       itemKeyOf !== null &&
