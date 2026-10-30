@@ -7,7 +7,7 @@ import { requireLedger } from "../ledger/ledger.ts";
 import { moduleId } from "../ledger/model.ts";
 import { isoTime, oneOf, SchemaError } from "../ledger/schema.ts";
 import { LedgerError } from "../ledger/store.ts";
-import { assign, confirmDiscipline, fallback } from "./assign.ts";
+import { assign, confirmDiscipline, fallback, undoFallback } from "./assign.ts";
 import { handback } from "./handback.ts";
 import { reconcile, reconcileSitting } from "./reading.ts";
 import { relaunchClose, relaunchOpen, templateJobGates, type JobGates } from "./relaunch.ts";
@@ -132,7 +132,17 @@ function dispatch(args: Args, deps: WaveDeps): Output {
         args.required("--name"),
         deps.verifier,
       );
-    case "fallback":
+    case "fallback": {
+      // The Owner overruling a fallback: the tool ships what it was assigned, on his recorded word.
+      const undo = args.optional("--undo");
+      if (undo !== undefined)
+        return undoFallback(
+          project,
+          args.required("--holder"),
+          args.required("--wave"),
+          undo,
+          args.optional("--answer"),
+        );
       return fallback(
         project,
         args.required("--holder"),
@@ -140,6 +150,7 @@ function dispatch(args: Args, deps: WaveDeps): Output {
         args.required("--job"),
         isoTime(args.required("--started-at"), "--started-at"),
       );
+    }
     case "videos": {
       const privateFolder = privateFolderOf(requireLedger(project).intake.materialsPath);
       switch (args.subcommand()) {

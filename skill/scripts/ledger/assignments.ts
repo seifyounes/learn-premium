@@ -93,6 +93,47 @@ export function recordDiscipline(
 }
 
 /**
+ * Records the Owner's word that a fallen-back tool ships the tool it was assigned again: `ships` goes
+ * back to `tool`, the tool's `fallbacks` stay as its history, and his answer is a Checkpoint row under
+ * `key`, in one write. Refused (exit 3) for a tool that already ships what it was assigned.
+ */
+export function recordFallbackUndone(
+  project: string,
+  holder: string,
+  row: { wave: string; name: string; key: string; question: string; answer: string },
+) {
+  return mutate(project, holder, (ledger) => {
+    const wave = current(ledger.waves).find((w) => w.id === row.wave);
+    if (wave === undefined || wave.state !== "running") throw new LedgerError("invalid", `no running wave ${row.wave}`);
+    const tool = assignmentOf(ledger, row.wave)?.tools.find((t) => t.name === row.name);
+    if (tool === undefined) throw new LedgerError("invalid", `wave ${row.wave} has no assigned tool ${row.name}`);
+    // A sim recorded fell-back by a plain `record job` ships its step-through, as `ready` judges it.
+    const job = current(ledger.jobs).find((j) => j.wave === row.wave && j.job === tool.job);
+    const from = tool.job.startsWith("sim-") && job?.result === "fell-back" ? "step-through" : tool.ships;
+    if (from === tool.tool)
+      throw new LedgerError(
+        "refused",
+        `${row.name} already ships ${tool.tool}, the tool it was assigned: nothing to undo`,
+      );
+    const at = new Date().toISOString();
+    tool.ships = tool.tool;
+    for (const earlier of current(ledger.checkpoints)) {
+      if (earlier.key === row.key) earlier.superseded = { at, reason: "answered again" };
+    }
+    ledger.checkpoints.push({
+      key: row.key,
+      wave: row.wave,
+      question: row.question,
+      answer: row.answer,
+      ruling: null,
+      answeredAt: at,
+      superseded: null,
+    });
+    return { from, to: tool.tool };
+  });
+}
+
+/**
  * Records the Owner's word that a Discipline added at intake met the bar, superseding his earlier
  * word. Refused (exit 2) for a Discipline this Course didn't add at intake, and (exit 3) until a
  * Module wave has merged with a tool of it: its first real build is what proves it.

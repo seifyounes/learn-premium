@@ -869,6 +869,107 @@ describe("fallback after two fix rounds", () => {
   });
 });
 
+const undoFallBack = (project: string, waveId: string, name: string, ...answer: string[]) =>
+  wave(["fallback", ...holder(project), "--wave", waveId, "--undo", name, ...answer]);
+
+describe("the Owner overruling a fallback (final review O3)", () => {
+  /** A sim that fell back to its step-through after two fix rounds. */
+  function fellBack() {
+    const course = assigned();
+    blockThrice(course.project, course.waveId, "sim-descent");
+    must(fallBack(course.project, course.waveId, "sim-descent"));
+    return course;
+  }
+
+  test("with his word, ships goes back to the live tool, the history stays and his answer is a Checkpoint row", () => {
+    const { project, waveId } = fellBack();
+
+    const { code, out } = undoFallBack(project, waveId, "descent", "--answer", "Ship the real sim, I'll review it.");
+
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(out).toMatchObject({
+      tool: "descent",
+      from: "step-through",
+      to: "gradient-descent",
+      key: "03/fallback/descent",
+    });
+    expect(toolRow(project, "descent")).toMatchObject({
+      ships: "gradient-descent",
+      fallbacks: [{ from: "gradient-descent", to: "step-through" }],
+    });
+    const status = must(ledger("status", "--project", project));
+    expect(status.checkpoints).toContainEqual(
+      expect.objectContaining({
+        key: "03/fallback/descent",
+        answer: "Ship the real sim, I'll review it.",
+        ruling: null,
+      }),
+    );
+    // The job builds the live sim again with two fresh fix rounds, and a pass is accepted.
+    expect(record(project, waveId, "sim-descent", "blocked").out.fixRounds).toEqual({ used: 0, left: 2 });
+    expect(record(project, waveId, "sim-descent", "passed").code).toBe(0);
+  });
+
+  test("without his word it is refused (exit 3) and nothing changes (negative control)", () => {
+    const { project, waveId } = fellBack();
+
+    const none = undoFallBack(project, waveId, "descent");
+    const blank = undoFallBack(project, waveId, "descent", "--answer", "  ");
+
+    expect(none).toMatchObject({ code: 3, out: { error: expect.stringContaining("needs the Owner's word") } });
+    expect(blank.code).toBe(3);
+    expect(toolRow(project, "descent")?.ships).toBe("step-through");
+    expect(must(ledger("status", "--project", project)).checkpoints).toEqual([]);
+  });
+
+  test("a tool that still ships what it was assigned has nothing to undo (exit 3)", () => {
+    const { project, waveId } = assigned();
+
+    const { code, out } = undoFallBack(project, waveId, "descent", "--answer", "yes");
+
+    expect(code).toBe(3);
+    expect(out.error).toMatch(/descent already ships gradient-descent, the tool it was assigned/);
+  });
+
+  test("a tool the assignment doesn't have is exit 2, and another session's run is refused", () => {
+    const { project, waveId } = fellBack();
+
+    expect(undoFallBack(project, waveId, "nothing", "--answer", "yes").code).toBe(2);
+    const other = wave([
+      "fallback",
+      "--project",
+      project,
+      "--holder",
+      "session-b",
+      "--wave",
+      waveId,
+      "--undo",
+      "descent",
+      "--answer",
+      "yes",
+    ]);
+    expect(other.code).toBe(3);
+    expect(toolRow(project, "descent")?.ships).toBe("step-through");
+  });
+
+  test("the build report shows the overruled fallback rather than a fall-back it no longer is", () => {
+    const { project, waveId } = fellBack();
+    must(undoFallBack(project, waveId, "descent", "--answer", "Ship the real sim."));
+    // Until the builder runs again the sim's job still reads fell-back, and the report says what ships.
+    expect(readFileSync(`${project}/build-records/build-report.md`, "utf8")).toContain(
+      "step-through (fell back from gradient-descent)",
+    );
+    must(record(project, waveId, "sim-descent", "passed"));
+
+    const text = readFileSync(`${project}/build-records/build-report.md`, "utf8");
+
+    expect(text).toMatch(
+      /\| descent \|.*\| gradient-descent \| gradient-descent \(the Owner overruled a fallback to step-through\) \|/,
+    );
+    expect(text).toContain("fallback --undo");
+  });
+});
+
 /** The template's inventory of Fixture Module 03, as the skill's fixture holds it. */
 const MODULE_03: ToolInventory = JSON.parse(
   readFileSync(new URL("./fixtures/tool-inventory/03-gradient-descent.json", import.meta.url), "utf8"),
