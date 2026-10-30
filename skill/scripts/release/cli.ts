@@ -254,6 +254,8 @@ async function main(argv: string[], deps: CliDeps, out: string[]): Promise<numbe
           `the tag is out, but the GitHub Release failed (${(error as Error).message}); publish it with:`,
           `gh release create ${p.version} --verify-tag --title "learn-premium ${p.version}" --notes-from-tag`,
         );
+        // The next release's step 1 dates this one by its published Release, so this isn't a success.
+        return 1;
       }
       return 0;
     }

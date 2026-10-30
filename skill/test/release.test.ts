@@ -70,7 +70,10 @@ class FakeForge implements Forge {
   async releasePublishedAt(tag: string) {
     return this.publishedAt.get(tag) ?? null;
   }
+  /** Set to make GitHub refuse the Release after the tag is out. */
+  releaseFails: string | null = null;
   async createRelease(tag: string, title: string, notes: string) {
+    if (this.releaseFails !== null) throw new Error(this.releaseFails);
     this.publishedAt.set(tag, new Date(Date.UTC(2026, 9, 7, 0, 0, this.clock++)).toISOString());
     this.releases.push({ tag, title, notes });
     return `https://github.example/releases/${tag}`;
@@ -285,6 +288,33 @@ describe("tag", () => {
     expect(stdout).toContain("tagged v0.1.0");
   });
 
+  test("a failed GitHub Release exits 1, with the tag out and the recovery command printed (final review F22)", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r);
+    r.forge.ownerPass(sha);
+    r.forge.releaseFails = "HTTP 502";
+    const { code, stdout } = await r.release("tag", "--bump", "minor");
+    expect(code).toBe(1);
+    expect(r.originTags()).toBe("v0.1.0");
+    expect(stdout).toContain("the tag is out, but the GitHub Release failed (HTTP 502)");
+    expect(stdout).toContain('gh release create v0.1.0 --verify-tag --title "learn-premium v0.1.0" --notes-from-tag');
+  });
+
+  test("a commit already released can't be released again under a new version (final review F22)", async () => {
+    const r = repo();
+    const sha = readyButForThePass(r);
+    r.forge.ownerPass(sha);
+    expect((await r.release("tag", "--bump", "minor")).code).toBe(0);
+    const again = await r.release("tag", "--bump", "patch");
+    expect(again.code).toBe(1);
+    expect(again.stdout).toContain(`${sha.slice(0, 7)} is already released as v0.1.0`);
+    expect(r.originTags()).toBe("v0.1.0");
+    // Negative control: a new commit on top of it may be released.
+    const next = readyButForThePass(r, "a patch");
+    r.forge.ownerPass(next);
+    expect((await r.release("tag", "--bump", "patch")).code).toBe(0);
+  });
+
   test("--dry-run checks everything and prints the notes, but tags nothing", async () => {
     const r = repo();
     const sha = readyButForThePass(r);
@@ -450,6 +480,20 @@ describe("majors and migrations", () => {
     const { code, stdout } = await r.release("tag", "--bump", "patch");
     expect(code).toBe(1);
     expect(stdout).toMatch(/drops template\/migrations\/v1\.ts, which v1\.0\.0 shipped/);
+  });
+
+  test("a second file for one major (v01.ts beside v1.ts) is refused, so a migration never runs twice (final review F22)", async () => {
+    const r = await afterFirstRelease({
+      "template/migrations/v1.ts": MIGRATION,
+      "template/migrations/v01.ts": MIGRATION,
+    });
+    const { code, stdout } = await r.release("tag", "--bump", "major");
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/template\/migrations\/v01\.ts isn't named template\/migrations\/v1\.ts/);
+    expect(stdout).toContain(
+      "template/migrations/v01.ts and template/migrations/v1.ts are both the migration for major 1",
+    );
+    expect(r.originTags()).toBe("v0.1.0");
   });
 
   test("a major with its migration tags, and its notes list the migration", async () => {

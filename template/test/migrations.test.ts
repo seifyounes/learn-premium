@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { runMigrations } from "../migrations/runner.ts";
+import { runMigrations, shippedMajors } from "../migrations/runner.ts";
 
 /** A migrations folder whose migrations each append their major to `log.txt` in the content. */
 function migrationsFolder(majors: number[], extra: Record<string, string> = {}): string {
@@ -75,6 +75,18 @@ describe("runMigrations", () => {
       "the v3 migration failed: no sims folder",
     );
     expect(log(content)).toEqual(["v2"]);
+  });
+
+  it("ignores a non-canonical file name, so v01.ts beside v2.ts never runs v2 twice (final review F22)", async () => {
+    const dir = migrationsFolder([2, 3]);
+    const twin = readFileSync(join(dir, "v2.ts"), "utf8");
+    for (const name of ["v02.ts", "v0.ts", "v002.ts"]) writeFileSync(join(dir, name), twin);
+    const content = course();
+    const ran = await runMigrations({ contentDir: content, from: "v1.0.0", dir });
+    expect(log(content)).toEqual(["v2", "v3"]);
+    expect(ran.map((r) => r.major)).toEqual([2, 3]);
+    // Negative control: the canonical names still run.
+    expect(shippedMajors(dir)).toEqual([2, 3]);
   });
 
   it("refuses a migration file that doesn't export describe and migrate", async () => {
