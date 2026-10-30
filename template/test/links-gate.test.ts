@@ -92,6 +92,9 @@ describe("the go-further link on the built page", () => {
     expect(await found(5)).toEqual([
       "<iframe> loads //phet.colorado.edu/sims/html/concentration/latest/concentration_all.html: PhET appears only as a credited plain link in a new tab, never framed, embedded or loaded",
     ]);
+    expect(await found(7)).toEqual([
+      "assets/app.html is a copy of PhET's own code: PhET and Falstad are never self-hosted, only linked",
+    ]);
     expect(await found(6)).toEqual([
       `the link to https://phet.colorado.edu./en/simulations/concentration carries no credit: it sits in a "Go further" list beside PhET's credit, PhET Interactive Simulations, University of Colorado Boulder`,
     ]);
@@ -111,7 +114,7 @@ describe("the go-further link on the built page", () => {
     }
   });
 
-  it("links-only catches its seven controls", async () => {
+  it("links-only catches its eight controls", async () => {
     const result = await runControls({ input, gates: [linksOnly] });
     expect(result.gates[0]?.positive).toBe("pass");
     expect(result.gates[0]?.controls.map((c) => `${c.caught ? "caught" : "MISSED"}: ${c.defect}`)).toEqual([
@@ -122,6 +125,7 @@ describe("the go-further link on the built page", () => {
       "caught: a Falstad applet loaded as a script",
       "caught: a PhET sim framed by a protocol-relative src",
       "caught: a PhET link to phet.colorado.edu. (trailing dot)",
+      "caught: a copy of PhET's code under a neutral file name",
     ]);
     expect(result.ok).toBe(true);
   });
