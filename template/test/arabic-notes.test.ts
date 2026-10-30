@@ -11,6 +11,9 @@ import { untagged } from "../src/provenance/values.ts";
 import { buildCourse, FIXTURE_COURSE, fixtureWith } from "./build-course";
 import { serve } from "./serve";
 
+const NUMBERS_AS_ENGLISH =
+  "write numbers in an Arabic note with the digits 0–9 and the separators . and , as the English content does";
+
 const prose = (text: string) => renderProse(text, () => ({ file: "test", line: 1 }));
 
 /** The runs `html` sets left to right: the number spans' text. */
@@ -92,8 +95,25 @@ describe("the content contract for Arabic notes", () => {
   it("refuses Eastern Arabic digits: numbers are written as the English content and the exam write them", () => {
     const parsed = worked.safeParse(workedWith({ arabic: "الفقد ١٦٫٢ واط" }));
     expect(parsed.error?.issues.map((i) => [i.path.join("."), i.message])).toEqual([
-      ["steps.0.arabic", "write numbers in an Arabic note with the digits 0–9, as the English content does"],
+      ["steps.0.arabic", NUMBERS_AS_ENGLISH],
     ]);
+  });
+
+  it("refuses the Arabic decimal and thousands separators, even between digits 0–9 (final review F8)", () => {
+    for (const arabic of ["القيمة 16٫2", "المبلغ 1٬250 جنيه", "القيمة 16٫2 واط"]) {
+      const parsed = beat.safeParse({ title: "T", arabic });
+      expect(
+        parsed.error?.issues.map((i) => i.message),
+        arabic,
+      ).toEqual([NUMBERS_AS_ENGLISH]);
+    }
+    // Control: the same notes written with . and , are accepted.
+    for (const arabic of ["القيمة 16.2", "المبلغ 1,250 جنيه"])
+      expect(beat.safeParse({ title: "T", arabic }).success, arabic).toBe(true);
+  });
+
+  it("keeps a number with an Arabic separator one left-to-right run, should one reach the page", () => {
+    expect(ltrRuns(arabicProse("القيمة 16٫2 والمبلغ 1٬250"))).toEqual(["16٫2", "1٬250"]);
   });
 });
 

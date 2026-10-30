@@ -149,8 +149,10 @@ const arabicNote = z
   .min(1)
   .refine((text) => /\p{Script=Arabic}/u.test(text), "an Arabic note is written in Arabic")
   .refine(
-    (text) => !/[\u0660-\u0669\u06F0-\u06F9]/.test(text),
-    "write numbers in an Arabic note with the digits 0–9, as the English content does",
+    // The Arabic decimal and thousands separators (U+066B, U+066C) go with the Eastern digits: a
+    // number split by them lays out reversed on a right-to-left line.
+    (text) => !/[\u0660-\u0669\u06F0-\u06F9\u066B\u066C]/.test(text),
+    "write numbers in an Arabic note with the digits 0–9 and the separators . and , as the English content does",
   );
 
 /**
