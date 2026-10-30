@@ -955,10 +955,8 @@ describe("the Owner overruling a fallback (final review O3)", () => {
   test("the build report shows the overruled fallback rather than a fall-back it no longer is", () => {
     const { project, waveId } = fellBack();
     must(undoFallBack(project, waveId, "descent", "--answer", "Ship the real sim."));
-    // Until the builder runs again the sim's job still reads fell-back, and the report says what ships.
-    expect(readFileSync(`${project}/build-records/build-report.md`, "utf8")).toContain(
-      "step-through (fell back from gradient-descent)",
-    );
+    // The fell-back result was voided: until the builder runs again the report shows the job as not run.
+    expect(readFileSync(`${project}/build-records/build-report.md`, "utf8")).toMatch(/\| sim-descent \| not run \|/);
     must(record(project, waveId, "sim-descent", "passed"));
 
     const text = readFileSync(`${project}/build-records/build-report.md`, "utf8");
@@ -1014,6 +1012,31 @@ function built(input: unknown = ASSIGNMENT) {
 
 const problemsOf = (course: { project: string; waveId: string }, given: ToolInventory | string = MODULE_03) =>
   toolProblems(requireLedger(course.project), course.waveId, FOLDER, given);
+
+describe("an overruled fallback needs a fresh builder result (final review O3, Codex)", () => {
+  test("the step-through and its old hand-back no longer pass; a fresh live result does", () => {
+    const course = built();
+    const live = inventory((i) => (toolIn(i, "descent-steps").live = true));
+    // Before the Owner's word: the step-through is what it ships, and the content is exactly that.
+    expect(problemsOf(course)).toEqual([]);
+
+    must(undoFallBack(course.project, course.waveId, "descent-steps", "--answer", "Ship the real sim."));
+
+    const stale = problemsOf(course).join("\n");
+    expect(stale).toContain("tool descent-steps should ship as gradient-descent");
+    expect(stale).toContain("job sim-descent-steps hasn't been recorded");
+    expect(stale).toContain("tool descent-steps has no hand-back");
+    // The live sim alone is not enough either: its builder has not reported.
+    expect(problemsOf(course, live)).toEqual([
+      "job sim-descent-steps hasn't been recorded for " + course.waveId,
+      "tool descent-steps has no hand-back: wave.ts handback --name descent-steps",
+    ]);
+
+    must(handBack(course, "descent-steps", handbackOf("descent-steps"), live));
+    must(record(course.project, course.waveId, "sim-descent-steps", "passed"));
+    expect(problemsOf(course, live)).toEqual([]);
+  });
+});
 
 describe("the merge gate holds the content to the assignment", () => {
   test("the Fixture Module's content matches its assignment: toolProblems is empty, and names each mismatch", () => {
