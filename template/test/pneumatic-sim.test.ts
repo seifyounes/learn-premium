@@ -118,6 +118,8 @@ describe("the pneumatic sim in a browser", () => {
     const sim = tab.locator('[data-sim="pneumatic"]').first();
     await sim.scrollIntoViewIfNeeded();
     await tab.locator('[data-sim="pneumatic"][data-ready="true"]').first().waitFor();
+    // The island learns of reduced motion in an effect after its first render; wait for it.
+    if (options.reduced) await tab.locator('[data-sim="pneumatic"][data-reduced="true"]').first().waitFor();
     return { context, tab, sim, errors };
   }
   const attr = (sim: ReturnType<Page["locator"]>, name: string) => sim.getAttribute(name);

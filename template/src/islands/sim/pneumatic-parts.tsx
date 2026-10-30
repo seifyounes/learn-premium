@@ -19,10 +19,8 @@ interface Props {
 
 /** How long a spool takes to slide, in seconds. */
 const SLIDE = { duration: 0.16, ease: "easeOut" } as const;
-const INSTANT = { duration: 0 } as const;
 
 export function PneumaticParts({ drawing, model, state, reduced }: Props) {
-  const slide = reduced ? INSTANT : SLIDE;
   return (
     <g className="pneumatic-parts">
       {drawing.parts.map((placed) => {
@@ -32,20 +30,33 @@ export function PneumaticParts({ drawing, model, state, reduced }: Props) {
           const side = state.spools[part.id] ?? "12";
           const offset = valveOffset(part.kind, side);
           const pair = pairPath(part.kind);
+          if (reduced) {
+            // Plain SVG, set in React's commit: motion applies even a 0 s animation on its next frame,
+            // so the leads would lag the caption by one.
+            return (
+              <g key={part.id} transform={transformOf(placed)} data-valve={part.id}>
+                <path className="pneumatic-pilot" d={pilotLeads(offset)} />
+                <g data-spool={part.id} data-side={side} transform={`translate(${offset} 0)`}>
+                  <path className="pneumatic-moving" d={pair.d} />
+                  <path className="pneumatic-fill" d={pair.fill} />
+                </g>
+              </g>
+            );
+          }
           return (
             <g key={part.id} transform={transformOf(placed)} data-valve={part.id}>
               <motion.path
                 className="pneumatic-pilot"
                 initial={false}
                 animate={{ d: pilotLeads(offset) }}
-                transition={slide}
+                transition={SLIDE}
               />
               <motion.g
                 data-spool={part.id}
                 data-side={side}
                 initial={false}
                 animate={{ x: offset }}
-                transition={slide}
+                transition={SLIDE}
               >
                 <path className="pneumatic-moving" d={pair.d} />
                 <path className="pneumatic-fill" d={pair.fill} />
@@ -56,6 +67,20 @@ export function PneumaticParts({ drawing, model, state, reduced }: Props) {
         if (part.kind === "valve-32-roller" || part.kind === "valve-32-button") {
           const made = state.made[part.id] === 1;
           const pair = pairPath(part.kind);
+          if (reduced) {
+            return (
+              <g key={part.id} transform={transformOf(placed)} data-valve={part.id}>
+                <g
+                  data-spool={part.id}
+                  data-side={made ? "made" : "freed"}
+                  transform={`translate(${valveOffset(part.kind, made ? "made" : "freed")} 0)`}
+                >
+                  <path className="pneumatic-moving" d={pair.d} />
+                  <path className="pneumatic-fill" d={pair.fill} />
+                </g>
+              </g>
+            );
+          }
           return (
             <g key={part.id} transform={transformOf(placed)} data-valve={part.id}>
               <motion.g
@@ -63,7 +88,7 @@ export function PneumaticParts({ drawing, model, state, reduced }: Props) {
                 data-side={made ? "made" : "freed"}
                 initial={false}
                 animate={{ x: valveOffset(part.kind, made ? "made" : "freed") }}
-                transition={slide}
+                transition={SLIDE}
               >
                 <path className="pneumatic-moving" d={pair.d} />
                 <path className="pneumatic-fill" d={pair.fill} />
