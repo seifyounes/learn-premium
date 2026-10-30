@@ -201,7 +201,13 @@ function tools(ledger: Ledger, wave: string): string[] {
         // A sim recorded fell-back by a plain `record job` ships its step-through, as `ready` judges it.
         const ships = t.job.startsWith("sim-") && job?.result === "fell-back" ? "step-through" : t.ships;
         const from = t.fallbacks.length > 0 ? t.fallbacks.map((f) => f.from) : ships === t.ships ? [] : [t.ships];
-        const fell = from.length === 0 ? "" : ` (fell back from ${from.join(", then ")})`;
+        // The Owner's `fallback --undo` puts `ships` back on the assigned tool and keeps the fallbacks as history.
+        const overruled = t.fallbacks.length > 0 && ships === t.tool;
+        const fell = overruled
+          ? ` (the Owner overruled a fallback to ${t.fallbacks.at(-1)?.to})`
+          : from.length === 0
+            ? ""
+            : ` (fell back from ${from.join(", then ")})`;
         return [
           t.worked === null ? "Lab" : label(t.worked),
           t.name,
@@ -224,6 +230,7 @@ function tools(ledger: Ledger, wave: string): string[] {
       }),
     ),
     "The Owner can overrule any assignment or fallback; the wave re-assigns it.",
+    'A fallback he overrules is undone with `wave.ts fallback --undo <tool> --answer "<his words>"`: the tool ships what it was assigned again.',
   ];
 }
 

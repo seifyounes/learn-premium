@@ -5,7 +5,13 @@
 // the Build ledger; one builder job runs per tool. `ready` later holds the Module's content to the
 // assignment (`toolProblems`), so a tool no assignment names, or an example left without its tool,
 // can't merge. A tool whose builder can't pass its gates after two fix rounds falls back (`fallback`).
-import { assignmentOf, recordAssignment, recordDiscipline, updateTool } from "../ledger/assignments.ts";
+import {
+  assignmentOf,
+  recordAssignment,
+  recordDiscipline,
+  recordFallbackUndone,
+  updateTool,
+} from "../ledger/assignments.ts";
 import { isLinkOnly, LINKS_ONLY } from "../ledger/disciplines.ts";
 import { LedgerError } from "../ledger/file.ts";
 import { recordJob, requireLedger } from "../ledger/ledger.ts";
@@ -322,6 +328,39 @@ export function fallback(project: string, holder: string, waveId: string, job: s
     tool.ships = to;
   });
   return { job, from: row.ships, to };
+}
+
+/** The Checkpoint key of the Owner's word on a tool's fallback: `03/fallback/descent`. */
+export const fallbackKey = (module: string, name: string) => `${module}/fallback/${slug(name)}`;
+
+/**
+ * `fallback --undo`: the Owner overrules a fallback, and the tool ships the tool it was assigned
+ * again. His words are required and kept as a Checkpoint row; the fallback stays in the tool's
+ * history. The builder job then runs again (it starts with fresh fix rounds) and `ready` holds the
+ * content to the restored tool.
+ */
+export function undoFallback(
+  project: string,
+  holder: string,
+  waveId: string,
+  name: string,
+  answer: string | undefined,
+) {
+  if (answer === undefined || answer.trim() === "")
+    throw new LedgerError("refused", `undoing a fallback needs the Owner's word: pass --answer "<his words>"`);
+  const ledger = requireLedger(project);
+  const wave = moduleWave(ledger, waveId);
+  const row = assignmentOf(ledger, waveId)?.tools.find((t) => t.name === name);
+  if (row === undefined) throw new LedgerError("invalid", `${name} isn't a tool of the wave's tool assignment`);
+  const key = fallbackKey(wave.target, name);
+  const { from, to } = recordFallbackUndone(project, holder, {
+    wave: waveId,
+    name,
+    key,
+    question: `Module ${wave.target}: ${name} fell back from ${row.tool}. Ship ${row.tool} again?`,
+    answer,
+  });
+  return { tool: name, from, to, key };
 }
 
 /** The jobs a subagent runs: the main agent measures each, so `ready` refuses one recorded without a launch time. */
