@@ -1,8 +1,16 @@
 ---
 name: learn-premium
-description: learn-premium v2, run only when the Owner types /learn-premium <Materials path>. It claims no natural-language triggers until the Cut-over; v1 /crash-course stays the default until then.
+description: >-
+  Turns a course's Materials (lecture PDFs, slides, board photos, sheets, past exams, notes) into a
+  premium interactive Study site for any engineering subject (math, logic and electric circuits,
+  heat transfer, machinery, chemistry, ML…), with verified content, worked examples, live sims,
+  video cards and timed exam sittings, deployed with every accuracy gate green. Use whenever Seif
+  types /learn-premium or /crash-course, asks for a "study site", "exam prep site", "crash course
+  for X", wants lectures/PDFs/notes turned into a site, says "help me ace the X final", or names any
+  subject with course materials to study, even without saying "website". Also use to resume or
+  extend a Course already built ("continue the circuits site", "add Module 5", "upgrade my site to
+  the new release").
 argument-hint: <Materials path>
-disable-model-invocation: true
 ---
 
 # learn-premium
