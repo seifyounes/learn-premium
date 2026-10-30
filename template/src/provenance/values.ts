@@ -4,6 +4,11 @@
 // likes (`0.25`, `$L = 0.250\ \text{m}$`); a value counts as tagged when a list names the same
 // number. This module finds every value an entry shows and every one no list tags. Pure: the
 // provenance gate and the page both read it.
+//
+// Exempt, by the Owner's decision (final review O2): a figure's axis `min`, `max` and `step`. They
+// frame the plot and say nothing about the problem, so `figure()` reads an axis's label and unit
+// and never its range. (A sim's tune ranges are another matter: they are values students set, and
+// are read.) Eastern Arabic digits, which `\d` cannot see, are reported as values of their own.
 import { splitProse } from "../math/katex.ts";
 
 export const PROVENANCE_TAGS = ["stated", "derived", "scaled", "assumed"] as const;
@@ -30,8 +35,20 @@ const NUMBER = new RegExp(
 );
 const GROUP_MARKS = new RegExp(`[${GROUPING}]`, "g");
 
+/**
+ * Eastern Arabic digits (٠-٩, ۰-۹) with the separators between them. JS `\d` is ASCII, so they would
+ * be invisible; each run is reported as a value of its own, `NaN` for a number nobody can compare,
+ * so a tag has to write it the same way.
+ */
+const EASTERN = /[٠-٩۰-۹]+(?:[٫٬.,][٠-٩۰-۹]+)*/gu;
+
 function numbersInText(text: string): NumberFound[] {
-  return [...text.matchAll(NUMBER)].map((m) => ({ written: m[0], value: Number(m[0].replace(GROUP_MARKS, "")) }));
+  const ascii = [...text.matchAll(NUMBER)].map((m) => ({
+    at: m.index,
+    found: { written: m[0], value: Number(m[0].replace(GROUP_MARKS, "")) },
+  }));
+  const eastern = [...text.matchAll(EASTERN)].map((m) => ({ at: m.index, found: { written: m[0], value: NaN } }));
+  return [...ascii, ...eastern].sort((a, b) => a.at - b.at).map((n) => n.found);
 }
 
 /**
@@ -302,8 +319,11 @@ export function valuesOf(collection: ValueCollection, raw: unknown, body?: strin
   return found;
 }
 
-/** A value compared by its number: `0.20`, `0.2` and `$L = 0.200$` tag the same value. */
-const key = (value: number) => String(value);
+/**
+ * A value compared by its number: `0.20`, `0.2` and `$L = 0.200$` tag the same value. An Eastern
+ * Arabic digit run has no number (`NaN`), so it is compared as written.
+ */
+const key = (n: NumberFound) => (Number.isNaN(n.value) ? n.written : String(n.value));
 
 /** Every number an entry's `provenance` block declares, whatever it tags it as. */
 export function taggedValues(provenance: unknown): Set<string> {
@@ -313,7 +333,7 @@ export function taggedValues(provenance: unknown): Set<string> {
     ...asArray(p.slips).flatMap((s) => [asObject(s).value, asObject(s).sheet]),
     ...asArray(p.divergences).flatMap((d) => [asObject(d).value, asObject(d).note]),
   ];
-  return new Set(declared.flatMap((d) => (typeof d === "string" ? numbersIn(d).map((n) => key(n.value)) : [])));
+  return new Set(declared.flatMap((d) => (typeof d === "string" ? numbersIn(d).map((n) => key(n)) : [])));
 }
 
 export interface Untagged {
@@ -327,10 +347,10 @@ export function untagged(collection: ValueCollection, raw: unknown, body?: strin
   const tagged = taggedValues(asObject(raw).provenance);
   const missing = new Map<string, Untagged>();
   for (const v of valuesOf(collection, raw, body)) {
-    if (tagged.has(key(v.value))) continue;
-    const entry = missing.get(key(v.value)) ?? { written: v.written, at: [] };
+    if (tagged.has(key(v))) continue;
+    const entry = missing.get(key(v)) ?? { written: v.written, at: [] };
     if (!entry.at.includes(v.at)) entry.at.push(v.at);
-    missing.set(key(v.value), entry);
+    missing.set(key(v), entry);
   }
   return [...missing.values()];
 }

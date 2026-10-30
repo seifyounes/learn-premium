@@ -27,7 +27,10 @@ describe("the values a prose field holds", () => {
       "$1~000$",
       "1,000",
     ])
-      expect(numbersIn(prose).map((n) => n.value), prose).toEqual([1000]);
+      expect(
+        numbersIn(prose).map((n) => n.value),
+        prose,
+      ).toEqual([1000]);
     expect(numbersIn("$12\\,345\\,678.5$").map((n) => n.value)).toEqual([12345678.5]);
   });
 
@@ -173,7 +176,18 @@ describe("the values no Provenance tag covers", () => {
     // Control: the same load written plainly was already reported.
     expect(written("The load is $2000$ N.")).toEqual(["2000"]);
     // A tag written one way covers the value written another.
-    expect(written("The mass is 1 000 kg and $1\,000$ N.")).toEqual([]);
+    expect(written("The mass is 1 000 kg and $1\\,000$ N.")).toEqual([]);
+  });
+
+  it("reports Eastern Arabic digits in any field: each run is a value no ASCII tag covers (final review F8)", () => {
+    expect(untagged("beats", { title: "the load is ١٦٫٥ kN" }).map((u) => u.written)).toEqual(["١٦٫٥"]);
+    // Each run is its own value: two different runs are two findings, not one.
+    expect(untagged("beats", { title: "۱۲ and ٣ kN" }).map((u) => u.written)).toEqual(["۱۲", "٣"]);
+    // A tag with ASCII digits doesn't cover them; one written the same way does.
+    expect(untagged("beats", { title: "load ١٦ kN", provenance: { stated: ["16"] } }).length).toBe(1);
+    expect(untagged("beats", { title: "load ١٦ kN", provenance: { stated: ["١٦ kN"] } })).toEqual([]);
+    // Control: ASCII digits beside them are read as before.
+    expect(untagged("beats", { title: "٣ of 4 bolts" }).map((u) => u.written)).toEqual(["٣", "4"]);
   });
 
   it("treats a missing provenance block as no tags at all", () => {
