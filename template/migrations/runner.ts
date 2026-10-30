@@ -15,8 +15,8 @@ export const MIGRATIONS_DIR = resolve(import.meta.dirname);
 /** A Template release tag: `vMAJOR.MINOR.PATCH`, nothing else. */
 export const RELEASE_TAG = /^v(\d+)\.(\d+)\.(\d+)$/;
 
-/** A migration's file: `v<major>.ts`. */
-const MIGRATION_FILE = /^v(\d+)\.ts$/;
+/** A migration's file: `v<major>.ts`, the major written as `load` opens it (v01.ts is not v1.ts, and v0 is no major). */
+const MIGRATION_FILE = /^v([1-9]\d*)\.ts$/;
 
 export class MigrationError extends Error {}
 

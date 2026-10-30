@@ -51,15 +51,20 @@ refuses to tag until every step below holds on that exact commit.
 
    - a version that isn't newer than the latest release (or than v0.0.0), or a tag origin already
      has;
-   - a commit that isn't on top of the latest release;
+   - a commit that isn't on top of the latest release, or that is already a release (a second bump
+     on a released commit would mint an identical release);
    - a major that doesn't ship the migration for each major it crosses;
    - a non-major that ships a migration;
    - a commit that drops or changes a migration an earlier release shipped (a Course on an older
      release still upgrades through it, and the harness only replays the latest release's);
+   - a migration file not named `v<major>.ts` (no leading zero: `v01.ts` is refused), or two files
+     for one major;
    - `--bump` and `--version` together.
 
    Then it writes the release notes, pushes an annotated tag carrying them to origin, and
-   publishes the GitHub Release. `--dry-run` does every check and prints the notes, but tags
+   publishes the GitHub Release. If the Release fails the tag stays out, `tag` exits 1 and prints
+   the `gh release create` command to publish it: the next release's step 1 depends on that
+   Release, so don't treat it as done. `--dry-run` does every check and prints the notes, but tags
    nothing.
 
 `status` walks the same checklist without changing anything. Run it first:

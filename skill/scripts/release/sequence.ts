@@ -1,7 +1,7 @@
 // The Template release sequence: CI green → the Fixture Course's Tool gallery deployed with its
 // live gates green → the Owner's real-phone pass → tag. Every step is checked on one exact commit,
 // the candidate, and a tag is cut only when all three hold on it.
-import type { Git } from "./git.ts";
+import { MIGRATIONS_PATH, type Git } from "./git.ts";
 import { overridesOnIssue, type Bump, type ClosedGateGap, type NotesInput, type PhonePass } from "./notes.ts";
 
 /** The workflows whose newest run on the candidate must be green. */
@@ -285,7 +285,24 @@ export function plan(git: Git, sha: string, wanted: { bump?: Bump; version?: str
     problems.push(`${version} is not newer than ${latest ? `the latest release ${latest.name}` : "v0.0.0"}`);
   }
   if (tags.has(version)) problems.push(`origin already has a tag ${version}`);
+  // A commit already released is its own ancestor, so a second bump on it would mint an identical release.
+  for (const [name, tagged] of tags) {
+    if (parse(name) !== null && tagged === sha) problems.push(`${sha.slice(0, 7)} is already released as ${name}`);
+  }
   const carried = git.migrations(sha);
+  // A migration is `v<major>.ts` and nothing else: the Upgrade wave opens it by that name, so a `v01.ts`
+  // beside `v1.ts` would be a second file for one major.
+  for (const m of carried) {
+    if (m.file !== `${MIGRATIONS_PATH}/v${m.major}.ts`)
+      problems.push(
+        `${m.file} isn't named ${MIGRATIONS_PATH}/v${m.major}.ts: a migration file is v<major>.ts, with no leading zero`,
+      );
+  }
+  for (const m of carried) {
+    const same = carried.filter((other) => other.major === m.major);
+    if (same[0] === m && same.length > 1)
+      problems.push(`${same.map((s) => s.file).join(" and ")} are both the migration for major ${m.major}: keep one`);
+  }
   if (latest !== null) {
     const released = tags.get(latest.name) ?? "";
     if (!git.isAncestor(released, sha))
