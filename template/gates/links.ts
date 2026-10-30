@@ -36,7 +36,10 @@ const SELF_HOSTED_BODY = /\bphet-io\b|phetsims/i;
 function markupOf(node: Nodes): string {
   if (node.type === "text") return "";
   if (node.type !== "element") return "children" in node ? node.children.map(markupOf).join("\n") : "";
-  const attributes = Object.entries(node.properties).map(([name, value]) => `${name}=${String(value)}`);
+  // hast names an attribute by its property (`data-phet-io` is `dataPhetIo`): back to the name the HTML wrote.
+  const attributes = Object.entries(node.properties).map(
+    ([name, value]) => `${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}=${String(value)}`,
+  );
   const code = node.tagName === "script" || node.tagName === "style" ? textOf(node) : "";
   return [...attributes, code, ...node.children.map(markupOf)].join("\n");
 }
@@ -187,6 +190,11 @@ export const linksOnly: Gate = {
             '<ul><li data-further><a href="https://phet.colorado.edu./en/simulations/concentration" target="_blank" rel="noopener noreferrer">Concentration</a></li></ul>',
           ),
         ),
+    },
+    {
+      defect: "a copy of PhET's code under a neutral file name",
+      plant: (good, scratch) =>
+        siteFilesWith(good, scratch, { "assets/app.html": "<html><body data-phet-io></body></html>" }),
     },
   ],
 };
