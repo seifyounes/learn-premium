@@ -413,10 +413,14 @@ export function recordJob(
   return mutate(project, holder, (ledger) => {
     const wave = current(ledger.waves).find((w) => w.id === job.wave);
     if (wave === undefined || wave.state !== "running") throw new LedgerError("invalid", `no running wave ${job.wave}`);
-    const history = ledger.jobs.filter((row) => row.wave === job.wave && row.job === job.job);
+    const rows = ledger.jobs.filter((row) => row.wave === job.wave && row.job === job.job);
+    // The Owner overruling a fallback (`wave.ts fallback --undo`) voids the job's row as "fallback overruled": the
+    // restored tool starts over, so only the results after the last such row count towards its fix rounds.
+    const boundary = rows.map((row) => row.superseded?.reason).lastIndexOf("fallback overruled");
+    const history = rows.slice(boundary + 1);
     // A job that escalated waits for the Owner: its item (keyed as the batched Checkpoint keys it) answered since.
     // A row voided by hand (`supersede --row job`) no longer counts, or its item could never be answered: the
-    // batched Checkpoint lists current rows only. The fix rounds below still count the whole history.
+    // batched Checkpoint lists current rows only. The fix rounds below still count the history since the last overruled fallback.
     const last = history.filter((row) => row.superseded === null || row.superseded.reason === "re-run").at(-1);
     const itemKeyOf = last?.result === "checkpoint" ? itemKey(wave.target, "job", job.job, [last.detail ?? ""]) : null;
     const answered =
