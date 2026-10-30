@@ -367,6 +367,48 @@ describe("the mechanisms in a browser", () => {
     await context.close();
   });
 
+  it("a page being scrolled is never held up by the 3D view starting: it starts once the scrolling stops (final review, the scroll flake)", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    // A slow runner: making the WebGL context takes 1.5 s of the page's thread, once.
+    await context.addInitScript(() => {
+      const make = HTMLCanvasElement.prototype.getContext;
+      (window as unknown as { __made: number }).__made = 0;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+        if (/webgl/.test(type)) {
+          (window as unknown as { __made: number }).__made += 1;
+          for (const end = performance.now() + 1500; performance.now() < end;);
+        }
+        return (make as (...a: unknown[]) => unknown).call(this, type, ...rest);
+      } as typeof make;
+    });
+    const { page } = await open(context);
+    const el = root(page, "four-bar");
+    await el.scrollIntoViewIfNeeded();
+    await page.locator('.mechanism[data-mechanism="four-bar"][data-ready="true"]').first().waitFor({ timeout: 60_000 });
+    const surface = el.locator("[data-viewer-object]");
+    await surface.evaluate((n) => n.scrollIntoView({ block: "center" }));
+    const box = await surface.boundingBox();
+    if (!box) throw new Error("no viewer box");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // Two and a half seconds of wheel, a notch every 100 ms, back and forth: every round trip to the page is
+    // quick, though the viewer has been near the screen for longer than it waits before it starts.
+    let slowest = 0;
+    for (let i = 0; i < 25; i++) {
+      await page.mouse.wheel(0, i % 2 === 0 ? 40 : -40);
+      const asked = Date.now();
+      await page.evaluate(() => performance.now());
+      slowest = Math.max(slowest, Date.now() - asked);
+      await page.waitForTimeout(100);
+    }
+    expect(await page.evaluate(() => (window as unknown as { __made: number }).__made), "started mid-scroll").toBe(0);
+    expect(slowest, "the slowest answer of the page while it was scrolled").toBeLessThan(700);
+    // Once it is still, the view does start (and takes the 1.5 s it was given).
+    await surface.evaluate((n) => n.scrollIntoView({ block: "center" }));
+    await drawn(el).waitFor({ timeout: 60_000 });
+    expect(await page.evaluate(() => (window as unknown as { __made: number }).__made)).toBe(1);
+    await context.close();
+  });
+
   it("the slider stays at its far end, and the arrow keys come back from it", async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const { page } = await open(context);

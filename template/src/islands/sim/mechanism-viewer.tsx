@@ -11,6 +11,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { dragAngle, type Model, type Pose } from "../../sims/mechanism/engine.ts";
 import { createGestures } from "../../viewer/gesture.ts";
+import { whenQuiet } from "../../viewer/start.ts";
 import { placeLabels } from "../../viewer/labels.ts";
 import type { BuiltMechanism } from "../three/mechanism-scene.ts";
 import type { Stage } from "../three/stage.ts";
@@ -135,6 +136,11 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
         void (async () => {
           const host = objectEl.current;
           if (!host) return;
+          // Each slice of the start (three.js, the WebGL context, the object, the first frame) is taken only while
+          // the page is quiet, and the browser gets the thread between them: a scroll that comes during one is
+          // served before the next, and puts the viewer back to waiting. See src/viewer/start.ts.
+          const quiet = () => whenQuiet(() => disposed);
+          if (!(await quiet())) return;
           let modules;
           try {
             modules = await Promise.all([import("../three/stage.ts"), import("../three/mechanism-scene.ts")]);
@@ -144,7 +150,7 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
             return;
           }
           const [{ createStage, readViewerInks }, { buildMechanism, placeLinks }] = modules;
-          if (disposed) return;
+          if (!(await quiet())) return;
           let made: Stage;
           try {
             made = createStage(host, readViewerInks(host));
@@ -152,8 +158,10 @@ export function MechanismViewer({ model, pose, label, onAngle, onStatus, ready }
             setStatus("no-webgl");
             return;
           }
+          // Held now, so a viewer that leaves while it waits for the next slice gives its context back.
           stage.current = made;
           place.current = placeLinks;
+          if (!(await quiet())) return;
           const mechanism = buildMechanism(made.three, model, made.inks);
           built.current = mechanism;
           made.scene.add(mechanism.root);
