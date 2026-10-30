@@ -13,6 +13,7 @@ import {
   TURN_SECONDS,
 } from "../src/sims/mechanism/drive.ts";
 import { pose, type GearPair } from "../src/sims/mechanism/engine.ts";
+import { snap } from "../src/sims/tuning.ts";
 
 const playing = (angle: number) => drive(startDrive(angle, false), { type: "play" });
 const FULL_TURN = { min: 0, max: 360 };
@@ -106,6 +107,18 @@ describe("the mechanism's play clock", () => {
     const jumped = drive(played, { type: "set", angle: 6 });
     expect(total(jumped)).toBe(6);
     expect(Math.abs(drivenAt(jumped) - drivenAt(played))).toBeGreaterThan(170);
+  });
+
+  it("on a later turn the slider's far end stays on that turn, and the arrow keys come back from it (Codex, PR #154)", () => {
+    // Played to total 719 (turn 1, 359°): the slider shows the wrapped angle.
+    let d = drive(playing(359), { type: "tick", ms: 100 });
+    d = drive(d, { type: "set", angle: 360 + 359 });
+    expect(d.turns).toBe(1);
+    // Pushed to its end it stays on this turn, just short of 360, so it reads 360 and the next step is 359, not turn 3.
+    const end = drive(d, { type: "set", angle: fromSlider(d, FULL_TURN, 360) });
+    expect(end.turns).toBe(1);
+    expect(snap(onSlider(end, FULL_TURN), { ...FULL_TURN, step: 1 })).toBe(360);
+    expect(total(drive(end, { type: "set", angle: fromSlider(end, FULL_TURN, 359) }))).toBe(719);
   });
 
   it("a slider that shows the whole angle is absolute, and the far end stays at its end", () => {
