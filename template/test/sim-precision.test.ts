@@ -53,6 +53,16 @@ describe("a value as the sheet prints it", () => {
     expect(rulingValues("$x_1 = 1$")).toEqual([1]);
   });
 
+  it("reads grouped thousands as one value, with the sign it is printed with (final review F7)", () => {
+    for (const cell of ["$1{,}250$", "$1\\,250$", "1 250", "1 250", "1,250"])
+      expect(readPrinted(cell), cell).toMatchObject({ value: 1250, decimals: 0 });
+    expect(readPrinted("$-1{,}250.5$")).toMatchObject({ value: -1250.5, decimals: 1 });
+    expect(readPrinted("$R = -1\\,250$")).toMatchObject({ value: -1250 });
+    expect(readPrinted("−1 250")).toMatchObject({ value: -1250 });
+    expect(rulingValues("$-1{,}000$ and $2\\,000$")).toEqual([-1000, 2000]);
+    expect(rulingValues("$1{,}000$")).toEqual([1000]);
+  });
+
   it("reads scientific notation as one value, its precision from the mantissa and the power", () => {
     expect(readPrinted("$4.0 \\times 10^{-2}$")).toEqual({ value: 0.04, decimals: 3, written: "4.0 \\times 10^{-2}" });
     expect(readPrinted("$-1.25 \\times 10^{3}$")).toEqual({

@@ -12,6 +12,30 @@ describe("the values a prose field holds", () => {
     expect(numbersIn("2,500 and 0.20").map((n) => n.value)).toEqual([2500, 0.2]);
   });
 
+  it("reads grouped thousands as one number, however the group is written", () => {
+    const nbsp = " ";
+    const narrow = " ";
+    for (const prose of [
+      "$1{,}000$",
+      "1 000",
+      `1${nbsp}000`,
+      `1${narrow}000`,
+      "$1\\,000$",
+      "$1\\ 000$",
+      "$1\\;000$",
+      "$1\\:000$",
+      "$1~000$",
+      "1,000",
+    ])
+      expect(numbersIn(prose).map((n) => n.value), prose).toEqual([1000]);
+    expect(numbersIn("$12\\,345\\,678.5$").map((n) => n.value)).toEqual([12345678.5]);
+  });
+
+  it("leaves a group that is not three digits as separate numbers", () => {
+    expect(numbersIn("1 0000 and 12 34").map((n) => n.value)).toEqual([1, 0, 12, 34]);
+    expect(numbersIn("$3\\,\\text{m}\\ 200\\,\\text{mm}$").map((n) => n.value)).toEqual([3, 200]);
+  });
+
   it("leaves out notation: subscripts, powers of a symbol or unit, chemistry, identifiers", () => {
     expect(written("$T_1 = 20\\ ^\\circ\\text{C}$ (inside face)")).toEqual(["20"]);
     expect(written("$R_{12} + R_\\text{total} + x_{i+1}$")).toEqual([]);
@@ -140,6 +164,16 @@ describe("the values no Provenance tag covers", () => {
       slips: [{ value: "$9.6\\ \\text{kW}$", sheet: "$96\\ \\text{kW}$" }],
     });
     expect(untagged("practice", ruled)).toEqual([]);
+  });
+
+  it("reports a grouped value no list tags, not its pieces (fails closed, never open)", () => {
+    const tags = { stated: ["$1{,}000$ kg", "2 bolts"] };
+    const written = (title: string) => untagged("beats", { title, provenance: tags }).map((u) => u.written);
+    expect(written("The load is $2{,}000$ N.")).toEqual(["2,000"]);
+    // Control: the same load written plainly was already reported.
+    expect(written("The load is $2000$ N.")).toEqual(["2000"]);
+    // A tag written one way covers the value written another.
+    expect(written("The mass is 1 000 kg and $1\,000$ N.")).toEqual([]);
   });
 
   it("treats a missing provenance block as no tags at all", () => {

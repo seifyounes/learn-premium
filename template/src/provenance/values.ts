@@ -16,14 +16,32 @@ export interface NumberFound {
   value: number;
 }
 
+/** What groups thousands: a comma, or a space (plain, no-break, narrow no-break or thin). */
+const GROUPING = ",    ";
+
 /**
- * A number not glued to a word or another number: "W01.1", "CO2" and "T1" are names. A comma
- * groups thousands only before three digits.
+ * A number not glued to a word or another number: "W01.1", "CO2" and "T1" are names. A comma or a
+ * space groups thousands only before exactly three digits (`2,500`, `1 000`), so a truly ambiguous
+ * `2 100` reads as one number, 2100, which the gate reports as untagged instead of missing it.
  */
-const NUMBER = /(?<![\p{L}\d.])(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)/gu;
+const NUMBER = new RegExp(
+  String.raw`(?<![\p{L}\d.])(?:\d{1,3}(?:[${GROUPING}]\d{3}(?!\d))+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)`,
+  "gu",
+);
+const GROUP_MARKS = new RegExp(`[${GROUPING}]`, "g");
 
 function numbersInText(text: string): NumberFound[] {
-  return [...text.matchAll(NUMBER)].map((m) => ({ written: m[0], value: Number(m[0].replace(/,/g, "")) }));
+  return [...text.matchAll(NUMBER)].map((m) => ({ written: m[0], value: Number(m[0].replace(GROUP_MARKS, "")) }));
+}
+
+/**
+ * Grouped thousands written in TeX as one number: `1{,}000` (the braces keep the comma from being
+ * punctuation) and `1\,000`, `1\ 000`, `1\;000`, `1\:000` and `1~000` (spacing). Rewritten as the
+ * plain forms `1,000` and `1 000` before commands are stripped, so spacing isn't read as the end of
+ * one number and the start of another.
+ */
+export function groupThousands(tex: string): string {
+  return tex.replace(/(\d)\{,\}(?=\d{3})/g, "$1,").replace(/(\d)(?:\\[,;: ]|~)(?=\d{3})/g, "$1 ");
 }
 
 /** TeX commands whose argument is notation or layout, never a value: chemistry, tags, spacing. */
@@ -83,7 +101,8 @@ function afterToken(tex: string, i: number): number {
  * do powers of a symbol or a unit (`x^2`, `\text{m}^2`); a power of a number (`10^{-3}`) stays,
  * being part of the value. Commands become spaces, so a digit after one isn't read as a name.
  */
-function valuesOnly(tex: string): string {
+function valuesOnly(source: string): string {
+  const tex = groupThousands(source);
   let out = "";
   let i = 0;
   while (i < tex.length) {
