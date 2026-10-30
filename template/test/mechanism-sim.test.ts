@@ -437,7 +437,7 @@ describe("the mechanisms in a browser", () => {
           high ||= now > 340;
           return high && now < 120;
         },
-        { timeout: 60_000, intervals: [50] },
+        { timeout: 60_000, interval: 50 },
       )
       .toBe(true);
     await play(el).click();
