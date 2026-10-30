@@ -42,13 +42,13 @@ export function git(repo: string, ...args: string[]): string {
   return child.stdout.trim();
 }
 
-function identify(repo: string): void {
+export function identify(repo: string): void {
   git(repo, "config", "core.autocrlf", "false");
   git(repo, "config", "user.name", "Owner");
   git(repo, "config", "user.email", "owner@example.com");
 }
 
-const V1_TEMPLATE: Record<string, string> = {
+export const V1_TEMPLATE: Record<string, string> = {
   "package.json": `{"type":"module"}\n`,
   ".gitignore": "node_modules/\ndist/\n",
   "src/components/HonestyCell.astro": "<td>v1 honesty</td>\n",
