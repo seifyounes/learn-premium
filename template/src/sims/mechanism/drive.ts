@@ -59,14 +59,14 @@ export const onSlider = (d: Drive, range: { min: number; max: number }): number 
 /**
  * The absolute angle a slider put at `value` asks for. While the slider shows the whole angle that is `value`
  * itself. While it shows the displayed angle only, `value` is a place on the turn the driver is on, so the
- * turns behind it carry on: a gear pair's driven gear moves a step with the slider, not half a turn. Its far
- * end stays on this turn, a hair short of 360° (the slider still reads 360): 360° itself is the next turn's 0°,
- * which would move the slider's base and show 0.
+ * turns behind it carry on: a gear pair's driven gear moves a step with the slider, not half a turn. Its two
+ * ends stay on this turn, a hair inside 0° and 360° (the slider still reads 0 and 360): exactly 360° is the next
+ * turn's 0°, and exactly 0° on turn 1 is a whole-angle 360, either of which would change what the slider shows.
  */
 export const fromSlider = (d: Drive, range: { min: number; max: number }, value: number): number =>
-  within(d, range) ? value : Math.min(value, 360 - END_SHORT) + 360 * d.turns;
+  within(d, range) ? value : Math.min(Math.max(value, END_SHORT), 360 - END_SHORT) + 360 * d.turns;
 
-/** How far short of 360° the slider's far end stops on a later turn: far below any slider step. */
+/** How far inside its ends the slider stops on a later turn: far below any slider step. */
 const END_SHORT = 1e-6;
 
 export function drive(d: Drive, a: DriveAction): Drive {

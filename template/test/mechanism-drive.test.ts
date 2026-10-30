@@ -121,6 +121,16 @@ describe("the mechanism's play clock", () => {
     expect(total(drive(end, { type: "set", angle: fromSlider(end, FULL_TURN, 359) }))).toBe(719);
   });
 
+  it("on a later turn the slider's near end also stays wrapped: 0 is a hair above 360, not the whole-angle 360 (Codex, PR #154)", () => {
+    const played = drive(playing(359), { type: "tick", ms: 100 });
+    expect(total(played)).toBeCloseTo(365, 9);
+    const start = drive(played, { type: "set", angle: fromSlider(played, FULL_TURN, 0) });
+    expect(start.turns).toBe(1);
+    // It still reads 0, and the next step is 1° on this turn (361), not the absolute 1.
+    expect(snap(onSlider(start, FULL_TURN), { ...FULL_TURN, step: 1 })).toBe(0);
+    expect(total(drive(start, { type: "set", angle: fromSlider(start, FULL_TURN, 1) }))).toBe(361);
+  });
+
   it("a slider that shows the whole angle is absolute, and the far end stays at its end", () => {
     // Within the range the slider reads total(d): a set is the angle it was put at, and the turns start again.
     const mid = startDrive(100, false);
