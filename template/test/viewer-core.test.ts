@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createGestures } from "../src/viewer/gesture";
 import { placeLabels } from "../src/viewer/labels";
 import { atHome, cameraOffset, homeView, turn, zoom } from "../src/viewer/orbit";
+import { QUIET_MS, quietIn } from "../src/viewer/start";
 
 const deg = (r: number) => (r * 180) / Math.PI;
 
@@ -128,5 +129,16 @@ describe("the labels beside the object", () => {
     const { height, at } = placeLabels(anchors, 100, 20);
     expect(height).toBe(120);
     expect(at.map((l) => l.y)).toEqual([10, 30, 50, 70, 90, 110]);
+  });
+});
+
+describe("when a viewer may take a slice of its start", () => {
+  it("only once the page has been still for ${QUIET_MS} ms: a scroll a moment ago says wait, and how long", () => {
+    expect(quietIn(1000, 1100)).toBe(QUIET_MS - 100);
+    expect(quietIn(1000, 1000)).toBe(QUIET_MS);
+    // Negative control: still for the whole time (or never touched) is quiet.
+    expect(quietIn(1000, 1000 + QUIET_MS)).toBe(0);
+    expect(quietIn(1000, 5000)).toBe(0);
+    expect(quietIn(-Infinity, 0)).toBe(0);
   });
 });

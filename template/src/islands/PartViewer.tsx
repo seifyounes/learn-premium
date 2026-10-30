@@ -9,6 +9,7 @@
 // opens with that dimension highlighted.
 import { useEffect, useId, useRef, useState } from "react";
 import { createGestures } from "../viewer/gesture.ts";
+import { whenQuiet } from "../viewer/start.ts";
 import { placeLabels } from "../viewer/labels.ts";
 import type { PartScene } from "./three/part-scene.ts";
 import type { Stage } from "./three/stage.ts";
@@ -121,6 +122,8 @@ export default function PartViewer({ glb, dimensions, label }: Props) {
       void (async () => {
         const host = objectEl.current;
         if (!host) return;
+        // Each slice of the start is taken only while the page is quiet (src/viewer/start.ts).
+        if (!(await whenQuiet(() => disposed))) return;
         let modules;
         try {
           modules = await Promise.all([import("./three/stage.ts"), import("./three/part-scene.ts")]);
@@ -130,7 +133,7 @@ export default function PartViewer({ glb, dimensions, label }: Props) {
           return;
         }
         const [{ createStage, readViewerInks }, { showPart }] = modules;
-        if (disposed) return;
+        if (!(await whenQuiet(() => disposed))) return;
         let made: Stage;
         try {
           made = createStage(host, readViewerInks(host));
@@ -209,24 +212,31 @@ export default function PartViewer({ glb, dimensions, label }: Props) {
     const move = (e: PointerEvent) => gestures.move(e.pointerId, e.clientX, e.clientY);
     const up = (e: PointerEvent) => gestures.up(e.pointerId, e.timeStamp);
     const cancel = (e: PointerEvent) => gestures.cancel(e.pointerId);
-    const wheel = (e: WheelEvent) => {
-      if (!activeRef.current) return; // the page scrolls
-      e.preventDefault();
-      stage.current?.zoom(Math.exp(-e.deltaY * WHEEL_ZOOM));
-    };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", cancel);
-    el.addEventListener("wheel", wheel, { passive: false });
     return () => {
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", cancel);
-      el.removeEventListener("wheel", wheel);
     };
   }, []);
+
+  // The wheel zooms only once the part is tapped. Until then it has no wheel listener at all: one that may cancel
+  // the wheel makes the browser wait on this page's main thread before it scrolls, and a main thread busy
+  // starting WebGL would hold up the scroll the page is owed over the viewer (as the mechanism viewer does).
+  useEffect(() => {
+    const el = objectEl.current;
+    if (!el || !active) return;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      stage.current?.zoom(Math.exp(-e.deltaY * WHEEL_ZOOM));
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+  }, [active]);
 
   // Handing the page back: a tap outside the frame, Escape, or the viewer scrolled out of view.
   useEffect(() => {
