@@ -910,6 +910,23 @@ describe("the Owner overruling a fallback (final review O3)", () => {
     expect(record(project, waveId, "sim-descent", "passed").code).toBe(0);
   });
 
+  test("blocks piled up on the retried fallback don't count against the restored tool's fix rounds (Codex)", () => {
+    const { project, waveId } = fellBack();
+    // The builder retried on the step-through and was blocked three times: its rounds are spent.
+    [1, 2, 3].forEach(() => must(record(project, waveId, "sim-descent", "blocked")));
+    // Negative control: without the Owner's undo, a pass is still refused.
+    const spent = record(project, waveId, "sim-descent", "passed");
+    expect(spent.code).toBe(3);
+    expect(spent.out.error).toMatch(/two fix rounds are spent/);
+
+    must(undoFallBack(project, waveId, "descent", "--answer", "Ship the real sim."));
+
+    expect(record(project, waveId, "sim-descent", "passed").code).toBe(0);
+    // Only results after the undo count: a block after it is the restored tool's first.
+    [1, 2, 3].forEach(() => must(record(project, waveId, "sim-descent", "blocked")));
+    expect(record(project, waveId, "sim-descent", "passed").code).toBe(3);
+  });
+
   test("without his word it is refused (exit 3) and nothing changes (negative control)", () => {
     const { project, waveId } = fellBack();
 
