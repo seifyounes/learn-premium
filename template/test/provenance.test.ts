@@ -34,6 +34,20 @@ describe("the values a prose field holds", () => {
     expect(numbersIn("$12\\,345\\,678.5$").map((n) => n.value)).toEqual([12345678.5]);
   });
 
+  it("keeps a stripped operator or notation between two numbers a boundary, not a thousands group", () => {
+    for (const tex of ["$2\\times100$", "$2\\cdot100$", "$2\\pm100$", "$2_a100$", "$2\\,\\text{m}\\,100$"])
+      expect(
+        numbersIn(tex).map((n) => n.value),
+        tex,
+      ).toEqual([2, 100]);
+    // Control: a spacing command inside a group is still a group.
+    expect(numbersIn("$2\\,100$").map((n) => n.value)).toEqual([2100]);
+    // The fail-open case: a tag on the product must not cover the operands.
+    expect(
+      untagged("beats", { title: "$2\\times100$", provenance: { stated: ["2100"] } }).map((u) => u.written),
+    ).toEqual(["2", "100"]);
+  });
+
   it("leaves a group that is not three digits as separate numbers", () => {
     expect(numbersIn("1 0000 and 12 34").map((n) => n.value)).toEqual([1, 0, 12, 34]);
     expect(numbersIn("$3\\,\\text{m}\\ 200\\,\\text{mm}$").map((n) => n.value)).toEqual([3, 200]);
