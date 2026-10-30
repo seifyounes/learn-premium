@@ -21,6 +21,9 @@ export interface NumberFound {
   value: number;
 }
 
+/** A space between values that is never a thousands group's (an em space). */
+const BOUNDARY = " ";
+
 /** What groups thousands: a comma, or a space (plain, no-break, narrow no-break or thin). */
 const GROUPING = ",    ";
 
@@ -119,6 +122,8 @@ function afterToken(tex: string, i: number): number {
  * being part of the value. Commands become spaces, so a digit after one isn't read as a name.
  */
 function valuesOnly(source: string): string {
+  // What stands where notation was taken out: a space that is not a thousands group's, so
+  // `2\times100` stays 2 and 100 (a plain space would read as the one number 2 100).
   const tex = groupThousands(source);
   let out = "";
   let i = 0;
@@ -132,14 +137,14 @@ function valuesOnly(source: string): string {
       } else if (DROPS_DIMENSION.has(name)) {
         i = end + (/^\s*-?[\d.]+\s*[a-z]{2}/.exec(tex.slice(end))?.[0].length ?? 0);
       } else i = end;
-      out += " ";
+      out += BOUNDARY;
     } else if (ch === "_") {
       i = afterToken(tex, i + 1);
-      out += " ";
+      out += BOUNDARY;
     } else if (ch === "^") {
       const end = afterToken(tex, i + 1);
-      if (/\d\s*$/.test(out)) out += ` ${tex.slice(i + 1, end)} `;
-      else out += " ";
+      if (/\d\s*$/.test(out)) out += `${BOUNDARY}${tex.slice(i + 1, end)}${BOUNDARY}`;
+      else out += BOUNDARY;
       i = end;
     } else {
       out += ch;

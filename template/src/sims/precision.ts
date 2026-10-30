@@ -2,7 +2,10 @@
 // computed one when the computed value, rounded to d decimals, is within 1 of it in the last
 // printed digit: a hand may round the last digit either way. Pure: the number gate uses it, and a
 // sim's table prints the sheet's way with `printAt` (`print.ts`).
-import { groupThousands, numbersIn } from "../provenance/values.ts";
+import { groupThousands, numbersIn as provenanceNumbers } from "../provenance/values.ts";
+
+/** The numbers in a text. Eastern Arabic digits are no number here: the provenance gate reports them (as NaN), a sheet comparison would match them to anything. */
+const numbersIn = (text: string) => provenanceNumbers(text).filter((n) => Number.isFinite(n.value));
 
 export { printAt } from "./print.ts";
 

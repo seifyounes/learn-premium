@@ -63,6 +63,15 @@ describe("a value as the sheet prints it", () => {
     expect(rulingValues("$1{,}000$")).toEqual([1000]);
   });
 
+  it("reads Eastern Arabic digits as no number, not a NaN that equals every other (final review F8)", () => {
+    expect(readPrinted("١٢")).toBe("the cell holds no number");
+    expect(readPrinted("$٣٤$")).toBe("the cell holds no number");
+    expect(rulingValues("٣٤")).toEqual([]);
+    // Beside a number, the digits are not counted as one.
+    expect(readPrinted("12 ١٢")).toMatchObject({ value: 12 });
+    expect(rulingValues("٣٤ and 0.5")).toEqual([0.5]);
+  });
+
   it("reads scientific notation as one value, its precision from the mantissa and the power", () => {
     expect(readPrinted("$4.0 \\times 10^{-2}$")).toEqual({ value: 0.04, decimals: 3, written: "4.0 \\times 10^{-2}" });
     expect(readPrinted("$-1.25 \\times 10^{3}$")).toEqual({
