@@ -305,12 +305,23 @@ spends them. Then name the job by what it makes so its fallback is known, and ta
 
 Record `--result fell-back --detail "<what it fell back to>"`. A job with no fallback (the writer,
 the recompute, a gate run) records `--result checkpoint --detail "<what it needs>"` and joins the
-batched Checkpoint. The ledger refuses another try once the rounds are spent, and `ready` refuses
-any job of the wave left blocked: a Module never merges red, and never stalls on one job.
+batched Checkpoint. A job that is missing an Owner input (a reading only he can give, a choice only
+he can make) doesn't need to spend its fix rounds first: it may record `--result checkpoint` at once.
+Either way it can't go on until he answers its item. The ledger refuses another try once the rounds
+are spent, and `ready` refuses any job of the wave left blocked: a Module never merges red, and never
+stalls on one job. A Checkpoint row voided by hand (`$L supersede --row job --id <wave>/<job>`) stops
+blocking its job; the fix rounds already spent still count.
 
 A builder job of the tool assignment (`sim-<name>`, `tool-<name>`) takes its fallback with `node "$W"
 fallback --holder <id> --wave <W> --job <job> --started-at <launch>` instead, which records
 `fell-back` and the new `ships` in the assignment together.
+
+The Owner can overrule a fallback. Ask him, then `node "$W" fallback --holder <id> --wave <W> --undo
+<tool> --answer "<his words>"` (`<tool>` is the assigned tool's name): the tool ships the tool it was
+assigned again, the fallback stays in its history, and his words become a Checkpoint row
+`NN/fallback/<tool>`. It is refused (exit 3) without `--answer`, and for a tool that already ships
+what it was assigned. Then run the builder job again: it starts with fresh fix rounds, and `ready`
+holds the content to the restored tool.
 
 ### A subagent that dies
 
@@ -419,6 +430,10 @@ item). The template's side (the pages, the `sitting` gate point) is in `template
    merged the sitting is live: its Deep Dive audio joins the Media queue, so tell the Owner it is queued
    for the next "run media".
 
+   **Sitting Deep Dive audio is deferred (the Owner, 2026-10-29; spec stories 50 and 100).** Nothing
+   yet makes, checks or places it, and Revision has no audio slot; its queue entry must not stall the
+   other items. It is built only when the Owner asks.
+
 ## Gate gaps and Course overrides
 
 A gate gap is a new kind of defect that no gate caught (the Owner, the fresh reviewer or you found
@@ -477,7 +492,13 @@ on its release. `$U` is `scripts/upgrade.ts` (`scripts/upgrade/README.md`), `<P>
    gates on a production build, once for the Course (`--point deploy`, as the Module wave's step 8).
    Commit the Gate reports. Then `node "$U" ready --project <P>`. An item a gate newly raises is the
    Owner's: ask as in the Module wave's Checkpoint, and store the answer with `$L record checkpoint
-   --wave <upgrade id> …`.
+   --wave <upgrade id> …`. Then commit the ledger and **re-run every gate** before `ready`: the
+   ledger commit changes files outside `build-records/`, which stales every Gate report. `ready` also
+   holds the content's Slips and Divergences to the Owner's answers, as a Module wave does.
+   An Upgrade wave **can't edit content** (it changes only through a shipped migration). So a Slip or
+   Divergence item a release newly raises can't be applied here: the wave ends red (go to Red), the
+   gate gap goes to learn-premium, and the next release fixes the content with a migration. That is
+   intended.
 4. **Red.** Read `problems`. If dropping an override is the suspect, restore the retired overrides
    in a scratch run and see which fail; for each that does, `node "$U" keep --project <P> --holder
    <id> --path <override> --reason "<which gate fails>"` (it reopens that gate gap on learn-premium

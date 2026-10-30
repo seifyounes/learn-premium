@@ -6,7 +6,7 @@ in half the time, shipped 0 KB of JS on static pages against Next's ~130 KB, sco
 Lighthouse on mobile, produced a third of the files, and a blind agent extended it faster and
 with fewer failures. Next.js 16 static export stays the named fallback. The switch happens only
 if something the bake-off did not prove (a Vercel deploy, a real phone, Arabic RTL, view
-transitions, a page with many heavy islands) fails in the Pilot build and can't be fixed inside
+transitions, a page with many heavy islands) fails in the first real Course's build and can't be fixed inside
 Astro. Keeping the islands in React keeps that switch cheap.
 
 learn-premium carries a versioned **Site template**. Each Course is its own **Course project**:

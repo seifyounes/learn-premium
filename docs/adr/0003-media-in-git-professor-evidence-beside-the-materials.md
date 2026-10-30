@@ -15,7 +15,7 @@ of the Materials live in a Private folder beside the Materials, outside any repo
   checked media is committed, so rejected outputs never enter git history. Sizes are reported,
   not capped; a file over GitHub's 100 MB block is re-encoded harder once, else dropped.
 - Vercel doesn't cache range (seek) requests, which may eat Hobby's 10 GB/month origin transfer.
-  The Owner reads Vercel usage in the Pilot course's first month live; past half an allowance,
+  The Owner reads Vercel usage in the first real Course's first month live; past half an allowance,
   a new ticket reopens the media store, with R2 plus a bought domain as the known next step.
 - A pre-commit gate blocks any file whose hash matches the Materials inventory, and any file in
   an evidence-shaped path, with a planted Materials file as its negative control.

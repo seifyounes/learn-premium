@@ -15,7 +15,7 @@ web
 
 Astro 7 static output with React 19 islands loaded on demand (ADR 0002); Next.js 16 static export
 is the named fallback, used only if something the bake-off (ticket #17) didn't prove fails in the
-Pilot course's build and can't be fixed in Astro. Online only, one Vercel project and unlisted URL
+first real Course's build and can't be fixed in Astro. Online only, one Vercel project and unlisted URL
 per Course (ADR 0001). Each Course project is a copy of the versioned Site template plus that
 Course's content and course config. Math renders at build time through our own KaTeX 0.18 step
 (mhchem, `throwOnError`) as stacked, paper-like notation.
@@ -100,9 +100,9 @@ circuits, heat transfer, machinery, engineering chemistry, and automation and co
 
 ## Evidence on Hand
 
-Pilot course = Machine Learning (v1 build at `D:\Claude Os\machine learning`, outside the repo):
+The v1 Machine Learning build (at `D:\Claude Os\machine learning`, outside the repo; it is not a Pilot, nothing in v2 runs on it):
 11 modules, 30 worked examples all with solving tables, 102 flashcards (v2 drops flashcards),
-57 written questions, 88 rule cards, 0 MCQ. Second pilot = Automation. No testimonials, usage
+57 written questions, 88 rule cards, 0 MCQ. No testimonials, usage
 numbers or endorsements exist; never invent them.
 
 ## Product Principles
