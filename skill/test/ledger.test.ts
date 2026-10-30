@@ -594,7 +594,16 @@ describe("the fix loop: two fix rounds, then the fallback, else a Checkpoint ite
     // Negative control: left standing, the row blocks every later result.
     expect(record("writer", "passed").code).toBe(3);
 
-    const voided = ledger("supersede", ...holder, "--row", "job", "--id", `${wave}/writer`, "--reason", "asked wrongly");
+    const voided = ledger(
+      "supersede",
+      ...holder,
+      "--row",
+      "job",
+      "--id",
+      `${wave}/writer`,
+      "--reason",
+      "asked wrongly",
+    );
     const passed = record("writer", "passed");
 
     expect(voided.code).toBe(0);
