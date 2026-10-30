@@ -310,8 +310,9 @@ The Owner can overrule a fallback. Ask him, then `node "$W" fallback --holder <i
 <tool> --answer "<his words>"` (`<tool>` is the assigned tool's name): the tool ships the tool it was
 assigned again, the fallback stays in its history, and his words become a Checkpoint row
 `NN/fallback/<tool>`. It is refused (exit 3) without `--answer`, and for a tool that already ships
-what it was assigned. Then run the builder job again: it starts with fresh fix rounds, and `ready`
-holds the content to the restored tool.
+what it was assigned. The undo voids the job's fell-back result and the tool's hand-back, so `ready`
+refuses the step-through until you run the builder job again (fresh fix rounds), `handback` it and
+record its result.
 
 ### A subagent that dies
 

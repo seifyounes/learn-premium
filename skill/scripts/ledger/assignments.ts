@@ -117,6 +117,12 @@ export function recordFallbackUndone(
       );
     const at = new Date().toISOString();
     tool.ships = tool.tool;
+    // The builder's fell-back result and hand-back were for the step-through (or the fallen-back tool): the
+    // live tool needs its own, so `ready` refuses the content until the builder runs again and reports.
+    tool.handback = null;
+    for (const j of current(ledger.jobs)) {
+      if (j.wave === row.wave && j.job === tool.job) j.superseded = { at, reason: "fallback overruled" };
+    }
     for (const earlier of current(ledger.checkpoints)) {
       if (earlier.key === row.key) earlier.superseded = { at, reason: "answered again" };
     }
