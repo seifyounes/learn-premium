@@ -15,14 +15,16 @@ import { run as runUpgrade, type Deps } from "../scripts/upgrade/cli.ts";
 import { EMPTY_INVENTORY } from "./fixture-courses.ts";
 import { must } from "./fake-notebooklm.ts";
 import { FakeTracker } from "./fake-tracker.ts";
-import { ledger, writeFiles, type Result } from "./helpers.ts";
+import { ledger, tempDir, writeFiles, type Result } from "./helpers.ts";
 import {
   addRelease,
   git,
   HOLDER,
+  identify,
   OVERRIDE,
   releaseRepo,
   upgradeCourse,
+  V1_TEMPLATE,
   type UpgradeCourse,
 } from "./upgrade-fixtures.ts";
 
@@ -405,6 +407,65 @@ describe("apply", { timeout: 60_000 }, () => {
     const c = upgradeCourse(releaseRepo(), { content: "minimal" });
     must(await start(c));
     expect((await apply(c, c.source, "session-b")).code).toBe(3);
+  });
+});
+
+/** A release repo whose v1.0.0 has `before` beside the stock files and whose v1.1.0 removes `removed`, then adds `after`. */
+function reshapingRepo(before: Record<string, string>, removed: string[], after: Record<string, string>): string {
+  const repo = tempDir("release");
+  git(repo, "init", "-q", "-b", "main");
+  identify(repo);
+  addRelease(repo, "v1.0.0", { ...V1_TEMPLATE, ...before }, { kind: "major" });
+  for (const path of removed) git(repo, "rm", "-q", "-r", `template/${path}`);
+  addRelease(repo, "v1.1.0", after, { previous: "v1.0.0", kind: "minor" });
+  return repo;
+}
+
+describe("apply, when the release reshapes the layer (final review F21)", { timeout: 60_000 }, () => {
+  test("a file the release turns into a directory", async () => {
+    const c = upgradeCourse(
+      reshapingRepo({ "src/sims/x": "export const x = 1;\n" }, ["src/sims/x"], {
+        "src/sims/x/index.ts": "export const x = 2;\n",
+      }),
+      { content: "minimal" },
+    );
+    must(await start(c, { to: "v1.1.0" }));
+    const { code, out } = await apply(c);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(templateOnDisk(c)).toEqual(releaseHashes(c.source, "v1.1.0"));
+    expect((await apply(c)).code).toBe(0);
+  });
+
+  test("a directory the release turns into a file", async () => {
+    const c = upgradeCourse(
+      reshapingRepo(
+        { "src/sims/x/index.ts": "export const x = 1;\n", "src/sims/x/helper.ts": "export const h = 1;\n" },
+        ["src/sims/x"],
+        { "src/sims/x": "export const x = 2;\n" },
+      ),
+      { content: "minimal" },
+    );
+    must(await start(c, { to: "v1.1.0" }));
+    const { code, out } = await apply(c);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(templateOnDisk(c)).toEqual(releaseHashes(c.source, "v1.1.0"));
+  });
+
+  test("a folder the release newly gitignores loses the tracked files it dropped", async () => {
+    const c = upgradeCourse(
+      reshapingRepo({ "public/legacy/x.txt": "old\n", "public/legacy/y/z.txt": "older\n" }, ["public/legacy"], {
+        ".gitignore": "node_modules/\ndist/\nlegacy/\n",
+      }),
+      { content: "minimal" },
+    );
+    must(await start(c, { to: "v1.1.0" }));
+    const { code, out } = await apply(c);
+    expect(code, JSON.stringify(out)).toBe(0);
+    expect(out.deleted).toEqual(["public/legacy/x.txt", "public/legacy/y/z.txt"]);
+    expect(existsSync(join(c.project, "template", "public", "legacy"))).toBe(false);
+    expect(templateOnDisk(c)).toEqual(releaseHashes(c.source, "v1.1.0"));
+    // Negative control: what the release keeps is not deleted, and an ignored install stays.
+    expect(existsSync(join(c.project, "template", "package.json"))).toBe(true);
   });
 });
 

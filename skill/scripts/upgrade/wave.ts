@@ -4,7 +4,17 @@
 // never touched except by a shipped migration, and a red wave leaves `main` on the pinned release.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { HOOKS_PATH } from "../intake/create.ts";
@@ -165,6 +175,14 @@ export function startUpgrade(
   };
 }
 
+/** Removes `folder` and each parent below `root` while it is empty: what a deleted file leaves behind. */
+function pruneEmptyFolders(root: string, folder: string): void {
+  while (folder.length > root.length && folder.startsWith(root) && readdirSync(folder).length === 0) {
+    rmdirSync(folder);
+    folder = dirname(folder);
+  }
+}
+
 /**
  * Re-copies the template layer to the target release's own files, on the wave's branch: every file
  * written as the release has it, every file the release dropped deleted, then the Course overrides the
@@ -186,16 +204,25 @@ export function applyUpgrade(project: string, holder: string, source: string) {
     );
 
   const root = join(project, TEMPLATE_DIR);
+  // What the release dropped goes first, so a path that was a file can become a directory (or back). It is
+  // the pinned release's files plus what is on disk, before the release's .gitignore is written: a folder
+  // the release newly ignores would hide its tracked files from the second list. The pinned files don't
+  // change until the wave merges, so a re-run finds the same ones (and only those still on disk).
+  const isFile = (path: string) => existsSync(join(root, path)) && statSync(join(root, path)).isFile();
+  const stale = new Set([...Object.keys(ledger.template.files), ...Object.keys(templateHashes(project))]);
+  const deleted = [...stale].filter((path) => !release.has(path) && isFile(path));
+  for (const path of deleted) {
+    rmSync(join(root, path), { force: true });
+    pruneEmptyFolders(root, dirname(join(root, path)));
+  }
   let written = 0;
   for (const [path, bytes] of release) {
     const file = join(root, path);
-    if (existsSync(file) && readFileSync(file).equals(bytes)) continue;
+    if (existsSync(file) && statSync(file).isFile() && readFileSync(file).equals(bytes)) continue;
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, bytes);
     written += 1;
   }
-  const deleted = Object.keys(templateHashes(project)).filter((path) => !release.has(path));
-  for (const path of deleted) rmSync(join(root, path), { force: true });
   // Git runs only an executable pre-commit hook; a file written from git's objects has no mode of its own on Windows.
   const hook = join(project, HOOKS_PATH, "pre-commit");
   if (existsSync(hook)) chmodSync(hook, 0o755);
