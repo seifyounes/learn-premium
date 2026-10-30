@@ -17,7 +17,8 @@ research, prototype and recommend, never decide on his behalf.
 ## Standing constraints (decided 2026-09-25)
 
 - Repo is **private** (github.com/seifyounes/learn-premium).
-- **Pilot course:** the v1 Machine Learning build (`D:\Claude Os\machine learning`). Course
+- **No ML Pilot** (Owner, 2026-10-09): the **Fixture Course** is the proving ground, and every
+  ticket is proven on it. The Owner tests the finished skill on a new subject himself. Course
   materials stay **outside** the repo, referenced by path — never commit a professor's material.
 - v2 keeps v1's **verification discipline** (accuracy gates, real-browser QA of the output), even
   where engines and design are replaced.
@@ -54,4 +55,6 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 
 ## Open items
 
-- Stack, design direction, discipline toolkits, NotebookLM route — being decided on the map.
+- Stack, design direction, discipline toolkits and the NotebookLM route are decided (see `docs/adr/`,
+  `DESIGN.md`, `skill/SKILL.md`). Still open for the Owner: the **Cut-over** (the first real Course
+  he builds, deployed with every gate green), and Sitting Deep Dive audio, which he deferred.

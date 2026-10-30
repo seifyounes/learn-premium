@@ -117,17 +117,12 @@ lines; later an FSM's timing strip). It is drawn over the key, the Worked exampl
 gated against it bit for bit.
 _Avoid_: chart, waveform (alone)
 
-**Pilot course**:
-The Course whose v1 build is rebuilt first in v2 to prove the new pipeline end to end.
-Currently Machine Learning.
-_Avoid_: test course, demo
-
-**Second pilot**:
-The live-semester Course built after the Pilot course to prove the Disciplines Machine Learning
-never touches, on Materials that arrive lecture by lecture. It has its own exit criteria, and the
-Cut-over does not wait for it. Currently Automation. Every other Discipline is proven by its first
-real Course build, flagged unproven with extra Owner review until it meets the same bar.
-_Avoid_: second Pilot course, test course, pilot 2
+**Unproven Discipline**:
+A Discipline the Owner added to a Course at intake, with its Toolkit, which no real Course build
+has proved yet. Its tools get extra Owner review, flagged unproven, until a Module with its tools
+has merged and the Owner says it met the bar. There is no Pilot course: the pipeline is proved
+on the Fixture Course, and the Owner tests the finished skill on a new subject himself.
+_Avoid_: pilot Discipline
 
 **v1**:
 The `/crash-course` skill as it stood on 2026-09-25 (vanilla-JS single-file engines). Reference
@@ -136,9 +131,9 @@ Study site it built.
 _Avoid_: old skill, legacy (alone)
 
 **Cut-over**:
-The moment learn-premium becomes the main skill for building Study sites: when the Pilot
-course's v2 Study site is deployed with every Gate passing. Before it, learn-premium runs only
-when called by name.
+The moment learn-premium becomes the main skill for building Study sites: when the first real
+Course the Owner builds with it is deployed with every Gate passing. Before it, learn-premium
+runs only when called by name.
 _Avoid_: launch, release, switch
 
 **Machine install**:
@@ -360,12 +355,14 @@ A small synthetic Course kept in learn-premium's own repo, written without any P
 material, that exercises every component, every sim kind, the Tool gallery and the Trap page.
 The template's own checks build it on every change, and each major release proves its migration
 by upgrading the previous release's Fixture Course.
-_Avoid_: sample course, demo course, Pilot course (that one is real)
+_Avoid_: sample course, demo course, pilot course (a real Course is one the Owner builds)
 
 **Provenance tag**:
 The origin every number, formula, dimension and sim constant carries: stated (in the Materials),
 derived (worked out, no official key), scaled (measured off a drawing) or assumed (supplied by
-the agent). Derived, scaled and assumed values say so on the page.
+the agent). Derived, scaled and assumed values say so on the page. An axis's `min`, `max` and
+`step` carry no tag (the Owner's ruling): they set a figure's display range, and only its labels
+and units are read.
 _Avoid_: source label, confidence
 
 **Gate gap**:
