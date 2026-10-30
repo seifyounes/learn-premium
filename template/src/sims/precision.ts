@@ -2,7 +2,7 @@
 // computed one when the computed value, rounded to d decimals, is within 1 of it in the last
 // printed digit: a hand may round the last digit either way. Pure: the number gate uses it, and a
 // sim's table prints the sheet's way with `printAt` (`print.ts`).
-import { numbersIn } from "../provenance/values.ts";
+import { groupThousands, numbersIn } from "../provenance/values.ts";
 
 export { printAt } from "./print.ts";
 
@@ -25,7 +25,8 @@ export function readPrinted(cell: string): Printed | string {
   if (found.length > 1)
     return `the cell holds ${found.length} numbers (${found.map((n) => n.written).join(", ")}), not one`;
   const [number] = found as [(typeof found)[number]];
-  const sign = new RegExp(`${SIGN_BEFORE}${escaped(number.written)}(?![\\d.])`).exec(text)?.[1];
+  // Grouped thousands are looked for as the parser read them (`1{,}250` is `1,250`).
+  const sign = new RegExp(`${SIGN_BEFORE}${escaped(number.written)}(?![\\d.])`).exec(groupThousands(text))?.[1];
   return {
     value: sign === undefined ? number.value : -number.value,
     decimals: (number.written.split(".")[1] ?? "").length,
@@ -50,7 +51,8 @@ const SIGN_BEFORE = signBefore("=(:≈");
  * before it, so a list ("$-0.02$, $0.5$") gives every number its own sign. A number the text can't
  * be found in again (the parser reads math differently from the raw text) keeps its unsigned value.
  */
-function signedValues(text: string, found: ReadonlyArray<{ written: string; value: number }>): number[] {
+function signedValues(source: string, found: ReadonlyArray<{ written: string; value: number }>): number[] {
+  const text = groupThousands(source);
   // Among several values, a minus also starts one after a math delimiter, a comma or a semicolon.
   const before = new RegExp(`${signBefore("=(:≈$,;")}$`);
   let from = 0;
