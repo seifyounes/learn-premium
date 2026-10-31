@@ -126,14 +126,14 @@ _Avoid_: pilot Discipline
 
 **v1**:
 The `/crash-course` skill as it stood on 2026-09-25 (vanilla-JS single-file engines). Reference
-only; learn-premium replaces it. After the Cut-over it stays installed only to resume or fix a
-Study site it built.
+only; learn-premium replaces it. The Owner uninstalled it on 2026-10-31, when learn-premium v0.1.0
+was installed; its snapshot stays in `v1-reference/`.
 _Avoid_: old skill, legacy (alone)
 
 **Cut-over**:
 The moment learn-premium becomes the main skill for building Study sites: when the first real
-Course the Owner builds with it is deployed with every Gate passing. Before it, learn-premium
-runs only when called by name.
+Course the Owner builds with it is deployed with every Gate passing. The Owner moved the
+natural-language triggers to learn-premium on 2026-10-31, ahead of the Cut-over.
 _Avoid_: launch, release, switch
 
 **Machine install**:
