@@ -31,6 +31,12 @@ interface Pin {
   faces: Point | "away-from-label";
   /** Whether a lead joins the pin to the body: it counts as one arm where wires meet. */
   lead: boolean;
+  /**
+   * A pin the figure may leave off altogether (a coil's `out`, which only a hard-wired rung
+   * carries on to the right rail): in no net, it isn't drawn, has no lead, and is no pin of the
+   * drawing at all, so a ladder that never uses it draws exactly as before.
+   */
+  optional?: boolean;
 }
 
 /**
@@ -46,12 +52,20 @@ export interface SymbolDef {
   /** The body, [x0, y0, x1, y1]: no wire or other label may cross it. Pins and leads lie outside. */
   box: readonly [number, number, number, number];
   orientation: Orientation;
-  /** Pins whose wires may swap without changing the circuit (a resistor's ends, a gate's inputs). */
-  swappable?: readonly [string, string];
+  /** Pins whose wires may swap among themselves without changing the circuit (a resistor's ends, a gate's or box's inputs). */
+  swappable?: readonly string[];
   /** Joins every other symbol with the same key without a wire (grounds, same-named rails). */
   implicit?: (label: string | undefined) => string;
   /** Its strokes, as SVG path data: leads, then the body. `fill` paths are filled with the ink. */
   leads: string;
+  /**
+   * Leads that belong to one pin each, drawn before `leads` (`strokesOf`): left out while the pin is
+   * open (an optional pin in no net), stopped at a negation circle on the body's edge while the part
+   * negates it.
+   */
+  pinLeads?: Readonly<Record<string, string>>;
+  /** Input pins a part may negate, each drawn with a small circle where its lead meets the body (FBD's boxes). */
+  negatable?: readonly string[];
   body: string;
   fill?: string;
   /** A small circle on the body (a gate's inverting bubble, a terminal), [cx, cy, r]. */
@@ -78,7 +92,12 @@ export interface Slot {
   anchor: Anchor;
 }
 
-const pin = (at: Point, faces: Pin["faces"], lead = true): Pin => ({ at, faces, lead });
+const pin = (at: Point, faces: Pin["faces"], lead = true, optional = false): Pin => ({
+  at,
+  faces,
+  lead,
+  ...(optional ? { optional } : {}),
+});
 const twoTerminal = (a: string, b: string) => ({ [a]: pin([-40, 0], W), [b]: pin([40, 0], E) });
 const gateInputs = { in1: pin([-40, -20], W), in2: pin([-40, 20], W) };
 
@@ -112,12 +131,17 @@ const contact = (slash: boolean): SymbolDef => ({
   body: `M-8 -14V14M8 -14V14${slash ? "M-12 14L12 -14" : ""}`,
 });
 
-/** A coil, -( )-, ending its rung; `mark` is its letters (S, R, SD, CU…), a timer or counter coil its preset below. */
-const coil = (mark: string, preset = false): SymbolDef => ({
-  pins: { in: pin([-40, 0], W) },
+/**
+ * A coil, -( )-, ending its rung; `mark` is its letters (S, R, SD, CU…), a timer or counter coil its
+ * preset below. The plain coil also has an optional `out`: a hard-wired rung carries on from it,
+ * through the overload contact, to the right rail.
+ */
+const coil = (mark: string, preset = false, out = false): SymbolDef => ({
+  pins: { in: pin([-40, 0], W), ...(out ? { out: pin([40, 0], E, true, true) } : {}) },
   box: [-16, -16, 16, 16],
   orientation: { by: "pin", pin: "in" },
   leads: "M-40 0H-14",
+  ...(out ? { pinLeads: { out: "M14 0H40" } } : {}),
   body: "M-8 -14A18 18 0 0 0 -8 14M8 -14A18 18 0 0 1 8 14",
   ...(mark ? { text: [[0, 4, mark, "middle"]] as const } : {}),
   ...(preset ? { slots: { preset: { at: [0, 34], anchor: "middle" } } } : {}),
@@ -194,17 +218,37 @@ const s5CounterBox = (title: string, up: boolean, down: boolean) =>
     ],
   );
 
-/** An FBD box: its function's sign on top, inputs on the left, the result on the right. */
-const fbdBox = (sign: string, inputs: number): SymbolDef => ({
-  pins:
-    inputs === 2 ? { in1: pin([-40, -20], W), in2: pin([-40, 20], W), out: pin([40, 0], E) } : { in: pin([-40, 0], W) },
-  box: inputs === 2 ? [-20, -30, 20, 30] : [-20, -16, 20, 16],
-  orientation: { by: "pin", pin: inputs === 2 ? "out" : "in" },
-  ...(inputs === 2 ? { swappable: ["in1", "in2"] as const } : {}),
-  leads: inputs === 2 ? "M-40 -20H-20M-40 20H-20M20 0H40" : "M-40 0H-20",
-  body: inputs === 2 ? "M-20 -30H20V30H-20Z" : "M-20 -16H20V16H-20Z",
-  text: [[0, inputs === 2 ? -12 : 5, sign, "middle"]],
-});
+/**
+ * An FBD box: its function's sign on top, inputs on the left (`in` alone, or `in1`… top to bottom,
+ * 40px apart), the result on the right. Every input may be negated: a circle on the box's edge.
+ */
+function fbdBox(sign: string, inputs: number): SymbolDef {
+  if (inputs === 1)
+    return {
+      pins: { in: pin([-40, 0], W) },
+      box: [-20, -16, 20, 16],
+      orientation: { by: "pin", pin: "in" },
+      leads: "",
+      pinLeads: { in: "M-40 0H-20" },
+      negatable: ["in"],
+      body: "M-20 -16H20V16H-20Z",
+      text: [[0, 5, sign, "middle"]],
+    };
+  const names = Array.from({ length: inputs }, (_, i) => `in${i + 1}`);
+  const ys = names.map((_, i) => 40 * i - 20 * (inputs - 1));
+  const half = 20 * (inputs - 1) + 10;
+  return {
+    pins: { ...Object.fromEntries(names.map((name, i) => [name, pin([-40, ys[i] ?? 0], W)])), out: pin([40, 0], E) },
+    box: [-20, -half, 20, half],
+    orientation: { by: "pin", pin: "out" },
+    swappable: names,
+    leads: "M20 0H40",
+    pinLeads: Object.fromEntries(names.map((name, i) => [name, `M-40 ${ys[i] ?? 0}H-20`])),
+    negatable: names,
+    body: `M-20 -${half}H20V${half}H-20Z`,
+    text: [[0, 18 - half, sign, "middle"]],
+  };
+}
 
 export const SYMBOLS = {
   ...BLOCK_DIAGRAM_SYMBOLS,
@@ -331,12 +375,24 @@ export const SYMBOLS = {
     leads: "M2 0H20",
     body: "M0 -48V48",
   },
+  /**
+   * A hard-wired rung's right power rail (L2, the return): a coil and the contacts after it end on
+   * it. Every right rail is the one rail, as every left one is.
+   */
+  "power-rail-right": {
+    pins: { t: pin([-20, 0], W) },
+    box: [-2, -48, 2, 48],
+    orientation: { by: "any" },
+    implicit: () => "right power rail",
+    leads: "M-20 0H-2",
+    body: "M0 -48V48",
+  },
   /** A normally open contact, -| |-. */
   no: contact(false),
   /** A normally closed contact, -|/|-. */
   nc: contact(true),
-  /** An output coil, -( )-: the operand takes the power reaching it. */
-  coil: coil(""),
+  /** An output coil, -( )-: the operand takes the power reaching it (on through to the right rail, in a hard-wired rung). */
+  coil: coil("", false, true),
   /** A set coil, -(S)-, and a reset coil, -(R)-. */
   "coil-s": coil("S"),
   "coil-r": coil("R"),
@@ -379,9 +435,13 @@ export const SYMBOLS = {
     leads: "",
     body: "",
   },
-  /** FBD's AND (&) and OR (>=1) boxes. */
+  /** FBD's AND (&) and OR (>=1) boxes, with two, three or four inputs. */
   "fbd-and": fbdBox("&", 2),
+  "fbd-and3": fbdBox("&", 3),
+  "fbd-and4": fbdBox("&", 4),
   "fbd-or": fbdBox(">=1", 2),
+  "fbd-or3": fbdBox(">=1", 3),
+  "fbd-or4": fbdBox(">=1", 4),
   /** FBD's negation: the small circle on a line. */
   "fbd-not": {
     pins: { in: pin([-20, 0], W), out: pin([20, 0], E) },
@@ -414,6 +474,8 @@ export interface Placement {
   y: number;
   turn: Turn;
   flip: boolean;
+  /** Optional pins the figure leaves off (in no net): not drawn, and no pin of the drawing. */
+  open?: readonly string[] | undefined;
 }
 
 /** A local vector turned and mirrored as the part is (no translation). */
@@ -437,9 +499,39 @@ export function toDrawing(part: Placement, local: Point): Point {
   return [part.x + dx, part.y + dy];
 }
 
-/** Every pin of the part, in drawing px, by name. */
+/** Every pin of the part, in drawing px, by name: an optional pin left open isn't one. */
 export function pinsOf(part: Placement): Record<string, Point> {
-  return Object.fromEntries(Object.entries(symbolOf(part.kind).pins).map(([name, p]) => [name, toDrawing(part, p.at)]));
+  return Object.fromEntries(
+    Object.entries(symbolOf(part.kind).pins)
+      .filter(([name]) => !part.open?.includes(name))
+      .map(([name, p]) => [name, toDrawing(part, p.at)]),
+  );
+}
+
+/** A negation circle's radius: it sits on the body's edge, its lead stopping short of it. */
+export const NEGATION_R = 5;
+
+/**
+ * A placed part's leads and circles, in local px: each pin's own lead left out while the pin is
+ * open, and a negated input's lead stopped at a circle on the body's edge.
+ */
+export function strokesOf(part: Pick<Placement, "kind" | "open"> & { negated?: readonly string[] | undefined }): {
+  leads: string;
+  circles: readonly (readonly [number, number, number])[];
+} {
+  const def: SymbolDef = symbolOf(part.kind);
+  const own: string[] = [];
+  const circles: (readonly [number, number, number])[] = [...(def.circles ?? [])];
+  const edge = def.box[0];
+  for (const [name, lead] of Object.entries(def.pinLeads ?? {})) {
+    if (part.open?.includes(name)) continue;
+    const at = def.pins[name]?.at;
+    if (at && part.negated?.includes(name)) {
+      own.push(`M${at[0]} ${at[1]}H${edge - 2 * NEGATION_R}`);
+      circles.push([edge - NEGATION_R, at[1], NEGATION_R]);
+    } else own.push(lead);
+  }
+  return { leads: own.join("") + def.leads, circles };
 }
 
 /** The part's body box in drawing px, [x0, y0, x1, y1]. */

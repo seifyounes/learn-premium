@@ -109,7 +109,8 @@ describe("the block diagram through the Drawing gate", () => {
   it("draws the loop from its hints, every check passed and every mutant caught", async () => {
     const result = await drawingGate.run({ contentDir: FIXTURE_COURSE, module: MODULE });
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toEqual({ modules: 1, drawings: 1, checks: 12, mutantsCaught: 8, mutantsSkipped: 0 });
+    // The negation mutant has no FBD box input to plant in.
+    expect(result.coverage).toEqual({ modules: 1, drawings: 1, checks: 12, mutantsCaught: 8, mutantsSkipped: 1 });
   });
 
   it("keeps the forward path on one line, block labels inside their boxes, the take-off dotted", () => {

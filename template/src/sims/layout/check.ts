@@ -40,9 +40,11 @@ const fraction = z.number().min(0).max(1);
 /**
  * A Blind reader's account of the Professor's figure, written without seeing any builder file. It
  * sits in the Course's build records beside the recompute logs. Parts are keyed by the label the
- * figure prints; every ground pin is `GND.g`, every rail pin `RAIL.t` and every ladder power rail
- * pin `POWER.t`, since unlabelled symbols can't be keyed, and an unlabelled kind with a `figureKey`
- * (a summing junction) is keyed by it. A STEP 7 editor screenshot prints one
+ * figure prints; every ground pin is `GND.g`, every rail pin `RAIL.t`, every ladder power rail
+ * pin `POWER.t` and every right power rail pin (a hard-wired rung's L2) `POWER_RIGHT.t`, since
+ * unlabelled symbols can't be keyed (a power rail the figure labels, L1 or L2, may also be listed
+ * among the parts by its label, and its pin named either way), and an unlabelled kind with a
+ * `figureKey` (a summing junction) is keyed by it. A STEP 7 editor screenshot prints one
  * operand on several parts (a contact and the coil it seals in), so its parts are keyed by network,
  * kind and operand instead: `N1 no Q 4.0`, `N1 coil Q 4.0`, with ` #2` on a repeat in one network.
  */
@@ -62,6 +64,8 @@ export const figureReading = z.strictObject({
       label: z.enum(SIDES).optional(),
       /** The values the figure prints in the part's slots, as printed (a TON's `PT: T#5S`, `ET: MD20`). */
       values: z.record(z.string(), z.string().min(1)).optional(),
+      /** The input pins the figure draws a negation circle on, where the line meets the box (FBD: `["in1", "in3"]`). */
+      negated: z.array(z.string().min(1)).optional(),
     }),
   ),
   /** Symbols the figure doesn't label, counted by kind (grounds, rails). */
@@ -135,6 +139,15 @@ export function checkDrawing(d: Drawing, model: SchematicModel, reading?: Figure
   return { pass: checks.every((c) => c.problems.length === 0), checks };
 }
 
+/** Pin names as a sentence's object: `in1 and in3`, or `none`. */
+const pinList = (pins: readonly string[]) =>
+  pins.length === 0
+    ? "none"
+    : pins.length === 1
+      ? (pins[0] ?? "")
+      : `${pins.slice(0, -1).join(", ")} and ${pins.at(-1) ?? ""}`;
+const sortedPins = (pins: readonly string[] | undefined) => [...new Set(pins ?? [])].sort();
+
 function partsProblems(d: Drawing, model: SchematicModel): string[] {
   const drawn = new Map(d.parts.map((p) => [p.id, p]));
   const modelled = new Map(model.parts.map((p) => [p.id, p]));
@@ -144,6 +157,20 @@ function partsProblems(d: Drawing, model: SchematicModel): string[] {
     ...d.parts.flatMap((p) => {
       const m = modelled.get(p.id);
       return m && m.kind !== p.kind ? [`${p.id} is drawn as a ${p.kind}, the model says ${m.kind}`] : [];
+    }),
+    // Each negation circle: on the inputs the model negates, and on no other.
+    ...d.parts.flatMap((p) => {
+      const m = modelled.get(p.id);
+      if (!m) return [];
+      const [got, want] = [sortedPins(p.negated), sortedPins(m.negated)];
+      const negatable: readonly string[] = symbolOf(p.kind).negatable ?? [];
+      const stray = got.filter((pin) => !negatable.includes(pin));
+      return [
+        ...(got.join() === want.join()
+          ? []
+          : [`${p.id} is drawn negating ${pinList(got)}, the model negates ${pinList(want)}`]),
+        ...(stray.length > 0 ? [`${p.id} is drawn negating ${pinList(stray)}, which a ${p.kind} can't negate`] : []),
+      ];
     }),
   ];
 }
@@ -360,6 +387,16 @@ function tidinessProblems(d: Drawing): string[] {
 
 /** Every power rail pin in a figure reading: a ladder's left rail is one conductor, however many networks show it. */
 export const POWER_RAIL = "POWER.t";
+/** Every right power rail pin in a figure reading: a hard-wired diagram's L2, the return, is one conductor too. */
+export const RIGHT_RAIL = "POWER_RIGHT.t";
+
+/** Every ordering of a few pins (a box's inputs: at most four, so 24). */
+function permutations<T>(items: readonly T[]): T[][] {
+  if (items.length <= 1) return [[...items]];
+  return items.flatMap((item, i) =>
+    permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest]),
+  );
+}
 
 /** The reading's key for each model part: its printed label, or its id when the figure prints that. */
 function readingKeys(model: SchematicModel, reading: FigureReading): Map<string, string> {
@@ -424,21 +461,47 @@ function figureChecks(
     const figureKey = kind && symbolOf(kind).figureKey;
     if (figureKey && !keyOf.has(id)) return `${figureKey}.${pin}`;
     if (kind === "power-rail") return POWER_RAIL;
+    if (kind === "power-rail-right") return RIGHT_RAIL;
     return `${keyOf.get(id) ?? `?${id}`}.${pin}`;
   };
-  const implicitPin = (k: string) => k === "GND.g" || k === "RAIL.t" || k === POWER_RAIL;
+  const implicitPin = (k: string) => k === "GND.g" || k === "RAIL.t" || k === POWER_RAIL || k === RIGHT_RAIL;
+  // A rail the figure labels (L1, L2) may be named by its label in a net: it is still the one rail.
+  const railPin = (k: string) => {
+    const kind = kindOf.get(keys.get(splitPin(k)[0]) ?? "");
+    return kind === "power-rail" ? POWER_RAIL : kind === "power-rail-right" ? RIGHT_RAIL : k;
+  };
 
-  // model ↔ figure: the nets, a swappable pair's wires allowed to swap where that fits the figure.
+  // model ↔ figure: the nets, a swappable group's wires allowed to swap among themselves where that
+  // fits the figure, each negation circle going with its wire.
   const modelled = modelNets(model, model.nets).map((n) => [...new Set(n.map(canon))]);
-  let figured = reading.nets.map((n) => n.pins);
+  let figured = reading.nets.map((n) => [...new Set(n.pins.map(railPin))]);
+  const negations = new Map(Object.entries(reading.parts).map(([key, part]) => [key, sortedPins(part.negated)]));
+  const modelNegated = (key: string) => sortedPins(model.parts.find((p) => p.id === keys.get(key))?.negated);
+  const negationCost = (key: string, read: readonly string[]) => {
+    const want = modelNegated(key);
+    return read.filter((p) => !want.includes(p)).length + want.filter((p) => !read.includes(p)).length;
+  };
   const cost = (nets: string[][]) => diffPartitions(nets, modelled, AGAINST_FIGURE).length;
   for (const part of model.parts) {
-    const pair = symbolOf(part.kind).swappable;
+    const group = symbolOf(part.kind).swappable;
     const key = keyOf.get(part.id);
-    if (!pair || key === undefined) continue;
-    const [a, b] = pair.map((p) => `${key}.${p}`) as [string, string];
-    const swapped = figured.map((n) => n.map((k) => (k === a ? b : k === b ? a : k)));
-    if (cost(swapped) < cost(figured)) figured = swapped;
+    if (!group || key === undefined) continue;
+    // The figure's own order comes first, so it wins a tie.
+    let best = { nets: figured, negated: negations.get(key) ?? [], cost: Infinity };
+    for (const order of permutations(group)) {
+      const to = new Map(group.map((p, i) => [p, order[i] ?? p]));
+      const nets = figured.map((n) =>
+        n.map((k) => {
+          const [id, pin] = splitPin(k);
+          return id === key && to.has(pin) ? `${key}.${to.get(pin) ?? pin}` : k;
+        }),
+      );
+      const negated = sortedPins((negations.get(key) ?? []).map((p) => to.get(p) ?? p));
+      const c = cost(nets) + negationCost(key, negated);
+      if (c < best.cost) best = { nets, negated, cost: c };
+    }
+    figured = best.nets;
+    negations.set(key, best.negated);
   }
   const unread = Object.keys(reading.parts).filter((k) => !keys.has(k));
   const unshown = model.parts.filter((p) => p.label !== undefined && !keyOf.has(p.id));
@@ -470,8 +533,17 @@ function figureChecks(
         .map((slot) => `the figure prints ${key}'s ${slot} "${read[slot]}", the model gives none`),
     ];
   });
+  // Each negation circle the figure draws on a box's input, and no other, where the model negates.
+  const negationProblems = [...keys].flatMap(([key]) => {
+    const got = negations.get(key) ?? [];
+    const want = modelNegated(key);
+    return got.join() === want.join()
+      ? []
+      : [`the figure negates ${key}'s ${pinList(got)}, the model ${pinList(want)}`];
+  });
   const netlist = check("netlist", "model ↔ figure", [
     ...valueProblems,
+    ...negationProblems,
     ...unread.map((k) => `the figure's ${k} has no part in the model`),
     ...unshown.map((p) => `${p.id} is in the model but not in the figure`),
     ...open.map((k) => `${k} is wired in the model, but the figure leaves it unconnected`),
@@ -511,7 +583,8 @@ function figureChecks(
     const side = sideOf(part, part.label);
     return side === read.label ? [] : [`${key}'s label is drawn ${side} it, the figure prints it ${read.label}`];
   });
-  const count = (kind: SymbolKind) => d.parts.filter((p) => p.kind === kind).length;
+  // Only the symbols the figure leaves unlabelled: a power rail it names L1 is keyed among the parts.
+  const count = (kind: SymbolKind) => d.parts.filter((p) => p.kind === kind && !p.label).length;
   const symbols = Object.entries(reading.unlabelled).flatMap(([kind, n]) =>
     count(kind as SymbolKind) === n ? [] : [`${count(kind as SymbolKind)} ${kind} symbols drawn, the figure has ${n}`],
   );

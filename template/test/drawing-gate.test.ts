@@ -17,7 +17,8 @@ describe("the Drawing gate", () => {
   it("passes the full adder, every check run and every mutant of the negative control caught", async () => {
     const result = await drawing(FIXTURE_COURSE);
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toEqual({ modules: 1, drawings: 1, checks: 12, mutantsCaught: 8, mutantsSkipped: 0 });
+    // The negation mutant has no FBD box input to plant in.
+    expect(result.coverage).toEqual({ modules: 1, drawings: 1, checks: 12, mutantsCaught: 8, mutantsSkipped: 1 });
   });
 
   it("covers a Module with no schematic sim without checking anything in it", async () => {

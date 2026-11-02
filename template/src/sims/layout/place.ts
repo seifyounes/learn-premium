@@ -37,9 +37,14 @@ const MOVABLE = new Set<SymbolKind>([
 ]);
 
 export function place(model: SchematicModel, hints: LayoutHints): PlacedPart[] {
+  // An optional pin no wire joins to another (a coil's `out` outside a hard-wired rung) is left off.
+  const joined = new Set(model.nets.filter((n) => n.pins.length > 1).flatMap((n) => n.pins));
   const parts: PlacedPart[] = model.parts.map((m) => {
     const h = hints.parts[m.id];
     const [col, row] = h?.at ?? [0, 0];
+    const open = Object.entries(symbolOf(m.kind).pins)
+      .filter(([name, pin]) => pin.optional && !joined.has(`${m.id}.${name}`))
+      .map(([name]) => name);
     return {
       id: m.id,
       kind: m.kind,
@@ -47,6 +52,8 @@ export function place(model: SchematicModel, hints: LayoutHints): PlacedPart[] {
       y: toGrid(row * PITCH),
       turn: h?.turn ?? 0,
       flip: h?.flip ?? false,
+      ...(open.length > 0 ? { open } : {}),
+      ...(m.negated && m.negated.length > 0 ? { negated: [...m.negated] } : {}),
     };
   });
   seatGrounds(parts, model);
@@ -143,8 +150,8 @@ function labelFor(part: PlacedPart, text: string, side: Side) {
   const cy = (y0 + y1) / 2;
   // A block's transfer function is printed inside it, whatever side a hint names.
   if (symbolOf(part.kind).labelInside) return { text, x: Math.round(cx - w / 2), y: Math.round(cy + 5) };
-  // A terminal's text sits beside its circle; a part's beside its body.
-  const terminal = symbolOf(part.kind).pins.t !== undefined;
+  // A terminal's text sits beside its circle; a part's beside its body (a power rail's, L1 or L2, past its end).
+  const terminal = symbolOf(part.kind).pins.t !== undefined && !part.kind.startsWith("power-rail");
   const gap = terminal ? 10 : 8;
   // The figure's sides are its own, never mirrored: the Professor's drawing reads one way.
   const [x, y] = ((): [number, number] => {

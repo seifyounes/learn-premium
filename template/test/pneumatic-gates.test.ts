@@ -213,7 +213,7 @@ describe("the Drawing gate on the cascade", () => {
     const result = await drawingGate.run(input);
     expect(result.findings).toEqual([]);
     expect(result.coverage).toMatchObject({ modules: 1, drawings: 1, checks: 12 });
-    expect((result.coverage.mutantsCaught ?? 0) + (result.coverage.mutantsSkipped ?? 0)).toBe(8);
+    expect((result.coverage.mutantsCaught ?? 0) + (result.coverage.mutantsSkipped ?? 0)).toBe(9);
   });
 
   it("draws the cascade with no symbol text, label or mark across another, a body or a wire", () => {
