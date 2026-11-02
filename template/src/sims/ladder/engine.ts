@@ -1,9 +1,10 @@
 // The ladder/FBD sim's engine: the Professor's networks run on the S7 core, scan after scan at the
 // scan's time. Each network runs its acting elements (coils, timers, counters, boxes) in the
 // model's order; the power reaching each one is read off the network at that moment, as power flow
-// through its contacts and boxes from the rail (a net is the OR of what drives it). Every contact
-// reads memory when its element runs, as the compiled STL reads it. A pure function of the model
-// and the inputs over time: the same code in Node for the build gate and in the page.
+// through its contacts and boxes from the rail (a net is the OR of what drives it). A hard-wired
+// coil also needs a way on from its `out` through the contacts after it to the right rail. Every
+// contact reads memory when its element runs, as the compiled STL reads it. A pure function of the
+// model and the inputs over time: the same code in Node for the build gate and in the page.
 
 import { splitPin } from "../layout/drawing.ts";
 import {
@@ -21,10 +22,13 @@ import {
 import {
   driversOf,
   ELEMENTS,
+  isFbdAnd,
+  isFbdOr,
   ladderProblems,
   netOf,
   networksOf,
   parseOperand,
+  sinksOf,
   type LadderModel,
   type LadderPart,
   type Operand,
@@ -58,6 +62,10 @@ export interface Semantics {
   logic(kind: string, inputs: Bit[], operand: Bit): Bit;
   /** A net's level from what drives it. */
   join(levels: Bit[]): Bit;
+  /** A box input the figure negates (its circle): the signal reaching it, as the box reads it. */
+  negate(level: Bit): Bit;
+  /** A hard-wired coil: the power reaching it, and whether the contacts after it carry it on to the right rail. */
+  series(before: Bit, after: Bit): Bit;
   /** One S5 timer instruction. */
   timer(timer: S5Timer, kind: S5TimerKind, rlo: Bit, s5t: number, now: number): void;
   /** One TON call at the scan's time (ms). */
@@ -67,16 +75,14 @@ export interface Semantics {
 
 export const SEMANTICS: Semantics = {
   logic(kind, inputs, operand) {
-    const [a = 0, b = 0] = inputs;
+    const [a = 0] = inputs;
+    if (isFbdAnd(kind)) return inputs.every((b) => b === 1) ? 1 : 0;
+    if (isFbdOr(kind)) return inputs.some((b) => b === 1) ? 1 : 0;
     switch (kind) {
       case "no":
         return (a & operand) as Bit;
       case "nc":
         return (a & (operand ^ 1)) as Bit;
-      case "fbd-and":
-        return (a & b) as Bit;
-      case "fbd-or":
-        return (a | b) as Bit;
       case "fbd-not":
         return (a ^ 1) as Bit;
       default:
@@ -84,6 +90,8 @@ export const SEMANTICS: Semantics = {
     }
   },
   join: (levels) => (levels.some((b) => b === 1) ? 1 : 0),
+  negate: (level) => (level ^ 1) as Bit,
+  series: (before, after) => (before & after) as Bit,
   timer: (timer, kind, rlo, s5t, now) => timer.run(kind, rlo, s5t, now),
   ton: (ton, ms) => ton.run(ms),
   countUp: (counter, rlo) => counter.countUp(rlo),
@@ -151,6 +159,8 @@ export class LadderRun {
     for (const { parts } of networksOf(this.model)) {
       /** Box outputs already run this scan, by part id. */
       const ran = new Set<string>();
+      /** Each hard-wired coil's state as it ran: the current its `out` passes on. */
+      const passed = new Map<string, Bit>();
       /**
        * Reading for the drawing only (an output no element reads, a dangling branch): a timer is
        * peeked, never settled, since the compiled STL reads nothing there and awlsim's state stays put.
@@ -181,7 +191,21 @@ export class LadderRun {
       const inputLevel = (part: LadderPart, pin: string): Bit | undefined => {
         const net = netOf(this.model, `${part.id}.${pin}`);
         if (!net || driversOf(this.model, net).length === 0) return undefined;
-        return level(net.id);
+        const value = level(net.id);
+        return part.negated?.includes(pin) ? this.semantics.negate(value) : value;
+      };
+      /** Whether the contacts from a coil's `out` on carry its current to the right rail, read now. */
+      const onward = (netId: string): Bit => {
+        const net = this.model.nets.find((n) => n.id === netId);
+        if (!net) return 0;
+        const ways = sinksOf(this.model, net).map((pin): Bit => {
+          const part = this.model.parts.find((p) => p.id === splitPin(pin)[0]) as LadderPart;
+          if (part.kind === "power-rail-right") return 1;
+          const next = netOf(this.model, `${part.id}.out`);
+          const operand = part.operand === undefined ? undefined : parseOperand(part.operand);
+          return this.semantics.logic(part.kind, [next ? onward(next.id) : 0], operand ? read(operand) : 0);
+        });
+        return this.semantics.join(ways);
       };
       const output = (id: string): Bit => {
         const part = this.model.parts.find((p) => p.id === id) as LadderPart;
@@ -204,6 +228,10 @@ export class LadderRun {
           case "ton":
             if (!ran.has(id)) throw new Error(`${id}'s Q is read before it runs`);
             return this.ton(numberOf(operand)).Q;
+          case "coil":
+            // Current flows past the coil only while it is energised.
+            if (!ran.has(id)) throw new Error(`${id}'s out is read before it runs`);
+            return passed.get(id) ?? 0;
           default: {
             const ins = ELEMENTS[part.kind].inputs.map((pin) => inputLevel(part, pin) ?? 0);
             return this.semantics.logic(part.kind, ins, operand ? read(operand) : 0);
@@ -214,10 +242,18 @@ export class LadderRun {
       const boxOutputs = new Set<string>();
       for (const part of parts) {
         if (!ELEMENTS[part.kind].acts) continue;
-        this.act(part, (pin) => inputLevel(part, pin), now, ms);
+        const out = ELEMENTS[part.kind].output;
+        const onwardNet = part.kind === "coil" && out ? netOf(this.model, `${part.id}.${out}`) : undefined;
+        const energised = this.act(
+          part,
+          (pin) => inputLevel(part, pin),
+          now,
+          ms,
+          onwardNet && onwardNet.pins.length > 1 ? () => onward(onwardNet.id) : undefined,
+        );
+        if (energised !== undefined) passed.set(part.id, energised);
         ran.add(part.id);
         // Its output's net, as it now reads: what the inked drawing shows.
-        const out = ELEMENTS[part.kind].output;
         const net = out && netOf(this.model, `${part.id}.${out}`);
         if (net) boxOutputs.add(net.id);
       }
@@ -239,8 +275,18 @@ export class LadderRun {
     return this.last;
   }
 
-  /** An acting element: writes its operand, or runs its timer or counter, with the power reaching each input. */
-  private act(part: LadderPart, power: (pin: string) => Bit | undefined, now: number, ms: number) {
+  /**
+   * An acting element: writes its operand, or runs its timer or counter, with the power reaching each
+   * input. A hard-wired coil (`onward` given) is energised only while the contacts after it carry its
+   * current on to the right rail: it returns what it wrote.
+   */
+  private act(
+    part: LadderPart,
+    power: (pin: string) => Bit | undefined,
+    now: number,
+    ms: number,
+    onward?: () => Bit,
+  ): Bit | undefined {
     const operand = parseOperand(part.operand ?? "") as Operand;
     const params = part.params ?? {};
     const store = (slot: string, value: number) => {
@@ -249,7 +295,11 @@ export class LadderRun {
     };
     const kind = part.kind;
     const timerKind = TIMER_KIND[kind];
-    if (kind === "coil" || kind === "fbd-assign") {
+    if (kind === "coil" && onward) {
+      const energised = this.semantics.series(power("in") ?? 0, onward());
+      if (operand.kind === "bit") this.mem.write(operand.address, energised);
+      return energised;
+    } else if (kind === "coil" || kind === "fbd-assign") {
       if (operand.kind === "bit") this.mem.write(operand.address, power("in") ?? 0);
     } else if (kind === "coil-s" || kind === "fbd-s" || kind === "coil-r" || kind === "fbd-r") {
       if (operand.kind === "bit" && power("in") === 1)
@@ -292,6 +342,7 @@ export class LadderRun {
       this.semantics.ton(ton, ms);
       if (params.ET !== undefined) store("ET", ton.ET);
     }
+    return undefined;
   }
 
   /** Every timer, counter and TON the run has touched, as awlsim keeps them. */

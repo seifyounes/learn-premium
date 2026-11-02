@@ -1,0 +1,31 @@
+{
+  "oracle": "learn-premium awlsim ladder log v1",
+  "awlsim": "0.77.1",
+  "request": "bac8538dec7b4bf486d00f4a802464750b3cea51ff121fdffbaf079628ae53b4",
+  "cases": [
+    {
+      "name": "started and held, tripped by the overload, started into a tripped overload, opened after the coil, run through the bypass, and stopped",
+      "scans": [
+        {"at":0,"memory":{"I":[[0,"08"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":100,"memory":{"I":[[0,"0a"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":200,"memory":{"I":[[0,"08"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":300,"memory":{"I":[[0,"08"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":400,"memory":{"I":[[0,"0c"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":500,"memory":{"I":[[0,"08"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":600,"memory":{"I":[[0,"0a"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":700,"memory":{"I":[[0,"0e"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":800,"memory":{"I":[[0,"0a"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":900,"memory":{"I":[[0,"08"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1000,"memory":{"I":[],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1100,"memory":{"I":[[0,"10"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1200,"memory":{"I":[[0,"12"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1300,"memory":{"I":[[0,"10"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1400,"memory":{"I":[[0,"10"]],"Q":[[4,"03"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1500,"memory":{"I":[[0,"11"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1600,"memory":{"I":[[0,"10"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1700,"memory":{"I":[[0,"10"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1800,"memory":{"I":[[0,"10"]],"Q":[],"M":[]},"timers":[],"counters":[],"tons":[]}
+      ]
+    }
+  ]
+}

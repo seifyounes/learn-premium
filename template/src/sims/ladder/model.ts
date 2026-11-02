@@ -3,15 +3,19 @@
 // and watch. The same model is drawn by the layout core (`schematicOf`), run by the engine on the S7
 // core, and compiled to STL for awlsim, the build oracle. Every element reads left to right, so power
 // enters a contact's `in` and leaves its `out`, a net is the OR of everything that drives it (a
-// ladder's parallel branches), and a coil or a box acts on the power reaching it.
+// ladder's parallel branches), and a coil or a box acts on the power reaching it. A hard-wired rung
+// (a contactor's control circuit) also has a right rail, L2: its coil passes the current on from its
+// `out`, through the contacts after it (the overload's), to that rail, so the coil is energised only
+// while the whole series path from L1 to L2 conducts.
 
 import { splitPin, type ModelNet, type SchematicModel } from "../layout/drawing.ts";
-import type { SymbolKind } from "../layout/symbols.ts";
+import { symbolOf, type SymbolKind } from "../layout/symbols.ts";
 import { parseAddress, parseCounterPreset, parseS5Time, parseTime, type Address } from "../s7/core.ts";
 
 /** The PLC pack's symbols an element may be drawn with. */
 export const PLC_KINDS = [
   "power-rail",
+  "power-rail-right",
   "no",
   "nc",
   "coil",
@@ -36,7 +40,11 @@ export const PLC_KINDS = [
   "ton",
   "fbd-in",
   "fbd-and",
+  "fbd-and3",
+  "fbd-and4",
   "fbd-or",
+  "fbd-or3",
+  "fbd-or4",
   "fbd-not",
   "fbd-assign",
   "fbd-s",
@@ -45,8 +53,23 @@ export const PLC_KINDS = [
 export type PlcKind = (typeof PLC_KINDS)[number];
 
 /** The kinds only a ladder draws, and the ones only an FBD draws; the boxes and coils of timers are shared. */
-const LAD_ONLY = new Set<PlcKind>(["power-rail", "no", "nc", "coil", "coil-s", "coil-r"]);
-const FBD_ONLY = new Set<PlcKind>(["fbd-in", "fbd-and", "fbd-or", "fbd-not", "fbd-assign", "fbd-s", "fbd-r"]);
+const LAD_ONLY = new Set<PlcKind>(["power-rail", "power-rail-right", "no", "nc", "coil", "coil-s", "coil-r"]);
+const FBD_ONLY = new Set<PlcKind>([
+  "fbd-in",
+  "fbd-and",
+  "fbd-and3",
+  "fbd-and4",
+  "fbd-or",
+  "fbd-or3",
+  "fbd-or4",
+  "fbd-not",
+  "fbd-assign",
+  "fbd-s",
+  "fbd-r",
+]);
+/** FBD's AND (&) and OR (>=1) boxes, by their number of inputs. */
+export const isFbdAnd = (kind: string) => kind === "fbd-and" || kind === "fbd-and3" || kind === "fbd-and4";
+export const isFbdOr = (kind: string) => kind === "fbd-or" || kind === "fbd-or3" || kind === "fbd-or4";
 export const LANGUAGES = ["LAD", "FBD"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
@@ -91,6 +114,14 @@ interface Element {
 }
 
 const contact: Element = { inputs: ["in"], output: "out", operand: "read", params: {}, acts: false };
+/** An FBD box of `n` inputs, `in1`…, and its result `out`. */
+const gateBox = (n: number): Element => ({
+  inputs: Array.from({ length: n }, (_, i) => `in${i + 1}`),
+  output: "out",
+  operand: "none",
+  params: {},
+  acts: false,
+});
 const writes = (pin: string): Element => ({ inputs: [pin], operand: "write", params: {}, acts: true });
 const timerCoil: Element = {
   inputs: ["in"],
@@ -129,9 +160,12 @@ const counterBox = (pins: readonly string[]): Element => ({
 
 export const ELEMENTS: Readonly<Record<PlcKind, Element>> = {
   "power-rail": { inputs: [], output: "t", operand: "none", params: {}, acts: false },
+  // The right rail takes what reaches it; the current a coil passes on drives nothing past it.
+  "power-rail-right": { inputs: ["t"], operand: "none", params: {}, acts: false },
   no: contact,
   nc: contact,
-  coil: writes("in"),
+  // Its `out` drives the contacts after it in a hard-wired rung (wired only there).
+  coil: { ...writes("in"), output: "out" },
   "coil-s": writes("in"),
   "coil-r": writes("in"),
   "coil-sp": timerCoil,
@@ -158,8 +192,12 @@ export const ELEMENTS: Readonly<Record<PlcKind, Element>> = {
     acts: true,
   },
   "fbd-in": { inputs: [], output: "t", operand: "read", params: {}, acts: false },
-  "fbd-and": { inputs: ["in1", "in2"], output: "out", operand: "none", params: {}, acts: false },
-  "fbd-or": { inputs: ["in1", "in2"], output: "out", operand: "none", params: {}, acts: false },
+  "fbd-and": gateBox(2),
+  "fbd-and3": gateBox(3),
+  "fbd-and4": gateBox(4),
+  "fbd-or": gateBox(2),
+  "fbd-or3": gateBox(3),
+  "fbd-or4": gateBox(4),
   "fbd-not": { inputs: ["in"], output: "out", operand: "none", params: {}, acts: false },
   "fbd-assign": writes("in"),
   "fbd-s": writes("in"),
@@ -178,6 +216,11 @@ export interface LadderPart {
   label?: string | undefined;
   /** Its values by slot: a timer's TV or PT, a counter's PV, the words BI, BCD, CV, ET go to. */
   params?: Readonly<Record<string, string>> | undefined;
+  /**
+   * The inputs the figure negates with a circle on the box's edge (FBD's &, >=1, =, S and R:
+   * `[in1, in3]`): each reads the signal reaching it inverted, `AN`/`ON` in STL.
+   */
+  negated?: readonly string[] | undefined;
 }
 
 /** The types a watched operand is shown as. A TIME is a DINT of milliseconds. */
@@ -204,7 +247,7 @@ export function screenshotKeys(model: Pick<LadderModel, "parts">): Map<string, s
   const keys = new Map<string, string>();
   const seen = new Map<string, number>();
   for (const part of model.parts) {
-    if (part.kind === "power-rail") continue;
+    if (part.kind === "power-rail" || part.kind === "power-rail-right") continue;
     const printed = part.label ?? part.operand;
     const base = printed === undefined ? `N${part.network} ${part.kind}` : `N${part.network} ${part.kind} ${printed}`;
     const n = (seen.get(base) ?? 0) + 1;
@@ -221,13 +264,18 @@ export function schematicOf(model: Pick<LadderModel, "parts" | "nets">): Schemat
     parts: model.parts.map((p) => ({
       id: p.id,
       kind: p.kind,
-      ...(p.kind === "power-rail" ? {} : { label: p.label ?? p.operand }),
+      // A power rail prints only the name the figure gives it (L1, L2), never an operand.
+      ...(isRail(p.kind) ? (p.label === undefined ? {} : { label: p.label }) : { label: p.label ?? p.operand }),
       ...(p.params && Object.keys(p.params).length > 0 ? { notes: p.params } : {}),
       ...(keys.has(p.id) ? { key: keys.get(p.id) } : {}),
+      ...(p.negated && p.negated.length > 0 ? { negated: p.negated } : {}),
     })),
     nets: model.nets,
   };
 }
+
+/** A left or a right power rail. */
+export const isRail = (kind: string) => kind === "power-rail" || kind === "power-rail-right";
 
 /** The net a pin is on. */
 export const netOf = (model: Pick<LadderModel, "nets">, pin: string) => model.nets.find((n) => n.pins.includes(pin));
@@ -315,6 +363,15 @@ export function ladderProblems(model: LadderModel): string[] {
     }
     for (const [slot, want] of Object.entries(element.params))
       if (want.required && part.params?.[slot] === undefined) out.push(`${at} needs its ${slot}`);
+    const negatable: readonly string[] = symbolOf(part.kind).negatable ?? [];
+    for (const pin of part.negated ?? [])
+      if (!negatable.includes(pin))
+        out.push(
+          negatable.length === 0
+            ? `${at} can't negate ${pin}: only an FBD box's inputs carry a negation circle`
+            : `${at} can't negate ${pin}: its inputs are ${negatable.join(", ")}`,
+        );
+    if (new Set(part.negated ?? []).size !== (part.negated ?? []).length) out.push(`${at} negates an input twice`);
     if (part.kind.startsWith("s-c") && part.params?.PV === undefined) {
       const s = netOf(model, `${part.id}.S`);
       if (s && s.pins.length > 1) out.push(`${at} sets its count from S, so it needs its PV`);
@@ -337,7 +394,7 @@ export function ladderProblems(model: LadderModel): string[] {
       if (needed.length > 0) out.push(`net ${net.id} feeds ${needed.join(", ")} but nothing drives it`);
     }
     const networks = new Set(net.pins.map((pin) => byId.get(splitPin(pin)[0])?.network));
-    const rails = net.pins.some((pin) => byId.get(splitPin(pin)[0])?.kind === "power-rail");
+    const rails = net.pins.some((pin) => isRail(byId.get(splitPin(pin)[0])?.kind ?? ""));
     if (networks.size > 1 && !rails) out.push(`net ${net.id} joins networks ${[...networks].join(" and ")}`);
   }
 
@@ -351,8 +408,81 @@ export function ladderProblems(model: LadderModel): string[] {
     if (!o || o.kind !== width) out.push(`watched ${operand} can't be shown as a ${type}`);
   }
 
+  out.push(...hardWiredProblems(model));
   if (out.length === 0) out.push(...orderProblems(model));
   return out;
+}
+
+/** The pins on a net that take what it carries: element inputs. */
+export function sinksOf(model: Pick<LadderModel, "parts">, net: ModelNet): string[] {
+  const kinds = new Map(model.parts.map((p) => [p.id, p.kind]));
+  return net.pins.filter((pin) => {
+    const [id, name] = splitPin(pin);
+    const kind = kinds.get(id);
+    return kind !== undefined && ELEMENTS[kind].inputs.includes(name);
+  });
+}
+
+/** A coil's `out` wired on to the contacts after it: a hard-wired rung. */
+export const passesOn = (model: Pick<LadderModel, "nets">, part: LadderPart) =>
+  part.kind === "coil" && (netOf(model, `${part.id}.out`)?.pins.length ?? 0) > 1;
+
+/**
+ * A hard-wired rung, as a contactor's control circuit runs: past a coil only contacts in series or
+ * in parallel, every way ending on the right rail; the right rail reached only through a coil
+ * (anything else shorts L1 to L2); and in a network with a right rail every coil passes its current
+ * on to it. A PLC ladder, with no right rail and nothing after a coil, has none of these.
+ */
+function hardWiredProblems(model: LadderModel): string[] {
+  const out: string[] = [];
+  const byId = new Map(model.parts.map((p) => [p.id, p]));
+  const partOf = (pin: string) => byId.get(splitPin(pin)[0]);
+  /** Nets past a coil, and the contacts on them, found from every coil's `out`. */
+  const after = new Set<string>();
+  const contactsAfter = new Set<string>();
+  for (const coil of model.parts.filter((p) => passesOn(model, p))) {
+    const walk = (net: ModelNet, path: readonly string[]) => {
+      if (path.includes(net.id)) {
+        out.push(`net ${net.id} after ${coil.id} runs round a loop back to itself`);
+        return;
+      }
+      after.add(net.id);
+      const sinks = sinksOf(model, net);
+      if (sinks.length === 0) out.push(`net ${net.id} after ${coil.id} reaches no contact and no right rail`);
+      for (const pin of sinks) {
+        const part = partOf(pin) as LadderPart;
+        if (part.kind === "power-rail-right") continue;
+        if (part.kind !== "no" && part.kind !== "nc") {
+          out.push(
+            `${pin} takes the current after ${coil.id}: past a coil, a hard-wired rung runs only through contacts to the right rail`,
+          );
+          continue;
+        }
+        contactsAfter.add(part.id);
+        const next = netOf(model, `${part.id}.out`);
+        if (!next || next.pins.length < 2) out.push(`${part.id}, after ${coil.id}, doesn't reach the right rail`);
+        else walk(next, [...path, net.id]);
+      }
+    };
+    const start = netOf(model, `${coil.id}.out`);
+    if (start) walk(start, []);
+  }
+  for (const net of model.nets) {
+    const drivers = driversOf(model, net);
+    if (after.has(net.id)) {
+      for (const pin of drivers) {
+        const part = partOf(pin) as LadderPart;
+        const passing = (part.kind === "coil" && splitPin(pin)[1] === "out") || contactsAfter.has(part.id);
+        if (!passing) out.push(`net ${net.id} joins ${pin}, before a coil, to the rung after one`);
+      }
+    } else if (net.pins.some((pin) => partOf(pin)?.kind === "power-rail-right"))
+      out.push(`net ${net.id} reaches the right rail without passing a coil: it would short L1 to L2`);
+  }
+  for (const rail of model.parts.filter((p) => p.kind === "power-rail-right"))
+    for (const coil of model.parts.filter((p) => p.kind === "coil" && p.network === rail.network))
+      if (!passesOn(model, coil))
+        out.push(`${coil.id} (network ${coil.network}) passes no current on to the right rail: wire its out`);
+  return [...new Set(out)];
 }
 
 /** Inputs a box may leave open: an unwired R never resets, an unwired S never sets. */

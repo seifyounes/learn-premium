@@ -3,7 +3,7 @@
 // left, every count, every TON's instance data), from the oracle log `npm run oracle -- write`
 // keeps in the Course's build records; awlsim runs the networks compiled to STL at the scans' own
 // times. Every rung segment must carry power and lose it in some case, every timer and counter must
-// run out or count, the six broken engines (`src/sims/ladder/mutants.ts`) are each caught wherever
+// run out or count, the eight broken engines (`src/sims/ladder/mutants.ts`) are each caught wherever
 // the cases reach their defect, and the Worked example's sheet is checked three ways, exactly: the
 // engine, awlsim and the sheet as printed.
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";

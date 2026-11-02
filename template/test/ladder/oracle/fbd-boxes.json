@@ -1,0 +1,32 @@
+{
+  "oracle": "learn-premium awlsim ladder log v1",
+  "awlsim": "0.77.1",
+  "request": "4d4743dc896b56edfc0c72382791f6e4871b592683582482d1005287796cc6b7",
+  "cases": [
+    {
+      "name": "every combination of the four inputs, counting up in binary, then the set box reset and set again",
+      "scans": [
+        {"at":0,"memory":{"I":[],"Q":[[4,"08"]],"M":[[0,"02"]]},"timers":[],"counters":[],"tons":[]},
+        {"at":100,"memory":{"I":[[0,"01"]],"Q":[[4,"0c"]],"M":[[0,"02"]]},"timers":[],"counters":[],"tons":[]},
+        {"at":200,"memory":{"I":[[0,"02"]],"Q":[[4,"0c"]],"M":[[0,"02"]]},"timers":[],"counters":[],"tons":[]},
+        {"at":300,"memory":{"I":[[0,"03"]],"Q":[[4,"0c"]],"M":[[0,"02"]]},"timers":[],"counters":[],"tons":[]},
+        {"at":400,"memory":{"I":[[0,"04"]],"Q":[[4,"0c"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":500,"memory":{"I":[[0,"05"]],"Q":[[4,"0d"]],"M":[[0,"01"]]},"timers":[],"counters":[],"tons":[]},
+        {"at":600,"memory":{"I":[[0,"06"]],"Q":[[4,"0c"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":700,"memory":{"I":[[0,"07"]],"Q":[[4,"0e"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":800,"memory":{"I":[[0,"08"]],"Q":[[4,"0c"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":900,"memory":{"I":[[0,"09"]],"Q":[[4,"0c"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1000,"memory":{"I":[[0,"0a"]],"Q":[[4,"0c"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1100,"memory":{"I":[[0,"0b"]],"Q":[[4,"04"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1200,"memory":{"I":[[0,"0c"]],"Q":[[4,"04"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1300,"memory":{"I":[[0,"0d"]],"Q":[[4,"05"]],"M":[[0,"01"]]},"timers":[],"counters":[],"tons":[]},
+        {"at":1400,"memory":{"I":[[0,"0e"]],"Q":[[4,"04"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1500,"memory":{"I":[[0,"0f"]],"Q":[[4,"04"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1600,"memory":{"I":[],"Q":[[4,"08"]],"M":[[0,"02"]]},"timers":[],"counters":[],"tons":[]},
+        {"at":1700,"memory":{"I":[[0,"04"]],"Q":[[4,"0c"]],"M":[]},"timers":[],"counters":[],"tons":[]},
+        {"at":1800,"memory":{"I":[],"Q":[[4,"08"]],"M":[[0,"02"]]},"timers":[],"counters":[],"tons":[]},
+        {"at":1900,"memory":{"I":[],"Q":[[4,"08"]],"M":[[0,"02"]]},"timers":[],"counters":[],"tons":[]}
+      ]
+    }
+  ]
+}

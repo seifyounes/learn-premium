@@ -1,12 +1,24 @@
 // A ladder or FBD model compiled to STL, the way STEP 7 shows a network as statements: each acting
-// element's input logic as a chain of A/O (with brackets for branches), then its instruction. This is
+// element's input logic as a chain of A/O (with brackets for branches), then its instruction. A
+// negated box input reads `AN`/`ON`; a hard-wired coil's chain goes on through the contacts after it
+// to the right rail (`AN` the overload's), since the coil is energised only while all of it conducts. This is
 // what awlsim, the build oracle, runs: its logic, timers, counters and SFB 4 are awlsim's own, and
 // the compiler is a separate path from the engine's power flow, so either one's slip shows as a
 // disagreement. Only the gate's oracle runs the compiled STL; the page uses `stlOperand` alone.
 
 import { splitPin } from "../layout/drawing.ts";
 import { formatAddress } from "../s7/core.ts";
-import { driversOf, ELEMENTS, netOf, networksOf, parseOperand, type LadderModel, type LadderPart } from "./model.ts";
+import {
+  driversOf,
+  ELEMENTS,
+  netOf,
+  networksOf,
+  parseOperand,
+  passesOn,
+  sinksOf,
+  type LadderModel,
+  type LadderPart,
+} from "./model.ts";
 
 /**
  * Each timer symbol's STL instruction, named here apart from the engine's table, so a symbol mapped
@@ -111,11 +123,25 @@ export function compileLadder(model: LadderModel): string {
     return o && "number" in o ? o.number : 0;
   };
 
-  /** The logic reaching a pin: the OR of the net's drivers. */
+  /** The logic reaching a pin: the OR of the net's drivers, inverted where the box negates the pin. */
   const exprAt = (part: LadderPart, pin: string): Expr => {
     const net = netOf(model, `${part.id}.${pin}`);
     if (!net) return FALSE;
-    return or(driversOf(model, net).map((d) => exprOut(byId.get(splitPin(d)[0]) as LadderPart)));
+    const reaching = or(driversOf(model, net).map((d) => exprOut(byId.get(splitPin(d)[0]) as LadderPart)));
+    return part.negated?.includes(pin) ? not(reaching) : reaching;
+  };
+  /** The way on from a coil's `out` to the right rail: each contact after it in series, its branches in parallel. */
+  const onward = (part: LadderPart, pin: string): Expr => {
+    const net = netOf(model, `${part.id}.${pin}`);
+    if (!net) return FALSE;
+    return or(
+      sinksOf(model, net).map((sink) => {
+        const next = byId.get(splitPin(sink)[0]) as LadderPart;
+        if (next.kind === "power-rail-right") return TRUE;
+        const lit: Expr = { kind: "lit", operand: stlOperand(next.operand ?? ""), negated: next.kind === "nc" };
+        return and([lit, onward(next, "out")]);
+      }),
+    );
   };
   const exprOut = (part: LadderPart): Expr => {
     const lit = (negated = false): Expr => ({ kind: "lit", operand: stlOperand(part.operand ?? ""), negated });
@@ -129,9 +155,13 @@ export function compileLadder(model: LadderModel): string {
       case "fbd-in":
         return lit();
       case "fbd-and":
-        return and([exprAt(part, "in1"), exprAt(part, "in2")]);
+      case "fbd-and3":
+      case "fbd-and4":
+        return and(ELEMENTS[part.kind].inputs.map((pin) => exprAt(part, pin)));
       case "fbd-or":
-        return or([exprAt(part, "in1"), exprAt(part, "in2")]);
+      case "fbd-or3":
+      case "fbd-or4":
+        return or(ELEMENTS[part.kind].inputs.map((pin) => exprAt(part, pin)));
       case "fbd-not":
         return not(exprAt(part, "in"));
       case "ton":
@@ -159,6 +189,11 @@ export function compileLadder(model: LadderModel): string {
       const timer = STL_TIMER[part.kind];
       switch (part.kind) {
         case "coil":
+          // A hard-wired coil: the power reaching it, then the contacts after it on to the right rail.
+          if (passesOn(model, part))
+            body.push(...chain(and([exprAt(part, "in"), onward(part, "out")])), `= ${operand}`);
+          else body.push(...logic("in"), `= ${operand}`);
+          break;
         case "fbd-assign":
           body.push(...logic("in"), `= ${operand}`);
           break;

@@ -678,6 +678,8 @@ const ladderModel = z.strictObject({
         label: z.string().min(1).optional(),
         /** Its values by slot, as the figure prints them: `TV: S5T#5S`, `PT: T#5S`, `PV: C#5`, `BI: MW 10`, `ET: MD 20`. */
         params: z.record(z.string(), z.string().min(1)).optional(),
+        /** The inputs an FBD box negates, each drawn with a circle on its edge (`[in1, in3]`). */
+        negated: z.array(z.string().min(1)).min(1).optional(),
       }),
     )
     .min(1),
