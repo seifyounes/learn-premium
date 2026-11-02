@@ -198,6 +198,17 @@ describe("create", { timeout: 30_000 }, () => {
     expect(existsSync(join(s.project, "content/modules"))).toBe(true);
   });
 
+  test("a Course with no code (null or left out) gets no code line, and its Credit line names the Course alone", async () => {
+    for (const overrides of [{ code: null }, { code: undefined }]) {
+      const s = setup();
+      must(await create(s, overrides));
+      const config = readFileSync(join(s.project, "content/course.yaml"), "utf8");
+      expect(config).not.toMatch(/^code:/m);
+      expect(config).toContain('name: "Heat Transfer"\npad: "teal"\n');
+      expect(config).toContain('  course: "Heat Transfer"\n');
+    }
+  });
+
   test("carries the Arabic-notes toggle into the course config, which shows the notes only when it is on", async () => {
     for (const arabicNotes of [true, false]) {
       const s = setup();

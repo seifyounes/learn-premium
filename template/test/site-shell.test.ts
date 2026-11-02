@@ -117,6 +117,11 @@ describe("the Study site shell", () => {
   describe("home, the contents sheet", () => {
     const home = () => build.page("");
 
+    it("shows the Course code in its own title-block cell", () => {
+      expect(home()).toMatch(/<span class="field-label">Code<\/span>\s*<span[^>]*>FX 101<\/span>/);
+      expect(home()).toContain("pad:grid-cols-[2.6fr_repeat(5,1fr)]");
+    });
+
     it("lists every Module in number order, each line linking to its page", () => {
       const lines = [...home().matchAll(/<li class="contents-line"[^>]*data-module="([^"]+)"/g)].map((m) => m[1]);
       expect(lines).toEqual([

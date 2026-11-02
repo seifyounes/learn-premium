@@ -40,6 +40,8 @@ The interview's answers, once the Owner has confirmed them, as one JSON file:
 }
 ```
 
+- `code` (optional, default none): the Course code, shown in the home page's title block and the
+  Credit line. `null` or left out shows no code anywhere.
 - `slug`: the Course project's folder in the workspace, and its GitHub repo and Vercel project name
   (lower-case-dashes).
 - `disciplines`: the confirmed Disciplines, the main one first (it picks the pad).
