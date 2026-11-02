@@ -1,0 +1,82 @@
+kind: ladder
+title: The tank's alarm, in FBD
+caption: Set Flow, Pump, Valve and Heat. The alarm sounds without flow, with the pump running into a shut valve, or with the heater on and the pump stopped; a circle on a box's input reads its signal inverted.
+recompute: independent
+model:
+  language: FBD
+  parts:
+    - { id: Flow, kind: fbd-in, network: 1, operand: I 0.0, label: Flow }
+    - { id: Pump, kind: fbd-in, network: 1, operand: I 0.1, label: Pump }
+    - { id: Valve, kind: fbd-in, network: 1, operand: I 0.2, label: Valve }
+    - { id: PumpB, kind: fbd-in, network: 1, operand: I 0.1, label: Pump }
+    - { id: Heat, kind: fbd-in, network: 1, operand: I 0.3, label: Heat }
+    - { id: Shut, kind: fbd-and, network: 1, negated: [in2] }
+    - { id: Dry, kind: fbd-and, network: 1, negated: [in1] }
+    - { id: Any, kind: fbd-or3, network: 1, negated: [in1] }
+    - { id: Alarm, kind: fbd-assign, network: 1, operand: Q 4.0, label: Alarm }
+  nets:
+    - { id: flow, pins: [Flow.t, Any.in1] }
+    - { id: pump, pins: [Pump.t, Shut.in1] }
+    - { id: valve, pins: [Valve.t, Shut.in2] }
+    - { id: pumpB, pins: [PumpB.t, Dry.in1] }
+    - { id: heat, pins: [Heat.t, Dry.in2] }
+    - { id: shut, pins: [Shut.out, Any.in2] }
+    - { id: dry, pins: [Dry.out, Any.in3] }
+    - { id: alarm, pins: [Any.out, Alarm.in] }
+  inputs: [I 0.0, I 0.1, I 0.2, I 0.3]
+  watch: { Q 4.0: BOOL }
+layout:
+  parts:
+    Flow: { at: [0.6, 0], label: left }
+    Pump: { at: [0.6, 0.7], label: left }
+    Valve: { at: [0.6, 1.1], label: left }
+    PumpB: { at: [0.6, 2], label: left }
+    Heat: { at: [0.6, 2.4], label: left }
+    Shut: { at: [1.8, 0.9] }
+    Dry: { at: [1.8, 2.2] }
+    Any: { at: [3.4, 0.4] }
+    Alarm: { at: [4.6, 0.4], label: above }
+  dots: []
+cycle: 100
+start: { I 0.0: 1, I 0.1: 0, I 0.2: 1, I 0.3: 0 }
+tune:
+  I 0.0: { min: 0, max: 1, step: 1 }
+  I 0.1: { min: 0, max: 1, step: 1 }
+  I 0.2: { min: 0, max: 1, step: 1 }
+  I 0.3: { min: 0, max: 1, step: 1 }
+scenario:
+  until: 1500
+  events:
+    - { at: 100, set: { I 0.1: 1 } }
+    - { at: 300, set: { I 0.2: 0 } }
+    - { at: 500, set: { I 0.2: 1 } }
+    - { at: 700, set: { I 0.1: 0, I 0.3: 1 } }
+    - { at: 900, set: { I 0.1: 1 } }
+    - { at: 1100, set: { I 0.0: 0 } }
+    - { at: 1300, set: { I 0.0: 1, I 0.3: 0 } }
+cases:
+  - name: every combination of the four inputs, counting up in binary
+    until: 1600
+    events:
+      - { at: 0, set: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 0 } }
+      - { at: 100, set: { I 0.0: 1 } }
+      - { at: 200, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 300, set: { I 0.0: 1 } }
+      - { at: 400, set: { I 0.0: 0, I 0.1: 0, I 0.2: 1 } }
+      - { at: 500, set: { I 0.0: 1 } }
+      - { at: 600, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 700, set: { I 0.0: 1 } }
+      - { at: 800, set: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 1 } }
+      - { at: 900, set: { I 0.0: 1 } }
+      - { at: 1000, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 1100, set: { I 0.0: 1 } }
+      - { at: 1200, set: { I 0.0: 0, I 0.1: 0, I 0.2: 1 } }
+      - { at: 1300, set: { I 0.0: 1 } }
+      - { at: 1400, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 1500, set: { I 0.0: 1 } }
+provenance:
+  stated:
+    - "the alarm $\\text{Alarm} = \\overline{\\text{Flow}} + \\text{Pump}\\,\\overline{\\text{Valve}} + \\overline{\\text{Pump}}\\,\\text{Heat}$"
+    - a three-input OR box fed by Flow, negated, and two AND boxes, each with one input negated
+    - Flow, Pump, Valve and Heat on I 0.0 to I 0.3, the alarm on Q 4.0
+    - a scan every $100$ ms

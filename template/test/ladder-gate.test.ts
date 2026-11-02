@@ -1,4 +1,5 @@
-// The ladder gate on the Fixture Course's two conveyors (Module 10): bit for bit with awlsim after
+// The ladder gate on the Fixture Course's Module 10 (the two conveyors, the fan's hard-wired starter
+// and the tank's FBD alarm): bit for bit with awlsim after
 // every scan of every case, every rung segment powered and unpowered, the TON run out, the broken
 // engines its cases reach each caught, the sheet (the Worked example's key) three ways; and each of
 // the gate's own negative controls is caught. The Drawing gate takes the Blind reader's reading of
@@ -22,14 +23,17 @@ const SIM = `modules/${MODULE}/sims/conveyors.yaml`;
 const input = { contentDir: FIXTURE_COURSE, module: MODULE };
 
 describe("the ladder gate", () => {
-  it("passes the two conveyors against awlsim and against the key", async () => {
+  it("passes the two conveyors, the fan's starter and the tank's alarm against awlsim and against the key", async () => {
     const result = await ladderGate.run(input);
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toMatchObject({ modules: 1, sims: 1, cases: 7, sheetValues: 15 });
-    // The example, each input held at 0 and at 1 all along, and the two written timelines: 5 × 91 + 91 + 21 scans.
-    expect(result.coverage.scans).toBe(567);
-    // A TON and NO contacts: the TON and parallel-branch engines are reached; the NC, S5 and counter ones aren't.
-    expect(result.coverage).toMatchObject({ controlsCaught: 2, controlsNotReached: 4 });
+    // Conveyors 7 cases; the starter 9 (the example, each input held at 0 and at 1 except E-Stop at 0,
+    // which is the example itself, and one written); the alarm 10.
+    expect(result.coverage).toMatchObject({ modules: 1, sims: 3, cases: 26, sheetValues: 15 });
+    // Conveyors: 5 × 91 + 91 + 21; the starter: 8 × 41 + 21; the alarm: 9 × 16 + 17 scans.
+    expect(result.coverage.scans).toBe(567 + 349 + 161);
+    // Conveyors reach the TON and parallel-branch engines; the starter the NC, parallel-branch and
+    // hard-wired coil ones; the alarm the negated input's. The S5 and counter ones nowhere.
+    expect(result.coverage).toMatchObject({ controlsCaught: 6, controlsNotReached: 18 });
   });
 
   it("blocks a rung no case powers, and only that", async () => {
@@ -59,7 +63,8 @@ describe("the Drawing gate on an editor screenshot", () => {
   it("accepts the Blind reader's reading of the STEP 7 screenshot, keyed by network, kind and operand", async () => {
     const result = await drawingGate.run(input);
     expect(result.findings).toEqual([]);
-    expect(result.coverage).toMatchObject({ modules: 1, drawings: 1, checks: 12 });
+    // The conveyors, the starter (a right rail, a coil passing current on) and the alarm (negated box inputs).
+    expect(result.coverage).toMatchObject({ modules: 1, drawings: 3, checks: 36 });
     expect(result.coverage.mutantsCaught).toBeGreaterThan(0);
   });
 

@@ -1,0 +1,34 @@
+{
+  "reading": "learn-premium figure reading v1",
+  "by": "Blind reader, from the synthetic hard-wired ladder diagram build-records/figure/10-two-conveyors/fan-starter.png, never seeing a builder file",
+  "parts": {
+    "L1": { "kind": "power-rail", "at": [0.053, 0.244], "turn": 0, "label": "above" },
+    "L2": { "kind": "power-rail-right", "at": [0.947, 0.244], "turn": 0, "label": "above" },
+    "N1 nc E-Stop": { "kind": "nc", "at": [0.182, 0.25], "turn": 0, "label": "above" },
+    "N1 nc Stop": { "kind": "nc", "at": [0.313, 0.25], "turn": 0, "label": "above" },
+    "N1 no Start": { "kind": "no", "at": [0.471, 0.25], "turn": 0, "label": "above" },
+    "N1 no K1": { "kind": "no", "at": [0.471, 0.5], "turn": 0, "label": "above" },
+    "N1 coil K1": { "kind": "coil", "at": [0.658, 0.25], "turn": 0, "label": "above" },
+    "N1 nc F2": { "kind": "nc", "at": [0.813, 0.25], "turn": 0, "label": "above" },
+    "N2 no K1": { "kind": "no", "at": [0.184, 0.8], "turn": 0, "label": "above" },
+    "N2 coil H1": { "kind": "coil", "at": [0.658, 0.8], "turn": 0, "label": "above" }
+  },
+  "unlabelled": { "power-rail": 1, "power-rail-right": 1 },
+  "nets": [
+    { "pins": ["POWER.t", "N1 nc E-Stop.in", "N2 no K1.in"], "dotted": false },
+    { "pins": ["N1 nc E-Stop.out", "N1 nc Stop.in"], "dotted": false },
+    { "pins": ["N1 nc Stop.out", "N1 no Start.in", "N1 no K1.in"], "dotted": false },
+    { "pins": ["N1 no Start.out", "N1 no K1.out", "N1 coil K1.in"], "dotted": false },
+    { "pins": ["N1 coil K1.out", "N1 nc F2.in"], "dotted": false },
+    { "pins": ["N1 nc F2.out", "N2 coil H1.out", "POWER_RIGHT.t"], "dotted": false },
+    { "pins": ["N2 no K1.out", "N2 coil H1.in"], "dotted": false }
+  ],
+  "doubts": [
+    "Image is 1520x800 px; centres are estimated by eye, so positions may be off by a few pixels.",
+    "Network 1 is drawn between rails labelled L1 (left) and L2 (right); network 2's lamp rung has its own pair of rails with no printed names, so those two are counted in unlabelled. Following the convention, every left rail pin is POWER.t and every right rail pin POWER_RIGHT.t, which merges the two networks' rail connections into one net each even though the figure draws the rails as separate line segments with a gap between y of about 295 px and 545 px.",
+    "The seal-in branch (K1 contact under Start) leaves the main rung at x of about 600 px and rejoins at about 840 px with plain corners and no junction dots, so those nets are recorded dotted: false.",
+    "The overload contact F2 sits on the L2 side of coil K1 (after the coil), as drawn; it is recorded in series between the coil's out pin and the right rail.",
+    "E-Stop, Stop and F2 are drawn with a diagonal slash through the contact (normally closed); Start and both K1 contacts have no slash (normally open).",
+    "K1 appears as a contact in both networks and as a coil in network 1; the two network-1 K1 parts differ in kind, so no ' #2' suffix is needed."
+  ]
+}

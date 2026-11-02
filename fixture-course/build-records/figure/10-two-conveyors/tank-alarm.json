@@ -1,0 +1,34 @@
+{
+  "reading": "learn-premium figure reading v1",
+  "by": "Blind reader, from the synthetic STEP 7 FBD network build-records/figure/10-two-conveyors/tank-alarm.png, never seeing a builder file",
+  "parts": {
+    "N1 fbd-in Flow": { "kind": "fbd-in", "at": [0.154, 0.125], "turn": 0, "label": "left" },
+    "N1 fbd-in Pump": { "kind": "fbd-in", "at": [0.154, 0.375], "turn": 0, "label": "left" },
+    "N1 fbd-in Valve": { "kind": "fbd-in", "at": [0.154, 0.5], "turn": 0, "label": "left" },
+    "N1 fbd-in Pump #2": { "kind": "fbd-in", "at": [0.154, 0.75], "turn": 0, "label": "left" },
+    "N1 fbd-in Heat": { "kind": "fbd-in", "at": [0.154, 0.875], "turn": 0, "label": "left" },
+    "N1 fbd-and": { "kind": "fbd-and", "at": [0.385, 0.436], "turn": 0, "negated": ["in2"] },
+    "N1 fbd-and #2": { "kind": "fbd-and", "at": [0.385, 0.813], "turn": 0, "negated": ["in1"] },
+    "N1 fbd-or3": { "kind": "fbd-or3", "at": [0.692, 0.248], "turn": 0, "negated": ["in1"] },
+    "N1 fbd-assign Alarm": { "kind": "fbd-assign", "at": [0.923, 0.25], "turn": 0, "label": "above" }
+  },
+  "nets": [
+    { "pins": ["N1 fbd-in Flow.t", "N1 fbd-or3.in1"], "dotted": false },
+    { "pins": ["N1 fbd-in Pump.t", "N1 fbd-and.in1"], "dotted": false },
+    { "pins": ["N1 fbd-in Valve.t", "N1 fbd-and.in2"], "dotted": false },
+    { "pins": ["N1 fbd-in Pump #2.t", "N1 fbd-and #2.in1"], "dotted": false },
+    { "pins": ["N1 fbd-in Heat.t", "N1 fbd-and #2.in2"], "dotted": false },
+    { "pins": ["N1 fbd-and.out", "N1 fbd-or3.in2"], "dotted": false },
+    { "pins": ["N1 fbd-and #2.out", "N1 fbd-or3.in3"], "dotted": false },
+    { "pins": ["N1 fbd-or3.out", "N1 fbd-assign Alarm.in"], "dotted": false }
+  ],
+  "doubts": [
+    "Image is 1040x640 px; centres are estimated by eye, so positions may be off by a few pixels.",
+    "An fbd-in has no drawn body, only its printed name and the start of its line; its 'at' is taken as the left end of the line (x of about 160 px, level with the name), which is a guess at where the body is meant to sit.",
+    "The '>=1' box has three input lines (Flow at y of about 80 px, the top '&' output at about 158 px, the bottom '&' output at about 240 px), so it is read as fbd-or3; the Flow input carries a negation circle (in1).",
+    "The top '&' box has a negation circle on its lower input (Valve, in2); the bottom '&' box has one on its upper input (the second Pump, in1).",
+    "Pump is printed twice (rows at y of about 240 px and 480 px); the upper one is 'N1 fbd-in Pump' and the lower one 'N1 fbd-in Pump #2'.",
+    "The '&' outputs reach the OR box through right-angle doglegs (vertical runs at x of about 520 px and 600 px) that cross nothing and carry no junction dots, so every net is dotted: false.",
+    "The '=' box prints 'Alarm' above it and '=' inside; Alarm is taken as its operand."
+  ]
+}

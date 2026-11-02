@@ -1,0 +1,81 @@
+kind: ladder
+title: The extract fan's hard-wired starter
+caption: Press Start, then trip the overload F2 or press Stop or the emergency stop. The rung carrying current is inked from L1 through the coil K1 and the overload contact to L2, and the lamp H1 lights while K1 is pulled in.
+recompute: independent
+model:
+  language: LAD
+  parts:
+    - { id: L1, kind: power-rail, network: 1, label: L1 }
+    - { id: EStop, kind: nc, network: 1, operand: I 0.0, label: E-Stop }
+    - { id: Stop, kind: nc, network: 1, operand: I 0.1, label: Stop }
+    - { id: Start, kind: "no", network: 1, operand: I 0.2, label: Start }
+    - { id: Hold, kind: "no", network: 1, operand: Q 4.0, label: K1 }
+    - { id: K1, kind: coil, network: 1, operand: Q 4.0, label: K1 }
+    - { id: F2, kind: nc, network: 1, operand: I 0.3, label: F2 }
+    - { id: L2, kind: power-rail-right, network: 1, label: L2 }
+    - { id: L1b, kind: power-rail, network: 2 }
+    - { id: Run, kind: "no", network: 2, operand: Q 4.0, label: K1 }
+    - { id: H1, kind: coil, network: 2, operand: Q 4.1, label: H1 }
+    - { id: L2b, kind: power-rail-right, network: 2 }
+  nets:
+    - { id: l1, pins: [L1.t, EStop.in] }
+    - { id: estop, pins: [EStop.out, Stop.in] }
+    - { id: stop, pins: [Stop.out, Start.in, Hold.in] }
+    - { id: latch, pins: [Start.out, Hold.out, K1.in] }
+    - { id: coil, pins: [K1.out, F2.in] }
+    - { id: l2, pins: [F2.out, L2.t] }
+    - { id: l1b, pins: [L1b.t, Run.in] }
+    - { id: lamp, pins: [Run.out, H1.in] }
+    - { id: l2b, pins: [H1.out, L2b.t] }
+  inputs: [I 0.0, I 0.1, I 0.2, I 0.3]
+  watch: { Q 4.0: BOOL, Q 4.1: BOOL }
+layout:
+  parts:
+    L1: { at: [0, 0], label: above }
+    EStop: { at: [1, 0], label: above }
+    Stop: { at: [2, 0], label: above }
+    Start: { at: [3.2, 0], label: above }
+    Hold: { at: [3.2, 1], label: above }
+    K1: { at: [4.6, 0], label: above }
+    F2: { at: [5.8, 0], label: above }
+    L2: { at: [6.8, 0], label: above }
+    L1b: { at: [0, 2.2] }
+    Run: { at: [1, 2.2], label: above }
+    H1: { at: [4.6, 2.2], label: above }
+    L2b: { at: [6.8, 2.2] }
+  dots: []
+cycle: 100
+start: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 0 }
+tune:
+  I 0.0: { min: 0, max: 1, step: 1 }
+  I 0.1: { min: 0, max: 1, step: 1 }
+  I 0.2: { min: 0, max: 1, step: 1 }
+  I 0.3: { min: 0, max: 1, step: 1 }
+scenario:
+  until: 4000
+  events:
+    - { at: 500, set: { I 0.2: 1 } }
+    - { at: 800, set: { I 0.2: 0 } }
+    - { at: 2000, set: { I 0.3: 1 } }
+    - { at: 2500, set: { I 0.3: 0 } }
+    - { at: 3000, set: { I 0.2: 1 } }
+    - { at: 3200, set: { I 0.2: 0 } }
+    - { at: 3600, set: { I 0.1: 1 } }
+    - { at: 3800, set: { I 0.1: 0 } }
+cases:
+  - name: Start held while the overload is tripped, then the emergency stop
+    until: 2000
+    events:
+      - { at: 200, set: { I 0.3: 1 } }
+      - { at: 300, set: { I 0.2: 1 } }
+      - { at: 600, set: { I 0.3: 0 } }
+      - { at: 900, set: { I 0.2: 0 } }
+      - { at: 1200, set: { I 0.0: 1 } }
+      - { at: 1400, set: { I 0.0: 0 } }
+provenance:
+  stated:
+    - the rails L1 and L2, the emergency stop E-Stop and Stop, both normally closed, Start normally open
+    - the contactor K1 holding itself in, and its thermal overload contact F2 after the coil
+    - the lamp H1 lit by a K1 contact
+    - E-Stop, Stop, Start and F2 read as I 0.0 to I 0.3 when actuated, K1 and H1 as Q 4.0 and Q 4.1
+    - a scan every $100$ ms
