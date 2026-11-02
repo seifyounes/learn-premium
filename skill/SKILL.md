@@ -24,6 +24,23 @@ skill, the Site template (`../template/`) and the gates are all read from that w
 always come from the same tag. Never read them from `main`, from the Owner's development clone, or
 from any other checkout.
 
+## Asking the Owner
+
+Look before you ask: a fact on disk is never a question. The Materials are the folder the Owner
+names, else the session's working folder (an archive of them is unpacked into a new folder beside
+it, never over anything). The Course's code, Professor, University, the Owner's name and the exam
+timetable are often in the workspace already (`MEMORY.md` and the project notes it lists). Ask only
+what is left, pre-filled from what you found.
+
+Every question goes to the Owner through the question tool (`AskUserQuestion`), never as a list in
+prose: one card per question, up to four cards per call. Each card has two to four concrete
+options, your pick first and marked `(Recommended)`, and a description saying what picking it does.
+Typed answers (a date, a name, a colour) come through the card's Other, so offer the likeliest
+values as options. When a question needs more context than a card holds (a Checkpoint batch, the
+`toolkit` question, an upgrade offer), post its markdown in chat first, then ask each item on its
+own card, quoting the item's question exactly where the ledger stores it. The Owner's commands
+("sitting X is complete", "run media") stay his to give: never put them on a card.
+
 ## Run start
 
 Do these in order on every run, before touching the Materials.
@@ -115,8 +132,8 @@ The commands are in `scripts/intake/README.md`; `$I` is `intake.ts` as above.
    Materials reader) enough to suggest the Course's Disciplines from the starting list (ML, maths,
    electric circuits, logic circuits, heat transfer, machinery, engineering chemistry, automation and
    control) and to give the proposed Modules real titles.
-2. **Ask once, in one batch:** Course name and code, the Professor and University (for the Credit
-   line), the Owner's name as the About page should show it, the Disciplines you suggest (the Owner
+2. **Ask once, in one batch of question cards** (Asking the Owner, above): Course name and code,
+   the Professor and University (for the Credit line), the Owner's name as the About page should show it, the Disciplines you suggest (the Owner
    confirms or edits; the main one first), the Arabic-notes toggle, the known Exam sittings (name,
    and date if known), and how many Modules the Owner expects this semester. Propose the project
    folder name (`slug`, lower-case-dashes). A Discipline off the starting list is added only here, at
