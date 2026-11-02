@@ -44,16 +44,24 @@ const counts = (m: (typeof modules)[number]) => [
 ---
 
 <Sheet title="Contents" nav="modules">
-  <TitleBlock class="grid-cols-2 pad:grid-cols-[2.6fr_repeat(5,1fr)]">
+  <TitleBlock
+    class={
+      course.code
+        ? "grid-cols-2 pad:grid-cols-[2.6fr_repeat(5,1fr)]"
+        : "grid-cols-2 pad:grid-cols-[2.6fr_repeat(4,1fr)]"
+    }
+  >
     <Cell label="Course" class="col-span-2 pad:col-span-1">
       <h1
         class="font-print text-display-phone font-bold tracking-[-0.01em] text-graphite [font-variation-settings:'wdth'_75] pad:text-display"
         set:html={prose(course.name)}
       />
     </Cell>
-    <Cell label="Code" class="col-span-2 pad:col-span-1">
-      <span class="font-quantity text-quantity text-graphite" set:html={prose(course.code)} />
-    </Cell>
+    {course.code && (
+      <Cell label="Code" class="col-span-2 pad:col-span-1">
+        <span class="font-quantity text-quantity text-graphite" set:html={prose(course.code)} />
+      </Cell>
+    )}
     {[
       { label: "Modules", value: modules.length },
       { label: "Worked", value: total((m) => m.shape.worked.length) },

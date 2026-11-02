@@ -94,7 +94,8 @@ const courseDiscipline = z
 export const course = z
   .strictObject({
     name: z.string().min(1),
-    code: z.string().min(1),
+    /** Shown in the home page's title block; a Course without one shows no Code cell. */
+    code: z.string().min(1).optional(),
     pad,
     /** A synthetic Course (the Fixture Course) says so in the title block of every page. */
     synthetic: z.boolean().default(false),

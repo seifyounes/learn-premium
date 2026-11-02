@@ -32,8 +32,8 @@ const disciplines: Schema<string[]> = (v, p) => {
 
 const answersShape = obj({
   courseName: nonEmpty,
-  /** The Course code, for the title block. */
-  code: nonEmpty,
+  /** The Course code, for the title block; null when the Owner wants none shown. */
+  code: nullable(nonEmpty),
   /** The Course project's folder in the workspace, and its GitHub repo and Vercel project name. */
   slug: kebab("a folder name"),
   materialsPath: nonEmpty,
@@ -54,9 +54,9 @@ const answersShape = obj({
   owner: nonEmpty,
 });
 
-/** Answers written before a Discipline could be added read as adding none. */
+/** Answers written before a Discipline could be added read as adding none; answers with no code, as showing none. */
 export const answersSchema: Schema<Infer<typeof answersShape>> = (v, p) =>
-  answersShape(typeof v === "object" && v !== null && !Array.isArray(v) ? { added: [], ...v } : v, p);
+  answersShape(typeof v === "object" && v !== null && !Array.isArray(v) ? { added: [], code: null, ...v } : v, p);
 
 export type Answers = Infer<typeof answersShape>;
 
