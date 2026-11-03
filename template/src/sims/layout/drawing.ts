@@ -17,6 +17,8 @@ export interface ModelPart {
    * operand (`N1 no I 0.0`).
    */
   key?: string | undefined;
+  /** The input pins the figure negates: a small circle where each one's lead meets the body (FBD). */
+  negated?: readonly string[] | undefined;
 }
 
 export interface ModelNet {
@@ -59,6 +61,8 @@ export interface PlacedPart extends Placement {
   label?: Text | undefined;
   /** The part's values, each set in its symbol's slot. */
   notes?: readonly Text[] | undefined;
+  /** The input pins drawn negated, each with its circle on the body's edge. */
+  negated?: readonly string[] | undefined;
 }
 
 /** An orthogonal polyline: no ids and no net names, so connectivity is read from geometry alone. */

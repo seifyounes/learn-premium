@@ -1,4 +1,4 @@
-// The ladder gate's negative controls on the engine: six broken engines, each run on a model's cases
+// The ladder gate's negative controls on the engine: eight broken engines, each run on a model's cases
 // at every build. A broken engine whose defect the cases reach (its scans differ from the engine's)
 // must disagree with awlsim's log, or the gate can't see what it claims to. One whose defect the
 // cases never reach (a model with no NC contact can't show a misread NC) is reported, not blocked.
@@ -44,6 +44,14 @@ export const MUTANTS: readonly Mutant[] = [
         if (rlo && counter.value < 999) counter.value += 1;
       },
     },
+  },
+  {
+    defect: "a negated box input read without its negation",
+    semantics: { ...SEMANTICS, negate: (level) => level },
+  },
+  {
+    defect: "a hard-wired coil energised without the contacts after it (an overload that never trips)",
+    semantics: { ...SEMANTICS, series: (before) => before },
   },
 ];
 

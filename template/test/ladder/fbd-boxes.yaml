@@ -1,0 +1,94 @@
+covers: FBD's three- and four-input AND and OR boxes, a negation circle on box inputs (an AND's, an OR's, an assignment's, a set box's), and a three-input OR fed by a negated operand and two ANDs of negated operands, in FBD
+model:
+  language: FBD
+  parts:
+    - { id: A1, kind: fbd-in, network: 1, operand: I 0.0 }
+    - { id: B1, kind: fbd-in, network: 1, operand: I 0.1 }
+    - { id: C1, kind: fbd-in, network: 1, operand: I 0.2 }
+    - { id: G1, kind: fbd-and3, network: 1, negated: [in2] }
+    - { id: Y1, kind: fbd-assign, network: 1, operand: Q 4.0 }
+    - { id: A2, kind: fbd-in, network: 2, operand: I 0.0 }
+    - { id: B2, kind: fbd-in, network: 2, operand: I 0.1 }
+    - { id: C2, kind: fbd-in, network: 2, operand: I 0.2 }
+    - { id: G2, kind: fbd-or3, network: 2, negated: [in1, in3] }
+    - { id: Y2, kind: fbd-assign, network: 2, operand: M 0.0, negated: [in] }
+    - { id: A3, kind: fbd-in, network: 3, operand: I 0.0 }
+    - { id: B3, kind: fbd-in, network: 3, operand: I 0.1 }
+    - { id: C3, kind: fbd-in, network: 3, operand: I 0.2 }
+    - { id: D3, kind: fbd-in, network: 3, operand: I 0.3 }
+    - { id: G3, kind: fbd-and4, network: 3, negated: [in4] }
+    - { id: Y3, kind: fbd-assign, network: 3, operand: Q 4.1 }
+    - { id: A4, kind: fbd-in, network: 4, operand: I 0.0 }
+    - { id: B4, kind: fbd-in, network: 4, operand: I 0.1 }
+    - { id: C4, kind: fbd-in, network: 4, operand: I 0.2 }
+    - { id: D4, kind: fbd-in, network: 4, operand: I 0.3 }
+    - { id: G4, kind: fbd-or4, network: 4 }
+    - { id: Y4, kind: fbd-assign, network: 4, operand: Q 4.2 }
+    - { id: D5, kind: fbd-in, network: 5, operand: I 0.3 }
+    - { id: B5, kind: fbd-in, network: 5, operand: I 0.1 }
+    - { id: C5, kind: fbd-in, network: 5, operand: I 0.2 }
+    - { id: U5, kind: fbd-and, network: 5, negated: [in1, in2] }
+    - { id: A5, kind: fbd-in, network: 5, operand: I 0.0 }
+    - { id: C5b, kind: fbd-in, network: 5, operand: I 0.2 }
+    - { id: L5, kind: fbd-and, network: 5, negated: [in1, in2] }
+    - { id: O5, kind: fbd-or3, network: 5, negated: [in1] }
+    - { id: Y5, kind: fbd-assign, network: 5, operand: Q 4.3 }
+    - { id: D6, kind: fbd-in, network: 6, operand: I 0.3 }
+    - { id: S6, kind: fbd-s, network: 6, operand: M 0.1, negated: [in] }
+    - { id: C6, kind: fbd-in, network: 6, operand: I 0.2 }
+    - { id: R6, kind: fbd-r, network: 6, operand: M 0.1 }
+  nets:
+    - { id: a1, pins: [A1.t, G1.in1] }
+    - { id: b1, pins: [B1.t, G1.in2] }
+    - { id: c1, pins: [C1.t, G1.in3] }
+    - { id: y1, pins: [G1.out, Y1.in] }
+    - { id: a2, pins: [A2.t, G2.in1] }
+    - { id: b2, pins: [B2.t, G2.in2] }
+    - { id: c2, pins: [C2.t, G2.in3] }
+    - { id: y2, pins: [G2.out, Y2.in] }
+    - { id: a3, pins: [A3.t, G3.in1] }
+    - { id: b3, pins: [B3.t, G3.in2] }
+    - { id: c3, pins: [C3.t, G3.in3] }
+    - { id: d3, pins: [D3.t, G3.in4] }
+    - { id: y3, pins: [G3.out, Y3.in] }
+    - { id: a4, pins: [A4.t, G4.in1] }
+    - { id: b4, pins: [B4.t, G4.in2] }
+    - { id: c4, pins: [C4.t, G4.in3] }
+    - { id: d4, pins: [D4.t, G4.in4] }
+    - { id: y4, pins: [G4.out, Y4.in] }
+    - { id: d5, pins: [D5.t, O5.in1] }
+    - { id: b5, pins: [B5.t, U5.in1] }
+    - { id: c5, pins: [C5.t, U5.in2] }
+    - { id: u5, pins: [U5.out, O5.in2] }
+    - { id: a5, pins: [A5.t, L5.in1] }
+    - { id: c5b, pins: [C5b.t, L5.in2] }
+    - { id: l5, pins: [L5.out, O5.in3] }
+    - { id: y5, pins: [O5.out, Y5.in] }
+    - { id: d6, pins: [D6.t, S6.in] }
+    - { id: c6, pins: [C6.t, R6.in] }
+  inputs: [I 0.0, I 0.1, I 0.2, I 0.3]
+  watch: { Q 4.0: BOOL, M 0.0: BOOL, Q 4.1: BOOL, Q 4.2: BOOL, Q 4.3: BOOL, M 0.1: BOOL }
+cycle: 100
+start: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 0 }
+cases:
+  - name: every combination of the four inputs, counting up in binary, then the set box reset and set again
+    until: 1900
+    events:
+      - { at: 100, set: { I 0.0: 1 } }
+      - { at: 200, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 300, set: { I 0.0: 1 } }
+      - { at: 400, set: { I 0.0: 0, I 0.1: 0, I 0.2: 1 } }
+      - { at: 500, set: { I 0.0: 1 } }
+      - { at: 600, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 700, set: { I 0.0: 1 } }
+      - { at: 800, set: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 1 } }
+      - { at: 900, set: { I 0.0: 1 } }
+      - { at: 1000, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 1100, set: { I 0.0: 1 } }
+      - { at: 1200, set: { I 0.0: 0, I 0.1: 0, I 0.2: 1 } }
+      - { at: 1300, set: { I 0.0: 1 } }
+      - { at: 1400, set: { I 0.0: 0, I 0.1: 1 } }
+      - { at: 1500, set: { I 0.0: 1 } }
+      - { at: 1600, set: { I 0.0: 0, I 0.1: 0, I 0.2: 0, I 0.3: 0 } }
+      - { at: 1700, set: { I 0.2: 1 } }
+      - { at: 1800, set: { I 0.2: 0 } }

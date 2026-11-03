@@ -358,10 +358,42 @@ box, against awlsim.
 A STEP 7 editor screenshot can be a schematic sim's figure: its Blind reader keys each part by
 network, kind and operand as printed (`N1 no I0.0`, `N1 coil Q4.0`; ` #2` on a repeat in one
 network), since one operand marks a contact and the coil it seals in, and every power rail pin is
-`POWER.t`. A part's values (a timer's preset, the word its time goes to) are drawn in its symbol's
+`POWER.t` (every right rail pin `POWER_RIGHT.t`). A part's values (a timer's preset, the word its time goes to) are drawn in its symbol's
 slots and held to the same legibility as labels; the Blind reader records them as printed (`values`), and
 a value the model gives otherwise blocks. A box the figure prints no operand on is keyed by network
 and kind (`N2 fbd-and`).
+
+A hard-wired rung (a contactor's control circuit, drawn between L1 and L2) is a LAD network with a
+right rail, `power-rail-right`: its plain `coil` passes the current on from its optional `out` pin
+through the contacts after it (the overload's, in series or in parallel) to that rail, so the coil
+is energised only while the whole series path from L1 to L2 conducts, and the compiled STL ANDs
+those contacts into the coil's condition (`A(…)`, then `AN I 0.3`, then `= Q 4.0`). Past a coil
+only contacts may follow, every way ending on the right rail; a right rail reached without a coil
+(L1 shorted to L2) blocks, and in a network with a right rail every coil must pass its current on.
+A coil whose `out` is in no net is a PLC ladder's coil, drawn and compiled exactly as before. A
+power rail prints a name only when the model gives it a `label` (L1, L2), and the Blind reader then
+lists it among the parts by that name, its pin still `POWER.t` or `POWER_RIGHT.t` in the nets:
+
+```yaml
+parts:
+  - { id: L1, kind: power-rail, network: 1, label: L1 }
+  - { id: Start, kind: "no", network: 1, operand: I 0.2, label: Start }
+  - { id: K1, kind: coil, network: 1, operand: Q 4.0, label: K1 }
+  - { id: F2, kind: nc, network: 1, operand: I 0.3, label: F2 }
+  - { id: L2, kind: power-rail-right, network: 1, label: L2 }
+nets:
+  - { id: coil, pins: [K1.out, F2.in] }
+  - { id: l2, pins: [F2.out, L2.t] }
+```
+
+FBD's `&` and `>=1` boxes take two, three or four inputs (`fbd-and`, `fbd-and3`, `fbd-and4`,
+`fbd-or`, `fbd-or3`, `fbd-or4`; inputs `in1`… top to bottom, 40px apart). Any input of those boxes
+and of `=`, S and R may be negated (`negated: [in1, in3]`): a circle on the box's edge where the
+line meets it, `AN`/`ON` in STL, and in the figure reading the same list on the part
+(`"N1 fbd-or3": { "kind": "fbd-or3", …, "negated": ["in1"] }`). A figure that draws a separate NOT
+still uses `fbd-not`. The template's corpus runs both in `test/ladder/hard-wired.yaml` and
+`test/ladder/fbd-boxes.yaml`, and two more broken engines are caught there (a negated input read
+plain, a hard-wired coil that ignores the contacts after it).
 
 ### The pneumatic sim and timing diagrams
 
@@ -849,7 +881,7 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `pinned-definitions`  | job, deploy             | every definition a live sim's numbers are read by (settling band, rise limits) is pinned in the Course style sheet, and its recompute worked to exactly that one                                                                                                                                                                                                                                                                                                           |
 | `stl`                 | job, deploy             | every STL listing agrees with its awlsim log bit for bit after every statement of every case; every instruction it uses runs in a case; nine broken interpreters, each caught wherever the cases reach its defect; the sheet three ways; an unsupported instruction needs a Gate gap                                                                                                                                                                                       |
 | `scl`                 | job, deploy             | every SCL listing agrees with the blind interpreter on every variable after every scan of every case (a value they part on blocks unless listed `silent`); a result the manual leaves undefined is a Checkpoint item until ruled; every construct runs in a case; every Divergence line is reached; seven broken interpreters caught where reached; the sheet three ways                                                                                                   |
-| `ladder`              | job, deploy             | every ladder or FBD sim agrees with its awlsim log bit for bit after every scan of every case; every rung segment powered and unpowered, every timer run out, every counter counted; six broken engines, each caught wherever the cases reach its defect; the sheet three ways, exactly                                                                                                                                                                                    |
+| `ladder`              | job, deploy             | every ladder or FBD sim agrees with its awlsim log bit for bit after every scan of every case; every rung segment powered and unpowered, every timer run out, every counter counted; eight broken engines, each caught wherever the cases reach its defect; the sheet three ways, exactly                                                                                                                                                                                  |
 | `pneumatic-cycle`     | job, deploy             | every pneumatic sim stays as drawn at rest, runs the stated sequence once pressed, returns to rest and stops; every state at every step equals the recompute's trace; five broken engines, each caught where the cycle reaches its defect                                                                                                                                                                                                                                  |
 | `timing-key`          | job, deploy             | every timing diagram three ways, bit for bit at every step: engine ≠ recompute blocks, both ≠ the key is a Checkpoint item; a key row is checked whole                                                                                                                                                                                                                                                                                                                     |
 | `state-table`         | job, deploy             | every FSM and GRAFCET sim's whole table, each reachable situation under each input combination, equals the recompute's; four broken engines, each caught where the example reaches it                                                                                                                                                                                                                                                                                      |
@@ -862,7 +894,7 @@ applies again. A new gate goes in `gates/index.ts` with at least one negative co
 | `molecule-checks`     | job, deploy             | every molecule's SVG, SDF and record are what npm run molecules built from its SMILES; the formula the Materials print, the record's and the SDF's atoms agree; the SDF is 3D                                                                                                                                                                                                                                                                                              |
 | `structure-graphite`  | job, deploy             | every 2D structure SVG paints in graphite only: no atom colour, no background                                                                                                                                                                                                                                                                                                                                                                                              |
 | `pubchem-cross-check` | job, deploy             | every molecule's formula and InChIKey, from its SMILES, against PubChem's for its name, as recorded by npm run pubchem (never fetches)                                                                                                                                                                                                                                                                                                                                     |
-| `drawing`             | job, deploy             | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; eight broken drawings caught on every build                                                                                                                                                                                                                                                                                          |
+| `drawing`             | job, deploy             | every schematic sim's drawing against its model, its model against the Blind reader's figure reading, the drawing against the figure; nine broken drawings caught on every build                                                                                                                                                                                                                                                                                           |
 | `tools`               | job, deploy             | every sim passes the five eligibility checks: embeddable, takes the pad frame, touch-usable, writable from the Materials, headless; a Pyodide tool's view takes the pad frame and is touch-usable                                                                                                                                                                                                                                                                          |
 | `past-papers`         | sitting                 | every past paper's numeric answers three ways (the content's answer, the Professor's printed key, the independent recompute) at the key's printed precision: answer ≠ recompute blocks; key ≠ both is a Checkpoint item unless ruled a Slip (the site ships the recompute) or a Divergence (it ships the key); marks sum per paper and written answers list one point per mark; a key-less paper (`key: solved`) is a Checkpoint item for the Owner to confirm its answers |
 | `mock-dna`            | sitting                 | every mock's marks, and its answers against the recompute; a `dna` mock keeps the papers' DNA (type mix within one of each type's mean, no type they lack, reverse questions at least their rate); the announced mock matches `format.yaml` exactly; mocks or a format with no past paper block                                                                                                                                                                            |
@@ -982,17 +1014,20 @@ out exactly as the page does and blocks on any failed check:
   diagonal, no wire along another or over a pin, no wire ending in the open, no dot but at a
   joint); legibility (no label on a wire, a body or another label; no wire through a body); and
   tidiness (no jog under 20px, at most 4 bends a wire, no parallel wires under 20px apart).
-- **model ↔ figure**: the model's nets equal the Blind reader's (a resistor's ends and a gate's two
-  inputs may swap). The reading sits in the Course's `build-records/figure/<module>/<name>.json`,
+- **model ↔ figure**: the model's nets equal the Blind reader's (a resistor's ends and a gate's or
+  FBD box's inputs may swap, each negation circle going with its wire), and so do the negation
+  circles on FBD boxes' inputs. The reading sits in the Course's `build-records/figure/<module>/<name>.json`,
   written without seeing any builder file: each labelled part's kind, place (fractions of the
   figure), turn and label side; the unlabelled symbols counted; every net, and whether the figure
   dots its joints.
 - **drawing ↔ figure**: every labelled pair kept in the figure's left/right and above/below order
   (a pair the figure parts by under 4% may line up), each part's turn (polarity-aware), each
   label's side, the unlabelled symbols, and the junction dots, which copy the figure.
-- **the negative control**, on every build: each drawing is broken eight ways (`mutants.ts`: a short,
+- **the negative control**, on every build: each drawing is broken nine ways (`mutants.ts`: a short,
   an open, a part turned round, a label dropped, an extra part, the drawing mirrored, a staircase
-  wire, a dot removed), and each must fail its check, or the gate blocks.
+  wire, a dot removed, an FBD box's negation circle dropped, or one drawn where the figure has none),
+  and each must fail its check, or the gate blocks. A drawing with nothing to plant a mutant in (no
+  dot, no FBD box) reports it skipped.
 
 `test/sim-pages.test.ts` drives the built Tool gallery, Lab and Module pages in Chromium
 (Playwright): JSXGraph loads only once a sim is on screen, every drawn colour is a pad ink, the

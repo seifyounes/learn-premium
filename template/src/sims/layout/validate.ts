@@ -1,7 +1,7 @@
 // What a schematic model and its Layout hints must hold before the engine can draw them: every pin
-// of every part in exactly one net, and one hint per part. The content contract reports these.
+// of every part in exactly one net (an optional one, a coil's `out`, in at most one), and one hint per part. The content contract reports these.
 import { splitPin, type LayoutHints, type SchematicModel } from "./drawing.ts";
-import { pinNames } from "./symbols.ts";
+import { pinNames, symbolOf } from "./symbols.ts";
 
 export function schematicProblems(model: SchematicModel, hints: LayoutHints): string[] {
   const out: string[] = [];
@@ -28,7 +28,8 @@ export function schematicProblems(model: SchematicModel, hints: LayoutHints): st
   }
   for (const part of model.parts) {
     for (const name of pinNames(part.kind))
-      if (!placed.has(`${part.id}.${name}`)) out.push(`${part.id}.${name} is in no net`);
+      if (!placed.has(`${part.id}.${name}`) && !symbolOf(part.kind).pins[name]?.optional)
+        out.push(`${part.id}.${name} is in no net`);
   }
   for (const part of model.parts) if (!(part.id in hints.parts)) out.push(`part ${part.id} has no layout hint`);
   for (const id of Object.keys(hints.parts))

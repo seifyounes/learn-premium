@@ -108,7 +108,9 @@ export default function LadderSim({ model, drawing, nets, start, scenario, cycle
     const part = model.parts.find((p) => p.id === id);
     if (!part) return false;
     const element = ELEMENTS[part.kind];
-    const pin = element.output && element.acts ? element.output : element.acts ? element.inputs[0] : undefined;
+    // A coil's out is wired only in a hard-wired rung, where it carries the current the coil passes on.
+    const open = part.kind === "coil" && (netOf(model, `${id}.out`)?.pins.length ?? 0) < 2;
+    const pin = element.output && element.acts && !open ? element.output : element.acts ? element.inputs[0] : undefined;
     const net = pin && netOf(model, `${id}.${pin}`);
     return !!net && level[net.id] === 1;
   };

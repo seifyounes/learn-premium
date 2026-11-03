@@ -27,8 +27,8 @@ const failing = (d: Drawing, model: SchematicModel = adder.model, r: FigureReadi
 describe("the Drawing gate's negative control", () => {
   const { mutants, skipped } = mutantsOf(drawing, adder.model.nets);
 
-  it("plants all eight mutants in the full adder", () => {
-    expect(skipped).toEqual([]);
+  it("plants all eight mutants a gate drawing carries in the full adder, and no negation (it has no FBD box)", () => {
+    expect(skipped).toEqual([{ id: "negation", why: "no box input to negate" }]);
     expect(mutants.map((m) => m.id)).toEqual([
       "short",
       "open",

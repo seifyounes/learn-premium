@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import type { Drawing } from "../../sims/layout/drawing.ts";
 import type { InkNets } from "../../sims/layout/geometry.ts";
 import { LABEL_PX } from "../../sims/layout/drawing.ts";
-import { symbolOf, transformOf } from "../../sims/layout/symbols.ts";
+import { strokesOf, symbolOf, transformOf } from "../../sims/layout/symbols.ts";
 
 interface Props {
   drawing: Drawing;
@@ -90,14 +90,16 @@ export function Schematic({ drawing, nets, high, draw, terminalNets, label, part
       </g>
       {drawing.parts.map((part) => {
         const def = symbolOf(part.kind);
+        // Its own leads and circles: an open pin left off, a negated input's circle on the body's edge.
+        const strokes = strokesOf(part);
         const terminalHigh = part.id in terminalNets && high(terminalNets[part.id]);
         return (
           <g key={part.id} data-part={part.id}>
             <g transform={transformOf(part)} className={`schematic-symbol${partHigh?.(part.id) ? " is-high" : ""}`}>
-              {def.leads && <path className="schematic-lead" d={def.leads} />}
+              {strokes.leads && <path className="schematic-lead" d={strokes.leads} />}
               {def.body && <path d={def.body} />}
               {def.fill && <path className="schematic-fill" d={def.fill} />}
-              {def.circles?.map(([cx, cy, r]) => (
+              {strokes.circles.map(([cx, cy, r]) => (
                 <circle
                   key={`${cx},${cy}`}
                   className={`schematic-circle${terminalHigh ? " is-high" : ""}`}

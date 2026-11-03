@@ -203,6 +203,13 @@ starts conveyor 2 five seconds later. W10.1 fills a timing table from the exampl
 (Start pressed at 1.0 s, Stop at 8.0 s), the key the `ladder` gate checks three ways. Its figure is
 a synthetic STEP 7 LAD editor screenshot (`build-records/figure/10-two-conveyors/conveyors.png`); a
 Blind reader read it, never seeing a builder file, keying each part by network, kind and operand.
+It also carries two sims with no Worked example, synthetic like the rest: `sims/fan-starter.yaml`, an
+extract fan's hard-wired starter (L1, E-Stop and Stop normally closed, Start with K1 holding itself in,
+the coil K1, its overload contact F2 after the coil, L2; and a lamp H1 on a K1 contact), and
+`sims/tank-alarm.yaml`, a tank's alarm in FBD (a three-input `>=1` box fed by Flow, negated, and two
+`&` boxes, each with one input negated, into `=` Alarm). Their figures are synthetic drawings
+(`build-records/figure/10-two-conveyors/fan-starter.png`, `tank-alarm.png`), each read by a Blind
+reader; awlsim checks both, and the drawing gate's negative control drops a negation circle.
 
 Module 12 (pneumatic cascade) carries the pneumatic sim: cylinders A and B run A+ B+ B− A− in two
 groups, switched by the cascade valve CV. W12.1 draws the displacement-step diagram, the key the

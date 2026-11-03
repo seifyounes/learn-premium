@@ -6,7 +6,8 @@ import { textBox, type Drawing, type PlacedPart, type Text } from "./drawing.ts"
 import { segmentsOf } from "./geometry.ts";
 import { GRID, pinsOf, symbolOf, type Point, type Turn } from "./symbols.ts";
 
-export type MutantId = "short" | "open" | "reversed" | "label" | "extra" | "mirrored" | "staircase" | "no-dot";
+export type MutantId =
+  "short" | "open" | "reversed" | "label" | "extra" | "mirrored" | "staircase" | "no-dot" | "negation";
 
 export interface Mutant {
   id: MutantId;
@@ -150,6 +151,34 @@ export function mutantsOf(
     m.dots = m.dots.slice(1);
     mutants.push({ id: "no-dot", what: `the dot at (${d.dots[0]?.join(", ")}) removed`, expect: ["dots"], drawing: m });
   } else skip("no-dot", "the figure dots no joint");
+
+  // A negation circle dropped from a box's input, or, where the figure negates nothing, one drawn on
+  // an input the model reads plain: the logic changes, every wire stays put.
+  const negated = d.parts.findIndex((p) => (p.negated ?? []).length > 0);
+  const negatable = d.parts.findIndex((p) => (symbolOf(p.kind).negatable ?? []).length > 0);
+  if (negated >= 0) {
+    const m = clone(d);
+    const part = m.parts[negated] as PlacedPart;
+    const [dropped, ...rest] = part.negated ?? [];
+    (m.parts as PlacedPart[])[negated] = { ...part, negated: rest };
+    mutants.push({
+      id: "negation",
+      what: `the negation circle on ${part.id}.${dropped ?? ""} dropped`,
+      expect: ["parts"],
+      drawing: m,
+    });
+  } else if (negatable >= 0) {
+    const m = clone(d);
+    const part = m.parts[negatable] as PlacedPart;
+    const pin = symbolOf(part.kind).negatable?.[0] ?? "";
+    (m.parts as PlacedPart[])[negatable] = { ...part, negated: [pin] };
+    mutants.push({
+      id: "negation",
+      what: `a negation circle drawn on ${part.id}.${pin}`,
+      expect: ["parts"],
+      drawing: m,
+    });
+  } else skip("negation", "no box input to negate");
 
   return { mutants, skipped };
 }

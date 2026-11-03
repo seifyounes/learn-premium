@@ -1,7 +1,7 @@
 // The Drawing gate, per job: every schematic sim's drawing, made by the layout core from the sim's
 // model and Layout hints exactly as the page makes it, passes every check against its model and
 // against the Blind reader's figure reading (`src/sims/layout/check.ts`). On every build it also
-// runs its negative control: each drawing broken eight known ways (`src/sims/layout/mutants.ts`)
+// runs its negative control: each drawing broken nine known ways (`src/sims/layout/mutants.ts`)
 // must fail, or the gate can't see what it claims to and blocks. Every check blocks.
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
