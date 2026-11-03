@@ -221,8 +221,8 @@ describe("the Study site shell", () => {
     expect(lab).toContain('href="/05-derivatives/"');
     expect(lab).toContain('href="/07-flanged-hub/"');
     expect(lab).toContain('href="/08-root-locus/"');
-    // The fourteen sims (the cascade is the tenth, the detector and the drill the eleventh and twelfth, the four-bar and the gear pair the others) and the Pyodide tool, then the machine part.
-    expect(lab.match(/class="sim-card"/g)).toHaveLength(16);
+    // The sims (the cascade is the tenth, the detector and the drill the eleventh and twelfth, the four-bar and the gear pair, then Module 10's fan starter and tank alarm) and the Pyodide tool, then the machine part.
+    expect(lab.match(/class="sim-card"/g)).toHaveLength(18);
     expect(lab.match(/class="sim-card part-card"/g)).toHaveLength(1);
     // And Module 13's molecule, after the machine part.
     expect(lab.match(/class="sim-card molecule-card"/g)).toHaveLength(1);

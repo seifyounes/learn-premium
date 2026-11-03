@@ -76,6 +76,7 @@ cases:
       - { at: 1500, set: { I 0.0: 1 } }
 provenance:
   stated:
+    - "Network $1$"
     - "the alarm $\\text{Alarm} = \\overline{\\text{Flow}} + \\text{Pump}\\,\\overline{\\text{Valve}} + \\overline{\\text{Pump}}\\,\\text{Heat}$"
     - a three-input OR box fed by Flow, negated, and two AND boxes, each with one input negated
     - Flow, Pump, Valve and Heat on I 0.0 to I 0.3, the alarm on Q 4.0

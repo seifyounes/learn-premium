@@ -74,6 +74,7 @@ cases:
       - { at: 1400, set: { I 0.0: 0 } }
 provenance:
   stated:
+    - "Networks $1$ and $2$: the starter's rung, then the lamp's"
     - the rails L1 and L2, the emergency stop E-Stop and Stop, both normally closed, Start normally open
     - the contactor K1 holding itself in, and its thermal overload contact F2 after the coil
     - the lamp H1 lit by a K1 contact
